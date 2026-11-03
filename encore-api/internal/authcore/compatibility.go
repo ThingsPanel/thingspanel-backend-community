@@ -2,7 +2,9 @@ package authcore
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"net/mail"
@@ -17,6 +19,9 @@ type CompatibilityAccounts interface {
 }
 
 func (a *SQLAccounts) Detail(ctx context.Context, id string) (json.RawMessage, error) {
+	if a.Dialect == DialectMySQL {
+		return a.detailMySQL(ctx, id)
+	}
 	var raw []byte
 	e := a.DB.QueryRowContext(ctx, `SELECT jsonb_build_object(
  'id',u.id,'name',u.name,'phone_number',u.phone_number,'email',u.email,'status',u.status,
@@ -90,4 +95,82 @@ func (a *SQLAccounts) Initialize(ctx context.Context, email, password string) (U
 		return User{}, ErrUnavailable
 	}
 	return u, nil
+}
+
+// detailMySQL builds the profile document in Go: MySQL's JSON_OBJECT would render timestamps as
+// "2026-11-03 01:02:03.123456", PostgreSQL's jsonb as ISO 8601 with a zone offset, and the API
+// contract is the latter.
+func (a *SQLAccounts) detailMySQL(ctx context.Context, id string) (json.RawMessage, error) {
+	stamp := func(t sql.NullTime) any {
+		if !t.Valid {
+			return nil
+		}
+		return t.Time.UTC().Format("2006-01-02T15:04:05.999999-07:00")
+	}
+	text := func(v sql.NullString) any {
+		if !v.Valid {
+			return nil
+		}
+		return v.String
+	}
+	var name, phone, email, status, authority, tenant, remark, organization, timezone, language, visitIP, visitDevice, avatar sql.NullString
+	var info []byte
+	var created, updated, passwordUpdated, visited sql.NullTime
+	var failures sql.NullInt64
+	var uid string
+	e := a.dx().QueryRowContext(ctx, `SELECT id,name,phone_number,email,status,authority,tenant_id,remark,additional_info,organization,timezone,default_language,created_at,updated_at,password_last_updated,last_visit_time,last_visit_ip,last_visit_device,password_fail_count,avatar_url FROM users WHERE id=$1`, id).Scan(
+		&uid, &name, &phone, &email, &status, &authority, &tenant, &remark, &info, &organization, &timezone, &language, &created, &updated, &passwordUpdated, &visited, &visitIP, &visitDevice, &failures, &avatar)
+	if e != nil {
+		return nil, ErrUnavailable
+	}
+	doc := map[string]any{
+		"id": uid, "name": text(name), "phone_number": text(phone), "email": text(email), "status": text(status),
+		"authority": text(authority), "tenant_id": text(tenant), "remark": text(remark),
+		"organization": text(organization), "timezone": text(timezone), "default_language": text(language),
+		"created_at": stamp(created), "updated_at": stamp(updated), "password_last_updated": stamp(passwordUpdated),
+		"last_visit_time": stamp(visited), "last_visit_ip": text(visitIP), "last_visit_device": text(visitDevice),
+		"avatar_url": text(avatar), "additional_info": nil, "password_fail_count": nil,
+	}
+	if len(info) > 0 {
+		doc["additional_info"] = json.RawMessage(info)
+	}
+	if failures.Valid {
+		doc["password_fail_count"] = failures.Int64
+	}
+	roles := []any{}
+	rows, e := a.dx().QueryContext(ctx, `SELECT v1 FROM casbin_rule WHERE ptype='g' AND v0=$1 ORDER BY id`, id)
+	if e != nil {
+		return nil, ErrUnavailable
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var role sql.NullString
+		if rows.Scan(&role) != nil {
+			return nil, ErrUnavailable
+		}
+		roles = append(roles, text(role))
+	}
+	if rows.Err() != nil {
+		return nil, ErrUnavailable
+	}
+	doc["user_roles"] = roles
+	doc["address"] = nil
+	var aid int64
+	var s [11]sql.NullString
+	var createdTime, updatedTime sql.NullTime
+	switch e := a.dx().QueryRowContext(ctx, `SELECT id,country,province,city,district,street,detailed_address,postal_code,address_label,longitude,latitude,additional_info,created_time,updated_time FROM user_address WHERE user_id=$1 LIMIT 1`, id).Scan(
+		&aid, &s[0], &s[1], &s[2], &s[3], &s[4], &s[5], &s[6], &s[7], &s[8], &s[9], &s[10], &createdTime, &updatedTime); {
+	case e == nil:
+		doc["address"] = map[string]any{"id": aid, "country": text(s[0]), "province": text(s[1]), "city": text(s[2]), "district": text(s[3]),
+			"street": text(s[4]), "detailed_address": text(s[5]), "postal_code": text(s[6]), "address_label": text(s[7]),
+			"longitude": text(s[8]), "latitude": text(s[9]), "additional_info": text(s[10]),
+			"created_time": stamp(createdTime), "updated_time": stamp(updatedTime)}
+	case !errors.Is(e, sql.ErrNoRows):
+		return nil, ErrUnavailable
+	}
+	out, e := json.Marshal(doc)
+	if e != nil {
+		return nil, ErrUnavailable
+	}
+	return out, nil
 }

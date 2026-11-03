@@ -3,12 +3,14 @@ package authcore
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -62,6 +64,14 @@ func accountFixtures(t *testing.T) (pg, my *SQLAccounts, seed func(db *sql.DB, d
  CREATE TABLE app_push_devices(id text,user_id text,active boolean);`); e != nil {
 		t.Fatal(e)
 	}
+	if _, e = pgDB.Exec(`CREATE TABLE sys_function(id varchar(36) PRIMARY KEY, name varchar(50) NOT NULL, enable_flag varchar(20) NOT NULL, description varchar(500), remark varchar(255));
+ INSERT INTO sys_function(id,name,enable_flag) VALUES ('function_2','enable_reg','disable'),('function_3','frontend_res','disable');
+ CREATE TABLE boards(id varchar(36) PRIMARY KEY, name varchar(255) NOT NULL, config json DEFAULT '{}'::json, tenant_id varchar(36) NOT NULL, created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL, home_flag varchar(2) NOT NULL, description varchar(500), remark varchar(255), menu_flag varchar(2), vis_type varchar(50));
+ CREATE TABLE casbin_rule(id serial PRIMARY KEY, ptype varchar(100), v0 varchar(100), v1 varchar(100), v2 varchar(100), v3 varchar(100), v4 varchar(100), v5 varchar(100));
+ CREATE TABLE user_address(id serial PRIMARY KEY, user_id varchar(36) NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE, country varchar(50), province varchar(50), city varchar(50), district varchar(50), street varchar(100), detailed_address varchar(200), postal_code varchar(10), address_label varchar(50), longitude varchar(20), latitude varchar(20), additional_info varchar(500), created_time timestamptz DEFAULT CURRENT_TIMESTAMP, updated_time timestamptz DEFAULT CURRENT_TIMESTAMP);
+ ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at timestamptz, ADD COLUMN IF NOT EXISTS updated_at timestamptz, ADD COLUMN IF NOT EXISTS password_last_updated timestamptz, ADD COLUMN IF NOT EXISTS remark varchar(255), ADD COLUMN IF NOT EXISTS additional_info json DEFAULT '{}'::json, ADD COLUMN IF NOT EXISTS organization varchar(200), ADD COLUMN IF NOT EXISTS timezone varchar(50), ADD COLUMN IF NOT EXISTS default_language varchar(10), ADD COLUMN IF NOT EXISTS last_visit_time timestamptz, ADD COLUMN IF NOT EXISTS last_visit_ip varchar(30), ADD COLUMN IF NOT EXISTS last_visit_device varchar(200), ADD COLUMN IF NOT EXISTS password_fail_count int DEFAULT 0, ADD COLUMN IF NOT EXISTS avatar_url varchar(500);`); e != nil {
+		t.Fatal(e)
+	}
 	for _, name := range []string{"001_identity.sql", "002_self_unlink.sql"} {
 		migration, e := os.ReadFile("../../../sql/auth/" + name)
 		if e != nil {
@@ -77,12 +87,12 @@ func accountFixtures(t *testing.T) (pg, my *SQLAccounts, seed func(db *sql.DB, d
 		t.Fatal(e)
 	}
 	t.Cleanup(func() {
-		for _, table := range []string{"auth_audit_events", "auth_external_bindings", "auth_provider_settings", "app_push_devices", "users"} {
+		for _, table := range []string{"auth_audit_events", "auth_external_bindings", "auth_provider_settings", "app_push_devices", "user_address", "casbin_rule", "boards", "sys_function", "users"} {
 			_, _ = myDB.Exec("DROP TABLE IF EXISTS " + table)
 		}
 		myDB.Close()
 	})
-	for _, table := range []string{"auth_audit_events", "auth_external_bindings", "auth_provider_settings", "app_push_devices", "devices", "users"} {
+	for _, table := range []string{"auth_audit_events", "auth_external_bindings", "auth_provider_settings", "app_push_devices", "user_address", "casbin_rule", "boards", "sys_function", "devices", "users"} {
 		if _, e = myDB.Exec("DROP TABLE IF EXISTS " + table); e != nil {
 			t.Fatal(e)
 		}
@@ -92,7 +102,7 @@ func accountFixtures(t *testing.T) (pg, my *SQLAccounts, seed func(db *sql.DB, d
 		t.Fatal(e)
 	}
 	defer conn.Close()
-	for _, name := range []string{"001_core_users_devices.sql", "003_auth.sql", "004_app_push_devices.sql"} {
+	for _, name := range []string{"001_core_users_devices.sql", "003_auth.sql", "004_app_push_devices.sql", "005_account_support.sql"} {
 		for _, statement := range mysqlMigrationStatements(t, name) {
 			if _, e = conn.ExecContext(context.Background(), statement); e != nil {
 				t.Fatalf("apply %s: %v\n%s", name, e, statement)
@@ -286,7 +296,7 @@ func TestDialectRewriteIsFailClosed(t *testing.T) {
 
 func TestSuperAdminInitializationIsExclusiveOnMySQLAsOnPostgres(t *testing.T) {
 	pg, my, _ := accountFixtures(t)
-	if _, err := pg.DB.Exec(`ALTER TABLE users ADD COLUMN created_at timestamptz, ADD COLUMN updated_at timestamptz, ADD COLUMN password_last_updated timestamptz`); err != nil {
+	if _, err := pg.DB.Exec(`SELECT 1`); err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
@@ -358,4 +368,122 @@ func boolInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+func TestSignupFlagAndProfileDetailMatchOnMySQLAndPostgres(t *testing.T) {
+	pg, my, _ := accountFixtures(t)
+	ctx := context.Background()
+	run := func(a *SQLAccounts, d Dialect) []string {
+		var out []string
+		note := func(format string, args ...any) { out = append(out, fmt.Sprintf(format, args...)) }
+		on, e := a.Flag(ctx, "enable_reg")
+		note("Flag enable_reg: %s %v", kind(e), on)
+		unknown, e := a.Flag(ctx, "no_such_flag")
+		note("Flag unknown: %s %v", kind(e), unknown)
+		if _, e := a.DB.Exec(`UPDATE sys_function SET enable_flag='enable' WHERE name='enable_reg'`); e != nil {
+			t.Fatal(e)
+		}
+		on, e = a.Flag(ctx, "enable_reg")
+		note("Flag enable_reg after enabling: %s %v", kind(e), on)
+
+		_, e = a.signup(ctx, "tenant@example.com", "Passw0rd!x", "+86 13800000000")
+		note("signup: %s", kind(e))
+		_, e = a.signup(ctx, "tenant@example.com", "Passw0rd!x", "+86 13800000001")
+		note("signup same email: %s", kind(e))
+		_, e = a.signup(ctx, "other@example.com", "Passw0rd!x", "+86 13800000000")
+		note("signup same phone: %s", kind(e))
+		type result struct {
+			err  error
+			user User
+		}
+		results := make(chan result, 6)
+		for i := 0; i < cap(results); i++ {
+			go func() {
+				u, e := a.signup(ctx, "race@example.com", "Passw0rd!x", "+86 13900009999")
+				results <- result{e, u}
+			}()
+		}
+		kinds := map[string]int{}
+		var winner User
+		for i := 0; i < cap(results); i++ {
+			r := <-results
+			kinds[kind(r.err)]++
+			if r.err == nil {
+				winner = r.user
+			}
+		}
+		note("concurrent signup of one email: ok=%d conflict=%d", kinds["ok"], kinds["conflict"])
+		var users, boards int
+		if e := a.dx().QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE email='race@example.com'`).Scan(&users); e != nil {
+			t.Fatal(e)
+		}
+		if e := a.dx().QueryRowContext(ctx, `SELECT COUNT(*) FROM boards WHERE tenant_id=$1 AND home_flag='Y'`, winner.TenantID).Scan(&boards); e != nil {
+			t.Fatal(e)
+		}
+		note("rows for the raced email: users=%d home boards=%d", users, boards)
+		var remark, authority, name string
+		if e := a.dx().QueryRowContext(ctx, `SELECT COALESCE(remark,''),authority,name FROM users WHERE id=$1`, winner.ID).Scan(&remark, &authority, &name); e != nil {
+			t.Fatal(e)
+		}
+		note("winner: authority=%s name=%s remark has the expiry layout=%v", authority, name, len(remark) >= 19 && remark[4] == '-' && remark[10] == ' ')
+		var cfg string
+		var cfgBytes []byte
+		if e := a.dx().QueryRowContext(ctx, `SELECT config FROM boards WHERE tenant_id=$1`, winner.TenantID).Scan(&cfgBytes); e != nil {
+			t.Fatal(e)
+		}
+		var board, want any
+		if json.Unmarshal(cfgBytes, &board) != nil || json.Unmarshal([]byte(defaultBoard), &want) != nil {
+			t.Fatal("board config is not JSON")
+		}
+		cfg = fmt.Sprint(reflect.DeepEqual(board, want))
+		note("board config equals the default board: %s", cfg)
+
+		// Profile detail with roles and an address.
+		if _, e := a.dx().ExecContext(ctx, `UPDATE users SET organization=$1,timezone=$2,default_language=$3,last_visit_ip=$4,password_fail_count=$5,additional_info=$6 WHERE id=$7`, "Acme", "UTC", "en", "10.0.0.1", 2, `{"theme":"dark","n":[1,2]}`, winner.ID); e != nil {
+			t.Fatal(e)
+		}
+		for _, role := range []string{"role-b", "role-a"} {
+			if _, e := a.dx().ExecContext(ctx, `INSERT INTO casbin_rule(ptype,v0,v1) VALUES('g',$1,$2)`, winner.ID, role); e != nil {
+				t.Fatal(e)
+			}
+		}
+		if _, e := a.dx().ExecContext(ctx, `INSERT INTO user_address(user_id,country,city,postal_code) VALUES($1,'CN','Shanghai','200000')`, winner.ID); e != nil {
+			t.Fatal(e)
+		}
+		raw, e := a.Detail(ctx, winner.ID)
+		note("Detail: %s", kind(e))
+		var doc map[string]any
+		if json.Unmarshal(raw, &doc) != nil {
+			t.Fatalf("detail is not JSON: %s", raw)
+		}
+		address, _ := doc["address"].(map[string]any)
+		note("detail keys=%d roles=%v organization=%v info=%v failures=%v address.city=%v address.country=%v address has user_id=%v", len(doc), doc["user_roles"], doc["organization"], doc["additional_info"], doc["password_fail_count"], address["city"], address["country"], address["user_id"])
+		for _, key := range []string{"created_at", "updated_at", "password_last_updated"} {
+			stamp, _ := doc[key].(string)
+			_, parseErr := time.Parse(time.RFC3339Nano, stamp)
+			note("detail %s is ISO 8601: %v", key, parseErr == nil)
+		}
+		for _, key := range []string{"last_visit_time", "avatar_url", "last_visit_device"} {
+			note("detail %s: %v", key, doc[key])
+		}
+		_, e = a.Detail(ctx, "no-such-user")
+		note("Detail unknown user: %s", kind(e))
+		return out
+	}
+	a, b := run(pg, DialectPostgres), run(my, DialectMySQL)
+	if !reflect.DeepEqual(a, b) {
+		for i := range a {
+			if i >= len(b) || a[i] != b[i] {
+				bb := ""
+				if i < len(b) {
+					bb = b[i]
+				}
+				t.Errorf("step %d differs\n  pg: %s\n  my: %s", i, a[i], bb)
+			}
+		}
+	}
+	joined := strings.Join(a, "\n")
+	if !strings.Contains(joined, "ok=1 conflict=5") || !strings.Contains(joined, "users=1 home boards=1") || !strings.Contains(joined, "roles=[role-b role-a]") {
+		t.Fatalf("the oracle scenario did not behave as expected:\n%s", joined)
+	}
 }

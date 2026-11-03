@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"sort"
 	"strings"
+	"time"
 )
 
 //go:embed default_board.json
@@ -80,18 +81,13 @@ func (a *SQLAccounts) signup(ctx context.Context, email, password, phone string)
 	if e != nil {
 		return User{}, ErrUnavailable
 	}
-	tx, e := a.DB.BeginTx(ctx, nil)
+	locks := []string{"signup-email:" + email, "signup-phone:" + phone}
+	sort.Strings(locks)
+	tx, release, e := a.dx().beginLocked(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, locks...)
 	if e != nil {
 		return User{}, ErrUnavailable
 	}
-	defer tx.Rollback()
-	locks := []string{"signup-email:" + email, "signup-phone:" + phone}
-	sort.Strings(locks)
-	for _, key := range locks {
-		if _, e = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, key); e != nil {
-			return User{}, ErrUnavailable
-		}
-	}
+	defer release()
 	var exists bool
 	if e = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE email=$1 OR phone_number=$2)`, email, phone).Scan(&exists); e != nil {
 		return User{}, ErrUnavailable
@@ -100,7 +96,14 @@ func (a *SQLAccounts) signup(ctx context.Context, email, password, phone string)
 		return User{}, ErrConflict
 	}
 	u := User{ID: uuid.NewString(), Email: email, Name: email, TenantID: uuid.NewString(), Authority: "TENANT_ADMIN", Status: "N"}
-	_, e = tx.ExecContext(ctx, `INSERT INTO users(id,name,email,phone_number,password,status,authority,tenant_id,created_at,updated_at,password_last_updated,remark) VALUES($1,$2,$2,$3,$4,'N','TENANT_ADMIN',$5,now(),now(),now(),(now()+interval '365 days')::text)`, u.ID, email, phone, string(hash), u.TenantID)
+	insertUser := `INSERT INTO users(id,name,email,phone_number,password,status,authority,tenant_id,created_at,updated_at,password_last_updated,remark) VALUES($1,$2,$2,$3,$4,'N','TENANT_ADMIN',$5,now(),now(),now(),(now()+interval '365 days')::text)`
+	userArgs := []any{u.ID, email, phone, string(hash), u.TenantID}
+	if a.Dialect == DialectMySQL {
+		// PostgreSQL renders the expiry with ::text in the session zone; MySQL gets the same layout in UTC.
+		insertUser = `INSERT INTO users(id,name,email,phone_number,password,status,authority,tenant_id,created_at,updated_at,password_last_updated,remark) VALUES($1,$2,$2,$3,$4,'N','TENANT_ADMIN',$5,now(),now(),now(),$6)`
+		userArgs = append(userArgs, time.Now().UTC().AddDate(0, 0, 365).Format("2006-01-02 15:04:05.999999")+"+00")
+	}
+	_, e = tx.ExecContext(ctx, insertUser, userArgs...)
 	if e != nil {
 		return User{}, ErrConflict
 	}
