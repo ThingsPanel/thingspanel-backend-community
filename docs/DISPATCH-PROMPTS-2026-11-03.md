@@ -19,6 +19,7 @@
 ## 任务提示（一个包一段）
 
 ### D1 thing model store 的 RETURNING 改写（15 处）
+- **已有起点**：分支 `wip/d1-dbx-returning`（在 `/Users/junhong/Downloads/code/thingspanel-history-store-20261103` 仓库里，提交 `b65688b8`）：在 `pkg/dbx` 里让 MySQL 的 `QueryRow` 对单行 INSERT/UPDATE ... RETURNING 先写、再按 id（和 tenant_id）读回，调用点不用改。**MySQL 路径目前返回错误，错误文本没抓到**，对比测试 `TestReturningBehavesTheSameOnPostgresAndMySQL` 是红的；先打印错误再修，或推翻重做。
 你负责包 D1。位置：encore-api/devicemetadata/store.go。把 MYSQL-REFUSED-STATEMENTS.txt 里 store.go 的 RETURNING 语句改成 MySQL 可执行形式：dbx.DB 的 Dialect()=="mysql" 分支里先写后读（同事务内 SELECT 回读），或抽出一个 `insertReturning` 辅助函数；PostgreSQL 分支保持原样。 验收：新增 store_mysql_contract_test.go：同一剧本在 PG 与 MySQL 上逐步一致（创建/更新/重名冲突/软删/列表分页）；encore test ./devicemetadata/... 全绿。
 
 ### D2 分组读写删（group_*.go）的拒绝语句与递归查询
