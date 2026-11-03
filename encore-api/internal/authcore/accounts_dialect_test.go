@@ -283,3 +283,79 @@ func TestDialectRewriteIsFailClosed(t *testing.T) {
 		t.Fatalf("repeated and reordered placeholders must expand in order of appearance: %v", args)
 	}
 }
+
+func TestSuperAdminInitializationIsExclusiveOnMySQLAsOnPostgres(t *testing.T) {
+	pg, my, _ := accountFixtures(t)
+	if _, err := pg.DB.Exec(`ALTER TABLE users ADD COLUMN created_at timestamptz, ADD COLUMN updated_at timestamptz, ADD COLUMN password_last_updated timestamptz`); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	run := func(a *SQLAccounts) []string {
+		var out []string
+		note := func(format string, args ...any) { out = append(out, fmt.Sprintf(format, args...)) }
+		has, e := a.HasAdmin(ctx)
+		note("HasAdmin before: %s %v", kind(e), has)
+		_, e = a.Initialize(ctx, "not-an-email", "Passw0rd!x")
+		note("invalid email: %s", kind(e))
+		_, e = a.Initialize(ctx, "root@example.com", "short")
+		note("weak password: %s", kind(e))
+		_, e = a.Initialize(ctx, "root@example.com", "ALLUPPER123")
+		note("no lower-case letter: %s", kind(e))
+		type result struct {
+			err  error
+			user User
+		}
+		results := make(chan result, 6)
+		for i := 0; i < cap(results); i++ {
+			go func(i int) {
+				u, e := a.Initialize(ctx, fmt.Sprintf("root%d@example.com", i), "Passw0rd!x")
+				results <- result{e, u}
+			}(i)
+		}
+		kinds := map[string]int{}
+		var winner User
+		for i := 0; i < cap(results); i++ {
+			r := <-results
+			kinds[kind(r.err)]++
+			if r.err == nil {
+				winner = r.user
+			}
+		}
+		note("concurrent initialisation outcomes: ok=%d conflict=%d other=%d", kinds["ok"], kinds["conflict"], len(kinds)-boolInt(kinds["ok"] > 0)-boolInt(kinds["conflict"] > 0))
+		var admins int
+		if e := a.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE authority='SYS_ADMIN'`).Scan(&admins); e != nil {
+			t.Fatal(e)
+		}
+		note("SYS_ADMIN rows: %d", admins)
+		has, e = a.HasAdmin(ctx)
+		note("HasAdmin after: %s %v", kind(e), has)
+		_, e = a.Initialize(ctx, "again@example.com", "Passw0rd!x")
+		note("initialise again: %s", kind(e))
+		var authority, status, phone, tenant, hash string
+		var created, changed bool
+		if e := a.dx().QueryRowContext(ctx, `SELECT authority,status,phone_number,COALESCE(tenant_id,''),password,created_at IS NOT NULL,password_last_updated IS NOT NULL FROM users WHERE id=$1`, winner.ID).Scan(&authority, &status, &phone, &tenant, &hash, &created, &changed); e != nil {
+			t.Fatal(e)
+		}
+		note("stored admin: %s/%s phone=%q tenant=%q created=%v pwdtime=%v bcrypt=%v", authority, status, phone, tenant, created, changed, bcryptMatches(hash, "Passw0rd!x"))
+		return out
+	}
+	a, b := run(pg), run(my)
+	if !reflect.DeepEqual(a, b) {
+		for i := range a {
+			if i >= len(b) || a[i] != b[i] {
+				t.Errorf("step %d differs\n  pg: %s\n  my: %v", i, a[i], b)
+			}
+		}
+	}
+	joined := strings.Join(a, "\n")
+	if !strings.Contains(joined, "ok=1 conflict=5 other=0") || !strings.Contains(joined, "SYS_ADMIN rows: 1") {
+		t.Fatalf("exactly one concurrent initialisation must win:\n%s", joined)
+	}
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}

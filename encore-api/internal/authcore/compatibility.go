@@ -35,7 +35,7 @@ func (a *SQLAccounts) Detail(ctx context.Context, id string) (json.RawMessage, e
 }
 func (a *SQLAccounts) HasAdmin(ctx context.Context) (bool, error) {
 	var yes bool
-	e := a.DB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE authority='SYS_ADMIN')`).Scan(&yes)
+	e := a.dx().QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE authority='SYS_ADMIN')`).Scan(&yes)
 	if e != nil {
 		return false, ErrUnavailable
 	}
@@ -65,14 +65,11 @@ func (a *SQLAccounts) Initialize(ctx context.Context, email, password string) (U
 	if e != nil || parsed.Address != email || !validPassword(password) {
 		return User{}, ErrUnauthorized
 	}
-	tx, e := a.DB.BeginTx(ctx, nil)
+	tx, release, e := a.dx().beginLocked(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "thingspanel_super_admin_init")
 	if e != nil {
 		return User{}, ErrUnavailable
 	}
-	defer tx.Rollback()
-	if _, e = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtext('thingspanel_super_admin_init'))`); e != nil {
-		return User{}, ErrUnavailable
-	}
+	defer release()
 	var exists bool
 	if e = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE authority='SYS_ADMIN')`).Scan(&exists); e != nil {
 		return User{}, ErrUnavailable

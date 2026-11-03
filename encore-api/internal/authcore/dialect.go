@@ -2,7 +2,10 @@ package authcore
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -168,4 +171,58 @@ func splitLiterals(query string) []queryPart {
 		parts = append(parts, queryPart{text: query[start:], literal: inLiteral})
 	}
 	return parts
+}
+
+// beginLocked starts a transaction that holds a named mutex until release is called.
+//
+// PostgreSQL: pgLockSQL (one "$1" placeholder) runs once per name inside the transaction, as before; the
+// locks end with the transaction. MySQL has no transaction-scoped lock, so each name becomes a GET_LOCK on
+// the connection that carries the transaction (names are hashed to MySQL's 64-character limit), released
+// by release after the transaction has ended. release must always be called, also after a commit.
+func (x dialectDB) beginLocked(ctx context.Context, pgLockSQL string, names ...string) (tx dialectTx, release func(), err error) {
+	if x.dialect == DialectPostgres {
+		tx, err = x.BeginTx(ctx, nil)
+		if err != nil {
+			return dialectTx{}, nil, err
+		}
+		for _, name := range names {
+			if _, err = tx.tx.ExecContext(ctx, pgLockSQL, name); err != nil {
+				_ = tx.Rollback()
+				return dialectTx{}, nil, err
+			}
+		}
+		return tx, func() { _ = tx.Rollback() }, nil
+	}
+	conn, err := x.db.Conn(ctx)
+	if err != nil {
+		return dialectTx{}, nil, err
+	}
+	var held []string
+	releaseAll := func() {
+		for _, name := range held {
+			_, _ = conn.ExecContext(context.Background(), "SELECT RELEASE_LOCK(?)", name)
+		}
+		_ = conn.Close()
+	}
+	for _, name := range names {
+		digest := sha256.Sum256([]byte(name))
+		lock := hex.EncodeToString(digest[:]) // 64 characters
+		var got sql.NullInt64
+		if err = conn.QueryRowContext(ctx, "SELECT GET_LOCK(?, 10)", lock).Scan(&got); err != nil {
+			releaseAll()
+			return dialectTx{}, nil, err
+		}
+		if !got.Valid || got.Int64 != 1 {
+			releaseAll()
+			return dialectTx{}, nil, errors.New("named lock not obtained")
+		}
+		held = append(held, lock)
+	}
+	raw, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		releaseAll()
+		return dialectTx{}, nil, err
+	}
+	tx = dialectTx{dialectDB: dialectDB{inner: raw, db: x.db, dialect: x.dialect}, tx: raw}
+	return tx, func() { _ = raw.Rollback(); releaseAll() }, nil
 }
