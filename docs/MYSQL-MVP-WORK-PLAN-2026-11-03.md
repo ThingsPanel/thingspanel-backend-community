@@ -154,6 +154,7 @@ WP-L、WP-J、WP-M 可与上面并行
 - 整体进度与待办：`PROGRESS-2026-11-03.md`
 - 43 个细粒度工作包：`WORK-PACKAGES-FINE-2026-11-03.md`（第五节的进一步拆分，优先用它认领）
 - 每个包的分发提示语：`DISPATCH-PROMPTS-2026-11-03.md`
+- 分派总表（谁先开工、谁等谁）：`DISPATCH-ROSTER-2026-11-03.md`
 - 磁盘清理：`DISK-CLEANUP-PLAN-2026-11-03.md`
 
 ## 八、交接要点（写给接手的同事；主线会话的 token 用尽，以下是全部上下文）
