@@ -52,32 +52,43 @@ func (s *TDengineHistorySink) client() *http.Client {
 }
 
 func (s *TDengineHistorySink) exec(ctx context.Context, statement string) error {
+	_, err := s.Query(ctx, statement)
+	return err
+}
+
+// Query runs one statement and returns its rows. Timestamps come back as text unless the
+// statement casts them, for example CAST(ts AS BIGINT).
+func (s *TDengineHistorySink) Query(ctx context.Context, statement string) ([][]interface{}, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(s.BaseURL, "/")+"/rest/sql", bytes.NewBufferString(statement))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.SetBasicAuth(s.User, s.Password)
 	resp, err := s.client().Do(req)
 	if err != nil {
-		return fmt.Errorf("tdengine request failed (outcome unknown): %w", err)
+		return nil, fmt.Errorf("tdengine request failed (outcome unknown): %w", err)
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
 	if err != nil {
-		return fmt.Errorf("tdengine response unreadable (outcome unknown): %w", err)
+		return nil, fmt.Errorf("tdengine response unreadable (outcome unknown): %w", err)
 	}
 	var result struct {
-		Code int    `json:"code"`
-		Desc string `json:"desc"`
+		Code int             `json:"code"`
+		Desc string          `json:"desc"`
+		Data [][]interface{} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return fmt.Errorf("tdengine returned HTTP %d with a non-JSON body (outcome unknown)", resp.StatusCode)
+		return nil, fmt.Errorf("tdengine returned HTTP %d with a non-JSON body (outcome unknown)", resp.StatusCode)
 	}
 	if result.Code != 0 {
-		return fmt.Errorf("tdengine error %d: %s", result.Code, result.Desc)
+		return nil, fmt.Errorf("tdengine error %d: %s", result.Code, result.Desc)
 	}
-	return nil
+	return result.Data, nil
 }
+
+// Quote renders a string literal for TDengine SQL.
+func (s *TDengineHistorySink) Quote(v string) string { return tdengineQuote(v) }
 
 // EnsureSchema creates the database and super table when they do not exist.
 func (s *TDengineHistorySink) EnsureSchema(ctx context.Context) error {

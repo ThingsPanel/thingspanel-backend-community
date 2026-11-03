@@ -1,0 +1,173 @@
+// Package tdenginehistory reads and deletes telemetry history in TDengine through
+// dal.HistoryBackend. Writes arrive separately through storage.TDengineHistorySink.
+package tdenginehistory
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"project/internal/dal"
+	"project/internal/model"
+	"project/internal/query"
+	"project/internal/storage"
+)
+
+// ErrUnsupported marks operations this backend does not implement yet. They fail
+// loudly instead of silently reading another store.
+var ErrUnsupported = errors.New("operation is not implemented by the tdengine history backend")
+
+// Backend implements dal.HistoryBackend on top of one TDengine database.
+type Backend struct {
+	Sink *storage.TDengineHistorySink
+}
+
+var _ dal.HistoryBackend = (*Backend)(nil)
+
+const columns = "CAST(ts AS BIGINT), number_v, bool_v, string_v, tenant_id"
+
+func (b *Backend) rows(ctx context.Context, where, tail string) ([]*model.TelemetryData, error) {
+	data, err := b.Sink.Query(ctx, fmt.Sprintf("SELECT %s, device_id, k FROM %s.telemetry WHERE %s %s", columns, b.Sink.Database, where, tail))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*model.TelemetryData, 0, len(data))
+	for _, row := range data {
+		if len(row) != 7 {
+			return nil, fmt.Errorf("unexpected tdengine row width %d", len(row))
+		}
+		ts, ok := row[0].(float64)
+		if !ok {
+			return nil, errors.New("tdengine returned a non-numeric timestamp")
+		}
+		item := &model.TelemetryData{T: int64(ts)}
+		if v, ok := row[1].(float64); ok {
+			item.NumberV = &v
+		}
+		if v, ok := row[2].(bool); ok {
+			item.BoolV = &v
+		}
+		if v, ok := row[3].(string); ok {
+			item.StringV = &v
+		}
+		if v, ok := row[4].(string); ok {
+			item.TenantID = &v
+		}
+		item.DeviceID, _ = row[5].(string)
+		item.Key, _ = row[6].(string)
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+func (b *Backend) scope(deviceID, key string, start, end int64) string {
+	return fmt.Sprintf("device_id=%s AND k=%s AND ts>=%d AND ts<=%d", b.Sink.Quote(deviceID), b.Sink.Quote(key), start, end)
+}
+
+func (b *Backend) GetHistoryTelemetrData(deviceID, key string, start, end int64) ([]*model.TelemetryData, error) {
+	return b.rows(context.Background(), b.scope(deviceID, key, start, end), "ORDER BY ts")
+}
+
+func (b *Backend) count(ctx context.Context, where string) (int64, error) {
+	data, err := b.Sink.Query(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s.telemetry WHERE %s", b.Sink.Database, where))
+	if err != nil {
+		return 0, err
+	}
+	if len(data) == 0 {
+		return 0, nil // TDengine returns no row when the table does not exist yet
+	}
+	n, ok := data[0][0].(float64)
+	if !ok {
+		return 0, errors.New("tdengine returned a non-numeric count")
+	}
+	return int64(n), nil
+}
+
+func (b *Backend) GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq) (int64, []*model.TelemetryData, error) {
+	where := b.scope(p.DeviceID, p.Key, p.StartTime, p.EndTime)
+	total, err := b.count(context.Background(), where)
+	if err != nil {
+		return 0, nil, err
+	}
+	tail := "ORDER BY ts DESC"
+	if p.Page != nil && p.PageSize != nil {
+		if *p.Page < 1 || *p.PageSize < 1 {
+			return total, nil, errors.New("page and page size must be positive")
+		}
+		tail += " LIMIT " + strconv.Itoa(*p.PageSize) + " OFFSET " + strconv.Itoa((*p.Page-1)**p.PageSize)
+	}
+	list, err := b.rows(context.Background(), where, tail)
+	return total, list, err
+}
+
+func (b *Backend) GetHistoryTelemetrDataByExport(p *model.GetTelemetryHistoryDataByPageReq, offset, batchSize int) ([]*model.TelemetryData, error) {
+	if offset < 0 || batchSize < 1 {
+		return nil, errors.New("export offset must not be negative and batch size must be positive")
+	}
+	return b.rows(context.Background(), b.scope(p.DeviceID, p.Key, p.StartTime, p.EndTime),
+		"ORDER BY ts DESC LIMIT "+strconv.Itoa(batchSize)+" OFFSET "+strconv.Itoa(offset))
+}
+
+// GetTelemetrStatisticData returns the same {x: ts, y: number} pairs as the PostgreSQL code.
+func (b *Backend) GetTelemetrStatisticData(deviceID, key string, start, end int64) ([]map[string]interface{}, error) {
+	data, err := b.Sink.Query(context.Background(), fmt.Sprintf("SELECT CAST(ts AS BIGINT), number_v FROM %s.telemetry WHERE %s ORDER BY ts", b.Sink.Database, b.scope(deviceID, key, start, end)))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]map[string]interface{}, 0, len(data))
+	for _, row := range data {
+		x, _ := row[0].(float64)
+		out = append(out, map[string]interface{}{"x": int64(x), "y": row[1]})
+	}
+	return out, nil
+}
+
+func (b *Backend) GetTelemetryDataCountByTenantId(tenantID string) (int64, error) {
+	return b.count(context.Background(), "tenant_id="+b.Sink.Quote(tenantID))
+}
+
+// DeleteTelemetrData drops the child tables of one device key. It is idempotent.
+func (b *Backend) DeleteTelemetrData(deviceID, key string) error {
+	return b.dropTables(context.Background(), "device_id="+b.Sink.Quote(deviceID)+" AND k="+b.Sink.Quote(key))
+}
+
+func (b *Backend) dropTables(ctx context.Context, where string) error {
+	data, err := b.Sink.Query(ctx, fmt.Sprintf("SELECT DISTINCT tbname FROM %s.telemetry WHERE %s", b.Sink.Database, where))
+	if err != nil {
+		return err
+	}
+	for _, row := range data {
+		name, ok := row[0].(string)
+		if !ok || !strings.HasPrefix(name, "t_") {
+			return errors.New("tdengine returned an unexpected table name")
+		}
+		if _, err := b.Sink.Query(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", b.Sink.Database, name)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DeleteTelemetrDataByTime applies the retention policy; t is the cut-off in milliseconds.
+func (b *Backend) DeleteTelemetrDataByTime(t int64) error {
+	_, err := b.Sink.Query(context.Background(), fmt.Sprintf("DELETE FROM %s.telemetry WHERE ts<=%d", b.Sink.Database, t))
+	return err
+}
+
+// DeleteTelemetrDataByDeviceId runs inside the device-deletion transaction, which a
+// time-series store cannot join: dropping history first would lose it if that
+// transaction rolled back. It stays unsupported until deletion is made durable and
+// replayable through a generation.
+func (b *Backend) DeleteTelemetrDataByDeviceId(string, *query.QueryTx) error {
+	return fmt.Errorf("DeleteTelemetrDataByDeviceId: %w", ErrUnsupported)
+}
+
+func (b *Backend) GetTelemetrStatisticaAgregationData(string, string, int64, int64, int64, string) ([]map[string]interface{}, error) {
+	return nil, fmt.Errorf("GetTelemetrStatisticaAgregationData: %w", ErrUnsupported)
+}
+
+func (b *Backend) GetTelemetryStatisticDataByDeviceIds([]string, []string, string, *int, string) ([]map[string]interface{}, error) {
+	return nil, fmt.Errorf("GetTelemetryStatisticDataByDeviceIds: %w", ErrUnsupported)
+}
