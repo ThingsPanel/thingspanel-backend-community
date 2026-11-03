@@ -8,14 +8,14 @@ import (
 	"strings"
 )
 
-//go:embed 001_schema.sql 002_guards.sql
+//go:embed 001_schema.sql 002_guards.sql 003_seed.sql
 var files embed.FS
 
 // Statements returns the statements of the schema in order. They are separated by lines holding only "-- @@".
 // Some use session variables (the guarded foreign keys), so they must run on one connection.
 func Statements() []string {
 	var out []string
-	for _, name := range []string{"001_schema.sql", "002_guards.sql"} {
+	for _, name := range []string{"001_schema.sql", "002_guards.sql", "003_seed.sql"} {
 		raw, err := files.ReadFile(name)
 		if err != nil {
 			panic(err)

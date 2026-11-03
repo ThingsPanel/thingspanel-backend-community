@@ -161,11 +161,15 @@ WP-L、WP-J、WP-M 可与上面并行
 - 证据与状态文件：`/Users/junhong/Downloads/code/thingspanel-takeover-evidence-20261102/`（`HANDOFF-next-owner-20261102.md` 是总任务，`STATUS-takeover-session-20261102.md` 是逐步记录，`MVP-WORK-PLAN-20261103.md` 是本文件副本）。
 
 ### 8.2 未完成的在途工作（devicemetadata，WP-D）
-分支上最后一个提交之后有**未验证的改动**（提交信息会写 WIP）：
+分支上最后一个提交 `ddc599e7` 之后的改动已经完成第一轮验证，但尚未合入 `develop`：
 - `encore-api/devicemetadata` 里把 `*sqldb.Tx`/`*sqldb.Row` 全部替换成 `dbx.Tx`/`dbx.Row`，`db` 变成 `dbx.DB`（`db.go`），`isUniqueViolation` 委托给 `dbx.IsUniqueViolation`，
   新增 `configureDatabaseFromEnv`：`TP_DEVICE_METADATA_DB_DRIVER=mysql` + `TP_DEVICE_METADATA_MYSQL_DSN` 时服务改用 MySQL（经翻译器），不碰 PostgreSQL。
-- 验证情况：`encore check`（非测试代码，含 Encore 的 PG 迁移）通过；**测试文件的编译没有确认**（命令 `cd encore-api && encore test -run NONE ./devicemetadata/`，需要 Docker）。先跑它，失败就按报错改（多半是测试里用了 `db.Stdlib()` 或具体的 `sqldb` 类型）。
-- 通过后再做：README-mysql.md 里的第 1 到 5 项（翻译不了的语句的 MySQL 分支、行级安全替代与跨租户测试、3 个复杂触发器、11 个 CHECK、种子数据）。
+- 2026-11-03 验证：`encore test -run NONE ./devicemetadata/` 编译成功；`encore test -count=1 ./devicemetadata/...` 的 5 个包全部通过（PostgreSQL 默认路径）。
+- 2026-11-03 新增：`mysqlschema/003_seed.sql` 与六条内建 `meta_item_keys` 的双库字段比对；此前 `TestMySQLThingModelTenantContract` 的真实 MySQL 8.4 运行验证过物模型创建、按 ID 读取、列表、事务和跨租户隔离。MySQL schema/守卫测试结果为 31 张表零结构差异、8 个守卫步骤一致。
+- 2026-11-03 诊断：`TestMySQLSQLTranslatabilityReport` 静态扫描 371 条 SQL 字符串，翻译器接受 322 条（87%）；这不等于运行覆盖，拒绝的主要形式为 `RETURNING`（24 条）、类型转换（20 条）。
+- 物模型 MySQL 更新分支，以及设备编号查询的冲突 / 排除自身 / 跨租户 fixture 已加；本轮 Encore 测试因缺少 `TP_DM_MYSQL_DSN` 明确跳过，临时 MySQL 容器又因 Docker `No space left on device` 启动失败，尚无这些新增路径的实库结果。
+- 仍未完成：其余存储域 SQL 兼容；所有调用点的 MySQL 跨租户读写验证；`beginTenantGroupTx` 直连 SQL 路径；3 个复杂触发器、11 个复杂 CHECK；Encore 进程在无 PostgreSQL 环境启动的真实验证。README-mysql.md 逐项记录当前范围。
+- 通过后再继续按 WP-D 补齐上述剩余项；当前不能把 MySQL profile 视为完整可用，也不能合入 `develop`。
 - 这批改动只有在 PostgreSQL 路径的 `encore test ./devicemetadata/...` 全绿后才能合进 `develop`（PostgreSQL 行为必须不变）。
 
 ### 8.3 环境与命令（每个人先做）

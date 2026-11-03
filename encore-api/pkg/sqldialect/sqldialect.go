@@ -39,7 +39,7 @@ const probe = "SELECT * FROM tp_unsupported_mysql_statement"
 
 var (
 	placeholder    = regexp.MustCompile(`\$(\d+)`)
-	paramCast      = regexp.MustCompile(`(?i)(\$\d+|\?)::(?:text|bigint|int|integer|smallint|numeric|jsonb|json|timestamptz|timestamp|varchar|boolean)\b`)
+	paramCast      = regexp.MustCompile(`(?i)(\$\d+|\?)::(?:text|bigint|int|integer|smallint|numeric|jsonb|json|timestamptz|timestamp|varchar|boolean|uuid)\b`)
 	emptyJSON      = regexp.MustCompile(`(?i)'\{\}'::jsonb`)
 	emptyJSONArray = regexp.MustCompile(`(?i)'\[\]'::jsonb`)
 	nullJSON       = regexp.MustCompile(`(?i)'null'::jsonb`)
@@ -55,6 +55,9 @@ var (
 	makeInterval      = regexp.MustCompile(`(?i)make_interval\(\s*(secs|mins|hours|days)\s*=>\s*(\?|\$\d+)\s*\)`)
 	noopDuplicate     = regexp.MustCompile("(?i)\\s+ON\\s+DUPLICATE\\s+KEY\\s+UPDATE\\s+`?(\\w+)`?\\s*=\\s*`?(\\w+)`?\\s*$")
 	advisoryLock      = regexp.MustCompile(`(?is)^\s*SELECT\s+pg_advisory_xact_lock\((.*)\)\s*;?\s*$`)
+	ilike             = regexp.MustCompile(`(?i)([A-Za-z_][A-Za-z0-9_.]*)\s+ILIKE\s+(\$\d+|\?|'(?:[^']|'')*')`)
+	numberCast        = regexp.MustCompile(`(?i)\b(\d+)::(?:int|integer|bigint|smallint)\b`)
+	jsonLiteralCast   = regexp.MustCompile(`(?i)('(?:[^']|'')*')::jsonb\b`)
 	nowCall           = regexp.MustCompile(`(?i)\bnow\(\)`)
 	insertFirstColumn = regexp.MustCompile(`(?is)INSERT\s+INTO\s+\w+\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)`)
 	onConflict        = regexp.MustCompile(`(?i)\s+ON\s+CONFLICT\s*(?:\([^)]*\))?\s+DO\s+NOTHING`)
@@ -166,10 +169,14 @@ func (d Dialect) translate(query string, argCount int) (Translation, bool) {
 		return " ON DUPLICATE KEY UPDATE " + excludedRef.ReplaceAllString(set, "VALUES($1)")
 	})
 	query = rewriteCountFilter(query)
+	query = ilike.ReplaceAllString(query, "LOWER($1) LIKE LOWER($2)")
+	query = numberCast.ReplaceAllString(query, "$1")
+	query = castParenExpression(query)
 	query = nullJSON.ReplaceAllString(query, "CAST('null' AS JSON)")
 	query = nullifCast.ReplaceAllString(query, "$1")
 	query = emptyJSON.ReplaceAllString(query, "JSON_OBJECT()")
 	query = emptyJSONArray.ReplaceAllString(query, "JSON_ARRAY()")
+	query = jsonLiteralCast.ReplaceAllString(query, "CAST($1 AS JSON)")
 	query = paramCast.ReplaceAllString(query, "$1")
 	// uuid columns are CHAR(36) and jsonb columns JSON in the MySQL schema, so casting a column to them changes nothing.
 	query = identCast.ReplaceAllString(query, "$1")
@@ -449,4 +456,48 @@ func splitTopLevel(s string) []string {
 		}
 	}
 	return append(parts, s[start:])
+}
+
+var intCast = regexp.MustCompile(`(?i)::(?:bigint|integer|int)\b`)
+
+// castParenExpression rewrites (expr)::bigint / ::int as CAST((expr) AS SIGNED). It finds the parenthesis that
+// belongs to the cast by counting, so nested calls work.
+func castParenExpression(query string) string {
+	for {
+		loc := intCast.FindStringIndex(query)
+		for loc != nil && (loc[0] == 0 || query[loc[0]-1] != ')') {
+			next := intCast.FindStringIndex(query[loc[1]:])
+			if next == nil {
+				return query
+			}
+			loc = []int{loc[1] + next[0], loc[1] + next[1]}
+		}
+		if loc == nil {
+			return query
+		}
+		depth, start := 0, -1
+		for i := loc[0] - 1; i >= 0; i-- {
+			switch query[i] {
+			case ')':
+				depth++
+			case '(':
+				depth--
+				if depth == 0 {
+					start = i
+				}
+			}
+			if start >= 0 {
+				break
+			}
+		}
+		if start < 0 {
+			return query
+		}
+		// a function call: the cast applies to name(...), so the name belongs to the expression
+		for start > 0 && (query[start-1] == '_' || query[start-1] == '.' || query[start-1] >= '0' && query[start-1] <= '9' ||
+			query[start-1] >= 'a' && query[start-1] <= 'z' || query[start-1] >= 'A' && query[start-1] <= 'Z') {
+			start--
+		}
+		query = query[:start] + "CAST(" + query[start:loc[0]] + " AS SIGNED)" + query[loc[1]:]
+	}
 }

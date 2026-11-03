@@ -19,14 +19,16 @@ func beginTenantGroupTx(ctx context.Context, tenantID string, options *sql.TxOpt
 	if err != nil {
 		return nil, err
 	}
-	var configured string
-	if err := tx.QueryRowContext(ctx, `SELECT set_config('app.current_tenant_id', $1, true)`, tenantID).Scan(&configured); err != nil {
-		_ = tx.Rollback()
-		return nil, err
-	}
-	if configured != tenantID {
-		_ = tx.Rollback()
-		return nil, &errs.Error{Code: errs.Internal, Message: "failed to set authenticated tenant context"}
+	if db.Dialect() == "postgres" {
+		var configured string
+		if err := tx.QueryRowContext(ctx, `SELECT set_config('app.current_tenant_id', $1, true)`, tenantID).Scan(&configured); err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+		if configured != tenantID {
+			_ = tx.Rollback()
+			return nil, &errs.Error{Code: errs.Internal, Message: "failed to set authenticated tenant context"}
+		}
 	}
 	return tx, nil
 }

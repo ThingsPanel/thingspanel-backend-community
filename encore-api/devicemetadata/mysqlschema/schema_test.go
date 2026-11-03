@@ -3,6 +3,7 @@ package mysqlschema
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
@@ -70,6 +71,7 @@ func TestSchemaMatchesPostgres(t *testing.T) {
 			t.Fatalf("second run, statement %d: %v", i+1, err)
 		}
 	}
+	assertBuiltInMetaItemSeedsMatch(t, ctx, pg, conn)
 
 	class := func(pgType string) string {
 		switch pgType {
@@ -179,4 +181,69 @@ func TestSchemaMatchesPostgres(t *testing.T) {
 	for _, p := range problems {
 		t.Error(p)
 	}
+}
+
+type builtInMetaItemSeed struct {
+	label       string
+	scope       string
+	valueSchema string
+	builtIn     bool
+	description string
+}
+
+func assertBuiltInMetaItemSeedsMatch(t *testing.T, ctx context.Context, pg *sql.DB, mysql *sql.Conn) {
+	t.Helper()
+	read := func(db interface {
+		QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	}, query string) map[string]builtInMetaItemSeed {
+		rows, err := db.QueryContext(ctx, query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		seeds := make(map[string]builtInMetaItemSeed)
+		for rows.Next() {
+			var key, label, scope, schema, description string
+			var builtIn bool
+			if err := rows.Scan(&key, &label, &scope, &schema, &builtIn, &description); err != nil {
+				t.Fatal(err)
+			}
+			seeds[key] = builtInMetaItemSeed{
+				label:       canonicalJSON(t, label),
+				scope:       scope,
+				valueSchema: canonicalJSON(t, schema),
+				builtIn:     builtIn,
+				description: canonicalJSON(t, description),
+			}
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		return seeds
+	}
+	pgSeeds := read(pg, `SELECT key, label_i18n::text, scope, value_schema::text, is_builtin, COALESCE(description_i18n::text, 'null')
+		FROM meta_item_keys WHERE tenant_id IS NULL ORDER BY key`)
+	mysqlSeeds := read(mysql, `SELECT `+"`key`"+`, CAST(label_i18n AS CHAR), scope, CAST(value_schema AS CHAR), is_builtin,
+		COALESCE(CAST(description_i18n AS CHAR), 'null') FROM meta_item_keys WHERE tenant_id IS NULL ORDER BY `+"`key`")
+	if len(pgSeeds) != 6 || len(mysqlSeeds) != 6 {
+		t.Fatalf("expected six built-in meta_item_keys seeds, got PostgreSQL=%d MySQL=%d", len(pgSeeds), len(mysqlSeeds))
+	}
+	for key, want := range pgSeeds {
+		if got, ok := mysqlSeeds[key]; !ok || got != want {
+			t.Errorf("built-in meta_item_keys seed %q differs: PostgreSQL=%+v MySQL=%+v present=%v", key, want, got, ok)
+		}
+	}
+}
+
+func canonicalJSON(t *testing.T, value string) string {
+	t.Helper()
+	var decoded any
+	if err := json.Unmarshal([]byte(value), &decoded); err != nil {
+		t.Fatalf("invalid JSON %q: %v", value, err)
+	}
+	canonical, err := json.Marshal(decoded)
+	if err != nil {
+		t.Fatalf("encode JSON %q: %v", value, err)
+	}
+	return string(canonical)
 }
