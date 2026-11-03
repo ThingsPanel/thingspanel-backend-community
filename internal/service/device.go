@@ -518,7 +518,7 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	}
 
 	// 删除遥测历史数据
-	err = dal.DeleteTelemetrDataByDeviceId(id, tx)
+	err = dal.History.DeleteTelemetrDataByDeviceId(id, tx)
 	if err != nil {
 		tx.Rollback()
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
