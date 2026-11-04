@@ -20,6 +20,7 @@
 | `.claude/worktrees/wp-t4-plugin-identity-3cf9d2` | `claude/wp-t4-plugin-identity-3cf9d2` | T4 插件身份 | 进行中会话 | 进行中，不动 |
 | `.claude/worktrees/wp-p2-fix` | `wp/p2-fix-redaction` | P2-fix 凭据脱敏回归修复 | Codex 子任务 | 进行中；审查合并后当天清理 |
 | `.claude/worktrees/wp-p2-fix2-form-brackets` | `wp/p2-fix2-form-brackets` | P2-fix2 原始方括号 form 字段脱敏 | Codex 子任务 | 进行中；审查合并后当天清理 |
+| `.claude/worktrees/wp-p3-device-ack-timeout` | `wp/p3-device-ack-timeout` | P3 Broker 设备回执超时可见 | Codex 子任务 | 进行中；审查合并后当天清理 |
 | `~/.codex/worktrees/native-command-validation/thingspanel-backend-community` | `codex/thingmodel-upgrade-v1` | 已归档（标签 `archive/cleanup-20261104-codex-thingmodel-upgrade-v1`） | — | 干净，已移除，分支已删 |
 | `~/.codex/worktrees/thingspanel-runtime-gateway/thingspanel-backend-community` | `codex/runtime-tenant-source-binding` | 已归档 | — | 已移除，分支已删 |
 | `~/.codex/worktrees/thingspanel-runtime-read-context/thingspanel-backend-community` | `codex/runtime-read-context` | 已归档 | — | 已移除，分支已删 |
@@ -36,6 +37,7 @@
 | `wp/d1-dbx-returning` | D1 数据库兼容 | 进行中 |
 | `wp/p2-fix-redaction` | P2-fix 凭据脱敏回归修复 | 进行中 |
 | `wp/p2-fix2-form-brackets` | P2-fix2 原始方括号 form 字段脱敏 | 进行中 |
+| `wp/p3-device-ack-timeout` | P3 Broker 设备回执超时可见 | 进行中 |
 | `claude/wp-plugin-install-e5e1f9` / `claude/wp-missing-api-5613cb` / `claude/wp-t1-0-relational-b140f7` / `claude/wp-t4-plugin-identity-3cf9d2` | 见上表 | 进行中 / 保留 |
 | `codex/thingmodel-upgrade-v1`、`codex/runtime-tenant-source-binding`、`codex/runtime-read-context` | 已归档，worktree 待移除 | 已删除（2026-11-04） |
 | `codex/community-roles-superadmin-device-read`、`codex/northbound-community-20261021`、`feature/market-solution-bundle-v1`、`thingmodel`、`wip/d1-dbx-returning` | 已归档，无 worktree | 已删除（2026-11-04） |

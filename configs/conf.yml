@@ -68,6 +68,7 @@ mqtt:
   # 共享订阅组名
   shared_subscription_group: tpgroup
   write_workers: 1 # 消息队列入库线程数，默认10
+  command_ack_timeout: 30s # Broker 接收命令后等待设备回执的最长时间
   #消息服务质量 0：消息最多传递一次，如果当时客户端不可用，则会丢失该消息。1：消息传递至少 1 次。2：消息仅传送一次。
   # 以下主题都为默认主题
   telemetry:
