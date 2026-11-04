@@ -1,6 +1,7 @@
 package logredact
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -13,6 +14,10 @@ func TestTextMasksSensitiveFields(t *testing.T) {
 		`{"a":[{"Password":"` + tok + `"}],"client_secret":"` + tok + `"}`,
 		`{"name":"a","voucher":"{\"token\":\"` + tok, // truncated
 		`voucher=` + tok + `&page=1`,
+		`voucher="` + tok + `"`,
+		`voucher="` + tok + `"?suffix&next=ok`,
+		`voucher='` + tok + `'`,
+		`{"error":"GET https://operator:` + tok + `@host.test/path%ZZ"}`,
 		`voucher=` + tok + `?suffix&next=ok`,
 		`v%6fucher=` + tok + `&page=1`,
 		`voucher%5Btoken%5D=` + tok + `&page=1`,
@@ -36,6 +41,12 @@ func TestTextMasksSensitiveFields(t *testing.T) {
 	if got := Text(`page=1?token=` + tok + `&next=ok`); strings.Contains(got, tok) || !strings.Contains(got, `page=1?token=***&next=ok`) {
 		t.Errorf("sensitive nested query was not redacted or normal parameters were lost: %s", got)
 	}
+	if got := Text(`voucher="` + tok + `"`); strings.Contains(got, tok) || !strings.Contains(got, `voucher="***"`) {
+		t.Errorf("quoted voucher was not redacted: %s", got)
+	}
+	if got := Text(`voucher="` + tok + `"?suffix&next=ok`); strings.Contains(got, "suffix") || !strings.Contains(got, `&next=ok`) {
+		t.Errorf("quoted voucher suffix was not masked or following parameter was lost: %s", got)
+	}
 }
 
 func TestURLWithoutQueryStripsUserinfo(t *testing.T) {
@@ -57,6 +68,29 @@ func TestURLParseFailureStillStripsUserinfo(t *testing.T) {
 	}
 	if out != "https://host.test/path%ZZ" {
 		t.Fatalf("unexpected sanitized malformed URL: %s", out)
+	}
+}
+
+func TestURLMalformedQueryFailsClosed(t *testing.T) {
+	const userinfoSecret = "fake-query-userinfo-password"
+	const querySecret = "fake-malformed-query-secret"
+	out := URL("https://operator:" + userinfoSecret + "@host.test/path?voucher%ZZ=" + querySecret + "&next=ok")
+	for _, secret := range []string{userinfoSecret, "operator", querySecret} {
+		if strings.Contains(out, secret) {
+			t.Fatalf("credential %q leaked from malformed query: %s", secret, out)
+		}
+	}
+}
+
+func TestErrorMasksQuotedCredentialAndMalformedURL(t *testing.T) {
+	const userinfoSecret = "fake-error-password"
+	const voucherSecret = "fake-error-voucher"
+	input := `GET "https://operator:` + userinfoSecret + `@host.test/path%ZZ" failed: voucher="` + voucherSecret + `"`
+	got := Error(errors.New(input)).Error()
+	for _, secret := range []string{userinfoSecret, "operator", voucherSecret} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("credential %q leaked from error: %s", secret, got)
+		}
 	}
 }
 
