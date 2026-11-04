@@ -40,7 +40,7 @@ GOCACHE=/tmp/p2-fix-redaction-gocache go test ./pkg/logredact ./internal/middlew
 
 三个包均通过，包括补充审查后的最终运行和对齐 `develop` 后的复测。测试使用 task-local 临时 Go 缓存；系统共用的 `/Volumes/500G/.gocache` 曾报 `illegal byte sequence`，未清理或改动该缓存。
 
-中间件回归使用内存 SQLite 验证 operation log 写入；本卡未重跑依赖真实 PostgreSQL 的既有 P2 API 集成测试，也未做完整平台端到端验证。
+中间件回归使用内存 SQLite 验证 operation log 写入。总监另在独占 PostgreSQL 16 容器的新建专用 `p2_review` 库执行 `go test ./internal/api -run '^TestVoucherNeverLeaksIntoLogsURLsOrOperationLogs$' -count=1`，通过；未做完整平台端到端验证。
 
 ## 未完成事项
 
