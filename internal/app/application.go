@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"project/initialize"
 	"project/internal/automationbridge"
 	"project/internal/downlink"
 	"project/internal/query"
@@ -92,7 +93,9 @@ func (app *Application) Shutdown() {
 		app.Logger.Info("Redis connection closed")
 	}
 
-	// DB不需要显式关闭，gorm.DB没有Close方法
+	if err := initialize.CloseRelationalResources(); err != nil {
+		app.Logger.WithError(err).Error("relational database pools close failed")
+	}
 
 	app.Logger.Info("所有资源已成功清理")
 	logrus.Info("应用关闭完成")

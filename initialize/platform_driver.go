@@ -4,157 +4,155 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"strconv"
+	"log"
+	"os"
+	"sync"
 	"time"
 
 	mysqldriver "github.com/go-sql-driver/mysql"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"gorm.io/gorm/schema"
 
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	global "project/pkg/global"
-	"project/pkg/sqldialect"
 )
 
-const (
-	PlatformDriverPostgres = "postgres"
-	PlatformDriverMySQL    = "mysql"
+var (
+	platformRegistryMu sync.Mutex
+	platformRegistry   = relational.NewRegistry()
+	mysqlCasbinInit    = CasbinInit
 )
 
-// ErrPlatformMySQLSchemaMissing is kept for callers that matched on it. It is no longer returned: the MySQL
-// platform schema is applied at start-up (ApplyMySQLPlatformSchema).
-var ErrPlatformMySQLSchemaMissing = errors.New("platform MySQL is selected and reachable, but the platform schema and queries do not support MySQL yet")
-
-// PlatformDriver returns the configured platform database driver (db.driver). Empty means
-// PostgreSQL; any other unknown value is an error so a typo never selects a database.
-func PlatformDriver() (string, error) {
-	switch driver := viper.GetString("db.driver"); driver {
-	case "", PlatformDriverPostgres:
-		return PlatformDriverPostgres, nil
-	case PlatformDriverMySQL:
-		return PlatformDriverMySQL, nil
-	default:
-		return "", fmt.Errorf("unsupported db.driver %q", driver)
-	}
-}
-
-// LoadMysqlConfig reads db.mysql.* with the same shape as db.psql.*.
-func LoadMysqlConfig() (*DbConfig, error) {
-	config := &DbConfig{
-		Host:      viper.GetString("db.mysql.host"),
-		Port:      viper.GetInt("db.mysql.port"),
-		DbName:    viper.GetString("db.mysql.dbname"),
-		Username:  viper.GetString("db.mysql.username"),
-		Password:  viper.GetString("db.mysql.password"),
-		TimeZone:  viper.GetString("db.mysql.time_zone"),
-		LogLevel:  viper.GetInt("db.mysql.log_level"),
-		IdleConns: viper.GetInt("db.mysql.idle_conns"),
-		OpenConns: viper.GetInt("db.mysql.open_conns"),
-	}
-	if config.Host == "" {
-		config.Host = "localhost"
-	}
-	if config.Port == 0 {
-		config.Port = 3306
-	}
-	if config.TimeZone == "" {
-		config.TimeZone = "Asia/Shanghai"
-	}
-	if config.LogLevel == 0 {
-		config.LogLevel = 1
-	}
-	if config.IdleConns == 0 {
-		config.IdleConns = 10
-	}
-	if config.OpenConns == 0 {
-		config.OpenConns = 50
-	}
-	if config.DbName == "" || config.Username == "" {
-		return nil, errors.New("db.mysql.dbname and db.mysql.username are required")
-	}
-	return config, nil
-}
-
-// MysqlConnect opens a MySQL platform connection. The DSN is built from a structured config,
-// never by concatenating user input, and the connection is verified before it is returned.
-func MysqlConnect(config *DbConfig) (*gorm.DB, error) {
-	location, err := time.LoadLocation(config.TimeZone)
-	if err != nil {
-		return nil, fmt.Errorf("invalid db.mysql.time_zone: %w", err)
-	}
-	cfg := mysqldriver.NewConfig()
-	cfg.User, cfg.Passwd = config.Username, config.Password
-	cfg.Net, cfg.Addr = "tcp", net.JoinHostPort(config.Host, strconv.Itoa(config.Port))
-	cfg.DBName = config.DbName
-	cfg.ParseTime, cfg.Loc = true, location
-	// RowsAffected must count matched rows, as PostgreSQL does; by default MySQL counts only rows whose
-	// values changed, which turns an idempotent UPDATE into an apparent conflict.
-	cfg.ClientFoundRows = true
-	cfg.Params = map[string]string{"charset": "utf8mb4"}
-	cfg.Timeout, cfg.ReadTimeout, cfg.WriteTimeout = 10*time.Second, 30*time.Second, 30*time.Second
-	// Every statement goes through the translating driver, so the platform's PostgreSQL-flavoured raw SQL
-	// ($n or ? placeholders, ::casts, ON CONFLICT DO NOTHING, make_interval, advisory locks, ...) runs on MySQL,
-	// and a statement it cannot translate fails closed instead of reaching the server.
-	sqlDB, err := sqldialect.OpenMySQL(cfg.FormatDSN())
-	if err != nil {
-		return nil, fmt.Errorf("connect MySQL platform database: %w", err)
-	}
-	db, err := gorm.Open(gormmysql.New(gormmysql.Config{Conn: sqlDB}), &gorm.Config{
-		Logger:                 logger.Default.LogMode(logger.LogLevel(config.LogLevel)),
-		SkipDefaultTransaction: true,
-		NamingStrategy:         schema.NamingStrategy{SingularTable: false},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("connect MySQL platform database: %w", err)
-	}
-	pool, err := db.DB()
+// RelationalInit resolves the deployment's one relational driver and opens the
+// platform resource. PostgreSQL remains the default when relational.driver is
+// empty; unsupported values fail before any connection is attempted.
+func RelationalInit() (*gorm.DB, error) {
+	source := func(key string) string { return viper.GetString(key) }
+	target, err := relational.ResolveTarget(source, "platform")
 	if err != nil {
 		return nil, err
 	}
-	pool.SetMaxIdleConns(config.IdleConns)
-	pool.SetMaxOpenConns(config.OpenConns)
-	pool.SetConnMaxLifetime(time.Hour)
-	if err := pool.Ping(); err != nil {
-		_ = pool.Close()
-		return nil, fmt.Errorf("ping MySQL platform database: %w", err)
+	var db *gorm.DB
+	if target.Dialect == relational.MySQL {
+		db, err = relational.Open(context.Background(), target)
+	} else {
+		// Preserve the platform's historical PostgreSQL reconnect window.
+		for attempt := 0; attempt < 10; attempt++ {
+			db, err = relational.Open(context.Background(), target)
+			if err == nil {
+				break
+			}
+			if attempt < 9 {
+				logrus.Warnf("连接数据库失败 (尝试 %d/%d): %v", attempt+1, 10, err)
+				logrus.Infof("将在 6s 后重试连接...")
+				time.Sleep(6 * time.Second)
+			}
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	configurePlatformSQLLogger(db, target.Pool)
+	platformRegistryMu.Lock()
+	if err := platformRegistry.Register("platform", db, true); err != nil {
+		platformRegistryMu.Unlock()
+		_ = relational.CloseDB(db)
+		return nil, err
+	}
+	platformRegistryMu.Unlock()
+
+	globalDB := db
+	if err := initializePlatformSchema(context.Background(), globalDB, target.Dialect); err != nil {
+		_ = CloseRelationalResources()
+		return nil, err
 	}
 	return db, nil
 }
 
-// mysqlPlatformInit connects to the MySQL platform database, refuses an application account that could shadow
-// the device identity fence, brings the schema up to date, and publishes the handle as global.DB.
-func mysqlPlatformInit() (*gorm.DB, error) {
-	config, err := LoadMysqlConfig()
-	if err != nil {
-		return nil, err
+func configurePlatformSQLLogger(db *gorm.DB, pool relational.PoolOptions) {
+	pool = relational.DefaultPool(pool)
+	slowThreshold := pool.SlowThreshold
+	if slowThreshold <= 0 {
+		slowThreshold = 200 * time.Millisecond
 	}
-	db, err := MysqlConnect(config)
-	if err != nil {
-		return nil, err
+	db.Logger = logger.New(log.New(GetSQLLogWriter(), "\r\n", log.LstdFlags), logger.Config{
+		SlowThreshold:             slowThreshold,
+		LogLevel:                  logger.LogLevel(pool.LogLevel),
+		IgnoreRecordNotFoundError: true,
+		Colorful:                  true,
+	})
+}
+
+// CloseRelationalResources closes pools created by initialize. It is safe to
+// call more than once and is used by the application shutdown path.
+func CloseRelationalResources() error {
+	platformRegistryMu.Lock()
+	defer platformRegistryMu.Unlock()
+	if db, ok := platformRegistry.Get("platform"); ok && global.DB == db {
+		global.DB = nil
 	}
-	closeOnError := func(err error) (*gorm.DB, error) {
-		if pool, e := db.DB(); e == nil {
-			_ = pool.Close()
+	return platformRegistry.Close()
+}
+
+func initializePlatformSchema(ctx context.Context, db *gorm.DB, dialect relational.Dialect) error {
+	if dialect == relational.MySQL {
+		if err := RequireNoTemporaryTablePrivilege(db); err != nil {
+			return err
 		}
-		return nil, err
-	}
-	if err := RequireNoTemporaryTablePrivilege(db); err != nil {
-		return closeOnError(err)
-	}
-	if err := ApplyMySQLPlatformSchema(context.Background(), db); err != nil {
-		var mysqlErr *mysqldriver.MySQLError
-		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1419 {
-			return closeOnError(fmt.Errorf("initialize MySQL platform schema: the device identity triggers need log_bin_trust_function_creators=1 "+
-				"(or the SUPER privilege for the migrating account) because binary logging is enabled: %w", err))
+		if err := ApplyMySQLPlatformSchema(ctx, db); err != nil {
+			return wrapMySQLSchemaError(err)
 		}
-		return closeOnError(fmt.Errorf("initialize MySQL platform schema: %w", err))
+		global.DB = db
+		if err := mysqlCasbinInit(); err != nil {
+			return fmt.Errorf("initialize MySQL authorization adapter: %w", err)
+		}
+		return nil
 	}
 	global.DB = db
-	if err := CasbinInit(); err != nil {
-		return closeOnError(err)
+	CasbinInit()
+	if err := CheckVersion(db); err != nil {
+		return fmt.Errorf("检查数据库版本失败: %w", err)
 	}
-	return db, nil
+	for _, step := range []struct {
+		name string
+		run  func(*gorm.DB) error
+	}{
+		{"permanent device identity", ApplyDeviceIdentitySchema},
+		{"service access receipt", ApplyServiceAccessSchema},
+		{"telemetry history intent", ApplyHistoryIntentSchema},
+		{"market installation", ApplyMarketInstallSchema},
+	} {
+		if err := step.run(db); err != nil {
+			return fmt.Errorf("initialize %s schema: %w", step.name, err)
+		}
+	}
+	if os.Getenv("TP_PLATFORMCONFIG_OWNER") == "encore" {
+		if err := ApplyPlatformConfigSchema(db); err != nil {
+			return fmt.Errorf("initialize existing platform dictionary schema: %w", err)
+		}
+	}
+	for _, step := range []struct {
+		name string
+		run  func(*gorm.DB) error
+	}{
+		{"native binding", ApplyNativeBindingSchema},
+		{"automation command guard", ApplyCommandGuardSchema},
+		{"app push", ApplyAppPushSchema},
+		{"auth", ApplyAuthSchema},
+	} {
+		if err := step.run(db); err != nil {
+			return fmt.Errorf("initialize %s schema: %w", step.name, err)
+		}
+	}
+	return nil
+}
+
+func wrapMySQLSchemaError(err error) error {
+	var mysqlErr *mysqldriver.MySQLError
+	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1419 {
+		return fmt.Errorf("initialize MySQL platform schema: the device identity triggers need log_bin_trust_function_creators=1 (or the SUPER privilege for the migrating account): %w", err)
+	}
+	return fmt.Errorf("initialize MySQL platform schema: %w", err)
 }

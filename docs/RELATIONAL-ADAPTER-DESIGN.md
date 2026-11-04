@@ -268,7 +268,7 @@ func (u pgCurrent) Upsert(ctx context.Context, rows []TelemetryCurrentData) erro
 
 ### 4.4 范例三：咨询锁（事务级互斥）
 
-PG：`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`，随事务结束释放。MySQL 的 `GET_LOCK` 是**会话级**，不随事务结束释放，且与连接池交互危险，**不能**当作替身。显式实现：一张锁表，事务里 `INSERT IGNORE` + `SELECT ... FOR UPDATE` 锁一行，随事务提交或回滚释放。
+PG：`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`，随事务结束释放。MySQL 的 `GET_LOCK` 是**会话级**，不随事务结束释放，且与连接池交互危险，**不能**当作替身。显式实现：一张锁表，事务里用单条 `INSERT ... ON DUPLICATE KEY UPDATE` 锁定对应行，随事务提交或回滚释放。不要用 `INSERT IGNORE` 后再 `SELECT ... FOR UPDATE`：并发插入同一个新键时，等待方可能先持有重复键共享锁，再一起升级为排他锁而死锁。
 
 ```go
 // 示意：每个使用咨询锁的 repository 包里都需要。8+ 处使用，见决定项 O3：是否收进 pkg/relational。
@@ -286,12 +286,11 @@ func (advisoryLocker) Lock(ctx context.Context, tx *gorm.DB, key string) error {
 func (rowLocker) Lock(ctx context.Context, tx *gorm.DB, key string) error {
     sum := sha256.Sum256([]byte(key))               // 固定长度，避免超长键和排序规则问题
     k := hex.EncodeToString(sum[:])                 // CHAR(64) ascii_bin
-    if err := tx.WithContext(ctx).Exec(`INSERT IGNORE INTO tp_advisory_locks (lock_key) VALUES (?)`, k).Error; err != nil {
-        return err
-    }
-    return tx.WithContext(ctx).Exec(`SELECT lock_key FROM tp_advisory_locks WHERE lock_key = ? FOR UPDATE`, k).Error
+    return tx.WithContext(ctx).Exec(`INSERT INTO tp_advisory_locks (lock_key) VALUES (?) ON DUPLICATE KEY UPDATE lock_key = lock_key`, k).Error
 }
 ```
+
+并发回归记录：A0 的 40 轮、每轮两个事务且锁键顺序相反的实测中，`INSERT IGNORE` + `SELECT ... FOR UPDATE` 有 72/80 次 MySQL 1213 死锁；改为上面这条原子 upsert 后 PG/MySQL 均为 0 次失败。
 
 锁表 `tp_advisory_locks(lock_key CHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY)` 作为每个 MySQL schema 的 baseline 迁移的一部分（d1 的 `mysqlowner.AdvisoryLocksTable` 已有定义）。**必须在事务内调用**；`rowLocker` 在事务外调用没有意义，函数应在 `tx.Statement.ConnPool` 不是事务时返回错误（卡片里加断言）。**取锁顺序**：同一事务取多把锁时，两个实现都必须按键排序后取，避免 MySQL 行锁死锁（PG 咨询锁同理）。
 
