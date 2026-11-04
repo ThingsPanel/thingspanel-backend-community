@@ -21,6 +21,10 @@ func TestTextMasksSensitiveFields(t *testing.T) {
 		`voucher=` + tok + `?suffix&next=ok`,
 		`v%6fucher=` + tok + `&page=1`,
 		`voucher%5Btoken%5D=` + tok + `&page=1`,
+		`voucher[]=` + tok + `&page=1`,
+		`voucher[code]=` + tok + `&page=1`,
+		`user[voucher]=` + tok + `&page=1`,
+		`plugin[voucher][id]=` + tok + `&page=1`,
 		`{"voucher":12345` + tok + `}`,
 	}
 	for _, in := range cases {
@@ -34,6 +38,9 @@ func TestTextMasksSensitiveFields(t *testing.T) {
 	}
 	if got := Text(`v%6fice=keep&page=1`); got != `v%6fice=keep&page=1` {
 		t.Errorf("non-sensitive encoded form field altered: %s", got)
+	}
+	if got := Text(`filter[code]=visible-value&user[name]=alice`); got != `filter[code]=visible-value&user[name]=alice` {
+		t.Errorf("non-sensitive bracketed form fields altered: %s", got)
 	}
 	if got := Text(`page=1?next=ok`); got != `page=1?next=ok` {
 		t.Errorf("ordinary query suffix altered: %s", got)
