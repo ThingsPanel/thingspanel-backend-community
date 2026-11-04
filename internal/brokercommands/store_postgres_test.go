@@ -15,6 +15,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
+	"project/internal/model"
 )
 
 func postgresStore(t *testing.T) (*Store, *gorm.DB) {
@@ -71,7 +72,7 @@ func postgresStore(t *testing.T) (*Store, *gorm.DB) {
 	)`).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec(`CREATE TABLE command_set_logs (id uuid PRIMARY KEY, device_id varchar(36) NOT NULL)`).Error; err != nil {
+	if err := db.Exec(`CREATE TABLE command_set_logs (id uuid PRIMARY KEY, device_id varchar(36) NOT NULL, message_id varchar(64), status varchar(10), error_message text)`).Error; err != nil {
 		t.Fatal(err)
 	}
 	migration, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", "006_commands.sql"))
@@ -120,7 +121,7 @@ func newRequest(tenant, caller, root, target, key string) Request {
 }
 
 func persistLog(tx *gorm.DB, row Row) error {
-	return tx.Exec("INSERT INTO command_set_logs(id,device_id) VALUES (?,?)", row.ID, row.TargetDeviceID).Error
+	return tx.Exec("INSERT INTO command_set_logs(id,device_id,message_id,status) VALUES (?,?,?,?)", row.ID, row.TargetDeviceID, row.ID, "1").Error
 }
 
 func TestPostgresConcurrentSubmitIdempotencyAndConflict(t *testing.T) {
@@ -396,22 +397,32 @@ func TestPostgresExpiryFencingAndStaleDispatchNeverRequeues(t *testing.T) {
 	if err != nil || claim == nil || claim.ID != acknowledged.ID {
 		t.Fatalf("claim broker-ack candidate=%v err=%v", claim, err)
 	}
-	if err := store.FinishPublish(ctx, acknowledged.ID, true, ""); err != nil {
+	// The controlled broker accepts the publish and deliberately emits no
+	// device acknowledgement. The timeout sweeper runs below with a short test
+	// deadline instead of waiting for the production default.
+	if err := store.Dispatch(ctx, acknowledged.ID, func(context.Context, *gorm.DB, Row) error { return nil }, func(context.Context, Row) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 	stored, err = store.GetScoped(ctx, tenant, acknowledged.ID)
 	if err != nil || stored.State != "broker_acknowledged" {
 		t.Fatalf("successful MQTT publish state=%q err=%v", stored.State, err)
 	}
-	if err := db.Model(&Row{}).Where("id=?", acknowledged.ID).Update("expires_at", time.Now().Add(-time.Second)).Error; err != nil {
+	if err := db.Model(&Row{}).Where("id=?", acknowledged.ID).Update("updated_at", time.Now().Add(-time.Minute)).Error; err != nil {
 		t.Fatal(err)
 	}
-	if count, err := store.MarkStaleDispatches(ctx, 30*time.Second); err != nil || count != 1 {
-		t.Fatalf("mark broker-ack stale count=%d err=%v", count, err)
+	if count, err := store.MarkStaleDispatches(ctx, 30*time.Second, 10*time.Second); err != nil || count != 1 {
+		t.Fatalf("mark broker-ack timed out count=%d err=%v", count, err)
 	}
 	stored, err = store.GetScoped(ctx, tenant, acknowledged.ID)
-	if err != nil || stored.State != StateUnknown {
-		t.Fatalf("broker-ack without device report state=%q err=%v", stored.State, err)
+	if err != nil || stored.State != StateFailed || stored.LastError != "device acknowledgement timed out" {
+		t.Fatalf("broker-ack without device report state=%q last_error=%q err=%v", stored.State, stored.LastError, err)
+	}
+	var commandLog model.CommandSetLog
+	if err := db.Where("message_id=?", acknowledged.ID).Take(&commandLog).Error; err != nil || commandLog.Status == nil || *commandLog.Status != "2" || commandLog.ErrorMessage == nil || *commandLog.ErrorMessage != "device acknowledgement timed out; no device response received" {
+		t.Fatalf("timeout log status=%v error=%v err=%v", commandLog.Status, commandLog.ErrorMessage, err)
+	}
+	if count, err := store.MarkStaleDispatches(ctx, 30*time.Second, 10*time.Second); err != nil || count != 0 {
+		t.Fatalf("second timeout sweep count=%d err=%v", count, err)
 	}
 }
 

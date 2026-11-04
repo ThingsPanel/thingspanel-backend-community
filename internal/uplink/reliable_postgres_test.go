@@ -220,6 +220,30 @@ func TestReliableCommandAckRemainsScoped(t *testing.T) {
 	}
 }
 
+func TestLateAckAfterCommandTimeoutIsConsumedWithoutChangingFailure(t *testing.T) {
+	db, s := reliableFixture(t)
+	seedReliableDevice(t, db, "device-a", "tenant-a")
+	commandID := uuid.NewString()
+	seedReliableDurableCommand(t, db, "tenant-a", "device-a", "device-a", commandID, 1, brokercommands.StateFailed)
+	if err := db.Model(&brokercommands.Row{}).Where("id=?", commandID).Update("last_error", "device acknowledgement timed out").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.CommandSetLog{}).Where("message_id=?", commandID).Updates(map[string]any{"status": "2", "error_message": "device acknowledgement timed out; no device response received"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := acceptReliableAck(t, s, "tenant-a", "device-a", commandID, 1, 0, "late-timeout-ack"); err != nil {
+		t.Fatalf("late ACK should be consumed as a terminal no-op: %v", err)
+	}
+	row, err := brokercommands.New(db).GetScoped(context.Background(), "tenant-a", commandID)
+	if err != nil || row.State != brokercommands.StateFailed || row.LastError != "device acknowledgement timed out" {
+		t.Fatalf("late ACK changed timeout: state=%q error=%q err=%v", row.State, row.LastError, err)
+	}
+	var log model.CommandSetLog
+	if err := db.Where("message_id=?", commandID).Take(&log).Error; err != nil || log.Status == nil || *log.Status != "2" {
+		t.Fatalf("late ACK changed timeout log: status=%v err=%v", log.Status, err)
+	}
+}
+
 func seedReliableDurableCommand(t *testing.T, db *gorm.DB, tenant, logicalDevice, targetDevice, commandID string, epoch uint64, state string) {
 	t.Helper()
 	hash := sha256.Sum256([]byte(commandID))
