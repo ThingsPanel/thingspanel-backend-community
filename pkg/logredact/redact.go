@@ -35,7 +35,7 @@ var (
 	jsonStringRe = regexp.MustCompile(`("` + keyPattern + `"\s*:\s*)"(?:\\.|[^"\\])*("|$)`)
 	// "key": {...} / [...] / scalar, used only when the text is not valid JSON.
 	jsonOtherRe = regexp.MustCompile(`("` + keyPattern + `"\s*:\s*)(?:[^"\s,}\]][^,}\]]*)`)
-	formRe      = regexp.MustCompile(`((?:^|[?&;\s])([^=&;\s"]+)=)[^&?;\s"]*`)
+	formRe      = regexp.MustCompile(`((?:^|[?&;\s])([^=&;\s"]+)=)([^&;\s"]*)`)
 )
 
 // Text masks sensitive fields in a JSON document, form/query encoded text or
@@ -66,7 +66,7 @@ func Text(s string) string {
 
 func redactFormField(match string) string {
 	parts := formRe.FindStringSubmatch(match)
-	if len(parts) != 3 {
+	if len(parts) != 4 {
 		return match
 	}
 	key, err := url.QueryUnescape(parts[2])
@@ -79,6 +79,12 @@ func redactFormField(match string) string {
 	}
 	if IsSensitiveKey(key) {
 		return parts[1] + Mask
+	}
+	// A question mark is part of a value unless it begins another key/value
+	// pair. Redact that nested query without changing ordinary values such as
+	// `page=1?next=ok`.
+	if question := strings.IndexByte(parts[3], '?'); question >= 0 && strings.Contains(parts[3][question+1:], "=") {
+		return parts[1] + parts[3][:question+1] + Text(parts[3][question+1:])
 	}
 	return match
 }
@@ -107,7 +113,7 @@ func maskValue(v interface{}) interface{} {
 func URL(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil {
-		return Text(raw)
+		return Text(stripURLUserinfo(raw))
 	}
 	// Userinfo is sensitive even when a URL has no query string.
 	u.User = nil
@@ -122,6 +128,22 @@ func URL(raw string) string {
 	}
 	u.RawQuery = q.Encode()
 	return u.String()
+}
+
+func stripURLUserinfo(raw string) string {
+	schemeEnd := strings.Index(raw, "://")
+	if schemeEnd <= 0 {
+		return raw
+	}
+	authorityStart := schemeEnd + len("://")
+	authorityEnd := len(raw)
+	if offset := strings.IndexAny(raw[authorityStart:], "/?#"); offset >= 0 {
+		authorityEnd = authorityStart + offset
+	}
+	if at := strings.LastIndex(raw[authorityStart:authorityEnd], "@"); at >= 0 {
+		return raw[:authorityStart] + raw[authorityStart+at+1:]
+	}
+	return raw
 }
 
 // Error returns an error whose message has any URL and credential text masked.
