@@ -2,6 +2,8 @@ package logredact
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
@@ -132,6 +134,29 @@ func TestURLRedactsEncodedPathAssignments(t *testing.T) {
 	const ordinary = "https://host.test/%3Fdisplay%3Da+b"
 	if got := URL(ordinary); got != ordinary {
 		t.Errorf("ordinary encoded path changed: got %q want %q", got, ordinary)
+	}
+}
+
+func TestURLPathPartialDecodeFailureFailsClosed(t *testing.T) {
+	const secret = "FAKE_PARTIAL_PATH_SECRET"
+	raw := "https://host.test/%253Ftoken%253D" + secret + "%25ZZ?foo=ok"
+	if got := URL(raw); got != Mask {
+		t.Fatalf("partially decodable malformed path should fail closed, got %q", got)
+	}
+}
+
+func TestHTTPGetErrorRedactsPartiallyDecodedPath(t *testing.T) {
+	const secret = "FAKE_HTTP_ERROR_PATH_SECRET"
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	baseURL := server.URL
+	server.Close()
+	_, err := http.Get(baseURL + "/%253Ftoken%253D" + secret + "%25ZZ?foo=ok")
+	if err == nil {
+		t.Fatal("GET to the closed local test server unexpectedly succeeded")
+	}
+	got := Error(err).Error()
+	if strings.Contains(got, secret) {
+		t.Fatalf("HTTP Get error log leaked path credential: %s", got)
 	}
 }
 

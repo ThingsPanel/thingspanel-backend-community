@@ -409,7 +409,10 @@ func redactURLPath(u *url.URL, depth int, budget *redactionBudget) (changed bool
 			return false, false
 		}
 		next, err := url.PathUnescape(decoded)
-		if err != nil || next == decoded {
+		if err != nil {
+			return false, true
+		}
+		if next == decoded {
 			return false, false
 		}
 		if layers == maxNestedDecodeLayers {
