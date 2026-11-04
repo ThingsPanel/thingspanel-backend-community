@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	"gorm.io/gorm"
 	"project/internal/model"
 	"project/pkg/global"
@@ -74,7 +75,7 @@ func ExecuteMarketInstallConfigBinding(ctx context.Context, req model.MarketInst
 	}
 	var output MarketInstallConfigReceipt
 	err = global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "a08-config:"+req.TenantID+":"+req.SubjectID+":"+req.IdempotencyKey).Error; err != nil {
+		if err := relational.LockTx(ctx, tx, "a08-config:"+req.TenantID+":"+req.SubjectID+":"+req.IdempotencyKey); err != nil {
 			return err
 		}
 		var existing MarketInstallConfigReceipt

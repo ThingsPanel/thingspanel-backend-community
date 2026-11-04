@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm/clause"
 	"project/internal/model"
 	"project/internal/query"
-	"project/pkg/dbdialect"
 )
 
 var ErrServiceAccessOperationConflict = errors.New("service access operation conflicts with the original request")
@@ -112,7 +111,7 @@ func CreateServiceAccessWithOperation(ctx context.Context, access *model.Service
 		RequestHash: requestHash, AccessID: access.ID, ResourceHash: resourceHash,
 		CreatedAt: access.CreateAt,
 	}
-	inserted, insertErr := dbdialect.InsertIfAbsent(tx, &receipt, "tenant_id", "operation_key")
+	inserted, insertErr := InsertIfAbsent(tx, &receipt, "tenant_id", "operation_key")
 	if insertErr != nil {
 		return nil, rollbackServiceAccessOperation(tx, insertErr)
 	}

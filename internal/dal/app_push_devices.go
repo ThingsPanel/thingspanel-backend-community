@@ -5,11 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	"github.com/go-basic/uuid"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 	"project/pkg/global"
-	"sort"
 	"time"
 )
 
@@ -53,11 +53,8 @@ func BindAppPushDevice(ctx context.Context, device AppPushDevice, token string) 
 	}
 	err = global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		locks := []string{device.AppID + ":cid:" + device.CID, device.AppID + ":installation:" + device.InstallationID}
-		sort.Strings(locks)
-		for _, key := range locks {
-			if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", key).Error; err != nil {
-				return err
-			}
+		if err := relational.LockTx(ctx, tx, locks...); err != nil {
+			return err
 		}
 		var old AppPushDevice
 		found := tx.Where("app_id = ? AND installation_id = ? AND active", device.AppID, device.InstallationID).Take(&old)

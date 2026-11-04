@@ -21,6 +21,7 @@
 | `.claude/worktrees/wp-ha-plugin-target-docs-20261106` | `wp/ha-plugin-target-docs-20261106` | HA 插件目标分析与任务拆分（文档） | Codex | 2026-11-06 登记；提交待审查，不推送不合并 |
 | `.claude/worktrees/wp-t7-ha-catalog-renewal` | `wp/t7-ha-catalog-renewal` | T7 HA 共享安装与续期稳定 | Codex | 2026-11-06 登记；进行中，预计审查合并后清理，删除前确认 |
 | `.claude/worktrees/wp-t1-a1-platform-start` | `wp/t1-a1-platform-start` | T1-A1 平台启动与连接 | Codex 子会话 | 基线 `develop@85b04e7b339cc0b7d4ff78ba6ec5e7de1640e792`；已提交待审查，审查后清理 |
+| `.claude/worktrees/wp-t1-a2-platform-dal-service` | `wp/t1-a2-platform-dal-service` | T1-A2 平台 DAL / repo / service | Codex 子会话 | 基线 `develop@45887d964a36d3a599d05eca0eb52a6557397a6d`；进行中 |
 | `.claude/worktrees/wp-t4-plugin-identity-3cf9d2` | `claude/wp-t4-plugin-identity-3cf9d2` | T4 插件身份 | 进行中会话 | 进行中，不动 |
 | `.claude/worktrees/wp-p2-fix` | `wp/p2-fix-redaction` | P2-fix 凭据脱敏回归修复 | Codex 子任务 | 进行中；审查合并后当天清理 |
 | `.claude/worktrees/wp-p2-fix2-form-brackets` | `wp/p2-fix2-form-brackets` | P2-fix2 原始方括号 form 字段脱敏 | Codex 子任务 | 进行中；审查合并后当天清理 |

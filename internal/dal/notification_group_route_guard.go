@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	"project/internal/model"
 	"project/pkg/global"
 
@@ -75,7 +76,7 @@ func withLegacyGroupWriteLock(ctx context.Context, key SourceRouteKey, bridgeEna
 				return ErrSourceRouteUnavailable
 			}
 			lockKey := sourceRouteAdvisoryKey(key)
-			if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, lockKey).Error; err != nil {
+			if err := relational.LockTx(ctx, tx, lockKey); err != nil {
 				return ErrSourceRouteUnavailable
 			}
 			var route struct {

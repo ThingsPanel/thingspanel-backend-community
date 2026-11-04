@@ -36,14 +36,18 @@ func ResolveNotificationMemberContact(ctx context.Context, userID, tenantID, con
 	if global.DB == nil || userID == "" || tenantID == "" {
 		return contact, ErrNotificationMemberReadUnavailable
 	}
+	trim := "btrim"
+	if global.DB.Dialector.Name() == "mysql" {
+		trim = "TRIM"
+	}
 	var query string
 	switch contactField {
 	case "email":
-		query = `SELECT id, tenant_id, btrim(email) AS address FROM users
-			WHERE id = ? AND tenant_id = ? AND status = 'N' AND btrim(email) <> '' LIMIT 1`
+		query = `SELECT id, tenant_id, ` + trim + `(email) AS address FROM users
+			WHERE id = ? AND tenant_id = ? AND status = 'N' AND ` + trim + `(email) <> '' LIMIT 1`
 	case "phone":
-		query = `SELECT id, tenant_id, btrim(phone_number) AS address FROM users
-			WHERE id = ? AND tenant_id = ? AND status = 'N' AND btrim(phone_number) <> '' LIMIT 1`
+		query = `SELECT id, tenant_id, ` + trim + `(phone_number) AS address FROM users
+			WHERE id = ? AND tenant_id = ? AND status = 'N' AND ` + trim + `(phone_number) <> '' LIMIT 1`
 	default:
 		return contact, ErrNotificationMemberNotFound
 	}

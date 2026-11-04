@@ -42,8 +42,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"project/internal/dal"
 )
 
 const (
@@ -147,12 +149,7 @@ func Guard(db *gorm.DB) gin.HandlerFunc {
 // generations 7 and 8 end with 8 recorded no matter which arrives first, so the
 // late arrival of 7 is refused either way.
 func bumpScopeGeneration(db *gorm.DB, scope string, generation int64) (int64, error) {
-	if err := db.Exec(`
-        INSERT INTO automation_scope_generation (scope_key, generation, updated_at)
-        VALUES (?, ?, now())
-        ON CONFLICT (scope_key) DO UPDATE
-           SET generation = GREATEST(automation_scope_generation.generation, EXCLUDED.generation),
-               updated_at = now()`, scope, generation).Error; err != nil {
+	if err := dal.BumpAutomationScopeGeneration(db.Statement.Context, db, scope, generation); err != nil {
 		return 0, err
 	}
 	var current int64
@@ -165,6 +162,17 @@ func bumpScopeGeneration(db *gorm.DB, scope string, generation int64) (int64, er
 
 // reserveKey claims the idempotency key. false means somebody already holds it.
 func reserveKey(db *gorm.DB, key, scope string, generation int64, kind, deviceID, hash string) (bool, error) {
+	if db.Dialector.Name() == "mysql" {
+		now := time.Now().UTC()
+		row := commandGuardReservation{IdempotencyKey: key, ScopeKey: scope, Generation: generation,
+			ActionKind: kind, DeviceID: deviceID, PayloadHash: hash, State: "in_flight",
+			LeaseUntil: now.Add(inFlightLease), CreatedAt: now, UpdatedAt: now}
+		result := db.Create(&row)
+		if relational.Is(result.Error, relational.KindUnique) {
+			return false, nil
+		}
+		return result.Error == nil && result.RowsAffected == 1, result.Error
+	}
 	res := db.Exec(`
         INSERT INTO automation_command_guard
             (idempotency_key, scope_key, generation, action_kind, device_id, payload_hash,
@@ -177,6 +185,21 @@ func reserveKey(db *gorm.DB, key, scope string, generation int64, kind, deviceID
 	}
 	return res.RowsAffected > 0, nil
 }
+
+type commandGuardReservation struct {
+	IdempotencyKey string    `gorm:"column:idempotency_key;primaryKey"`
+	ScopeKey       string    `gorm:"column:scope_key"`
+	Generation     int64     `gorm:"column:generation"`
+	ActionKind     string    `gorm:"column:action_kind"`
+	DeviceID       string    `gorm:"column:device_id"`
+	PayloadHash    string    `gorm:"column:payload_hash"`
+	State          string    `gorm:"column:state"`
+	LeaseUntil     time.Time `gorm:"column:lease_until"`
+	CreatedAt      time.Time `gorm:"column:created_at"`
+	UpdatedAt      time.Time `gorm:"column:updated_at"`
+}
+
+func (commandGuardReservation) TableName() string { return "automation_command_guard" }
 
 type guardRow struct {
 	State        string

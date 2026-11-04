@@ -5,7 +5,6 @@ import (
 	"gorm.io/gorm"
 	"project/internal/model"
 	"project/internal/query"
-	"project/pkg/dbdialect"
 	"sort"
 	"strings"
 	"time"
@@ -38,7 +37,7 @@ func reserveDeviceIDs(tx *query.Query, devices []*model.Device) error {
 	db := tx.Device.UnderlyingDB().Session(&gorm.Session{NewDB: true})
 	for _, d := range sorted {
 		reservation := DeviceIDReservation{ID: d.ID, TenantID: d.TenantID, State: "active", CreatedAt: time.Now().UTC()}
-		inserted, err := dbdialect.InsertIfAbsent(db, &reservation, "id")
+		inserted, err := InsertIfAbsent(db, &reservation, "id")
 		if err != nil {
 			return err
 		}
