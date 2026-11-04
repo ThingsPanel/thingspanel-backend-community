@@ -20,7 +20,7 @@ up)
   docker run -d --name $PG_AUTO -e POSTGRES_PASSWORD=pw -p 56003:5432 postgres:16 >/dev/null
   docker run -d --name $MY_AUTO -e MYSQL_ROOT_PASSWORD=pw -e MYSQL_DATABASE=auto -p 56004:3306 mysql:8.4 >/dev/null
   until docker exec $PG_ORACLE pg_isready -U postgres >/dev/null 2>&1; do sleep 2; done; sleep 4
-  for i in $(seq 1 32); do docker exec -i $PG_ORACLE psql -U postgres -q -v ON_ERROR_STOP=0 < "$root/sql/$i.sql" >/dev/null 2>&1 || true; done
+  for i in $(seq 1 33); do docker exec -i $PG_ORACLE psql -U postgres -q -v ON_ERROR_STOP=0 < "$root/sql/$i.sql" >/dev/null 2>&1 || true; done
   for f in "$root"/sql/service_access/*.sql; do docker exec -i $PG_ORACLE psql -U postgres -q < "$f" >/dev/null 2>&1 || true; done
   until docker exec $MY mysqladmin ping -uroot -ppw --silent >/dev/null 2>&1; do sleep 2; done
   until docker exec $MY_AUTO mysqladmin ping -uroot -ppw --silent >/dev/null 2>&1; do sleep 2; done
