@@ -6,7 +6,7 @@
 提交列表：
 
 - `cc247c39` `feat: route platform startup through relational adapter`（rebase 后的 A1 实现）
-- MySQL Casbin 初始化失败关闭与回归（本次收尾提交；未推送、未合并）
+- `29cd73c2` `fix: fail MySQL startup when Casbin initialization fails`（恢复 MySQL 鉴权失败关闭与回归）
 状态：已 rebase 最新 develop 并提交，等待负责人审查；未推送、未合并。
 
 ## 1. 修改方案与原因
