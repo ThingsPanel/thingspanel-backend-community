@@ -28,3 +28,9 @@
 - `GET /device/list` 仍通过 query 传 voucher 给前端，按卡片要求只脱敏日志。改成 POST 需要前端配合，没有做。
 - 没有登记 `docs/WORKSPACES.md`：本 worktree 是任务启动时创建的，登记请负责人决定。
 - 设备（`devices.voucher`）等其他表的类似日志没有逐一排查；`logredact` 已是通用工具，其他调用点可复用。
+
+## git log --oneline develop..HEAD
+```
+f395d687 fix(security): redact voucher/token/password/secret from logs, operation logs and plugin URLs
+d58c27c3 docs: P2 hand-over note (本提交 hash 会因 amend 变化，以 git log 为准)
+```
