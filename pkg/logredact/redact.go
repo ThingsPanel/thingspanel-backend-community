@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -26,6 +27,32 @@ func IsSensitiveKey(key string) bool {
 		}
 	}
 	return false
+}
+
+// sensitiveEncodedKey handles malformed/truncated bodies where a key cannot
+// be decoded by the normal JSON or query parser. Ambiguous escapes are masked.
+func sensitiveEncodedKey(key string) bool {
+	for i := 0; i < 8; i++ {
+		if IsSensitiveKey(key) {
+			return true
+		}
+		next, err := url.QueryUnescape(key)
+		if err != nil {
+			return true
+		}
+		if strings.Contains(next, `\`) {
+			decoded, err := strconv.Unquote(`"` + next + `"`)
+			if err != nil {
+				return true
+			}
+			next = decoded
+		}
+		if next == key {
+			return false
+		}
+		key = next
+	}
+	return strings.ContainsAny(key, `%\`)
 }
 
 var (
@@ -82,11 +109,7 @@ func redactAssignments(s string) string {
 			}
 			return s[searchFrom+lo : searchFrom+hi]
 		}
-		key, err := url.QueryUnescape(group(3))
-		sensitive := err == nil && IsSensitiveKey(key)
-		if err != nil && strings.Contains(group(3), "%") {
-			sensitive = true
-		}
+		sensitive := sensitiveEncodedKey(group(3))
 		if !sensitive {
 			searchFrom = end
 			continue
@@ -186,7 +209,7 @@ func maskValue(v interface{}) interface{} {
 		return redactLooseText(t)
 	case map[string]interface{}:
 		for k, val := range t {
-			if IsSensitiveKey(k) {
+			if sensitiveEncodedKey(k) {
 				t[k] = Mask
 			} else {
 				t[k] = maskValue(val)
@@ -211,7 +234,7 @@ func URL(raw string) string {
 	// Userinfo is sensitive even when a URL has no query string.
 	u.User = nil
 	if u.RawQuery == "" {
-		return u.String()
+		return Text(u.String())
 	}
 	q, err := url.ParseQuery(u.RawQuery)
 	if err != nil {
@@ -219,7 +242,7 @@ func URL(raw string) string {
 		return Text(stripURLUserinfo(raw))
 	}
 	for k := range q {
-		if IsSensitiveKey(k) {
+		if sensitiveEncodedKey(k) {
 			q.Set(k, Mask)
 		}
 	}

@@ -103,3 +103,19 @@ func TestURLAndError(t *testing.T) {
 		t.Error("nil")
 	}
 }
+
+func TestEncodedAndTruncatedSensitiveKeys(t *testing.T) {
+	for _, input := range []string{
+		`%2576oucher=fake-secret`,
+		`{"\u0076oucher":"fake-secret"`,
+		`{"%2576oucher":"fake-secret"}`,
+		`https://example.test/?%2576oucher=fake-secret`,
+	} {
+		if got := Text(input); strings.Contains(got, "fake-secret") {
+			t.Errorf("Text leaked credential: %s", got)
+		}
+		if got := URL(input); strings.Contains(got, "fake-secret") {
+			t.Errorf("URL leaked credential: %s", got)
+		}
+	}
+}
