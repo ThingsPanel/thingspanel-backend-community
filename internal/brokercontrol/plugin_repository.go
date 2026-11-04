@@ -105,7 +105,7 @@ func (r *GormRepository) ResolvePluginTargets(ctx context.Context, ids []string)
 		JOIN service_access sa ON sa.id = d.service_access_id AND sa.tenant_id = d.tenant_id
 		JOIN service_plugins sp ON sp.id = sa.service_plugin_id AND sp.service_type = 2
 		WHERE d.id IN ? AND (d.access_way = 'B' OR NULLIF(btrim(d.service_access_id), '') IS NOT NULL) AND d.is_enabled = 'enabled' AND d.activate_flag = 'active'
-		  AND (d.device_config_id IS NULL OR NOT EXISTS (SELECT 1 FROM device_topic_mappings m WHERE m.device_config_id=d.device_config_id AND m.enabled=TRUE))
+		  AND (d.device_config_id IS NULL OR NOT EXISTS (SELECT 1 FROM device_topic_mappings m WHERE CAST(m.device_config_id AS text)=CAST(d.device_config_id AS text) AND m.enabled=TRUE))
 		UNION ALL
 		SELECT d.tenant_id, d.id AS device_id, d.device_number,
 		       (SELECT count(*) FROM devices dx WHERE dx.device_number = d.device_number) AS device_number_count,
@@ -119,7 +119,7 @@ func (r *GormRepository) ResolvePluginTargets(ctx context.Context, ids []string)
 		WHERE d.id IN ? AND d.access_way IS DISTINCT FROM 'B' AND NULLIF(btrim(d.service_access_id), '') IS NULL
 		  AND d.is_enabled = 'enabled' AND d.activate_flag = 'active'
 		  AND COALESCE(dc.protocol_type, '') <> '' AND upper(dc.protocol_type) <> 'MQTT'
-		  AND NOT EXISTS (SELECT 1 FROM device_topic_mappings m WHERE m.device_config_id=dc.id AND m.enabled=TRUE)
+		  AND NOT EXISTS (SELECT 1 FROM device_topic_mappings m WHERE CAST(m.device_config_id AS text)=CAST(dc.id AS text) AND m.enabled=TRUE)
 		ORDER BY device_id, kind`, ids, ids).Scan(&rows).Error
 	if err != nil {
 		return nil, err
