@@ -34,6 +34,9 @@ func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPlugin(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	if !pluginMayReadDevice(c, req) {
+		return
+	}
 
 	// 限流检查：只对voucher和device_number进行限流
 	var limitKey string

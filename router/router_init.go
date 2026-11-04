@@ -25,6 +25,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	api "project/internal/api"
+	pluginidentity "project/internal/api"
 	service "project/internal/service"
 )
 
@@ -143,8 +144,8 @@ func RouterInit() *gin.Engine {
 		v1 := api.Group("v1")
 		{
 			// v1.GET("notice/test", controllers.NoticeTest)
-			v1.POST("plugin/heartbeat", middleware.RejectUnboundPluginRuntime(), controllers.Heartbeat)
-			v1.POST("plugin/device/config", middleware.RejectUnboundPluginRuntime(), controllers.HandleDeviceConfigForProtocolPlugin)
+			v1.POST("plugin/heartbeat", middleware.RequireManagedPluginRuntime(true), controllers.Heartbeat)
+			v1.POST("plugin/device/config", middleware.RequireManagedPluginRuntime(false), controllers.HandleDeviceConfigForProtocolPlugin)
 			v1.POST("plugin/devices", middleware.RejectUnboundPluginRuntime(), controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
 			v1.POST("plugin/service/access/list", middleware.RejectUnboundPluginRuntime(), controllers.HandlePluginServiceAccessList)
 			v1.POST("plugin/service/access", middleware.RejectUnboundPluginRuntime(), controllers.HandlePluginServiceAccess)
@@ -237,6 +238,9 @@ func RouterInit() *gin.Engine {
 			apps.Model.DataPolicy.Init(v1) // 数据清理
 
 			apps.Model.DeviceConfig.Init(v1) // 设备配置
+
+			v1.POST("plugin/runtime/identity", pluginidentity.IssuePluginRuntimeIdentity)
+			v1.POST("plugin/runtime/identity/revoke", pluginidentity.RevokePluginRuntimeIdentity)
 
 			apps.Model.DataScript.Init(v1) // 数据处理脚本
 
