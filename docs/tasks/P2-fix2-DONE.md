@@ -10,9 +10,9 @@
 
 - assignment scanner 把原样方括号字段名作为整体判定，覆盖 `voucher[]`、`voucher[code]`、`user[voucher]`、`plugin[voucher][id]`。
 - `Text` 递归检查 JSON 字符串、表单字段和至多四层 URL 编码的嵌套值；`URL` 检查非敏感 query 参数中的嵌套 JSON/URL，也检查原始 path assignment 及 `EscapedPath` 解码后的 assignment。覆盖 `payload=%7B%22voucher%22...`、`return_to=https%3A...%3Ftoken...`、`/%3Ftoken%3D...`、双层编码 path、`/path/token=...?...` 及内嵌转义 JSON。
-- 嵌套扫描使用每次调用独立的预算，最多处理 1 MiB 输入、4 MiB 累计递归内容、8 层嵌套和 16,384 个 assignment/query 字段。超过边界时 fail closed：超大文本/URL 或超多 URL query 字段整体返回 `***`，超字段数时遮住未处理尾部，过深/过度编码值遮住该值，畸形百分号编码值也遮住。
+- 嵌套扫描使用每次调用独立的预算，最多处理 1 MiB 输入、4 MiB 累计递归内容、8 层嵌套和 16,384 个 assignment/query 字段。超过边界时 fail closed：超大文本/URL、超多 URL query 字段、path 部分解码失败或超出解码层限时整体返回 `***`；超字段数时遮住未处理尾部，过深/过度编码值和畸形百分号编码值也遮住。
 - 对无敏感内容的普通字段保留原文，包括 `filter[code]`、`user[name]`、普通嵌套 JSON 和 `+`。优化无敏感文本的快路径；逐字段处理，不保留全量匹配索引。
-- middleware 回归使用实际 `AccessLogger`、`OperationLogs` 和 SQLite 内存库。检查日志输出、操作日志正文与访问 URL 中的嵌套凭据均不可见；path 回归分别覆盖编码分隔符 path 和带普通 query 的 path assignment，并断言 handler 看到的 `Path`、`EscapedPath`、`RawQuery` 不变。请求正文也逐字节保持不变。
+- middleware 回归使用实际 `AccessLogger`、`OperationLogs` 和 SQLite 内存库。检查日志输出、操作日志正文与访问 URL 中的嵌套凭据均不可见；path 回归分别覆盖编码分隔符 path 和带普通 query 的 path assignment，并断言 handler 看到的 `Path`、`EscapedPath`、`RawQuery` 不变。另用关闭的本地 httptest listener 生成真实 `http.Get` transport error，确认 `Error` 日志不泄漏部分解码 path 凭据。请求正文也逐字节保持不变。
 
 ## 验证
 
