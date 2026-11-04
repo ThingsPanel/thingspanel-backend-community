@@ -76,3 +76,16 @@ func (r *Registry) Close() error {
 	}
 	return errors.Join(errs...)
 }
+
+// CloseOne forgets name and closes its pool when the registry owns it. Closing a name that is not registered is not
+// an error (a service may shut down twice).
+func (r *Registry) CloseOne(name string) error {
+	r.mu.Lock()
+	e, ok := r.entries[name]
+	delete(r.entries, name)
+	r.mu.Unlock()
+	if !ok || !e.owned {
+		return nil
+	}
+	return CloseDB(e.db)
+}

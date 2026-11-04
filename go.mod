@@ -148,3 +148,7 @@ require (
 	modernc.org/memory v1.10.0 // indirect
 	modernc.org/sqlite v1.37.0 // indirect
 )
+
+require github.com/ThingsPanel/thingspanel-backend-community/pkg/relational v0.0.0
+
+replace github.com/ThingsPanel/thingspanel-backend-community/pkg/relational => ./pkg/relational
