@@ -37,7 +37,7 @@
 - **未执行任何删除**。待确认清单：
   - 先移除 3 个干净的 worktree（status 为空，无忽略文件）：`~/.codex/worktrees/{native-command-validation,thingspanel-runtime-gateway,thingspanel-runtime-read-context}/thingspanel-backend-community`
   - 再删 8 个分支（均已有标签）：上表 8 个对应的原分支名。
-  - 删后本地分支应为 8 个（main、develop、rescue、5 个 claude/wp-*、wp/d1-dbx-returning、wp/t0-work-rules），worktree 为 10 条（>6，因其他会话仍在开发，见 WORKSPACES）。
+  - 删后本地分支应为 9 个（main、develop、rescue、4 个 claude/wp-*、wp/d1-dbx-returning、wp/t0-work-rules），worktree 为 9 条（>6，因其他会话仍在开发，见 WORKSPACES）。
 - 主目录 `git status` 不是完全干净：还留着 4 个规则文件（按要求）和两个 `docs/gmqtt-evidence-2026-10-*/` 证据目录（已归档，删除需确认）。
 - rescue 提交未审查；另外 `docs/gmqtt-evidence-2026-10-20-*.md/json` 等零散证据文件按任务书只处理了两个目录，仍在 rescue 提交里。
 - 前端 master 有 37 项未提交、kernel main 有 26 项未提交，本次只登记。
