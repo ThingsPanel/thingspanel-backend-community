@@ -50,6 +50,7 @@ func TestOperationLogRedactsEncodedFormVoucherAndKeepsQueryOutOfPath(t *testing.
 	logrus.SetOutput(&output)
 	const querySecret = "fake-query-credential-314159"
 	const formSecret = "fake-form-credential-271828"
+	const quotedSecret = "fake-quoted-credential-161803"
 	const route = "/api/v1/service/access"
 	engine := gin.New()
 	engine.Use(AccessLogger(), OperationLogs())
@@ -57,7 +58,8 @@ func TestOperationLogRedactsEncodedFormVoucherAndKeepsQueryOutOfPath(t *testing.
 		c.Set("claims", &utils.UserClaims{ID: "user-test", TenantID: "tenant-test"})
 		c.Status(204)
 	})
-	request := httptest.NewRequest("POST", route+"?v%6fucher="+querySecret, strings.NewReader("voucher%5Btoken%5D="+formSecret))
+	body := "voucher%5Btoken%5D=" + formSecret + "&voucher=\"" + quotedSecret + "\""
+	request := httptest.NewRequest("POST", route+"?v%6fucher="+querySecret, strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	response := httptest.NewRecorder()
 	engine.ServeHTTP(response, request)
@@ -72,10 +74,10 @@ func TestOperationLogRedactsEncodedFormVoucherAndKeepsQueryOutOfPath(t *testing.
 	if operationLog.Path == nil || *operationLog.Path != route {
 		t.Fatalf("operation log path should exclude query credentials: %#v", operationLog.Path)
 	}
-	if operationLog.RequestMessage == nil || strings.Contains(*operationLog.RequestMessage, formSecret) || !strings.Contains(*operationLog.RequestMessage, logredact.Mask) {
+	if operationLog.RequestMessage == nil || strings.Contains(*operationLog.RequestMessage, formSecret) || strings.Contains(*operationLog.RequestMessage, quotedSecret) || !strings.Contains(*operationLog.RequestMessage, logredact.Mask) {
 		t.Fatalf("encoded form credential was not redacted in operation log: %#v", operationLog.RequestMessage)
 	}
-	for _, secret := range []string{querySecret, formSecret} {
+	for _, secret := range []string{querySecret, formSecret, quotedSecret} {
 		if strings.Contains(output.String(), secret) {
 			t.Fatalf("credential leaked into logs: %s", output.String())
 		}
