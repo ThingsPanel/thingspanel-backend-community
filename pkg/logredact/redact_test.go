@@ -109,6 +109,32 @@ func TestURLRedactsNestedQueryValues(t *testing.T) {
 	}
 }
 
+func TestURLRedactsEncodedPathAssignments(t *testing.T) {
+	const secret = "FAKE_PATH_SECRET"
+	for _, raw := range []string{
+		"https://host.test/%3Ftoken%3D" + secret,
+		"https://host.test/%253Ftoken%253D" + secret,
+		"https://host.test/path/token=" + secret + "?foo=ok",
+	} {
+		got := URL(raw)
+		if strings.Contains(got, secret) {
+			t.Errorf("encoded path leaked: %s", got)
+		}
+		parsed, err := url.Parse(got)
+		if err != nil {
+			t.Errorf("redacted URL no longer parses: %s err=%v", got, err)
+		} else if strings.Contains(raw, "%3F") && parsed.RawQuery != "" {
+			t.Errorf("redacted path became a real query: %s", got)
+		} else if strings.Contains(raw, "?foo=ok") && parsed.Query().Get("foo") != "ok" {
+			t.Errorf("ordinary URL query was lost: %s", got)
+		}
+	}
+	const ordinary = "https://host.test/%3Fdisplay%3Da+b"
+	if got := URL(ordinary); got != ordinary {
+		t.Errorf("ordinary encoded path changed: got %q want %q", got, ordinary)
+	}
+}
+
 func TestNestedRedactionLimitsFailClosed(t *testing.T) {
 	const secret = "fake-depth-limited-secret"
 	deep := `voucher="` + secret + `"`
@@ -133,6 +159,13 @@ func TestNestedRedactionLimitsFailClosed(t *testing.T) {
 	denseURL := "https://example.test/?" + strings.Repeat("x=1&", maxRedactionFields+1) + "token=" + secret
 	if got := URL(denseURL); got != Mask {
 		t.Fatalf("URL with too many query fields should fail closed, got prefix %q", got[:min(32, len(got))])
+	}
+	encodedPath := url.QueryEscape("?token=" + secret)
+	for i := 0; i < maxNestedDecodeLayers+2; i++ {
+		encodedPath = url.PathEscape(encodedPath)
+	}
+	if got := URL("https://example.test/" + encodedPath); got != Mask {
+		t.Fatalf("over-encoded URL path should fail closed, got prefix %q", got[:min(32, len(got))])
 	}
 
 	tooLarge := strings.Repeat("x", maxTextBytes+1)

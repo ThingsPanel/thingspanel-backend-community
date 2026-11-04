@@ -113,3 +113,51 @@ func TestOperationLogRedactsEncodedFormVoucherAndKeepsQueryOutOfPath(t *testing.
 		t.Fatalf("access log lost ordinary plus-encoded query value: %s", output.String())
 	}
 }
+
+func TestAccessLoggerRedactsEncodedPathWithoutChangingRequest(t *testing.T) {
+	previousMode := gin.Mode()
+	previousWriter := gin.DefaultWriter
+	t.Cleanup(func() {
+		gin.SetMode(previousMode)
+		gin.DefaultWriter = previousWriter
+	})
+	gin.SetMode(gin.TestMode)
+	const secret = "FAKE_ACCESS_PATH_SECRET"
+	var output bytes.Buffer
+	gin.DefaultWriter = &output
+	type observedRequest struct{ path, escapedPath, rawQuery string }
+	var observed []observedRequest
+	engine := gin.New()
+	engine.Use(AccessLogger())
+	engine.GET("/api/*path", func(c *gin.Context) {
+		observed = append(observed, observedRequest{path: c.Request.URL.Path, escapedPath: c.Request.URL.EscapedPath(), rawQuery: c.Request.URL.RawQuery})
+		c.Status(204)
+	})
+	cases := []struct {
+		target, path, escapedPath, rawQuery string
+	}{
+		{"/api/%3Ftoken%3D" + secret, "/api/?token=" + secret, "/api/%3Ftoken%3D" + secret, ""},
+		{"/api/token=" + secret + "?foo=ok", "/api/token=" + secret, "/api/token=" + secret, "foo=ok"},
+	}
+	for _, tc := range cases {
+		response := httptest.NewRecorder()
+		engine.ServeHTTP(response, httptest.NewRequest("GET", tc.target, nil))
+		if response.Code != 204 {
+			t.Fatalf("unexpected response status: %d", response.Code)
+		}
+	}
+	if len(observed) != len(cases) {
+		t.Fatalf("handler saw %d requests, want %d", len(observed), len(cases))
+	}
+	for i, tc := range cases {
+		if observed[i].path != tc.path || observed[i].escapedPath != tc.escapedPath || observed[i].rawQuery != tc.rawQuery {
+			t.Fatalf("access logger changed routed request %d: got %#v want %#v", i, observed[i], tc)
+		}
+	}
+	if strings.Contains(output.String(), secret) {
+		t.Fatalf("encoded path credential leaked into access log: %s", output.String())
+	}
+	if !strings.Contains(output.String(), "foo=ok") || !strings.Contains(output.String(), "%2A%2A%2A") {
+		t.Fatalf("access log lost ordinary query or redaction marker: %s", output.String())
+	}
+}
