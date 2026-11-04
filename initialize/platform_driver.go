@@ -22,6 +22,7 @@ import (
 var (
 	platformRegistryMu sync.Mutex
 	platformRegistry   = relational.NewRegistry()
+	mysqlCasbinInit    = CasbinInit
 )
 
 // RelationalInit resolves the deployment's one relational driver and opens the
@@ -104,7 +105,9 @@ func initializePlatformSchema(ctx context.Context, db *gorm.DB, dialect relation
 			return wrapMySQLSchemaError(err)
 		}
 		global.DB = db
-		CasbinInit()
+		if err := mysqlCasbinInit(); err != nil {
+			return fmt.Errorf("initialize MySQL authorization adapter: %w", err)
+		}
 		return nil
 	}
 	global.DB = db

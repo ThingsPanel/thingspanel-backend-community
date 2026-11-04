@@ -1,6 +1,7 @@
 package initialize
 
 import (
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +16,14 @@ func TestRelationalInitMySQLImportsOldReceiptsAndDoesNotReplayAppliedDDL(t *test
 	if host == "" || port == "" || user == "" || database == "" {
 		t.Skip("requires an exclusive disposable MySQL test database")
 	}
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(".."); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(workingDirectory) })
 	portNumber, err := strconv.Atoi(port)
 	if err != nil {
 		t.Fatal(err)
@@ -42,6 +51,8 @@ func TestRelationalInitMySQLImportsOldReceiptsAndDoesNotReplayAppliedDDL(t *test
 		_ = CloseRelationalResources()
 		global.DB = previousGlobal
 	})
+	previousCasbinInit := mysqlCasbinInit
+	t.Cleanup(func() { mysqlCasbinInit = previousCasbinInit })
 
 	db, err := RelationalInit()
 	if err != nil {
@@ -53,6 +64,33 @@ func TestRelationalInitMySQLImportsOldReceiptsAndDoesNotReplayAppliedDDL(t *test
 	var modules int
 	if err := db.Raw("SELECT COUNT(DISTINCT module_name) FROM " + mysqlLedgerTable).Scan(&modules).Error; err != nil || modules != 8 {
 		t.Fatalf("legacy module receipts=%d err=%v", modules, err)
+	}
+	if err := CloseRelationalResources(); err != nil {
+		t.Fatal(err)
+	}
+	var failedPoolPing func() error
+	mysqlCasbinInit = func() error {
+		if pool, poolErr := global.DB.DB(); poolErr == nil {
+			failedPoolPing = pool.Ping
+		}
+		return errors.New("injected MySQL auth adapter failure")
+	}
+	if _, err := RelationalInit(); err == nil || !strings.Contains(err.Error(), "injected MySQL auth adapter failure") {
+		t.Fatalf("MySQL authorization initialization error must abort startup, got %v", err)
+	}
+	mysqlCasbinInit = previousCasbinInit
+	if global.DB != nil {
+		t.Fatal("failed MySQL authorization initialization left global.DB published")
+	}
+	if _, ok := platformRegistry.Get("platform"); ok {
+		t.Fatal("failed MySQL authorization initialization left the pool in the registry")
+	}
+	if failedPoolPing == nil || failedPoolPing() == nil {
+		t.Fatal("failed MySQL authorization initialization did not close its pool")
+	}
+	db, err = RelationalInit()
+	if err != nil {
+		t.Fatalf("MySQL startup after failed auth initialization: %v", err)
 	}
 	// Recreate the old-runner state: its receipts remain, but the relational
 	// ledger is absent. Removing one schema object makes any accidental replay
