@@ -58,7 +58,7 @@ func sensitiveEncodedKey(key string) bool {
 var (
 	// Accept JSON, form, query and common error-log assignment syntax. Values
 	// are consumed by a scanner so quotes and suffixes cannot leave fragments.
-	assignmentRe = regexp.MustCompile(`(^|[?&;,\s{[(])(["']?)([^:=?&;,\s"'{}\[\]]+)(["']?\s*[:=]\s*)(["']?)`)
+	assignmentRe = regexp.MustCompile(`(^|[?&;,\s{[(])(["']?)([^:=?&;,\s"'{}]+)(["']?\s*[:=]\s*)(["']?)`)
 	userinfoRe   = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://)[^/?#\s"'<>]*@`)
 )
 

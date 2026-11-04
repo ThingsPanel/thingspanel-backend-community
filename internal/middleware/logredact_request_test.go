@@ -51,6 +51,10 @@ func TestOperationLogRedactsEncodedFormVoucherAndKeepsQueryOutOfPath(t *testing.
 	const querySecret = "fake-query-credential-314159"
 	const formSecret = "fake-form-credential-271828"
 	const quotedSecret = "fake-quoted-credential-161803"
+	const emptyBracketSecret = "fake-empty-bracket-credential-141421"
+	const codeBracketSecret = "fake-code-bracket-credential-173205"
+	const userBracketSecret = "fake-user-bracket-credential-223607"
+	const nestedBracketSecret = "fake-nested-bracket-credential-244949"
 	const route = "/api/v1/service/access"
 	engine := gin.New()
 	engine.Use(AccessLogger(), OperationLogs())
@@ -58,7 +62,10 @@ func TestOperationLogRedactsEncodedFormVoucherAndKeepsQueryOutOfPath(t *testing.
 		c.Set("claims", &utils.UserClaims{ID: "user-test", TenantID: "tenant-test"})
 		c.Status(204)
 	})
-	body := "voucher%5Btoken%5D=" + formSecret + "&voucher=\"" + quotedSecret + "\""
+	body := "voucher%5Btoken%5D=" + formSecret + "&voucher=\"" + quotedSecret + "\"" +
+		"&voucher[]=" + emptyBracketSecret + "&voucher[code]=" + codeBracketSecret +
+		"&user[voucher]=" + userBracketSecret + "&plugin[voucher][id]=" + nestedBracketSecret +
+		"&filter[code]=visible-filter&user[name]=alice"
 	request := httptest.NewRequest("POST", route+"?v%6fucher="+querySecret, strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	response := httptest.NewRecorder()
@@ -74,10 +81,13 @@ func TestOperationLogRedactsEncodedFormVoucherAndKeepsQueryOutOfPath(t *testing.
 	if operationLog.Path == nil || *operationLog.Path != route {
 		t.Fatalf("operation log path should exclude query credentials: %#v", operationLog.Path)
 	}
-	if operationLog.RequestMessage == nil || strings.Contains(*operationLog.RequestMessage, formSecret) || strings.Contains(*operationLog.RequestMessage, quotedSecret) || !strings.Contains(*operationLog.RequestMessage, logredact.Mask) {
+	if operationLog.RequestMessage == nil || !strings.Contains(*operationLog.RequestMessage, logredact.Mask) || !strings.Contains(*operationLog.RequestMessage, "visible-filter") || !strings.Contains(*operationLog.RequestMessage, "alice") {
 		t.Fatalf("encoded form credential was not redacted in operation log: %#v", operationLog.RequestMessage)
 	}
-	for _, secret := range []string{querySecret, formSecret, quotedSecret} {
+	for _, secret := range []string{querySecret, formSecret, quotedSecret, emptyBracketSecret, codeBracketSecret, userBracketSecret, nestedBracketSecret} {
+		if strings.Contains(*operationLog.RequestMessage, secret) {
+			t.Fatalf("credential leaked into operation log: %s", *operationLog.RequestMessage)
+		}
 		if strings.Contains(output.String(), secret) {
 			t.Fatalf("credential leaked into logs: %s", output.String())
 		}
