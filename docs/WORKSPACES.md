@@ -70,6 +70,8 @@
 | 路径 | 分支 | 未提交 | 备注 |
 |---|---|---:|---|
 | `~/Downloads/code/thingspanel-installer`（主目录） | `feat/thingmodel-api` | 1 | 保留 |
+| `~/Downloads/code/thingspanel-installer-develop-review` | `develop` | — | 总监验收、合并工作树；2026-11-04 登记，待用户确认后清理 |
+| `~/Downloads/code/thingspanel-installer-wp-p1-fix` | `wp/p1-fix-retry-lock` | — | P1 补救，2026-11-04 登记；待审查完成及用户确认后清理 |
 | `~/Downloads/code/thingspanel-installer-wp-i1` | `wp/i1-pg-profiles` | 0 | 进行中 |
 | `~/Downloads/code/thingspanel-installer-wp-t6` | `wp/t6-ha-catalog` | 0 | 进行中（T6 HA 打包） |
 
