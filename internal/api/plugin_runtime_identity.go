@@ -1,14 +1,14 @@
 package api
 
 import (
-	"crypto/rand"
-	"encoding/hex"
+	"errors"
 	"net/http"
 	"time"
 
 	"project/internal/dal"
 	"project/internal/middleware"
 	"project/internal/model"
+	"project/internal/pluginidentity"
 	"project/pkg/global"
 	"project/pkg/utils"
 
@@ -23,14 +23,13 @@ type issuePluginRuntimeIdentityReq struct {
 	TTLHours          int    `json:"ttl_hours" binding:"required,min=1,max=24"`
 }
 
-func randomHex(bytes int) string {
-	raw := make([]byte, bytes)
-	_, _ = rand.Read(raw)
-	return hex.EncodeToString(raw)
+func identityStore() *pluginidentity.Store {
+	return pluginidentity.NewStore(func() *gorm.DB { return global.DB })
 }
 
 func tenantAdminClaims(c *gin.Context) (*utils.UserClaims, bool) {
-	claims, ok := c.MustGet("claims").(*utils.UserClaims)
+	value, _ := c.Get("claims")
+	claims, ok := value.(*utils.UserClaims)
 	if !ok || claims.Authority != "TENANT_ADMIN" || claims.TenantID == "" {
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "message": "tenant administrator required"})
 		return nil, false
@@ -38,8 +37,8 @@ func tenantAdminClaims(c *gin.Context) (*utils.UserClaims, bool) {
 	return claims, true
 }
 
-// IssuePluginRuntimeIdentity: POST /api/v1/plugin/runtime/identity. The token is returned once and never stored.
-// A higher generation revokes every lower one of the same plugin instance, so an older instance is fenced at once.
+// IssuePluginRuntimeIdentity: POST /api/v1/plugin/runtime/identity (tenant administrator JWT). The token is returned
+// once and never stored. A higher generation revokes every lower one of the same plugin instance.
 func IssuePluginRuntimeIdentity(c *gin.Context) {
 	claims, ok := tenantAdminClaims(c)
 	if !ok {
@@ -50,28 +49,9 @@ func IssuePluginRuntimeIdentity(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "message": "invalid request"})
 		return
 	}
-	if err := middleware.EnsurePluginRuntimeIdentityTable(); err != nil {
-		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"code": http.StatusServiceUnavailable, "message": "identity store unavailable"})
-		return
-	}
-	id, secret := "pri_"+randomHex(8), randomHex(24)
-	conflict := false
-	err := global.DB.Transaction(func(tx *gorm.DB) error {
-		var highest int64
-		if e := tx.Raw(`SELECT coalesce(max(generation),0) FROM plugin_runtime_identities WHERE plugin_instance = ? AND tenant_id = ? FOR UPDATE`, req.PluginInstance, claims.TenantID).Scan(&highest).Error; e != nil {
-			return e
-		}
-		if req.Generation <= highest {
-			conflict = true
-			return nil
-		}
-		if e := tx.Exec(`UPDATE plugin_runtime_identities SET revoked_at = now() WHERE plugin_instance = ? AND tenant_id = ? AND revoked_at IS NULL`, req.PluginInstance, claims.TenantID).Error; e != nil {
-			return e
-		}
-		return tx.Exec(`INSERT INTO plugin_runtime_identities(instance_id, plugin_instance, service_identifier, tenant_id, generation, secret_sha256, expires_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`, id, req.PluginInstance, req.ServiceIdentifier, claims.TenantID, req.Generation, middleware.HashPluginSecret(secret), time.Now().Add(time.Duration(req.TTLHours)*time.Hour)).Error
-	})
-	if conflict {
+	token, rec, err := identityStore().Issue(claims.TenantID, req.PluginInstance, req.ServiceIdentifier, req.Generation,
+		time.Duration(req.TTLHours)*time.Hour, time.Now().UTC())
+	if errors.Is(err, pluginidentity.ErrGenerationNotHigher) {
 		c.AbortWithStatusJSON(http.StatusConflict, gin.H{"code": http.StatusConflict, "message": "generation is not higher than an existing one"})
 		return
 	}
@@ -79,7 +59,9 @@ func IssuePluginRuntimeIdentity(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"code": http.StatusInternalServerError, "message": "could not issue identity"})
 		return
 	}
-	c.Set("data", gin.H{"token": id + "." + secret, "instance_id": id, "generation": req.Generation, "expires_in_hours": req.TTLHours})
+	c.Header("Cache-Control", "no-store")
+	c.Set("data", gin.H{"token": token, "instance_id": rec.InstanceID, "generation": rec.Generation,
+		"service_identifier": rec.ServiceIdentifier, "expires_at": rec.ExpiresAt})
 }
 
 // RevokePluginRuntimeIdentity: POST /api/v1/plugin/runtime/identity/revoke {plugin_instance}
@@ -95,25 +77,53 @@ func RevokePluginRuntimeIdentity(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "message": "invalid request"})
 		return
 	}
-	if err := middleware.EnsurePluginRuntimeIdentityTable(); err != nil {
-		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"code": http.StatusServiceUnavailable, "message": "identity store unavailable"})
-		return
-	}
-	result := global.DB.Exec(`UPDATE plugin_runtime_identities SET revoked_at = now() WHERE plugin_instance = ? AND tenant_id = ? AND revoked_at IS NULL`, req.PluginInstance, claims.TenantID)
-	if result.Error != nil {
+	n, err := identityStore().Revoke(claims.TenantID, req.PluginInstance, time.Now().UTC())
+	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"code": http.StatusInternalServerError, "message": "could not revoke"})
 		return
 	}
-	c.Set("data", gin.H{"revoked": result.RowsAffected})
+	c.Set("data", gin.H{"revoked": n})
 }
 
-// pluginMayReadDevice enforces the identity's scope on the device-config lookup: the device must belong to the
-// identity's tenant and use the identity's protocol. An unknown device falls through to the normal not-found path.
-func pluginMayReadDevice(c *gin.Context, req model.GetDeviceConfigReq) bool {
-	value, exists := c.Get(middleware.PluginRuntimeIdentityKey)
+func scopeDenied(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "message": "outside this plugin instance's scope",
+		"data": gin.H{"errorCode": "PLUGIN_RUNTIME_SCOPE_DENIED"}})
+}
+
+// pluginRuntimeIdentity returns the identity the managed middleware stored. A handler reached without it (a routing
+// mistake) fails closed with the same 503 as the guard.
+func pluginRuntimeIdentity(c *gin.Context) (*middleware.PluginRuntimeIdentity, bool) {
+	value, _ := c.Get(middleware.PluginRuntimeIdentityKey)
 	identity, ok := value.(*middleware.PluginRuntimeIdentity)
-	if !exists || !ok {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": http.StatusUnauthorized, "message": "managed plugin instance authorization is required"})
+	if !ok || identity == nil {
+		c.Header("Cache-Control", "no-store")
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"code": http.StatusServiceUnavailable,
+			"message": "managed plugin instance authorization is required",
+			"data":    gin.H{"state": "blocked", "errorCode": "PLUGIN_RUNTIME_IDENTITY_REQUIRED", "automatic_retry": false}})
+		return nil, false
+	}
+	return identity, true
+}
+
+// requirePluginService: the request's service_identifier must be the identity's own service.
+func requirePluginService(c *gin.Context, serviceIdentifier string) (*middleware.PluginRuntimeIdentity, bool) {
+	identity, ok := pluginRuntimeIdentity(c)
+	if !ok {
+		return nil, false
+	}
+	if serviceIdentifier != identity.ServiceIdentifier {
+		scopeDenied(c)
+		return nil, false
+	}
+	return identity, true
+}
+
+// pluginMayReadDevice: the device must belong to the identity's tenant and use the identity's protocol. A device
+// that does not exist falls through to the normal not-found path.
+func pluginMayReadDevice(c *gin.Context, req model.GetDeviceConfigReq) bool {
+	identity, ok := pluginRuntimeIdentity(c)
+	if !ok {
 		return false
 	}
 	var device *model.Device
@@ -137,7 +147,7 @@ func pluginMayReadDevice(c *gin.Context, req model.GetDeviceConfigReq) bool {
 		allowed = false
 	}
 	if !allowed {
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "message": "device is outside this plugin instance's scope"})
+		scopeDenied(c)
 	}
 	return allowed
 }

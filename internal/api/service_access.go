@@ -1,6 +1,7 @@
 package api
 
 import (
+	"project/internal/dal"
 	"project/internal/model"
 	"project/internal/service"
 	"project/pkg/utils"
@@ -105,10 +106,24 @@ func (*ServiceAccessApi) HandlePluginServiceAccessList(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	identity, ok := requirePluginService(c, req.ServiceIdentifier)
+	if !ok {
+		return
+	}
 	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccessList(&req)
 	if err != nil {
 		c.Error(err)
 		return
+	}
+	// Only the identity's own tenant's access points.
+	if list, isList := resp.([]map[string]interface{}); isList {
+		own := make([]map[string]interface{}, 0, len(list))
+		for _, item := range list {
+			if tenant, _ := item["tenant_id"].(string); tenant == identity.TenantID {
+				own = append(own, item)
+			}
+		}
+		resp = own
 	}
 	c.Set("data", resp)
 }
@@ -119,9 +134,22 @@ func (*ServiceAccessApi) HandlePluginServiceAccess(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	identity, ok := pluginRuntimeIdentity(c)
+	if !ok {
+		return
+	}
 	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccess(&req)
 	if err != nil {
 		c.Error(err)
+		return
+	}
+	// The access point must belong to the identity's tenant and to the identity's own service plugin.
+	access, isMap := resp.(map[string]interface{})
+	tenant, _ := access["tenant_id"].(string)
+	pluginID, _ := access["service_plugin_id"].(string)
+	own, ownErr := dal.GetServicePluginByServiceIdentifier(identity.ServiceIdentifier)
+	if !isMap || tenant != identity.TenantID || ownErr != nil || own == nil || own.ID != pluginID {
+		scopeDenied(c)
 		return
 	}
 	c.Set("data", resp)

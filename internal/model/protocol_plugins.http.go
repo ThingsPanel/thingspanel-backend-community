@@ -42,5 +42,7 @@ type GetDevicesByProtocolPluginRsp struct {
 type GetDevicesByProtocolPluginReq struct {
 	ServiceIdentifier string `json:"service_identifier"  form:"service_identifier" validate:"required,max=255"`
 	DeviceType        string `json:"device_type"  form:"device_type" validate:"required,max=10"`
+	// TenantID is set by the handler from the managed plugin identity, never by the caller.
+	TenantID string `json:"-" form:"-"`
 	PageReq
 }

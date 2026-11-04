@@ -80,6 +80,9 @@ func (*ServicePluginApi) Heartbeat(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	if _, ok := requirePluginService(c, req.ServiceIdentifier); !ok {
+		return
+	}
 	err := service.GroupApp.ServicePlugin.Heartbeat(&req)
 	if err != nil {
 		c.Error(err)
