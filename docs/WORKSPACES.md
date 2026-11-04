@@ -1,0 +1,77 @@
+# 工作目录登记（2026-11-04 重写，T0 清场后状态）
+
+> 规则：新建 worktree 当天登记在此；没登记的目录视为可清理。删除前先列清单给用户确认。
+> 本表是 T0 执行时的实测快照，其他会话新增的 worktree 请自行补一行。
+
+## 1. 后端 thingspanel-backend-community
+
+主目录：`/Users/junhong/Downloads/code/thingspanel-backend-community`，**detached 在 develop（49b7f278）**，不在这里改代码。
+
+| 路径 | 分支 | 任务 | 负责人 | 状态 / 处置 |
+|---|---|---|---|---|
+| `~/.codex/worktrees/thingspanel-develop-backend/thingspanel-backend-community` | `develop` | 共享开发线 | 总监 | 保护，不动 |
+| `.claude/worktrees/wp-db-compat-f6f630` | `wp/d1-dbx-returning` | 数据库兼容（D1） | 进行中会话 | 保护，不动 |
+| `.claude/worktrees/wp-plugin-install-e5e1f9` | `claude/wp-plugin-install-e5e1f9` | 插件安装 | 进行中会话 | 保护，不动 |
+| `.claude/worktrees/wp-missing-api-5613cb` | `claude/wp-missing-api-5613cb` | 补全缺失 API（已暂停认领） | — | 先保留，待总监决定 |
+| `.claude/worktrees/wp-t1-0-relational-b140f7` | `claude/wp-t1-0-relational-b140f7` | T1-0 关系库底座设计 | 进行中会话 | 进行中，不动 |
+| `.claude/worktrees/wp-t4-plugin-identity-3cf9d2` | `claude/wp-t4-plugin-identity-3cf9d2` | T4 插件身份 | 进行中会话 | 进行中，不动 |
+| `~/.codex/worktrees/native-command-validation/thingspanel-backend-community` | `codex/thingmodel-upgrade-v1` | 已归档（标签 `archive/cleanup-20261104-codex-thingmodel-upgrade-v1`） | — | 干净，待用户确认后移除并删分支 |
+| `~/.codex/worktrees/thingspanel-runtime-gateway/thingspanel-backend-community` | `codex/runtime-tenant-source-binding` | 已归档 | — | 同上 |
+| `~/.codex/worktrees/thingspanel-runtime-read-context/thingspanel-backend-community` | `codex/runtime-read-context` | 已归档 | — | 同上 |
+| `/Volumes/80G/tp-develop-integration/sources/backend-api-1efd4878` | detached `1efd4878` | 18080 本地栈 fixture | — | 保护，不动 |
+| （C7 完成后）`.claude/worktrees/wp-t0-work-rules` | `wp/t0-work-rules` | T0 工作规则 | T0 会话 | 等待审查；合并后当天删 |
+
+### 后端本地分支
+
+| 分支 | 用途 | 处置 |
+|---|---|---|
+| `main` | 主线 | 保留 |
+| `develop` | 开发线 | 保留 |
+| `rescue/main-worktree-20261104` | 主目录 2026-11-04 原样快照（未审查），提交 a06b81d1 | 保留，待总监决定拆分/丢弃 |
+| `wp/d1-dbx-returning` | D1 数据库兼容 | 进行中 |
+| `claude/wp-plugin-install-e5e1f9` / `claude/wp-missing-api-5613cb` / `claude/wp-t1-0-relational-b140f7` / `claude/wp-t4-plugin-identity-3cf9d2` | 见上表 | 进行中 / 保留 |
+| `codex/thingmodel-upgrade-v1`、`codex/runtime-tenant-source-binding`、`codex/runtime-read-context` | 已归档，worktree 待移除 | 待确认删除 |
+| `codex/community-roles-superadmin-device-read`、`codex/northbound-community-20261021`、`feature/market-solution-bundle-v1`、`thingmodel`、`wip/d1-dbx-returning` | 已归档，无 worktree | 待确认删除 |
+| `wp/t0-work-rules`（C7 后） | 工作规则 | 等待审查 |
+
+### 归档标签
+49 个 `archive/*`（35 个 `archive/cleanup-20261104-*` 之前批次 + 8 个本次补打 + 6 个 `archive/rescue-cleanup-20261104-*`）。本次补打的 8 个：
+`community-roles-superadmin-device-read`、`northbound-community-20261021`、`feature-market-solution-bundle-v1`、`thingmodel`、`wip-d1-dbx-returning`、`codex-thingmodel-upgrade-v1`、`codex-runtime-tenant-source-binding`、`codex-runtime-read-context`（前缀均为 `archive/cleanup-20261104-`）。
+
+## 2. 归档与证据位置（仓库外）
+
+| 位置 | 内容 |
+|---|---|
+| `/Volumes/80G/archive/evidence/gmqtt-2026-10.tgz` | `docs/gmqtt-evidence-2026-10-19/`、`-20/`（196 项，sha256 `b5904e9b…3744b`） |
+| `/Volumes/80G/archive/secrets-hold/c2-configs-20261104/` | 主目录 `configs/conf*.yml/.conf`、`.telemetry_state.json` 副本（600） |
+| `/Volumes/80G/archive/secrets-hold/{main-worktree,clean-worktrees,dirty-worktrees,codex-worktrees}-20261104/` | 清场早期备份 |
+
+## 3. 前端 thingspanel-frontend-community（本次只登记，不处理）
+
+| 路径 | 分支 | 未提交 | 备注 |
+|---|---|---:|---|
+| `~/Downloads/code/thingspanel-frontend-community`（主目录） | `master` | 37 | 保留；需另行救援/确认 |
+| `~/.codex/worktrees/ce71/thingspanel-frontend-community` | detached `2384ab85` | 9 | 待用户决定 |
+| `~/Downloads/code/thingspanel-frontend-develop-merge-20261103` | `codex/frontend-develop-merge-20261103` | 0 | 待用户决定 |
+| `~/Downloads/code/tp-automation-frontend` | `feat/automation-rewrite-20261023` | 4 | 待用户决定 |
+| `/Volumes/80G/tp-develop-integration/sources/frontend-api-b7318932` | detached `b7318932` | 0 | fixture，保护 |
+| `~/Downloads/code/thingspanel-frontend-community.worktrees/` | — | — | 空目录 |
+
+## 4. kernel iot-api-encore-kernel（本次只登记）
+
+| 路径 | 分支 | 未提交 | 备注 |
+|---|---|---:|---|
+| `~/Downloads/code/iot-api-encore-kernel`（主目录） | `main` | 26 | 本地 11 个分支，待盘点 |
+| `~/Downloads/code/iot-api-encore-kernel.worktrees/encore-thingsmodel` | （未登记为 worktree） | ? | 待用户决定 |
+
+## 5. 安装器 thingspanel-installer（本次只登记）
+
+| 路径 | 分支 | 未提交 | 备注 |
+|---|---|---:|---|
+| `~/Downloads/code/thingspanel-installer`（主目录） | `feat/thingmodel-api` | 1 | 保留 |
+| `~/Downloads/code/thingspanel-installer-wp-i1` | `wp/i1-pg-profiles` | 0 | 进行中 |
+| `~/Downloads/code/thingspanel-installer-wp-t6` | `wp/t6-ha-catalog` | 0 | 进行中（T6 HA 打包） |
+
+## 6. 其他散落目录（未处理，需用户决定）
+
+`~/Downloads/code/` 下带日期/handoff/closeout/takeover 的目录：`thingspanel-closeout-internal-20261102`、`thingspanel-closeout-work-20261102`、`thingspanel-takeover-evidence-20261102`、`thingspanel-takeover-final-20261102`、`thingspanel-merged-worktree-uncommitted-20261028`、`thingspanel-notification-schema-handoff-20261102`、`notification-preserved-work-20261028`、`thingspanel-modbus-protocol-plugin-handoff`、`thingspanel-installer-manifest-20261102`、`thingspanel-frontend-typecheck-20261102`。`~/.codex/worktrees/` 下的 team-b-*、thingspanel-takeover-20261102 等非后端目录。均未量大小、未处理。
