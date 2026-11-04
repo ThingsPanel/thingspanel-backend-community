@@ -414,3 +414,11 @@ P1 留下的已知局限：
 - 插件设备上限 256 台。
 
 **下一批可以派的卡**（见 `docs/DISPATCH-PROMPTS-2026-11-04.md`）：**P3**（P2 已合入，前置已满足）、**T1-A1**、P2b（只出设计）、E3（清理工作目录）。另外新增一张待排的小卡：把 P1 的监视进程改成 launchd/systemd 服务，排在 T8 之前。
+
+### 7.9 监督复核（2026-11-04）
+
+- T1-A1 已审查并合入本地 develop `7bc4aca1`。负责人复跑 `go test ./initialize/... ./internal/app/...`、`pkg/relational` 全包测试及独立 MySQL 8.4 启动/旧回执导入/鉴权失败清理测试，通过。PG 启动实测采用局部 fixture，未验证完整 Timescale 栈或生产升级；详见 `docs/tasks/T1-A1-DONE.md`。
+- A1 只完成平台启动接线。平台与 Encore 的环境变量前缀尚需协调，devicemetadata 旧 driver 尚待 B 卡处理；legacy MQTT 遥测仍经 PostgreSQL 专属历史存储，MySQL 遥测链待后续 A3，不能宣称整栈可用。
+- 对已合入 P2 的独立复审发现表单编码、URL userinfo 等脱敏绕过；补救分支 `wp/p2-fix-redaction` 正在修复和复审，P2 不应据 §7.8 的描述视为安全问题全部关闭。
+- 对已合入 P1 的复审发现 scope 写入后若重启失败，下次刷新可能因配置未变化而不再重试；并发 scope 更新和 watcher 启动未全程互斥。安装器补救任务进行中。另外缺少 `33.sql` 仍按旧镜像兼容跳过，不能识别新镜像漏打包。
+- 共享 Go 缓存 `/Volumes/500G/.gocache` 写入曾报 `illegal byte sequence`；相关工作改用任务独立缓存，未清理或覆盖原缓存。
