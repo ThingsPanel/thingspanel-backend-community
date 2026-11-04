@@ -7,6 +7,7 @@ package logredact
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -15,6 +16,14 @@ import (
 
 // Mask replaces every redacted value.
 const Mask = "***"
+
+const (
+	maxTextBytes          = 1 << 20
+	maxRedactionWorkBytes = 4 << 20
+	maxRedactionFields    = 1 << 14
+	maxNestedDepth        = 8
+	maxNestedDecodeLayers = 4
+)
 
 var sensitiveWords = []string{"voucher", "token", "password", "secret"}
 
@@ -67,41 +76,82 @@ var (
 // and arrays included); anything else, including truncated JSON, falls back to
 // pattern masking so a cut-off body can never leak a value.
 func Text(s string) string {
+	budget := &redactionBudget{remaining: maxRedactionWorkBytes}
+	return textWithBudget(s, 0, budget)
+}
+
+type redactionBudget struct{ remaining int }
+
+func textWithBudget(s string, depth int, budget *redactionBudget) string {
 	if s == "" {
 		return s
 	}
+	if depth > maxNestedDepth || len(s) > maxTextBytes || len(s) > budget.remaining {
+		return Mask
+	}
+	budget.remaining -= len(s)
 	var v interface{}
 	dec := json.NewDecoder(strings.NewReader(s))
 	dec.UseNumber()
-	if err := dec.Decode(&v); err == nil && !dec.More() {
+	if err := dec.Decode(&v); err == nil {
+		var trailing interface{}
+		if err := dec.Decode(&trailing); err != io.EOF {
+			return redactLooseText(s, depth, budget)
+		}
 		switch v.(type) {
 		case map[string]interface{}, []interface{}:
-			out, err := json.Marshal(maskValue(v))
-			if err == nil {
+			out, err := json.Marshal(maskValue(v, depth, budget))
+			if err == nil && len(out) <= maxTextBytes {
 				return string(out)
 			}
 		}
 	}
-	return redactLooseText(s)
+	safe := redactLooseText(s, depth, budget)
+	if len(safe) > maxTextBytes {
+		return Mask
+	}
+	return safe
 }
 
-func redactLooseText(s string) string {
-	return redactAssignments(redactURLUserinfo(s))
+func redactLooseText(s string, depth int, budget *redactionBudget) string {
+	return redactAssignments(redactURLUserinfo(s), depth, budget)
 }
 
 func redactURLUserinfo(s string) string {
+	if !strings.Contains(s, "://") || !strings.Contains(s, "@") {
+		return s
+	}
 	return userinfoRe.ReplaceAllString(s, `${1}***@`)
 }
 
-func redactAssignments(s string) string {
+func redactAssignments(s string, depth int, budget *redactionBudget) string {
+	if !strings.Contains(s, "%") {
+		lower := strings.ToLower(s)
+		hasSensitiveMarker := false
+		for _, word := range sensitiveWords {
+			if strings.Contains(lower, word) {
+				hasSensitiveMarker = true
+				break
+			}
+		}
+		if !hasSensitiveMarker {
+			return s
+		}
+	}
 	var out strings.Builder
-	written, searchFrom := 0, 0
+	written, searchFrom, fields := 0, 0, 0
 	for searchFrom <= len(s) {
 		indices := assignmentRe.FindStringSubmatchIndex(s[searchFrom:])
 		if indices == nil {
 			break
 		}
 		start, end := searchFrom+indices[0], searchFrom+indices[1]
+		fields++
+		if fields > maxRedactionFields {
+			out.WriteString(s[written:start])
+			out.WriteString(Mask)
+			return out.String()
+		}
 		group := func(n int) string {
 			lo, hi := indices[2*n], indices[2*n+1]
 			if lo < 0 || hi < 0 {
@@ -110,42 +160,113 @@ func redactAssignments(s string) string {
 			return s[searchFrom+lo : searchFrom+hi]
 		}
 		sensitive := sensitiveEncodedKey(group(3))
-		if !sensitive {
+		valueStart := end
+		if strings.Contains(group(4), ":") && strings.HasPrefix(s[valueStart:], "//") {
+			// A URL scheme delimiter is not a key/value assignment.
 			searchFrom = end
 			continue
 		}
-
-		out.WriteString(s[written:start])
-		out.WriteString(s[start:end])
-		valueStart := end
-		if quote := group(5); quote != "" {
-			if closeAt := quotedValueEnd(s, valueStart, quote[0]); closeAt >= 0 {
-				out.WriteString(Mask)
-				out.WriteByte(quote[0])
-				// Treat any unseparated suffix as part of the credential too.
-				fieldEnd := scalarValueEnd(s, closeAt+1)
-				written, searchFrom = fieldEnd, fieldEnd
-				continue
+		quote := group(5)
+		fieldEnd := len(s)
+		valueEnd := len(s)
+		if quote != "" {
+			if closeAt := quotedValueEnd(s, valueStart+1, quote[0]); closeAt >= 0 {
+				valueEnd = closeAt + 1
+				fieldEnd = scalarValueEnd(s, valueEnd)
+			} else {
+				valueEnd = len(s)
 			}
-			out.WriteString(Mask)
-			return out.String()
-		}
-		if valueStart < len(s) && (s[valueStart] == '{' || s[valueStart] == '[') {
+		} else if valueStart < len(s) && (s[valueStart] == '{' || s[valueStart] == '[') {
 			if closeAt := balancedValueEnd(s, valueStart); closeAt >= 0 {
-				out.WriteString(Mask)
-				fieldEnd := scalarValueEnd(s, closeAt)
-				written, searchFrom = fieldEnd, fieldEnd
-				continue
+				valueEnd = closeAt
+				fieldEnd = scalarValueEnd(s, closeAt)
 			}
-			out.WriteString(Mask)
-			return out.String()
+		} else {
+			valueEnd = scalarValueEnd(s, valueStart)
+			fieldEnd = valueEnd
 		}
-		endValue := scalarValueEnd(s, valueStart)
-		out.WriteString(Mask)
-		written, searchFrom = endValue, endValue
+
+		out.WriteString(s[written:valueStart])
+		if sensitive {
+			out.WriteString(Mask)
+			if quote != "" {
+				out.WriteByte(quote[0])
+			}
+		} else if quote != "" {
+			if valueEnd == len(s) && (len(s) == 0 || s[valueEnd-1] != quote[0]) {
+				out.WriteByte(quote[0])
+				out.WriteString(redactNestedValue(s[valueStart+1:], depth+1, budget))
+			} else {
+				out.WriteString(redactQuotedValue(s[valueStart:valueEnd], quote[0], depth+1, budget))
+				out.WriteString(redactNestedValue(s[valueEnd:fieldEnd], depth+1, budget))
+			}
+		} else {
+			out.WriteString(redactNestedValue(s[valueStart:valueEnd], depth+1, budget))
+		}
+		written, searchFrom = fieldEnd, fieldEnd
 	}
 	out.WriteString(s[written:])
 	return out.String()
+}
+
+func redactQuotedValue(raw string, quote byte, depth int, budget *redactionBudget) string {
+	if quote == '"' {
+		if decoded, err := strconv.Unquote(raw); err == nil {
+			safe := redactNestedValue(decoded, depth, budget)
+			if safe != decoded {
+				return strconv.Quote(safe)
+			}
+			return raw
+		}
+	}
+	if len(raw) < 2 {
+		return raw
+	}
+	inner := raw[1 : len(raw)-1]
+	safe := redactNestedValue(inner, depth, budget)
+	if safe == inner {
+		return raw
+	}
+	return string(quote) + safe + string(quote)
+}
+
+func redactNestedValue(raw string, depth int, budget *redactionBudget) string {
+	if raw == "" {
+		return raw
+	}
+	if !strings.ContainsAny(raw, `%{}[]=?:'"`) && !strings.Contains(raw, "://") {
+		return raw
+	}
+	if depth > maxNestedDepth {
+		return Mask
+	}
+	decoded := raw
+	layers := 0
+	for strings.Contains(decoded, "%") {
+		next, err := url.QueryUnescape(decoded)
+		if err != nil {
+			return Mask
+		}
+		if next == decoded {
+			break
+		}
+		if layers == maxNestedDecodeLayers {
+			return Mask
+		}
+		decoded = next
+		layers++
+	}
+	safe := textWithBudget(decoded, depth, budget)
+	if safe == decoded {
+		return raw
+	}
+	for i := 0; i < layers; i++ {
+		safe = url.QueryEscape(safe)
+		if len(safe) > maxTextBytes {
+			return Mask
+		}
+	}
+	return safe
 }
 
 func quotedValueEnd(s string, start int, quote byte) int {
@@ -203,22 +324,25 @@ func scalarValueEnd(s string, start int) int {
 	return len(s)
 }
 
-func maskValue(v interface{}) interface{} {
+func maskValue(v interface{}, depth int, budget *redactionBudget) interface{} {
+	if depth > maxNestedDepth {
+		return Mask
+	}
 	switch t := v.(type) {
 	case string:
-		return redactLooseText(t)
+		return textWithBudget(t, depth+1, budget)
 	case map[string]interface{}:
 		for k, val := range t {
 			if sensitiveEncodedKey(k) {
 				t[k] = Mask
 			} else {
-				t[k] = maskValue(val)
+				t[k] = maskValue(val, depth+1, budget)
 			}
 		}
 		return t
 	case []interface{}:
 		for i := range t {
-			t[i] = maskValue(t[i])
+			t[i] = maskValue(t[i], depth+1, budget)
 		}
 		return t
 	}
@@ -227,27 +351,48 @@ func maskValue(v interface{}) interface{} {
 
 // URL masks the values of sensitive query parameters in a URL string.
 func URL(raw string) string {
+	budget := &redactionBudget{remaining: maxRedactionWorkBytes}
+	return urlWithBudget(raw, 0, budget)
+}
+
+func urlWithBudget(raw string, depth int, budget *redactionBudget) string {
+	if len(raw) > maxTextBytes || len(raw) > budget.remaining {
+		return Mask
+	}
+	budget.remaining -= len(raw)
 	u, err := url.Parse(raw)
 	if err != nil {
-		return Text(stripURLUserinfo(raw))
+		return textWithBudget(stripURLUserinfo(raw), depth, budget)
 	}
 	// Userinfo is sensitive even when a URL has no query string.
 	u.User = nil
 	if u.RawQuery == "" {
-		return Text(u.String())
+		return textWithBudget(u.String(), depth, budget)
+	}
+	if strings.Count(u.RawQuery, "&")+1 > maxRedactionFields {
+		return Mask
 	}
 	q, err := url.ParseQuery(u.RawQuery)
 	if err != nil {
 		// Invalid escaping can hide a sensitive query key from ParseQuery.
-		return Text(stripURLUserinfo(raw))
+		return textWithBudget(stripURLUserinfo(raw), depth, budget)
 	}
-	for k := range q {
+	for k, values := range q {
 		if sensitiveEncodedKey(k) {
 			q.Set(k, Mask)
+			continue
 		}
+		for i, value := range values {
+			values[i] = redactNestedValue(value, depth+1, budget)
+		}
+		q[k] = values
 	}
 	u.RawQuery = q.Encode()
-	return u.String()
+	safe := u.String()
+	if len(safe) > maxTextBytes {
+		return Mask
+	}
+	return safe
 }
 
 func stripURLUserinfo(raw string) string {
