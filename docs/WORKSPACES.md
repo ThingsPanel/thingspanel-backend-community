@@ -15,9 +15,9 @@
 | `.claude/worktrees/wp-missing-api-5613cb` | `claude/wp-missing-api-5613cb` | 补全缺失 API（已暂停认领） | — | 先保留，待总监决定 |
 | `.claude/worktrees/wp-t1-0-relational-b140f7` | `claude/wp-t1-0-relational-b140f7` | T1-0 关系库底座设计 | 进行中会话 | 进行中，不动 |
 | `.claude/worktrees/wp-t4-plugin-identity-3cf9d2` | `claude/wp-t4-plugin-identity-3cf9d2` | T4 插件身份 | 进行中会话 | 进行中，不动 |
-| `~/.codex/worktrees/native-command-validation/thingspanel-backend-community` | `codex/thingmodel-upgrade-v1` | 已归档（标签 `archive/cleanup-20261104-codex-thingmodel-upgrade-v1`） | — | 干净，待用户确认后移除并删分支 |
-| `~/.codex/worktrees/thingspanel-runtime-gateway/thingspanel-backend-community` | `codex/runtime-tenant-source-binding` | 已归档 | — | 同上 |
-| `~/.codex/worktrees/thingspanel-runtime-read-context/thingspanel-backend-community` | `codex/runtime-read-context` | 已归档 | — | 同上 |
+| `~/.codex/worktrees/native-command-validation/thingspanel-backend-community` | `codex/thingmodel-upgrade-v1` | 已归档（标签 `archive/cleanup-20261104-codex-thingmodel-upgrade-v1`） | — | 干净，已移除，分支已删 |
+| `~/.codex/worktrees/thingspanel-runtime-gateway/thingspanel-backend-community` | `codex/runtime-tenant-source-binding` | 已归档 | — | 已移除，分支已删 |
+| `~/.codex/worktrees/thingspanel-runtime-read-context/thingspanel-backend-community` | `codex/runtime-read-context` | 已归档 | — | 已移除，分支已删 |
 | `/Volumes/80G/tp-develop-integration/sources/backend-api-1efd4878` | detached `1efd4878` | 18080 本地栈 fixture | — | 保护，不动 |
 | （C7 完成后）`.claude/worktrees/wp-t0-work-rules` | `wp/t0-work-rules` | T0 工作规则 | T0 会话 | 等待审查；合并后当天删 |
 
@@ -30,8 +30,8 @@
 | `rescue/main-worktree-20261104` | 主目录 2026-11-04 原样快照（未审查），提交 a06b81d1 | 保留，待总监决定拆分/丢弃 |
 | `wp/d1-dbx-returning` | D1 数据库兼容 | 进行中 |
 | `claude/wp-plugin-install-e5e1f9` / `claude/wp-missing-api-5613cb` / `claude/wp-t1-0-relational-b140f7` / `claude/wp-t4-plugin-identity-3cf9d2` | 见上表 | 进行中 / 保留 |
-| `codex/thingmodel-upgrade-v1`、`codex/runtime-tenant-source-binding`、`codex/runtime-read-context` | 已归档，worktree 待移除 | 待确认删除 |
-| `codex/community-roles-superadmin-device-read`、`codex/northbound-community-20261021`、`feature/market-solution-bundle-v1`、`thingmodel`、`wip/d1-dbx-returning` | 已归档，无 worktree | 待确认删除 |
+| `codex/thingmodel-upgrade-v1`、`codex/runtime-tenant-source-binding`、`codex/runtime-read-context` | 已归档，worktree 待移除 | 已删除（2026-11-04） |
+| `codex/community-roles-superadmin-device-read`、`codex/northbound-community-20261021`、`feature/market-solution-bundle-v1`、`thingmodel`、`wip/d1-dbx-returning` | 已归档，无 worktree | 已删除（2026-11-04） |
 | `wp/t0-work-rules`（C7 后） | 工作规则 | 等待审查 |
 
 ### 归档标签
