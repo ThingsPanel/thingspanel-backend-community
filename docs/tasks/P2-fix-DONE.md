@@ -27,6 +27,7 @@ c42d220e fix(security): close redaction suffix and parse-error leaks
 - 系统化处理 JSON/form/query/错误文本里的 `=`、`:`、单/双引号和结构值边界。敏感值有引号时保留引号并遮罩内容；未闭合引号/结构值会遮罩到文本末尾；未加引号的敏感值保守地遮罩到下一个 `&`。URL query 解码失败时改走同一 fail-closed 路径。
 - 补充回归：敏感参数问号后缀、普通参数不变、嵌套敏感 query 与 malformed URL userinfo。
 - 错误文本回归覆盖 quoted voucher 和包含 userinfo 的 malformed URL；操作日志回归的真实 middleware 请求体加入了带引号的 voucher。
+- 总监复审补充：多层 URL 编码的敏感字段名、截断 JSON 中 Unicode 转义字段名也需脱敏；字段名按有限层数解码，无法确定的转义按敏感字段处理。增加对应回归，包含有效 JSON、截断 JSON、普通文本和 URL。
 
 ## 验证
 
@@ -43,5 +44,5 @@ GOCACHE=/tmp/p2-fix-redaction-gocache go test ./pkg/logredact ./internal/middlew
 
 ## 未完成事项
 
-- 无本卡范围内的待实现项。
+- 仅针对已覆盖的脱敏输入和路径验证，不能证明所有可能的编码或日志来源均无泄漏。
 - 未推送、未合并；等待总监审查。
