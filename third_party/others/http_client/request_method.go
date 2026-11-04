@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"strings"
 
+	"project/pkg/logredact"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,21 +23,21 @@ func Post(targetUrl string, payload string) (*http.Response, error) {
 	req.Header.Add("Content-Type", "application/json")
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
-		logrus.Info(err.Error())
+		logrus.Info(logredact.Error(err).Error())
 	}
 	return response, err
 }
 
 // Delete 发送delete请求
 func Delete(targetUrl string, payload string) (*http.Response, error) {
-	logrus.Info("Delete:", targetUrl, payload)
+	logrus.Info("Delete:", logredact.URL(targetUrl), logredact.Text(payload))
 	req, _ := http.NewRequest("DELETE", targetUrl, strings.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	response, err := http.DefaultClient.Do(req)
 	if err == nil {
 		logrus.Info(response.Body)
 	} else {
-		logrus.Info(err.Error())
+		logrus.Info(logredact.Error(err).Error())
 	}
 	return response, err
 }
@@ -44,6 +46,8 @@ func Delete(targetUrl string, payload string) (*http.Response, error) {
 func Get(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
+		// net/http errors embed the full URL (including voucher query).
+		err = logredact.Error(err)
 		logrus.Error(err.Error())
 		return nil, err
 	}
@@ -53,7 +57,7 @@ func Get(url string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		logrus.Info("Response: ", string(body))
+		logrus.Info("Response: ", logredact.Text(string(body)))
 		return body, err
 	} else {
 		return nil, errors.New("Get failed with error: " + resp.Status)
