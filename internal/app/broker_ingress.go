@@ -324,6 +324,9 @@ func (s *MQTTService) configureBrokerIngress(ctx context.Context, adapter *mqtta
 	if s.app == nil || s.app.DB == nil || global.DB == nil {
 		return errors.New("ingress_v1 requires both application and global database connections")
 	}
+	if err := requirePostgresBrokerControlPlane(s.app.DB); err != nil {
+		return err
+	}
 	if s.app.DB != global.DB {
 		return errors.New("ingress_v1 requires application and global database to share the same connection")
 	}

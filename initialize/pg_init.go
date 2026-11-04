@@ -1,22 +1,22 @@
 package initialize
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
-	global "project/pkg/global"
-
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
-	"gorm.io/gorm/schema"
+
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
+	global "project/pkg/global"
 )
 
-// 数据库配置
+// DbConfig is retained for the standalone PostgreSQL-backed maintenance tools
+// that still call LoadDbConfig/PgConnect. Runtime platform startup uses
+// RelationalInit and resolves relational.driver exactly once.
 type DbConfig struct {
 	Host          string
 	Port          int
@@ -30,109 +30,28 @@ type DbConfig struct {
 	OpenConns     int
 }
 
-func PgInit() (*gorm.DB, error) {
-	driver, err := PlatformDriver()
-	if err != nil {
-		return nil, err
-	}
-	if driver == PlatformDriverMySQL {
-		return mysqlPlatformInit()
-	}
-
-	// 初始化配置
-	config, err := LoadDbConfig()
-	if err != nil {
-		logrus.Errorf("加载数据库配置失败: %v", err)
-		return nil, err
-	}
-
-	// 初始化数据库（添加重试逻辑）
-	var db *gorm.DB
-	maxRetries := 10
-	retryInterval := 6 * time.Second
-
-	for retryCount := 0; retryCount < maxRetries; retryCount++ {
-		db, err = PgConnect(config)
-		if err == nil {
-			break
-		}
-
-		logrus.Warnf("连接数据库失败 (尝试 %d/%d): %v", retryCount+1, maxRetries, err)
-
-		if retryCount < maxRetries-1 {
-			logrus.Infof("将在 %v 后重试连接...", retryInterval)
-			time.Sleep(retryInterval)
-		}
-	}
-
-	if err != nil {
-		logrus.Error("连接数据库失败，已达到最大重试次数:", err)
-		return nil, err
-	}
-
-	global.DB = db
-
-	// casbin 初始化
-	CasbinInit()
-
-	// 检查版本
-	err = CheckVersion(db)
-	if err != nil {
-		return nil, fmt.Errorf("检查数据库版本失败: %w", err)
-	}
-	if err = ApplyDeviceIdentitySchema(db); err != nil {
-		return nil, fmt.Errorf("initialize permanent device identity schema: %w", err)
-	}
-	if err = ApplyServiceAccessSchema(db); err != nil {
-		return nil, fmt.Errorf("initialize service access receipt schema: %w", err)
-	}
-	if err = ApplyHistoryIntentSchema(db); err != nil {
-		return nil, fmt.Errorf("initialize telemetry history intent schema: %w", err)
-	}
-	if err = ApplyMarketInstallSchema(db); err != nil {
-		return nil, fmt.Errorf("initialize market installation schema: %w", err)
-	}
-	if os.Getenv("TP_PLATFORMCONFIG_OWNER") == "encore" {
-		if err = ApplyPlatformConfigSchema(db); err != nil {
-			return nil, fmt.Errorf("initialize existing platform dictionary schema: %w", err)
-		}
-	}
-	if err = ApplyNativeBindingSchema(db); err != nil {
-		return nil, fmt.Errorf("初始化 native binding schema 失败: %w", err)
-	}
-
-	// The automation command guard decides which of two competing commands is
-	// the current one. It must exist before any automation rule can fire, so it
-	// is applied with the other component schemas rather than lazily.
-	if err = ApplyCommandGuardSchema(db); err != nil {
-		return nil, fmt.Errorf("初始化自动化命令受理守卫 schema 失败: %w", err)
-	}
-
-	if err = ApplyAppPushSchema(db); err != nil {
-		return nil, fmt.Errorf("initialize app push schema: %w", err)
-	}
-	if err = ApplyAuthSchema(db); err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
-// LoadDbConfig 从配置文件加载数据库配置
+// LoadDbConfig reads the new PostgreSQL platform resource keys. It deliberately
+// does not fall back to the retired db.psql.* keys.
 func LoadDbConfig() (*DbConfig, error) {
-	config := &DbConfig{
-		Host:          viper.GetString("db.psql.host"),
-		Port:          viper.GetInt("db.psql.port"),
-		DbName:        viper.GetString("db.psql.dbname"),
-		Username:      viper.GetString("db.psql.username"),
-		Password:      viper.GetString("db.psql.password"),
-		TimeZone:      viper.GetString("db.psql.time_zone"),
-		LogLevel:      viper.GetInt("db.psql.log_level"),
-		SlowThreshold: viper.GetInt("db.psql.slow_threshold"),
-		IdleConns:     viper.GetInt("db.psql.idle_conns"),
-		OpenConns:     viper.GetInt("db.psql.open_conns"),
+	dialect, err := relational.ResolveDialect(func(key string) string { return viper.GetString(key) })
+	if err != nil {
+		return nil, err
 	}
-
-	// 设置默认值
+	if dialect != relational.Postgres {
+		return nil, fmt.Errorf("PostgreSQL-only database configuration requested while relational.driver=%s", dialect)
+	}
+	config := &DbConfig{
+		Host:          viper.GetString("relational.postgres.platform.host"),
+		Port:          viper.GetInt("relational.postgres.platform.port"),
+		DbName:        viper.GetString("relational.postgres.platform.database"),
+		Username:      viper.GetString("relational.postgres.platform.username"),
+		Password:      viper.GetString("relational.postgres.platform.password"),
+		TimeZone:      viper.GetString("relational.postgres.platform.time_zone"),
+		LogLevel:      viper.GetInt("relational.postgres.platform.log_level"),
+		SlowThreshold: viper.GetInt("relational.postgres.platform.slow_threshold_ms"),
+		IdleConns:     viper.GetInt("relational.postgres.platform.idle_conns"),
+		OpenConns:     viper.GetInt("relational.postgres.platform.open_conns"),
+	}
 	if config.Host == "" {
 		config.Host = "localhost"
 	}
@@ -154,74 +73,49 @@ func LoadDbConfig() (*DbConfig, error) {
 	if config.OpenConns == 0 {
 		config.OpenConns = 50
 	}
-
-	// 检查必要的配置
 	if config.DbName == "" || config.Username == "" || config.Password == "" {
-		return nil, fmt.Errorf("database configuration is incomplete")
+		return nil, fmt.Errorf("relational.postgres.platform database configuration is incomplete")
 	}
-
 	return config, nil
 }
 
-// Writer 重写gorm日志的Writer
-// type Writer struct{}
-
-// func (w Writer) Printf(format string, args ...interface{}) {
-// 	log.Println(args...)
-// }
-
-// PgInit 初始化数据库连接
+// PgConnect is used by standalone PostgreSQL maintenance commands and tests.
+// The main platform process must use RelationalInit so the selected driver is
+// resolved from relational.driver.
 func PgConnect(config *DbConfig) (*gorm.DB, error) {
-	dataSource := fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable TimeZone=%s",
-		config.Host, config.Port, config.DbName, config.Username, config.Password, config.TimeZone)
-
-	// 根据配置获取 SQL 日志 Writer（支持文件和控制台输出）
-	sqlLogWriter := GetSQLLogWriter()
-
-	newLogger := logger.New(
-		//Writer{},
-		log.New(sqlLogWriter, "\r\n", log.LstdFlags), // 使用配置的日志输出（文件或控制台）
-		logger.Config{
-			SlowThreshold:             time.Duration(config.SlowThreshold) * time.Millisecond,
-			LogLevel:                  logger.LogLevel(config.LogLevel),
-			IgnoreRecordNotFoundError: true,
-			Colorful:                  true, // 控制台输出时显示颜色，文件输出时会被忽略
-		})
-
-	var err error
-	db, err := gorm.Open(postgres.Open(dataSource), &gorm.Config{
-		Logger:                 newLogger,
-		SkipDefaultTransaction: true,
-		NamingStrategy: schema.NamingStrategy{
-			SingularTable: false, // use singular table name, table for `User` would be `user` with this option enabled
+	if config == nil {
+		return nil, fmt.Errorf("PostgreSQL configuration is nil")
+	}
+	dialect, err := relational.ResolveDialect(func(key string) string { return viper.GetString(key) })
+	if err != nil {
+		return nil, err
+	}
+	if dialect != relational.Postgres {
+		return nil, fmt.Errorf("PostgreSQL-only connection requested while relational.driver=%s", dialect)
+	}
+	target := relational.Target{
+		Name: "platform", Dialect: relational.Postgres,
+		Host: config.Host, Port: config.Port, Database: config.DbName,
+		Username: config.Username, Password: config.Password, TimeZone: config.TimeZone,
+		Pool: relational.PoolOptions{
+			MaxOpenConns: config.OpenConns, MaxIdleConns: config.IdleConns,
+			LogLevel: config.LogLevel, SlowThreshold: time.Duration(config.SlowThreshold) * time.Millisecond,
 		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("连接数据库失败: %v", err)
 	}
-
-	sqlDB, err := db.DB()
+	db, err := relational.Open(context.Background(), target)
 	if err != nil {
-		return nil, fmt.Errorf("获取原生数据库连接失败: %v", err)
+		return nil, fmt.Errorf("connect PostgreSQL platform database: %w", err)
 	}
-
-	sqlDB.SetMaxIdleConns(config.IdleConns)
-	sqlDB.SetMaxOpenConns(config.OpenConns)
-	sqlDB.SetConnMaxLifetime(time.Hour)
-
 	log.Println("连接数据库完成...")
-	// Component migrations run once, after the historical base schema exists.
-	// Connecting to an empty database must not attempt an auth ALTER TABLE.
 	return db, nil
 }
 
-/*
-注意 sql中不要有sys_version表
-1. 检查版本表是否存在: 检查数据库版本，如果没有sys_version表，创建sys_version表，插入版本序号0，版本号0.0.0
-2. 程序版本低于数据版本: 提示升级
-3. 数据版本低于程序版本: 执行sql文件，更新版本号
-*/
-// 检查版本，在表sys_version中的version字段
+// PgInit remains as a source-level alias for maintenance code. The application
+// entrypoint is wired to RelationalInit and no legacy config keys are read.
+func PgInit() (*gorm.DB, error) { return RelationalInit() }
+
+// CheckVersion applies the historical PostgreSQL migrations in place. These
+// files and their execution order remain unchanged by T1-A1.
 func CheckVersion(db *gorm.DB) error {
 	return applyLegacySchemaMigrations(db, global.VERSION_NUMBER, global.VERSION, func(number int) ([]byte, error) {
 		fileName := fmt.Sprintf("sql/%d.sql", number)
@@ -234,16 +128,9 @@ func CheckVersion(db *gorm.DB) error {
 }
 
 func ExecuteSQLFile(db *gorm.DB, fileName string) error {
-	// 读取 SQL 脚本文件
-	sqlFile, err := os.ReadFile(fileName)
+	contents, err := os.ReadFile(fileName)
 	if err != nil {
 		return err
 	}
-	// 执行 SQL 脚本
-	t := db.Exec(string(sqlFile))
-	if t.Error != nil {
-		return t.Error
-	}
-
-	return nil
+	return db.Exec(string(contents)).Error
 }

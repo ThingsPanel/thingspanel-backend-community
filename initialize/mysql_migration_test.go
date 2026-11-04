@@ -2,7 +2,6 @@ package initialize
 
 import (
 	"context"
-	"database/sql"
 	"os"
 	"strconv"
 	"strings"
@@ -11,37 +10,31 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
+	componentsql "project/sql"
 )
 
 func openMySQLRunner(t *testing.T) *gorm.DB {
 	t.Helper()
 	host, port := os.Getenv("TP_MYSQL_TEST_HOST"), os.Getenv("TP_MYSQL_TEST_PORT")
-	if host == "" || port == "" {
-		t.Skip("TP_MYSQL_TEST_* required")
+	if host == "" || port == "" || os.Getenv("TP_MYSQL_TEST_DB") == "" {
+		t.Skip("TP_MYSQL_TEST_HOST/PORT/DB must identify an isolated, disposable MySQL database")
 	}
-	portNumber, _ := strconv.Atoi(port)
-	db, err := MysqlConnect(&DbConfig{Host: host, Port: portNumber, Username: os.Getenv("TP_MYSQL_TEST_USER"), Password: os.Getenv("TP_MYSQL_TEST_PASSWORD"),
-		DbName: os.Getenv("TP_MYSQL_TEST_DB"), TimeZone: "UTC", LogLevel: 1, IdleConns: 8, OpenConns: 16})
+	portNumber, err := strconv.Atoi(port)
 	if err != nil {
 		t.Fatal(err)
 	}
-	reset := func() {
-		for _, statement := range []string{
-			"DROP TABLE IF EXISTS devices", "DROP TABLE IF EXISTS users", "DROP TABLE IF EXISTS device_id_reservations",
-			"DROP TABLE IF EXISTS " + mysqlLedgerTable, "DROP TABLE IF EXISTS runner_probe",
-		} {
-			if err := db.Exec(statement).Error; err != nil {
-				t.Fatal(err)
-			}
+	db := connectMySQLTestDatabase(t, &DbConfig{Host: host, Port: portNumber, Username: os.Getenv("TP_MYSQL_TEST_USER"), Password: os.Getenv("TP_MYSQL_TEST_PASSWORD"),
+		DbName: os.Getenv("TP_MYSQL_TEST_DB"), TimeZone: "UTC", LogLevel: 1, IdleConns: 8, OpenConns: 16})
+	for _, statement := range []string{
+		"DROP TABLE IF EXISTS devices", "DROP TABLE IF EXISTS users", "DROP TABLE IF EXISTS device_id_reservations",
+		"DROP TABLE IF EXISTS runner_probe", "DROP TABLE IF EXISTS " + mysqlLedgerTable, "DROP TABLE IF EXISTS " + relational.LedgerTable,
+	} {
+		if err := db.Exec(statement).Error; err != nil {
+			t.Fatal(err)
 		}
 	}
-	reset()
-	t.Cleanup(func() {
-		reset()
-		if p, e := db.DB(); e == nil {
-			_ = p.Close()
-		}
-	})
 	return db
 }
 
@@ -54,7 +47,7 @@ func scalar(t *testing.T, db *gorm.DB, query string, args ...interface{}) int {
 	return n
 }
 
-func TestMySQLRunnerConcurrentStartupAppliesOnceAndIsRepeatable(t *testing.T) {
+func TestMySQLRunnerConcurrentStartupImportsAndAppliesOnce(t *testing.T) {
 	db := openMySQLRunner(t)
 	errs := make(chan error, 8)
 	var wg sync.WaitGroup
@@ -70,51 +63,31 @@ func TestMySQLRunnerConcurrentStartupAppliesOnceAndIsRepeatable(t *testing.T) {
 		}
 	}
 	if n := scalar(t, db, "SELECT COUNT(*) FROM "+mysqlLedgerTable+" WHERE module_name = ?", mysqlCoreModule); n != 2 {
-		t.Fatalf("expected one ledger row per file (2), got %d", n)
+		t.Fatalf("expected two compatibility receipts, got %d", n)
 	}
-	// Data written after the first start-up survives a later one.
+	if n := scalar(t, db, "SELECT COUNT(*) FROM "+relational.LedgerTable+" WHERE resource = ?", mysqlCoreModule); n != 2 {
+		t.Fatalf("expected two relational receipts, got %d", n)
+	}
 	if err := db.Exec("INSERT INTO users (id, phone_number, email, password) VALUES ('u', '1', 'a@x.com', 'p')").Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := ApplyMySQLCoreSchema(context.Background(), db); err != nil {
+	// Simulate a database created by the previous runner: the old receipts and
+	// schema survive, while the new relational ledger does not exist yet.
+	if err := db.Exec("DROP TABLE " + relational.LedgerTable).Error; err != nil {
 		t.Fatal(err)
+	}
+	if err := ApplyMySQLCoreSchema(context.Background(), db); err != nil {
+		t.Fatalf("startup must import old receipts before checking pending SQL: %v", err)
 	}
 	if scalar(t, db, "SELECT COUNT(*) FROM users") != 1 {
-		t.Fatal("a repeated start-up must not touch existing data")
+		t.Fatal("startup replay changed existing user data")
 	}
-	// The fence is live after the runner: a device without a reservation is rejected.
 	if err := db.Exec("INSERT INTO devices (id, voucher, tenant_id, device_number) VALUES ('d', 'v', 't', 'n')").Error; err == nil {
-		t.Fatal("the identity fence must be active after start-up")
+		t.Fatal("the identity fence must remain live after startup")
 	}
 }
 
-func TestMySQLRunnerWaitsForTheOwnerLockAndTimesOut(t *testing.T) {
-	db := openMySQLRunner(t)
-	pool, _ := db.DB()
-	holder, err := pool.Conn(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer holder.Close()
-	var got int
-	if err := holder.QueryRowContext(context.Background(), "SELECT GET_LOCK(?, 5)", mysqlLockNamePrefix+mysqlCoreModule).Scan(&got); err != nil || got != 1 {
-		t.Fatalf("holder lock: %d %v", got, err)
-	}
-	started := time.Now()
-	err = applyMySQLMigrations(context.Background(), db, mysqlMigration{module: mysqlCoreModule, description: "probe", lockWait: time.Second,
-		files:  []mysqlMigrationFile{{name: "a.sql", contents: []byte("x"), statements: []string{"SELECT 1"}}},
-		verify: func(context.Context, *sql.Conn) error { return nil }})
-	if err == nil || !strings.Contains(err.Error(), "not obtained") || time.Since(started) > 5*time.Second {
-		t.Fatalf("a held owner lock must time out with an error, got %v after %s", err, time.Since(started))
-	}
-	var released int
-	_ = holder.QueryRowContext(context.Background(), "SELECT RELEASE_LOCK(?)", mysqlLockNamePrefix+mysqlCoreModule).Scan(&released)
-	if err := ApplyMySQLCoreSchema(context.Background(), db); err != nil {
-		t.Fatalf("after the holder releases, start-up must succeed: %v", err)
-	}
-}
-
-func TestMySQLRunnerDetectsChecksumDriftAndMissingSchema(t *testing.T) {
+func TestMySQLRunnerRejectsLegacyChecksumDriftAndMissingSchema(t *testing.T) {
 	db := openMySQLRunner(t)
 	if err := ApplyMySQLCoreSchema(context.Background(), db); err != nil {
 		t.Fatal(err)
@@ -122,55 +95,43 @@ func TestMySQLRunnerDetectsChecksumDriftAndMissingSchema(t *testing.T) {
 	if err := db.Exec("UPDATE "+mysqlLedgerTable+" SET checksum = ? WHERE module_name = ? AND file_name = ?", strings.Repeat("0", 64), mysqlCoreModule, "002_device_identity.sql").Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := ApplyMySQLCoreSchema(context.Background(), db); err == nil || !strings.Contains(err.Error(), "checksum drift") {
-		t.Fatalf("a changed checksum must be refused, got %v", err)
+	if err := ApplyMySQLCoreSchema(context.Background(), db); err == nil || !strings.Contains(err.Error(), "checksum") {
+		t.Fatalf("legacy checksum drift must fail closed, got %v", err)
 	}
-	// Drop the drifted row so the runner re-records the idempotent file, then remove a trigger
-	// behind the ledger's back: the ledger says applied, verification must still notice.
-	if err := db.Exec("DELETE FROM " + mysqlLedgerTable + " WHERE file_name = '002_device_identity.sql'").Error; err != nil {
+	contents, err := componentsql.MySQLMigrationContents("002_device_identity.sql")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ApplyMySQLCoreSchema(context.Background(), db); err != nil {
-		t.Fatalf("re-recording an idempotent file must succeed: %v", err)
+	if err := db.Exec("UPDATE "+mysqlLedgerTable+" SET checksum = ? WHERE module_name = ? AND file_name = ?", componentsql.MigrationChecksum(contents), mysqlCoreModule, "002_device_identity.sql").Error; err != nil {
+		t.Fatal(err)
 	}
 	if err := db.Exec("DROP TRIGGER devices_identity_fence_delete").Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := ApplyMySQLCoreSchema(context.Background(), db); err == nil || !strings.Contains(err.Error(), "devices_identity_fence_delete") {
-		t.Fatalf("a missing fence trigger must fail verification even though the ledger is complete, got %v", err)
+		t.Fatalf("missing schema object must fail verification, got %v", err)
 	}
 }
 
-func TestMySQLRunnerInterruptedFileIsNotRecordedAndCanBeRepaired(t *testing.T) {
+func TestMySQLRunnerSharesLegacyGlobalLock(t *testing.T) {
 	db := openMySQLRunner(t)
-	verify := func(context.Context, *sql.Conn) error { return nil }
-	broken := mysqlMigration{module: "probe", description: "probe", verify: verify, files: []mysqlMigrationFile{{
-		name: "001.sql", contents: []byte("broken"),
-		statements: []string{"CREATE TABLE IF NOT EXISTS runner_probe (id INT PRIMARY KEY)", "THIS IS NOT SQL"},
-	}}}
-	if err := applyMySQLMigrations(context.Background(), db, broken); err == nil || !strings.Contains(err.Error(), "statement 2") {
-		t.Fatalf("expected the second statement to fail, got %v", err)
+	pool, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if scalar(t, db, "SELECT COUNT(*) FROM "+mysqlLedgerTable+" WHERE module_name = 'probe'") != 0 {
-		t.Fatal("an interrupted file must not be recorded as applied")
+	holder, err := pool.Conn(context.Background())
+	if err != nil {
+		t.Fatal(err)
 	}
-	if scalar(t, db, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'runner_probe'") != 1 {
-		t.Fatal("the first statement's effect is expected to remain (DDL cannot be rolled back); files must be idempotent")
+	defer holder.Close()
+	var got int
+	if err := holder.QueryRowContext(context.Background(), "SELECT GET_LOCK(?, 5)", mysqlGlobalLockName).Scan(&got); err != nil || got != 1 {
+		t.Fatalf("holder lock: %d %v", got, err)
 	}
-	fixed := broken
-	fixed.files = []mysqlMigrationFile{{name: "001.sql", contents: []byte("fixed"),
-		statements: []string{"CREATE TABLE IF NOT EXISTS runner_probe (id INT PRIMARY KEY)", "ALTER TABLE runner_probe ADD COLUMN note VARCHAR(10) NULL"}}}
-	if err := applyMySQLMigrations(context.Background(), db, fixed); err != nil {
-		t.Fatalf("a corrected, idempotent file must apply: %v", err)
-	}
-	if scalar(t, db, "SELECT COUNT(*) FROM "+mysqlLedgerTable+" WHERE module_name = 'probe'") != 1 {
-		t.Fatal("the corrected file must be recorded exactly once")
-	}
-	if err := applyMySQLMigrations(context.Background(), db, mysqlMigration{description: "x", verify: verify}); err == nil {
-		t.Fatal("a registration without a module must be rejected")
-	}
-	if err := applyMySQLMigrations(context.Background(), nil, fixed); err == nil {
-		t.Fatal("a nil database must be rejected")
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	if err := ApplyMySQLPlatformSchema(ctx, db); err == nil {
+		t.Fatal("platform migration must wait for an old-version executor holding the shared global lock")
 	}
 }
 
@@ -184,6 +145,6 @@ func TestMysqlConnectCountsMatchedRowsLikePostgres(t *testing.T) {
 	}
 	result := db.Exec("UPDATE runner_probe SET note = 'x' WHERE id = 1")
 	if result.Error != nil || result.RowsAffected != 1 {
-		t.Fatalf("an UPDATE that changes nothing must still report the matched row: affected=%d err=%v", result.RowsAffected, result.Error)
+		t.Fatalf("matched row count: affected=%d err=%v", result.RowsAffected, result.Error)
 	}
 }

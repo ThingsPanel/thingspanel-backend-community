@@ -38,6 +38,11 @@ func startBrokerCommandWorker(ctx context.Context, adapter *mqttadapter.Adapter,
 	if viper.GetString("mqtt.input_profile") != "ingress_v1" {
 		return nil, nil
 	}
+	if global.DB != nil {
+		if err := requirePostgresBrokerControlPlane(global.DB); err != nil {
+			return nil, err
+		}
+	}
 	if global.DB == nil || adapter == nil {
 		return nil, errors.New("durable command dependencies unavailable")
 	}
