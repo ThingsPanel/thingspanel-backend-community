@@ -344,7 +344,11 @@ func (s *Store) NextGeneration(ctx context.Context, scopeKey string) (int64, err
 
 // CreateRun inserts the accepted run.
 func (s *Store) CreateRun(ctx context.Context, r *Run) error {
-	_, err := s.DB.ExecContext(ctx, `
+	return s.createRunTx(ctx, nil, r)
+}
+
+func (s *Store) createRunTx(ctx context.Context, tx *sql.Tx, r *Run) error {
+	_, err := s.exec(ctx, tx, `
         INSERT INTO auto_runs (id, tenant_id, rule_id, revision, definition_hash, scope_key,
                                generation, device_id, trigger_event_id, status, reason_code, reason,
                                snapshot, started_at, deadline, causal_root, causal_hop, cause_event_id)
@@ -674,14 +678,13 @@ type Target struct {
 
 // InsertTargets writes the frozen target snapshot in one statement batch.
 func (s *Store) InsertTargets(ctx context.Context, runID string, targets []Target) error {
+	return s.WithTx(ctx, func(tx *sql.Tx) error { return s.insertTargetsTx(ctx, tx, runID, targets) })
+}
+
+func (s *Store) insertTargetsTx(ctx context.Context, tx *sql.Tx, runID string, targets []Target) error {
 	if len(targets) == 0 {
 		return nil
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
 	stmt, err := tx.PrepareContext(ctx, `
         INSERT INTO auto_targets (run_id, device_id, status, reason_code, reason, selected)
         VALUES ($1,$2,$3,NULLIF($4,''),NULLIF($5,''),$6)
@@ -699,7 +702,7 @@ func (s *Store) InsertTargets(ctx context.Context, runID string, targets []Targe
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 // ListTargets returns the snapshot rows.

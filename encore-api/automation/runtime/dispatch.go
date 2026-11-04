@@ -51,20 +51,7 @@ func (r *Runtime) dispatchOne(ctx context.Context, item *store.OutboxItem) (bool
 		return r.dispatchNotification(ctx, item)
 
 	case "scene":
-		var p struct {
-			SceneID string `json:"scene_id"`
-		}
-		if err := json.Unmarshal(item.Payload, &p); err != nil {
-			_ = r.store.MarkOutbox(ctx, item.ID, "failed", "", err.Error(), r.Now())
-			return false, "failed", "", err.Error(), nil
-		}
-		activator, ok := r.cmds.(ports.SceneActivator)
-		if !ok || activator == nil {
-			_ = r.store.MarkOutbox(ctx, item.ID, "unknown", "", "scene activator not configured", r.Now())
-			return false, "unknown", "", "scene activator not configured", ports.ErrNotConfigured
-		}
-		state, ref, msg, err := activator.ActivateScene(ctx, item.TenantID, p.SceneID)
-		return r.finishDispatch(ctx, item, state, ref, msg, err)
+		return r.dispatchScene(ctx, item)
 
 	default:
 		_ = r.store.MarkOutbox(ctx, item.ID, "failed", "", "unsupported outbox kind: "+item.Kind, r.Now())

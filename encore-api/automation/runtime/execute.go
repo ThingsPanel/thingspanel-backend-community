@@ -32,69 +32,14 @@ const (
 // with a frozen target snapshot.
 func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, triggerEventID string,
 	c cause, res domain.Result, now time.Time, seq int64) (*store.Run, error) {
+	return r.acceptRunWithIdentity(ctx, rule, deviceID, triggerEventID, c, res, now, NewID(), false)
+}
 
+func (r *Runtime) acceptRunWithIdentity(ctx context.Context, rule *store.Rule, deviceID, triggerEventID string,
+	c cause, res domain.Result, now time.Time, id string, deferred bool) (*store.Run, error) {
 	def := rule.Definition
 	scope := ScopeKey(&def, rule.ID, deviceID)
-
-	active, err := r.store.ActiveRunCount(ctx, scope)
-	if err != nil {
-		return nil, err
-	}
-
-	status := StatusAccepted
-	switch def.Mode {
-	case domain.ModeSingle:
-		if active > 0 {
-			// Record the decision instead of silently dropping the trigger.
-			return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, c, res, now,
-				StatusIgnored, "mode_single_busy", "已有运行未结束，本次按 single 模式忽略")
-		}
-	case domain.ModeRestart:
-		if active > 0 {
-			if err := r.cancelScope(ctx, scope, "mode_restart", "新触发按 restart 模式替换旧运行"); err != nil {
-				return nil, err
-			}
-		}
-	case domain.ModeQueued:
-		if active > 0 {
-			depth, err := r.queuedDepth(ctx, scope)
-			if err != nil {
-				return nil, err
-			}
-			maxDepth := 10
-			if def.Queue != nil && def.Queue.MaxDepth > 0 {
-				maxDepth = def.Queue.MaxDepth
-			}
-			if depth >= maxDepth {
-				return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, c, res, now,
-					StatusRejected, "queue_overflow",
-					fmt.Sprintf("排队已满（%d），本次触发被拒绝", depth))
-			}
-			status = StatusQueued
-		}
-	case domain.ModeParallel:
-		maxConcurrent := 4
-		if def.Parallel != nil && def.Parallel.MaxConcurrent > 0 {
-			maxConcurrent = def.Parallel.MaxConcurrent
-		}
-		if active >= maxConcurrent {
-			return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, c, res, now,
-				StatusRejected, "parallel_limit",
-				fmt.Sprintf("并行上限 %d 已满，本次触发被拒绝", maxConcurrent))
-		}
-	}
-
-	generation, err := r.store.NextGeneration(ctx, scope)
-	if err != nil {
-		return nil, err
-	}
-
-	targets, err := r.resolveTargets(ctx, rule, deviceID)
-	if err != nil {
-		return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, c, res, now,
-			StatusRejected, "target_resolution_failed", err.Error())
-	}
-
+	targets, targetErr := r.resolveTargets(ctx, rule, deviceID)
 	deadlineReason := ""
 	deadline := now.Add(def.Budget.MaxRunDuration.Std())
 	if def.Mode == domain.ModeParallel && def.Parallel != nil && def.Parallel.TTL > 0 {
@@ -120,10 +65,11 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 		"definition_hash": rule.DefinitionHash,
 		"device_id":       deviceID,
 		"targets":         len(targets),
-		"generation":      generation,
+		"generation":      0, // assigned atomically with admission
 		"verdict":         res.Verdict,
 		"mode":            def.Mode,
 		"manual":          c.Manual,
+		"scene_path":      c.ScenePath,
 		// Which clock ran out, so the expiry reason is readable instead of
 		// always claiming the step budget was exceeded.
 		"deadline_reason": deadlineReason,
@@ -136,83 +82,38 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 	})
 
 	run := &store.Run{
-		ID:             NewID(),
+		ID:             id,
 		TenantID:       rule.TenantID,
 		RuleID:         rule.ID,
 		Revision:       rule.Revision,
 		DefinitionHash: rule.DefinitionHash,
 		ScopeKey:       scope,
-		Generation:     generation,
 		DeviceID:       deviceID,
 		TriggerEventID: triggerEventID,
 		CausalRoot:     c.Root,
 		CausalHop:      c.Hop,
 		CauseEventID:   c.EventID,
-		Status:         status,
+		Status:         StatusAccepted,
 		Snapshot:       snapshot,
 		StartedAt:      now,
 		Deadline:       &deadline,
 	}
-	if err := r.store.CreateRun(ctx, run); err != nil {
-		return nil, err
+	if targetErr != nil {
+		run.Status = StatusRejected
+		run.ReasonCode = "target_resolution_failed"
+		run.Reason = targetErr.Error()
 	}
-	if err := r.store.InsertTargets(ctx, run.ID, targets); err != nil {
+	if err := r.store.AdmitRun(ctx, run, targets, def); err != nil {
 		return nil, err
 	}
 
-	if status == StatusQueued {
+	if deferred || run.Status != StatusAccepted {
 		return run, nil
 	}
 	if _, err := r.executeRun(ctx, run.ID); err != nil {
 		return run, err
 	}
 	return run, nil
-}
-
-func (r *Runtime) recordSkippedRun(ctx context.Context, rule *store.Rule, deviceID, scope, triggerEventID string,
-	c cause, res domain.Result, now time.Time, status, reasonCode, reason string) (*store.Run, error) {
-
-	generation, _ := r.store.NextGeneration(ctx, scope)
-	snapshot, _ := json.Marshal(map[string]any{
-		"rule_id": rule.ID, "revision": rule.Revision, "device_id": deviceID,
-		"verdict": res.Verdict, "reason": reasonCode,
-	})
-	run := &store.Run{
-		ID: NewID(), TenantID: rule.TenantID, RuleID: rule.ID, Revision: rule.Revision,
-		DefinitionHash: rule.DefinitionHash, ScopeKey: scope, Generation: generation,
-		DeviceID: deviceID, TriggerEventID: triggerEventID, Status: status,
-		CausalRoot: c.Root, CausalHop: c.Hop, CauseEventID: c.EventID,
-		ReasonCode: reasonCode, Reason: reason, Snapshot: snapshot, StartedAt: now,
-	}
-	if err := r.store.CreateRun(ctx, run); err != nil {
-		return nil, err
-	}
-	_, _ = r.store.PublishEvent(ctx, nil, NewID(), rule.TenantID, "run."+status, run.ID,
-		map[string]any{"rule_id": rule.ID, "device_id": deviceID, "reason": reasonCode})
-	return run, nil
-}
-
-func (r *Runtime) queuedDepth(ctx context.Context, scope string) (int, error) {
-	return r.store.CountRunsByStatus(ctx, scope, StatusQueued)
-}
-
-// cancelScope stops future steps of every active run in the scope. Already
-// accepted side effects stay accepted: cancelling configuration is not the same
-// as recalling a command the device may already have executed.
-func (r *Runtime) cancelScope(ctx context.Context, scope, reasonCode, reason string) error {
-	ids, err := r.store.CancelActiveRuns(ctx, scope, reasonCode, reason)
-	if err != nil {
-		return err
-	}
-	for _, id := range ids {
-		_ = r.store.CancelRunTimers(ctx, id)
-		_ = r.store.CancelRunOutbox(ctx, id)
-	}
-	if len(ids) > 0 {
-		_, _ = r.store.PublishEvent(ctx, nil, NewID(), "", "run.cancelled", scope,
-			map[string]any{"scope": scope, "runs": ids, "reason": reasonCode})
-	}
-	return nil
 }
 
 // ---------------------------------------------------------------------------

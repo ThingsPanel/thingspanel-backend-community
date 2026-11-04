@@ -155,6 +155,9 @@ func (s *Service) CreateRule(ctx context.Context, req *CreateRuleRequest) (*Rule
 		Enabled: req.Enabled, Definition: def, DefinitionHash: domain.DefinitionHash(def),
 		LegacyID: req.LegacyID,
 	}
+	if err := rt.ValidateSceneReferences(ctx, tenantID, rule.ID, def); err != nil {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: err.Error()}
+	}
 	if err := rt.Store().CreateRule(ctx, rule); err != nil {
 		return nil, internal(err)
 	}
@@ -193,6 +196,9 @@ func (s *Service) UpdateRule(ctx context.Context, id string, req *UpdateRuleRequ
 	def.Normalize()
 	if err := domain.Validate(&def); err != nil {
 		return nil, invalidDefinition(err)
+	}
+	if err := rt.ValidateSceneReferences(ctx, tenantID, id, def); err != nil {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: err.Error()}
 	}
 	name := req.Name
 	if strings.TrimSpace(name) == "" {
@@ -1162,7 +1168,6 @@ func (s *Service) PlanLegacyScene(ctx context.Context, req *LegacyScenePlanReque
 // Tick runs one scheduler pass: due condition timers, due run continuations and
 // pending outbound intents. It is idempotent and safe to run from several
 // workers because every claim uses SKIP LOCKED.
-//
 func (s *Service) Tick(ctx context.Context) (*TickResponse, error) {
 	rt, err := s.rtOrErr()
 	if err != nil {
@@ -1193,7 +1198,6 @@ func (s *Service) Tick(ctx context.Context) (*TickResponse, error) {
 }
 
 // Recover replays receipts that were received but not evaluated before a crash.
-//
 func (s *Service) Recover(ctx context.Context) (*RecoverResponse, error) {
 	rt, err := s.rtOrErr()
 	if err != nil {
