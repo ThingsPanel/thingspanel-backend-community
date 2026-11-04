@@ -13,6 +13,8 @@ func TestTextMasksSensitiveFields(t *testing.T) {
 		`{"a":[{"Password":"` + tok + `"}],"client_secret":"` + tok + `"}`,
 		`{"name":"a","voucher":"{\"token\":\"` + tok, // truncated
 		`voucher=` + tok + `&page=1`,
+		`v%6fucher=` + tok + `&page=1`,
+		`voucher%5Btoken%5D=` + tok + `&page=1`,
 		`{"voucher":12345` + tok + `}`,
 	}
 	for _, in := range cases {
@@ -23,6 +25,20 @@ func TestTextMasksSensitiveFields(t *testing.T) {
 	}
 	if got := Text(`{"name":"keep","page":2}`); got != `{"name":"keep","page":2}` {
 		t.Errorf("non-sensitive altered: %s", got)
+	}
+	if got := Text(`v%6fice=keep&page=1`); got != `v%6fice=keep&page=1` {
+		t.Errorf("non-sensitive encoded form field altered: %s", got)
+	}
+}
+
+func TestURLWithoutQueryStripsUserinfo(t *testing.T) {
+	const secret = "fake-userinfo-password"
+	out := URL("https://operator:" + secret + "@ha.example.test/api/devices")
+	if strings.Contains(out, secret) || strings.Contains(out, "operator") {
+		t.Fatalf("userinfo leaked from URL without query: %s", out)
+	}
+	if out != "https://ha.example.test/api/devices" {
+		t.Fatalf("unexpected sanitized URL: %s", out)
 	}
 }
 
