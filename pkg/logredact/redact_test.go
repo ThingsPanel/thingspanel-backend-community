@@ -13,6 +13,7 @@ func TestTextMasksSensitiveFields(t *testing.T) {
 		`{"a":[{"Password":"` + tok + `"}],"client_secret":"` + tok + `"}`,
 		`{"name":"a","voucher":"{\"token\":\"` + tok, // truncated
 		`voucher=` + tok + `&page=1`,
+		`voucher=` + tok + `?suffix&next=ok`,
 		`v%6fucher=` + tok + `&page=1`,
 		`voucher%5Btoken%5D=` + tok + `&page=1`,
 		`{"voucher":12345` + tok + `}`,
@@ -29,6 +30,12 @@ func TestTextMasksSensitiveFields(t *testing.T) {
 	if got := Text(`v%6fice=keep&page=1`); got != `v%6fice=keep&page=1` {
 		t.Errorf("non-sensitive encoded form field altered: %s", got)
 	}
+	if got := Text(`page=1?next=ok`); got != `page=1?next=ok` {
+		t.Errorf("ordinary query suffix altered: %s", got)
+	}
+	if got := Text(`page=1?token=` + tok + `&next=ok`); strings.Contains(got, tok) || !strings.Contains(got, `page=1?token=***&next=ok`) {
+		t.Errorf("sensitive nested query was not redacted or normal parameters were lost: %s", got)
+	}
 }
 
 func TestURLWithoutQueryStripsUserinfo(t *testing.T) {
@@ -39,6 +46,17 @@ func TestURLWithoutQueryStripsUserinfo(t *testing.T) {
 	}
 	if out != "https://ha.example.test/api/devices" {
 		t.Fatalf("unexpected sanitized URL: %s", out)
+	}
+}
+
+func TestURLParseFailureStillStripsUserinfo(t *testing.T) {
+	const secret = "fake-url-password"
+	out := URL("https://operator:" + secret + "@host.test/path%ZZ")
+	if strings.Contains(out, secret) || strings.Contains(out, "operator") {
+		t.Fatalf("userinfo leaked from malformed URL: %s", out)
+	}
+	if out != "https://host.test/path%ZZ" {
+		t.Fatalf("unexpected sanitized malformed URL: %s", out)
 	}
 }
 
