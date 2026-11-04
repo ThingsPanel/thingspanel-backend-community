@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"project/pkg/errcode"
+	"project/pkg/logredact"
 
 	"github.com/sirupsen/logrus"
 )
@@ -115,7 +117,7 @@ func Notification(messageType string, message string, host string) ([]byte, erro
 		logrus.Error(err)
 		return nil, fmt.Errorf("read plugin response body failed: %s", err)
 	}
-	logrus.Info(string(body))
+	logrus.Info(logredact.Text(string(body)))
 
 	return body, nil
 }
@@ -123,10 +125,18 @@ func Notification(messageType string, message string, host string) ([]byte, erro
 // /api/v1/service/access/device/list
 // 三方服务列表查询
 func GetServiceAccessDeviceList(host string, voucher string, page_size string, page string) (*ListData, error) {
-	b, err := Get("http://" + host + "/api/v1/plugin/device/list?voucher=" + voucher + "&page_size=" + page_size + "&page=" + page)
+	// Build the query with proper encoding: voucher is arbitrary text (usually
+	// JSON) and must not be spliced into the URL. Plugins decode the query, so
+	// compact JSON keeps working and pretty-printed JSON now works too.
+	q := url.Values{}
+	q.Set("voucher", voucher)
+	q.Set("page_size", page_size)
+	q.Set("page", page)
+	target := "http://" + host + "/api/v1/plugin/device/list?" + q.Encode()
+	b, err := Get(target)
 	if err != nil {
-		logrus.Error(err)
-		logrus.Error("http://" + host + "/api/v1/plugin/device/list?voucher=" + voucher + "&page_size=" + page_size + "&page=" + page)
+		// err is already redacted by Get; never log the URL itself.
+		logrus.Error("get plugin device list failed: ", err)
 		return nil, fmt.Errorf("get plugin form failed: %s", err)
 	}
 	// 解析表单
