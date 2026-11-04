@@ -125,18 +125,8 @@ func redactURLUserinfo(s string) string {
 }
 
 func redactAssignments(s string, depth int, budget *redactionBudget) string {
-	if !strings.Contains(s, "%") {
-		lower := strings.ToLower(s)
-		hasSensitiveMarker := false
-		for _, word := range sensitiveWords {
-			if strings.Contains(lower, word) {
-				hasSensitiveMarker = true
-				break
-			}
-		}
-		if !hasSensitiveMarker {
-			return s
-		}
+	if !strings.Contains(s, "%") && !containsSensitiveMarker(s) {
+		return s
 	}
 	var out strings.Builder
 	written, searchFrom, fields := 0, 0, 0
@@ -362,12 +352,22 @@ func urlWithBudget(raw string, depth int, budget *redactionBudget) string {
 	budget.remaining -= len(raw)
 	u, err := url.Parse(raw)
 	if err != nil {
+		if containsEncodedAssignmentDelimiter(raw) && containsSensitiveMarker(raw) {
+			return Mask
+		}
 		return textWithBudget(stripURLUserinfo(raw), depth, budget)
 	}
 	// Userinfo is sensitive even when a URL has no query string.
 	u.User = nil
+	if _, overLimit := redactURLPath(u, depth+1, budget); overLimit {
+		return Mask
+	}
 	if u.RawQuery == "" {
-		return textWithBudget(u.String(), depth, budget)
+		safe := u.String()
+		if len(safe) > maxTextBytes {
+			return Mask
+		}
+		return safe
 	}
 	if strings.Count(u.RawQuery, "&")+1 > maxRedactionFields {
 		return Mask
@@ -393,6 +393,46 @@ func urlWithBudget(raw string, depth int, budget *redactionBudget) string {
 		return Mask
 	}
 	return safe
+}
+
+func redactURLPath(u *url.URL, depth int, budget *redactionBudget) (changed bool, overLimit bool) {
+	decoded := u.EscapedPath()
+	layers := 0
+	for {
+		safe := textWithBudget(decoded, depth, budget)
+		if safe != decoded {
+			u.Path = safe
+			u.RawPath = ""
+			return true, false
+		}
+		if !strings.Contains(decoded, "%") {
+			return false, false
+		}
+		next, err := url.PathUnescape(decoded)
+		if err != nil || next == decoded {
+			return false, false
+		}
+		if layers == maxNestedDecodeLayers {
+			return false, true
+		}
+		decoded = next
+		layers++
+	}
+}
+
+func containsEncodedAssignmentDelimiter(s string) bool {
+	lower := strings.ToLower(s)
+	return strings.Contains(lower, "%3f") || strings.Contains(lower, "%3d")
+}
+
+func containsSensitiveMarker(s string) bool {
+	lower := strings.ToLower(s)
+	for _, word := range sensitiveWords {
+		if strings.Contains(lower, word) {
+			return true
+		}
+	}
+	return false
 }
 
 func stripURLUserinfo(raw string) string {
