@@ -35,7 +35,7 @@ var (
 	jsonStringRe = regexp.MustCompile(`("` + keyPattern + `"\s*:\s*)"(?:\\.|[^"\\])*("|$)`)
 	// "key": {...} / [...] / scalar, used only when the text is not valid JSON.
 	jsonOtherRe = regexp.MustCompile(`("` + keyPattern + `"\s*:\s*)(?:[^"\s,}\]][^,}\]]*)`)
-	formRe      = regexp.MustCompile(`((?:^|[?&;\s])` + keyPattern + `=)[^&\s"]*`)
+	formRe      = regexp.MustCompile(`((?:^|[?&;\s])([^=&;\s"]+)=)[^&?;\s"]*`)
 )
 
 // Text masks sensitive fields in a JSON document, form/query encoded text or
@@ -60,8 +60,27 @@ func Text(s string) string {
 	}
 	s = jsonStringRe.ReplaceAllString(s, `${1}"`+Mask+`"`)
 	s = jsonOtherRe.ReplaceAllString(s, `${1}"`+Mask+`"`)
-	s = formRe.ReplaceAllString(s, `${1}`+Mask)
+	s = formRe.ReplaceAllStringFunc(s, redactFormField)
 	return s
+}
+
+func redactFormField(match string) string {
+	parts := formRe.FindStringSubmatch(match)
+	if len(parts) != 3 {
+		return match
+	}
+	key, err := url.QueryUnescape(parts[2])
+	if err != nil {
+		// Do not let malformed percent-encoding become a way to hide a sensitive key.
+		if strings.Contains(parts[2], "%") {
+			return parts[1] + Mask
+		}
+		return match
+	}
+	if IsSensitiveKey(key) {
+		return parts[1] + Mask
+	}
+	return match
 }
 
 func maskValue(v interface{}) interface{} {
@@ -87,8 +106,13 @@ func maskValue(v interface{}) interface{} {
 // URL masks the values of sensitive query parameters in a URL string.
 func URL(raw string) string {
 	u, err := url.Parse(raw)
-	if err != nil || u.RawQuery == "" {
+	if err != nil {
 		return Text(raw)
+	}
+	// Userinfo is sensitive even when a URL has no query string.
+	u.User = nil
+	if u.RawQuery == "" {
+		return u.String()
 	}
 	q := u.Query()
 	for k := range q {
@@ -97,7 +121,6 @@ func URL(raw string) string {
 		}
 	}
 	u.RawQuery = q.Encode()
-	u.User = nil
 	return u.String()
 }
 
