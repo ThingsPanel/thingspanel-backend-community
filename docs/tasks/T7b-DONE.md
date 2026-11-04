@@ -49,3 +49,14 @@ HA 里把 `sensor.outside_temperature` 设为 31.7，再设为 32.4；开灯一�
 - 没做对照实验隔离旧镜像的具体故障点（见 §5.1）；没有在 amd64 上构建；未验证长时间运行、重连和身份续期。
 - 本机 `thingspanel-mosquitto:t7b-local` 镜像保留（未发布），后续要不要保留由负责人定。
 - 清理：所有 `t7b-` 容器、卷、网络已删，`tp-agent-*` 容器已删，HA 里的长期令牌已撤销（旧令牌访问返回 401，`ha-token-revoked.log`），平台身份已通过安装器卸载吊销。
+
+## 8. 追加：用真实 Home Assistant 验证（192.168.31.97，设备 ESP-01S灯 `switch.esp_01sdeng`）
+负责人提供了真实 HA 和开发用长期令牌，并明确授权操作灯。栈重建后（同样的新镜像、同样的流程）：
+- 一条命令安装：generation 1，健康检查 ok（`real-step1-install.log`）。
+- 建服务插件、接入点（base_url `http://192.168.31.97:8123` + 令牌），插件列出 HA 实体（分页上限 100 条，ESP-01 在其中），选 ESP-01S灯建为设备（`real-step2-create-devices.log`）。
+- 刷新设备范围（平台账号含插件设备）并重启 owner、mosquitto、插件。
+- **下行通过**：平台下发 `switch` false/true，真实灯 on→off→on，两次回执 `result:0`、状态 3（`real-step4-downlink.log`）。
+- **上行通过**：灯的状态变化进入平台，`telemetry_datas` 有 off、on 两条 `ha_state`，当前值为 on（`real-step3-uplink-db.log`）。
+- 插件不会在启动时推送当前状态，只在状态变化时上报；刚接入的设备在变化前平台没有数据。
+- 与另一会话（t7c）同时在本机 Docker 上跑栈时，我的插件容器曾消失一次，重新 `install`（generation 2）后恢复；原因未查（容器名为 `tp-agent-prepared-<hash>`，两个会话可能互相影响）。
+- 清理：t7b 容器、卷、网络、agent 与插件容器已删，平台运行身份已吊销，本地令牌文件已删；HA 里的令牌按负责人意见保留。
