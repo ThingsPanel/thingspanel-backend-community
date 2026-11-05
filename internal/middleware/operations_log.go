@@ -156,5 +156,7 @@ func sensitiveAccountPath(path string) bool {
 	p := strings.ToLower(path)
 	return p == "/api/v1/login" || strings.HasPrefix(p, "/api/v1/auth/") ||
 		strings.HasPrefix(p, "/api/v1/user/") || strings.HasPrefix(p, "/api/v1/tenant/") ||
+		strings.HasPrefix(p, "/api/v1/plugin/installs") || // site configuration with plugin secrets
+
 		strings.Contains(p, "password") || strings.Contains(p, "/login")
 }

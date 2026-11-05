@@ -162,3 +162,28 @@ func TestMalformedTokensAreDenied(t *testing.T) {
 		}
 	})
 }
+
+func TestRenewExtendsLiveIdentityOnly(t *testing.T) {
+	forEachBackend(t, func(t *testing.T, s *Store, tenant string, db *gorm.DB) {
+		now := time.Now().UTC()
+		token, _, err := s.Issue(tenant, "inst", "svc", 1, time.Hour, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n, err := s.Renew(tenant, "inst", 24*time.Hour, now.Add(30*time.Minute))
+		if err != nil || n != 1 {
+			t.Fatalf("renew: %d %v", n, err)
+		}
+		if _, err := s.Authenticate(token, now.Add(5*time.Hour)); err != nil {
+			t.Fatalf("the same token must work after renewal: %v", err)
+		}
+		// expired identities are never revived, revoked ones neither
+		if n, _ := s.Renew(tenant, "inst", time.Hour, now.Add(48*time.Hour)); n != 0 {
+			t.Fatal("an expired identity must not be renewed")
+		}
+		s.Revoke(tenant, "inst", now.Add(time.Hour))
+		if n, _ := s.Renew(tenant, "inst", time.Hour, now.Add(2*time.Hour)); n != 0 {
+			t.Fatal("a revoked identity must not be renewed")
+		}
+	})
+}

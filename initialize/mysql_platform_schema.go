@@ -37,6 +37,7 @@ func mysqlOwnerModules() []mysqlOwnerModule {
 		// automation_scope_generation, which are in platform-base 012.
 		{"mysql-platform-base", "MySQL platform base", componentsql.MySQLPlatformBaseMigrationNames()},
 		{"mysql-plugin-runtime-identity", "MySQL plugin runtime identity", componentsql.MySQLPluginRuntimeIdentityMigrationNames()},
+		{"mysql-plugin-install", "MySQL plugin installation records", componentsql.MySQLPluginInstallMigrationNames()},
 	}
 }
 

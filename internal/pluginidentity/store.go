@@ -131,3 +131,12 @@ func (s *Store) Authenticate(token string, now time.Time) (*Identity, error) {
 	return &Identity{InstanceID: rec.InstanceID, PluginInstance: rec.PluginInstance, ServiceIdentifier: rec.ServiceIdentifier,
 		TenantID: rec.TenantID, Generation: rec.Generation}, nil
 }
+
+// Renew extends the lease of every live generation of the plugin instance (in practice only the highest one is
+// live) without changing the token. Revoked identities are never revived. Returns how many were extended.
+func (s *Store) Renew(tenantID, pluginInstance string, ttl time.Duration, now time.Time) (int64, error) {
+	res := s.db().Model(&Record{}).
+		Where("tenant_id = ? AND plugin_instance = ? AND revoked_at IS NULL AND expires_at > ?", tenantID, pluginInstance, now).
+		Update("expires_at", now.Add(ttl))
+	return res.RowsAffected, res.Error
+}
