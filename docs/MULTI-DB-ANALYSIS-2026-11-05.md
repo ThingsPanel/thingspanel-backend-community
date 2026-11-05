@@ -2,6 +2,7 @@
 
 > 日期：2026-11-05。基线：`develop@520a3222`（本分支 `claude/wp-multidb-analysis-3e30ab`）。
 > 老代码：`origin/v1.1.11`（`6686199f`，2025-11-21）、`origin/0.5.4.1`（`ef91e50e`，2024-06-21）、`origin/0.4.8.2`（`7f050931`，2023-04-26）、`origin/main-1.3.0`（`07124839`）、`origin/main`（`f4569bca`）。
+> 追加（§7）：企业版 `thingspanel-backend-enterprise`、`thingspanel-TDengine`。
 > 对照物：`wp/d1-dbx-returning@9cd62bb9`、`docs/T1-CARDS.md`、`docs/RELATIONAL-INVENTORY.md`、任务书副本 `docs/closeout-20261102/inputs/ThingsPanel_Encore_Migration_Tasks_2026-11-01.md`。
 > 只读分析，没有改任何代码。证据写法：`分支:路径:行号`；没查到的写“未查到”。
 
@@ -9,7 +10,7 @@
 
 **1. 老代码并没有“GORM 多库”，也没有“直连 TDengine”。**
 - 关系库：四个老版本**全部只连 PostgreSQL**。`gorm.Open(postgres.Open(...))` 是唯一的打开方式（`v1.1.11:initialize/pg_init.go:152`、`0.5.4.1:initialize/psql/psql.go:63`、`0.4.8.2:initialize/psql/psql.go:69`）。`gorm.io/driver/mysql` 在三个版本的 `go.mod` 里都只是 `// indirect`（如 `v1.1.11:go.mod:141`），没有任何 Go 代码调用 `mysql.Open`（唯一命中是 `cmd/gen/main.go:16` 的注释）。Kingbase、PolarDB 没有驱动，只是字符串。
-- 时序：TDengine **从没有被 Go 代码直连**。老代码把读请求通过 gRPC 转给一个**仓库外的服务 tptodb**；平台自己**写入永远走 PG**（`v1.1.11:internal/dal/telemetry_datas.go:24-25` `CreateTelemetrData` → `query.TelemetryData.Create`）。`TSDB/KINGBASE/POLARDB` 三个值只是“把读走 gRPC”的开关（`v1.1.11:internal/dal/telemetry_datas.go:51-52` 等 7 处）。tptodb 服务端怎么写 TDengine，仓库里**未查到**。
+- 时序：TDengine **从没有被 Go 代码直连**。老代码把读请求通过 gRPC 转给一个**仓库外的服务 tptodb**；平台自己**写入永远走 PG**（`v1.1.11:internal/dal/telemetry_datas.go:24-25` `CreateTelemetrData` → `query.TelemetryData.Create`）。`TSDB/KINGBASE/POLARDB` 三个值只是“把读走 gRPC”的开关（`v1.1.11:internal/dal/telemetry_datas.go:51-52` 等 7 处）。**（社区仓库里看不到 tptodb 服务端；它在企业版仓库 `thingspanel-TDengine`，见 §7：它自己订阅 MQTT/Kafka 并行写 TDengine，没有设备历史删除。）**
 - 所以能从老代码“复用”的东西，**几乎为零**：没有 MySQL 方言经验可抄；TDengine 的有价值部分（7 个读接口的语义清单）已经被现在的 `tdenginehistory` 超过。
 
 **2. 现在 develop 比老代码走得远得多，差距集中在 Encore 服务。**
@@ -31,7 +32,9 @@
 | MySQL + TDengine（无 PG） | 上一行 + 平台 PG 专用尾巴 + broker 暂缓 | MySQL 完成后再加 **2–3 天** |
 | MySQL + TimescaleDB | 未设计，需先拍板 | 至少 **+5 天**（见 §5 决定 D1） |
 
-**5. 建议顺序：先 PG+TDengine（3–4 天）→ 再 PG→MySQL（先小模块暖身、devicemetadata 单线推进）→ 最后 MySQL+TDengine。** 验收标准见 §6。
+**5. 建议顺序：先 PG+TDengine（3–4 天）→ 再 PG→MySQL（先小模块暖身、devicemetadata 单线推进）→ 最后 MySQL+TDengine。** 验收标准见 §5。
+
+**6. 企业版（§7，追加）：** 企业版同样**没有 MySQL/Kingbase/PolarDB 实现**（只在文档里宣称）。它有的是：外置服务 `thingspanel-TDengine`（自己订阅 MQTT/Kafka 写 TDengine，平台只读，没有设备历史删除）；以及未合入 `main` 的达梦分支（在调用点写 `if db.type=="dm"`，是反例）。**因此没有可直接复用的“多库代码”，但有两个影响决策的事实：企业版默认在用 tptodb，所以我撤回“社区版删除 tptodb”的建议；`thingspanel-TDengine` 的聚合实现可作 T3 差分的第三方参照。**
 
 ---
 
@@ -234,7 +237,7 @@
 | --- | --- | --- |
 | **D1** | MySQL 档的历史存哪里？现状是 `history_backend=postgres` 就写 `global.DB`，MySQL 档会落进 MySQL 普通表（无 hypertable、无压缩、保留期靠 DELETE） | **MySQL 档推荐 TDengine；MySQL+TimescaleDB 第一期不做**（需要第二条 PG 连接 + 独立 Timescale adapter，任务书 S02，约 +5 天）。MySQL 档下“历史写 MySQL 表”保留为“小规模/开发用”，文档写明 |
 | D2 | B5a/B5b（导出、命令执行、模拟器）在 MySQL 档是否允许首发 `unsupported` | 不建议；除非工期紧。默认完整做 |
-| D3 | tptodb：删除还是保留为可选 adapter | **删除**（任务书允许保留，但它没有写/删/保留期，且没人维护；`device_latest_telemetry.go:19-21` 已经对它返回 503） |
+| D3 | tptodb：删除还是保留为可选 adapter | **待定，见 §7.3**：企业版 `main` 默认 `tptodb_type: TSDB`，在用。原建议“删除”已撤回；改为先定企业版是否迁到 `HistoryBackend` |
 
 ### 5.2 分几步
 
@@ -244,7 +247,7 @@
   1. 安装器 tdengine profile 整栈：前端走历史页/导出/统计，冒烟 `smoke_history_chain.sh` 通过（记录写入 `/Volumes/80G/archive/evidence/...`，仓库一行索引）；
   2. 语义差分表（毫秒精度、UTC、同 key 同时间、空桶、diff、区间端点）在 TimescaleDB 与 TDengine 上逐项对照，差异写明；
   3. `history_backend=tdengine` 不设 `experimental` 即可启动；用“主库放哨兵、TDengine 放不同数据”的方法证明历史读只访问选中的库；
-  4. `grep -rn "tptodb" --include=*.go` 为空（或仅剩已有契约测试的 adapter）；`TP_TDENGINE_TEST_URL` 下相关测试全绿，**无该变量时的 Skip 要在完成说明里写明**。
+  4. tptodb 旧分支：按 §7.3 的决定处理（删除，或保留为命名明确、有契约测试的可选 adapter）；`TP_TDENGINE_TEST_URL` 下相关测试全绿，**无该变量时的 Skip 要在完成说明里写明**。
 
 **步骤 2：PG → MySQL 关系库（约 45–47 人天，两条线约 25–28 个工作日）**
 - 2a 平台根 SQL 清扫（合并 A2+A3，5 天）→ 同时 B1 起步（devicemetadata 单线，不拆）。
@@ -272,8 +275,50 @@
 
 - 盘点文档的语句数是下限；`devicemetadata` 与 `automation` 最可能超估。我只抽查了平台根的 `Raw/Exec` 调用点与几个双写原因，没有重数 Encore 的 833 条。
 - 没有重跑任何 TDengine 或 MySQL 测试（环境变量未配置，且规则要求不动运行中的 docker 栈）；“真实 TDengine 3.4 上测过”引自 `PROJECT-AUDIT-2026-11-04.md:82`。
-- tptodb 服务端实现、它如何写入 TDengine/Kingbase/PolarDB：**未查到**（不在本仓库）。
+- tptodb 服务端：初稿时未查到，已在 §7 补上（企业版仓库）。它对 Kingbase/PolarDB 的支持：**未查到**，代码里只有 TDengine。
 - `main-1.3.0:test/multidb/docker-compose.yml` 的用途未细读。
 - 外部任务书原路径 `/Volumes/500G/docs/...` 本机未挂载，我读的是仓库内副本 `docs/closeout-20261102/inputs/...`（日期同为 2026-11-01，**未逐字比对是否与原文件一致**）。R01–R09、S01–S05 读了 R01、R02、S01–S05；R03–R09 只看了标题。
 - 安装器仓库 `thingspanel-installer` 的 tdengine profile 本次未读（只引用审计文档的描述）。
 - 工作量估算基于卡片文档和 d1 经验，不含评审、返工和合并冲突时间；“≈25–28 个工作日”假定两条线持续满载。
+
+---
+
+## 7. 企业版（`ThingsPanel/thingspanel-backend-enterprise`、`ThingsPanel/thingspanel-TDengine`）
+
+> 追加于同日。来源：`gh repo clone`（只读，克隆在会话临时目录，未入库）。企业版后端 `main@a4a2a77`（2026-11-04）、`dm-20260520@76f6cbf`；TDengine 服务 `thingspanel-TDengine@fbb3ba6`（2026-09-24，34 个提交，首个提交 `3ce9046` 2024-06-09）。**§0–§6 里“tptodb 服务端未查到”的说法以本节为准。**
+
+### 7.1 企业版实际有什么
+
+| 能力 | 企业版现状 | 证据 |
+| --- | --- | --- |
+| **TDengine** | **有完整的独立服务 `thingspanel-TDengine`（tptodb 服务端）**：订阅 MQTT（`devices/telemetry/processed`）或 Kafka，经管道（缓冲、批量、背压）写 TDengine 超级表+按设备/指标建子表；同时提供 gRPC 查询（端口 50052）。**写入是它自己消费消息，与平台写 PG 并行，不经过平台事务** | `thingspanel-TDengine:docs/项目的全局认知.md`；`conf/config.yaml`（`data_source`、`mqtt.attribute_topic`）；`db/db.go:77-145`（`taosRestful`+zorm，`createTdStable`）；`pipeline/*.go` |
+| 平台怎么用它 | 企业版后端 `main` 的读取分支与社区版 v1.1.11 **同一份代码**：`grpc.tptodb_type: TSDB`（`conf.yml:65`），读走 gRPC；写仍是 `query.TelemetryData.Create`（PG） | `enterprise:main:internal/dal/telemetry_datas.go:24-25,51-52,88-89`；`configs/conf.yml:65`、`conf-dev.yml:66`；同样的 5 个 RPC 调用 |
+| 保留期 | `db.keep_days`（默认 365，配置里为 7） | `thingspanel-TDengine:db/db.go:150-153`；`conf/config.yaml:68` |
+| gRPC 接口 | 8 个 RPC（与社区客户端 proto 一致），实现 1115 行，带聚合测试（`data_statistic_test.go`：窗口真实时间、空结果、缺窗口时间报错） | `grpc_tptodb/tp_to_db.proto:29-53`；`grpc_tptodb/server/data_*.go` |
+| **删除设备历史** | **没有**对应 RPC，也没有按设备删除的实现（`DROP` 只用于重建超级表） | `grpc_tptodb/tp_to_db.proto`（无删除 RPC）；`db/db.go:172` |
+| **达梦（DM）** | 只在分支 `dm`/`dm-20260520` 上，**4 个提交（2025-08-18 至 2026-05-20），未合入企业版 `main`**。用 `github.com/godoes/gorm-dameng v0.7.1`，配置 `db.type: postgres|dm`；`sql/dm-1…dm-10.sql`（`dm-1.sql` 1798 行）由 `sql/sql_add_quotes.py` 给表名/列名加引号生成 | `dm-20260520:go.mod:17`；`initialize/db_init.go`（332 行，`PgConnect`/`DBConnect` 二选一）；`initialize/db_exe_dmsql.go`；`如何使用不同数据库.md` |
+| **MySQL / Kingbase / PolarDB** | **企业版也没有**：`go.mod` 里 MySQL 仍是 `// indirect`（`main:go.mod:103`）；`KINGBASE/POLARDB` 仍只是和社区版相同的字符串分支；全组织代码搜索 `kingbase`/`polardb` 只命中社区版 dal、README 和文档站 | `gh search code --owner ThingsPanel kingbase/polardb`；`thingspanel.github.io:docs/installation/environmental_requirement.md`（文档写“支持 PolarDB、KingBase 等国产数据库”，代码里没有对应驱动） |
+
+### 7.2 企业版的达梦多库做法——是反例，不是模板
+
+- **做法**：在业务代码里直接写 `if viper.GetString("db.type") == "dm" {…} else if … == "postgres" {…}`。`dm-20260520` 里 `db.type` 分支散落在 8 个文件：`initialize/db_init.go`(3)、`internal/dal/alarm.go`(6)、`telemetry_datas.go`(6)、`telemetry_current_datas.go`(2)、`ui_elements.go`(8)、`users.go`(2)、`mqtt/subscribe/{mqtt_client,telemetry_message}.go`(1+2)。
+- **质量问题（已在代码里看到）**：`internal/dal/users.go` 的 `GroupByMonthCount` 在 `dm` 分支里嵌套了一个永远不可达的 `else if … == "postgres"`；`alarm.go` 的设备过滤在 `dm` 下用 `DBMS_LOB.INSTR` 做字符串包含代替 JSON key 判断（语义变弱，设备号是另一个设备号的子串时会误命中——这是我从代码读出的推断，未实测）；两个新增分支在 `db.type` 非 `dm`/`postgres` 时静默不加过滤条件。
+- **分支处于不可合并状态**：与 `main` 的基线相差 583 个文件（分支基于很旧的 `fcf00c5`，只有 4 个提交，改动面 35 个文件 +3923/−351）。
+- **规模比 MySQL 小得多**：只改了 3 个 dal 文件加启动，没碰 Encore，因为企业版**没有 Encore 服务**（`go.mod`、目录中无 `encore-api`；这点基于目录结构，未逐项核对）。
+- **与本项目规则的关系**：`CLAUDE.md` 要求“GORM 表达不了的语义，在所属 repository 里分别写 PG 和 MySQL 两个显式实现”。达梦做法是**反过来**——在调用点用全局配置分支，且迁移靠脚本给 PG 的 SQL 机械加引号。**可借鉴的只有一件事**：达梦的 `sql/dm-*.sql` 手写迁移 + 版本号表的思路和我们 `sql/mysql/*.sql` 一样，没有新东西。**不可借鉴**：分支写法。
+
+### 7.3 企业版对前面结论的修正
+
+1. **“老代码没有直连 TDengine”依旧成立，但“TDengine 写入/删除/保留期在平台之外、未查到”要改**：写入是 `thingspanel-TDengine` 服务自己订阅消息写的；保留期靠 `keep_days`；**删除设备历史没有实现**（对应任务书 §2.5 的跨存储删除问题，企业版从来没解决）。
+2. **tptodb 不能直接删（修正 §5.1 的 D3）**：企业版 `main` 的默认配置就是 `tptodb_type: TSDB`，说明企业版客户在用。社区版新的 `HistoryBackend`+意图重放（平台写入 TDengine REST，带幂等和持久删除）是**另一套架构**。若社区代码里删掉 `third_party/grpc/tptodb_client`，企业版与社区版的 dal 差异会进一步扩大。**这是产品策略问题，需要负责人定**：(a) 企业版也迁到新的 `HistoryBackend`（tptodb 服务退役，其 8 个 RPC 的语义改由 `tdenginehistory` 承接）；(b) 两边并存，社区版保留 tptodb 客户端为一个明确命名的可选 adapter（任务书 §2.4 “保留 tptodb 的条件是封装成普通 adapter 并验证同样的契约”）。
+3. **有一个现成的语义参照**：`thingspanel-TDengine` 的 `grpc_tptodb/server/data_statistic.go` 与测试是线上跑过的 TDengine 聚合/分页语义。T3 的“语义差分”（毫秒精度、空桶、diff、区间端点）可以把这份实现作为第三方对照，而不是只对 TimescaleDB 单边对比。**我没有逐条对比过两套 TDengine SQL，这是建议，不是结论。**
+4. **“企业版有很多数据库兼容”**：按代码证据，企业版实际有的是 **PG(+Timescale)、TDengine（外置服务）、达梦（未合入分支）**；MySQL、Kingbase、PolarDB 在代码里**未查到**，只在文档站和 README 里宣称。若企业版另有未在 `ThingsPanel` 组织下、或在我没看的分支（`irrigation*`、`water`、`sanze`、`customer-xwzl` 等，我只对 `main`、`dm`、`dm-20260520`、`cloud`、`nfdw`、`tp-community-nfdw` 的 `go.mod`/配置做了检索）里的实现，请告诉我仓库或分支名，我再看。
+
+### 7.4 对建议的影响
+
+| 项 | 原建议 | 修订 |
+| --- | --- | --- |
+| 先做 PG+TDengine | 3–4 天 | **不变**；T3 增加一项：把 `thingspanel-TDengine` 的聚合语义作为差分对照（+0.5–1 天） |
+| tptodb 处置（D3） | 删除 | **改为待定**：先定企业版去向（7.3 第 2 点）。若选 (b)，社区版只需把 `grpc_service.go` 的无条件初始化改成“`tptodb_type` 非 NONE 才初始化”，并对 `internal/dal` 里的分支加契约测试，约 1 天 |
+| 达梦 | 未涉及 | **不纳入本次范围**。若要把达梦也做成可选关系库，应走 `pkg/relational` 新增一个 dialect，而不是搬 `db.type` 分支；工作量估算：未估（需要先确认达梦对 GORM-gen、触发器、`SKIP LOCKED` 的支持，我没验证）。 |
+| MySQL 档 | 先 TDengine | 不变。企业版没有 MySQL 实现可借鉴，也就没有“可复用 MySQL 代码”的捷径 |
