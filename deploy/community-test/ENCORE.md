@@ -28,6 +28,8 @@ Action 发布原生服务后安装并验证 `tp-automation-tick.timer`，每 5 �
 
 ## 通知身份持续运行
 
+自动化服务同时发送多个租户的通知时，私有运行环境设置 `TP_NOTIFICATION_TOKENS_JSON`，值为租户 ID 到既有 source 凭据的 JSON 映射。每个值必须是该租户已获授权并持续续期的凭据，不能复用其他租户的凭据。映射一旦配置即为完整名单：未登记租户、无效 JSON 或空值均拒绝发送，不回退到默认凭据。未设置映射的单租户部署仍使用 `TP_NOTIFICATION_TOKEN`。映射属于私密运行配置，不提交仓库；增加映射不签发或扩大任何授权。
+
 首次 source/projection 授权仍由现有运维工具验证平台及租户真实会话。之后由 root 私有 `notification-renew-policy.private.json` 明确登记既有部署、单租户、凭据文件及实际运行配置。它授权本机运维续期，不创建或扩展身份；不使用管理员账号或用户 JWT 维持后台服务。
 
 CLI `notification-source-provision --service-policy <绝对私有策略路径> --ttl 8h` 仅允许 Linux root，检查策略、凭据、配置及其父目录归属与权限。只延长数据库中现有、未撤销、未过期且双哈希和范围匹配的 source/projection 对；任一不匹配则整笔回滚，不能复活失效凭据。
