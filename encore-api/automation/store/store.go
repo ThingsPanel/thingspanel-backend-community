@@ -57,7 +57,7 @@ type Rule struct {
 	// every import look like a change.
 	BundleHash string
 	CreatedAt  time.Time
-	UpdatedAt   time.Time
+	UpdatedAt  time.Time
 
 	// The three fields below are not columns. They are filled in when the rule
 	// is materialized for one device (A19), so that the run and the pending
@@ -360,7 +360,8 @@ func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, deviceCo
              EXISTS (
                SELECT 1 FROM jsonb_array_elements(r.definition->'trigger'->'groups') g,
                              jsonb_array_elements(g->'conditions') c
-                WHERE (c->>'source' = 'self' OR c->>'source' IS NULL)
+                WHERE (c->>'source' = 'self' OR c->>'source' IS NULL
+                       OR (c->>'source' = 'device' AND c->>'device_id' = $2))
                   AND c->>'signal' = $4
                   AND c->>'key' = $5
              )
