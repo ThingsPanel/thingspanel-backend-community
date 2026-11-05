@@ -83,6 +83,8 @@
 | `~/Downloads/code/thingspanel-installer`（主目录） | `feat/thingmodel-api` | 1 | 保留 |
 | `~/Downloads/code/thingspanel-installer-develop-review` | `develop` | — | 总监验收、合并工作树；2026-11-04 登记，待用户确认后清理 |
 | `~/Downloads/code/thingspanel-installer-develop-review/.claude/worktrees/wp-mvp-config` | `wp/mvp-config` | — | 默认 PG 配置对齐，2026-11-05 登记；保留，删除待用户确认 |
+| `~/Downloads/code/thingspanel-installer-wp-pui` | `wp/pui-agent` | PLUGIN-UI Agent 目录模式 + 安装器收敛 | 进行中会话 | 2026-11-05 登记；待审查，合并后当天清理 |
+| `~/Downloads/code/thingspanel-frontend-wp-pui`（前端仓库） | `wp/pui-frontend` | PLUGIN-UI 前端安装页 | 进行中会话 | 2026-11-05 登记；待审查，合并后当天清理 |
 | `~/Downloads/code/thingspanel-installer-wp-p1-fix` | `wp/p1-fix-retry-lock` | — | P1 补救，2026-11-04 登记；待审查完成及用户确认后清理 |
 | `~/Downloads/code/thingspanel-installer-wp-i1` | `wp/i1-pg-profiles` | 0 | 进行中 |
 | `~/Downloads/code/thingspanel-installer-wp-t6` | `wp/t6-ha-catalog` | 0 | 进行中（T6 HA 打包） |

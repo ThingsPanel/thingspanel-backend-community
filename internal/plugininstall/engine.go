@@ -180,7 +180,7 @@ func (e *Engine) Submit(ctx context.Context, tenant, plugin, idemKey string, val
 	case StateInstalling, StateUninstalling:
 		return row, nil // an operation is already running: the click is absorbed
 	}
-	if row.State == StateEnabled && len(public) == 0 && len(secret) == 0 {
+	if row.State == StateEnabled && len(secret) == 0 && sameValues(row.PublicConfig(), public) {
 		return row, nil // nothing to change: do not restart a healthy plugin
 	}
 	return e.apply(ctx, row, entry, public, secret, idemKey)
@@ -384,4 +384,14 @@ func mapAgentErr(err error) error {
 		return ErrAgentDown
 	}
 	return err
+}
+
+// sameValues reports whether every given value already is the stored one.
+func sameValues(have, given map[string]string) bool {
+	for k, v := range given {
+		if have[k] != v {
+			return false
+		}
+	}
+	return true
 }
