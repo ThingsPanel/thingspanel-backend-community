@@ -6,4 +6,4 @@
 - 证据限制：日志没有记录 Broker/PostgreSQL 的完整版本与运行模式元数据，不能据此复现或声明版本矩阵验收。
 - 未覆盖：真实一分钟调度周期（测试回拨 durable 行时间并直接调用 sweep）；强制 Broker ACL 拒绝（只检查未授权身份收不到命令）；HTTP/UI 路径与界面验收。
 - `git diff --check`：通过。
-- 未推送、未合并；worktree 保留待审。
+- 未推送；已在 2026-11-05 以 `--no-ff` 合入本地 `develop`。P3 worktree 与分支保留待负责人审查，不删除。
