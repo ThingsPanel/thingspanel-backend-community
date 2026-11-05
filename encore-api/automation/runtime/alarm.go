@@ -630,6 +630,7 @@ func (r *Runtime) enqueueAlarmNotification(ctx context.Context, tx *sql.Tx, rule
 		"expires_at":       now.Add(24 * time.Hour).UTC().Format(time.RFC3339Nano),
 		"variables": map[string]any{
 			"episode_id": ep.ID, "policy_key": rule.PolicyKey(), "level": ep.Level,
+			"alarmId": ep.ID, "alarmKind": "history",
 			"subject_id": ep.SubjectID, "dimension": ep.Dimension,
 			"transition_id": transitionID, "kind": kind,
 		},
