@@ -617,14 +617,16 @@ func (r *Runtime) enqueueAlarmNotification(ctx context.Context, tx *sql.Tx, rule
 	}
 	now := r.Now()
 	text := "告警触发：" + rule.Name
+	subject := "设备告警触发"
 	if kind == TransitionClear {
 		text = "告警恢复：" + rule.Name
+		subject = "设备告警恢复"
 	}
 	body, _ := json.Marshal(map[string]any{
 		"policy_id":        policyID,
 		"group_revision":   revision,
 		"resolution_error": resolutionError,
-		"subject":          ep.SubjectID,
+		"subject":          subject,
 		"text":             text,
 		"occurred_at":      now.UTC().Format(time.RFC3339Nano),
 		"expires_at":       now.Add(24 * time.Hour).UTC().Format(time.RFC3339Nano),

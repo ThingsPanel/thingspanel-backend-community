@@ -22,12 +22,20 @@ func TestAlarmAppTemplateVariablesPersistAcrossLifecycle(t *testing.T) {
 			t.Fatal(kind, err)
 		}
 		var payload struct {
+			Subject   string         `json:"subject"`
 			Variables map[string]any `json:"variables"`
 		}
 		if err := json.Unmarshal(raw, &payload); err != nil {
 			t.Fatal(err)
 		}
 		v := payload.Variables
+		wantSubject := "设备告警触发"
+		if kind == "clear" {
+			wantSubject = "设备告警恢复"
+		}
+		if payload.Subject != wantSubject || v["subject_id"] != ep.SubjectID {
+			t.Fatalf("%s lost readable title or device identity: %+v", kind, payload)
+		}
 		if v["alarmId"] != ep.ID || v["alarmKind"] != "history" || v["episode_id"] != ep.ID || v["kind"] != kind {
 			t.Fatalf("%s lost App template or native identity: %+v", kind, v)
 		}
