@@ -15,11 +15,13 @@
 ## 工作分支与提交
 
 - 分支：`wp/p3-device-ack-timeout`
-- 已在提交前 fast-forward 到 `develop` 的 `3408c112`。
-- 完成 P3 实现时 `git log --oneline develop..HEAD`：
+- 已 rebase 到当前 `develop` 的 `ec0f51c9`。
+- 当前 `git log --oneline develop..HEAD`：
 
   ```text
-  ddceae24 fix(commands): fail broker-accepted commands after ack timeout
+  f163117b fix(commands): sweep ack timeouts during route sync failures
+  2db6faf9 docs: record P3 acknowledgement timeout delivery
+  a3049d8c fix(commands): fail broker-accepted commands after ack timeout
   ```
 
 ## 验证
@@ -36,6 +38,7 @@
 
 - 未在运行测试中等待完整的一分钟 sweep 周期；同步持续失败时 worker loop 的 timeout sweep 调用已通过回归验证。
 - 未连接真实 Broker；发布已接受但无设备响应由真实 PG 测试中的受控 publish 回调模拟。真实 Broker 的权限范围/静默丢弃场景尚未做端到端验收。
+- worker 启动时会同步执行首次 `runtimeSync`；若该调用失败，`startBrokerCommandWorker` 仍返回错误，worker loop 和 timeout sweep 不会启动。此次只修复运行中的 loop 在后续同步失败时仍执行 sweep，启动恢复策略未改。
 - UI 展示只核对了现有组件读取状态和 `error_message` 的方式；未做浏览器运行验收。当前列表显示“发送失败”加具体超时错误，不是专用超时标签。
 - P3 已完成的验收只覆盖 durable command 路径；不代表 legacy command 路径或整栈 HA 命令验收完成。
 
