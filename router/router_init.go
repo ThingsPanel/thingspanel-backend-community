@@ -241,6 +241,16 @@ func RouterInit() *gin.Engine {
 
 			v1.POST("plugin/runtime/identity", pluginidentity.IssuePluginRuntimeIdentity)
 			v1.POST("plugin/runtime/identity/revoke", pluginidentity.RevokePluginRuntimeIdentity)
+			// Plugin one-click installation (tenant administrator; docs/PLUGIN-INSTALL-UI-DESIGN.md)
+			v1.GET("plugin/catalog", pluginidentity.PluginInstallCatalog)
+			v1.GET("plugin/installs", pluginidentity.PluginInstallList)
+			v1.POST("plugin/installs", pluginidentity.PluginInstallCreate)
+			v1.GET("plugin/installs/:id", pluginidentity.PluginInstallGet)
+			v1.PUT("plugin/installs/:id/config", pluginidentity.PluginInstallConfig)
+			v1.POST("plugin/installs/:id/enable", pluginidentity.PluginInstallEnable)
+			v1.POST("plugin/installs/:id/disable", pluginidentity.PluginInstallDisable)
+			v1.POST("plugin/installs/:id/retry", pluginidentity.PluginInstallRetry)
+			v1.DELETE("plugin/installs/:id", pluginidentity.PluginInstallUninstall)
 
 			apps.Model.DataScript.Init(v1) // 数据处理脚本
 
