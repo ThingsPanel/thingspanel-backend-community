@@ -50,6 +50,7 @@
 - 从 develop 新建自己的 worktree，命令：git -C <仓库> worktree add .claude/worktrees/<卡号> -b wp/<卡号>-<短名> develop。不要在主目录或别人的 worktree 里改东西。
 - 测试容器的名字以 <卡号小写>- 开头；不使用共享的 scripts/dev-databases.sh 容器。删除任何容器、卷或目录前列清单等用户确认。
 - 新证据放到 /Volumes/KIOXIA/archive/evidence/2026-11-<日>-<卡号>/，不进仓库。Go 缓存使用 KIOXIA 上的独立任务目录；复制完成并核验前不覆盖已有缓存、不清理旧盘。不要使用 /Volumes/80G（写入很慢）。
+- 本任务的 Go 命令显式设置 GOCACHE=/Volumes/KIOXIA/.gocache-<卡号> 与 GOMODCACHE=/Volumes/KIOXIA/.gomodcache-<卡号>；独立目录不存在时按需创建，可能需要下载依赖。不要依赖全局 go env 中旧盘的值，也不要修改其他项目的全局设置。复制完成后，是否复用现有共享模块缓存须先核验。
 
 禁止事项：
 - 不推送、不合并、不发布镜像，不用 git stash。
