@@ -9,6 +9,7 @@
 
 | 路径 | 分支 | 任务 | 负责人 | 状态 / 处置 |
 |---|---|---|---|---|
+| `.claude/worktrees/wp-kioxia-config-20261105` | `wp/kioxia-config-20261105` | 新盘路径配置 | 总监 | 2026-11-05 登记；保留，删除待用户确认 |
 | `.claude/worktrees/wp-mvp-dispatch-20261105` | `wp/mvp-dispatch-20261105` | 第一阶段派工调整 | 总监 | 2026-11-05 登记；验收合并后保留，删除时间待用户确认 |
 | `~/.codex/worktrees/thingspanel-develop-backend/thingspanel-backend-community` | `develop` | 共享开发线 | 总监 | 保护，不动 |
 | `.claude/worktrees/wp-db-compat-f6f630` | `wp/d1-dbx-returning` | 数据库兼容（D1） | 进行中会话 | 保护，不动 |
