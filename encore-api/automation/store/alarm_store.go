@@ -225,16 +225,27 @@ func (s *Store) ClearEpisode(ctx context.Context, tx *sql.Tx, episodeID string, 
 
 // AckEpisode acknowledges an active episode. Acknowledging is not recovery: the
 // state stays active.
-func (s *Store) AckEpisode(ctx context.Context, tenantID, episodeID, actor string, seq int64) (bool, error) {
-	res, err := s.exec(ctx, nil, `
-        UPDATE alarm_episodes SET acked_at=now(), acked_by=$3,
-               last_seq=GREATEST(last_seq,$4), updated_at=now()
-         WHERE id=$1 AND tenant_id=$2 AND state='active'`, episodeID, tenantID, actor, seq)
-	if err != nil {
-		return false, err
-	}
-	n, _ := res.RowsAffected()
-	return n > 0, nil
+func (s *Store) AckEpisode(ctx context.Context, tenantID, episodeID, actor string, seq int64, transitionID string) (bool, error) {
+	acknowledged := false
+	err := s.WithTx(ctx, func(tx *sql.Tx) error {
+		ep, err := scanEpisode(tx.QueryRowContext(ctx, `SELECT `+episodeColumns+` FROM alarm_episodes WHERE id=$1 AND tenant_id=$2 AND state='active' FOR UPDATE`, episodeID, tenantID))
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		acknowledged = true
+		if ep.AckedAt != nil {
+			return nil
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE alarm_episodes SET acked_at=now(), acked_by=$3, last_seq=GREATEST(last_seq,$4), updated_at=now() WHERE id=$1 AND tenant_id=$2`, episodeID, tenantID, actor, seq); err != nil {
+			return err
+		}
+		_, err = s.AddTransition(ctx, tx, &Transition{ID: transitionID, EpisodeID: episodeID, TenantID: tenantID, Kind: "ack", Seq: seq, Revision: ep.Revision, Epoch: ep.Epoch, Evidence: map[string]any{"actor": actor, "state": "active"}})
+		return err
+	})
+	return acknowledged, err
 }
 
 // AddTransition writes a lifecycle fact. The unique (episode, kind, seq) index

@@ -672,26 +672,7 @@ func (r *Runtime) Ack(ctx context.Context, tenantID, episodeID, actor string) (b
 	if err != nil {
 		return false, err
 	}
-	ep, err := r.store.GetActiveEpisodeByID(ctx, tenantID, episodeID)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-	ok, err := r.store.AckEpisode(ctx, tenantID, episodeID, actor, seq)
-	if err != nil || !ok {
-		return ok, err
-	}
-	err = r.store.WithTx(ctx, func(tx *sql.Tx) error {
-		_, aerr := r.store.AddTransition(ctx, tx, &store.Transition{
-			ID: NewID(), EpisodeID: ep.ID, TenantID: tenantID, Kind: TransitionAck,
-			Seq: seq, Revision: ep.Revision, Epoch: ep.Epoch,
-			Evidence: map[string]any{"actor": actor, "state": "active"},
-		})
-		return aerr
-	})
-	return true, err
+	return r.store.AckEpisode(ctx, tenantID, episodeID, actor, seq, NewID())
 }
 
 // startRecoveryPending opens the "recovery condition has held since" record. It is
