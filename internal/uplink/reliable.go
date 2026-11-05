@@ -238,11 +238,21 @@ func (p *ReliableProcessor) response(ctx context.Context, tx *gorm.DB, device *m
 			logicalDevice = row.DeviceID
 			err = brokercommands.New(tx).Acknowledge(ctx, tx, msg.TenantID, device.ID, id, *ack.Result == 0)
 			if errors.Is(err, brokercommands.ErrState) {
+				// The timeout sweeper can win after this transaction read the row
+				// but before Acknowledge updates it. Reload inside this transaction
+				// so a delayed receipt is consumed when timeout became terminal.
+				current, readErr := brokercommands.New(tx).GetScoped(ctx, msg.TenantID, id)
+				if readErr != nil {
+					return readErr
+				}
+				if current.State == brokercommands.StateFailed && current.LastError == "device acknowledgement timed out" {
+					return nil // Consume delayed delivery; timeout is already terminal.
+				}
 				want := brokercommands.StateDeviceReportedSuccess
 				if *ack.Result != 0 {
 					want = brokercommands.StateDeviceReportedFailure
 				}
-				if row.State == want {
+				if current.State == want {
 					return nil
 				}
 			}

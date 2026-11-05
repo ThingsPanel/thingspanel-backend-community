@@ -34,6 +34,21 @@ func commandGuard(ctx context.Context, tx *gorm.DB, row brokercommands.Row) erro
 	}
 	return service.ValidateDurableCommandSnapshot(ctx, tx, row)
 }
+
+const defaultDeviceAcknowledgementTimeout = 30 * time.Second
+
+func deviceAcknowledgementTimeout() time.Duration {
+	if timeout := viper.GetDuration("mqtt.command_ack_timeout"); timeout > 0 {
+		return timeout
+	}
+	return defaultDeviceAcknowledgementTimeout
+}
+
+func (w *brokerCommandWorker) sweepStaleDispatches(ctx context.Context) error {
+	_, err := w.store.MarkStaleDispatches(ctx, 30*time.Second, deviceAcknowledgementTimeout())
+	return err
+}
+
 func startBrokerCommandWorker(ctx context.Context, adapter *mqttadapter.Adapter, logger *logrus.Logger) (*brokerCommandWorker, error) {
 	if viper.GetString("mqtt.input_profile") != "ingress_v1" {
 		return nil, nil
@@ -79,6 +94,14 @@ func (w *brokerCommandWorker) run(ctx context.Context) {
 	sweep := time.Now().Add(-time.Minute)
 	var lastSync, lastExpected time.Time
 	for ctx.Err() == nil {
+		// Timeout visibility must not depend on route synchronization: accepted
+		// publishes may need to become terminal while dispatch is paused.
+		if time.Since(sweep) >= time.Minute {
+			if err := w.sweepStaleDispatches(ctx); err != nil && ctx.Err() == nil {
+				w.logger.WithError(err).Warn("durable command stale sweep failed")
+			}
+			sweep = time.Now()
+		}
 		if w.runtimeSync != nil && time.Since(lastSync) >= 5*time.Second {
 			if err := w.runtimeSync(ctx); err != nil {
 				if ctx.Err() != nil {
@@ -95,12 +118,6 @@ func (w *brokerCommandWorker) run(ctx context.Context) {
 				continue
 			}
 			lastSync = time.Now()
-		}
-		if time.Since(sweep) >= time.Minute {
-			if _, err := w.store.MarkStaleDispatches(ctx, 30*time.Second); err != nil && ctx.Err() == nil {
-				w.logger.WithError(err).Warn("durable command stale sweep failed")
-			}
-			sweep = time.Now()
 		}
 		if time.Since(lastExpected) >= 5*time.Second {
 			expectedCtx, expectedCancel := context.WithTimeout(ctx, 2*time.Second)
