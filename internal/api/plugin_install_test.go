@@ -103,7 +103,7 @@ func TestPluginInstallNotConfiguredIsUnavailable(t *testing.T) {
 func TestPluginInstallNeverEchoesSecrets(t *testing.T) {
 	r, agent := installRouter(t, "TENANT_ADMIN")
 	w := doJSON(r, "POST", "/plugin/installs", `{"plugin_id":"homeassistant","config":{"HA_BASE_URL":"http://ha:8123","HA_ACCESS_TOKEN":"TOPSECRET-1"}}`)
-	if w.Code != http.StatusAccepted {
+	if w.Code != http.StatusOK {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
 	if strings.Contains(w.Body.String(), "TOPSECRET-1") || agent.secrets["homeassistantHA_ACCESS_TOKEN"] != "TOPSECRET-1" {

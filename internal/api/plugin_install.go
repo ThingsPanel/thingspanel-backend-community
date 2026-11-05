@@ -165,7 +165,6 @@ func PluginInstallCreate(c *gin.Context) {
 		installFail(c, err)
 		return
 	}
-	c.Status(http.StatusAccepted)
 	c.Set("data", toInstallView(row, nil))
 }
 
@@ -231,8 +230,7 @@ func installAction(do func(*plugininstall.Engine, context.Context, string, strin
 			installFail(c, err)
 			return
 		}
-		c.Status(http.StatusAccepted)
-		c.Set("data", toInstallView(row, nil))
+			c.Set("data", toInstallView(row, nil))
 	}
 }
 
