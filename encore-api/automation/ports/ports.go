@@ -33,14 +33,17 @@ type Config struct {
 	SourceReaderToken string
 	NotificationURL   string
 	NotificationToken string
-	DeploymentID      string
-	Timeout           time.Duration
+	// A configured map is authoritative: unlisted tenants cannot borrow another
+	// tenant's source credential. Nil preserves single-tenant deployments.
+	NotificationTokens map[string]string
+	DeploymentID       string
+	Timeout            time.Duration
 }
 
 // FromEnv builds the port configuration.
 func FromEnv() Config {
 	timeout := 15 * time.Second
-	return Config{
+	cfg := Config{
 		CommunityBaseURL:  strings.TrimRight(os.Getenv("TP_COMMUNITY_BASE_URL"), "/"),
 		CommunityToken:    os.Getenv("TP_AUTOMATION_SERVICE_TOKEN"),
 		SourceReaderToken: os.Getenv("TP_NOTIFICATION_SOURCE_READER_TOKEN"),
@@ -49,6 +52,22 @@ func FromEnv() Config {
 		DeploymentID:      envOr("TP_SOURCE_DEPLOYMENT_ID", "automation-rewrite"),
 		Timeout:           timeout,
 	}
+	if raw := strings.TrimSpace(os.Getenv("TP_NOTIFICATION_TOKENS_JSON")); raw != "" {
+		cfg.NotificationTokens = map[string]string{}
+		var tokens map[string]string
+		if json.Unmarshal([]byte(raw), &tokens) == nil {
+			valid := true
+			for tenant, token := range tokens {
+				if tenant == "" || strings.TrimSpace(tenant) != tenant || strings.TrimSpace(token) == "" {
+					valid = false
+				}
+			}
+			if valid && tokens != nil {
+				cfg.NotificationTokens = tokens
+			}
+		}
+	}
+	return cfg
 }
 
 func envOr(key, fallback string) string {
@@ -379,6 +398,13 @@ func NewHTTPNotificationOwner(cfg Config) *HTTPNotificationOwner {
 }
 
 func (h *HTTPNotificationOwner) Submit(ctx context.Context, req NotificationRequest) (NotificationResult, error) {
+	token := h.cfg.NotificationToken
+	if h.cfg.NotificationTokens != nil {
+		token = h.cfg.NotificationTokens[req.TenantID]
+		if token == "" {
+			return NotificationResult{State: NotificationFailed, Message: "tenant notification source is not configured"}, ErrNotConfigured
+		}
+	}
 	base := h.cfg.NotificationURL
 	if base == "" {
 		base = h.cfg.CommunityBaseURL
@@ -420,8 +446,8 @@ func (h *HTTPNotificationOwner) Submit(ctx context.Context, req NotificationRequ
 		return NotificationResult{State: "failed", Message: err.Error()}, err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	if h.cfg.NotificationToken != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+h.cfg.NotificationToken)
+	if token != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+token)
 	}
 	httpReq.Header.Set("Idempotency-Key", req.IdempotencyKey)
 
