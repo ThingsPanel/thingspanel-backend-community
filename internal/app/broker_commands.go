@@ -94,6 +94,14 @@ func (w *brokerCommandWorker) run(ctx context.Context) {
 	sweep := time.Now().Add(-time.Minute)
 	var lastSync, lastExpected time.Time
 	for ctx.Err() == nil {
+		// Timeout visibility must not depend on route synchronization: accepted
+		// publishes may need to become terminal while dispatch is paused.
+		if time.Since(sweep) >= time.Minute {
+			if err := w.sweepStaleDispatches(ctx); err != nil && ctx.Err() == nil {
+				w.logger.WithError(err).Warn("durable command stale sweep failed")
+			}
+			sweep = time.Now()
+		}
 		if w.runtimeSync != nil && time.Since(lastSync) >= 5*time.Second {
 			if err := w.runtimeSync(ctx); err != nil {
 				if ctx.Err() != nil {
@@ -110,12 +118,6 @@ func (w *brokerCommandWorker) run(ctx context.Context) {
 				continue
 			}
 			lastSync = time.Now()
-		}
-		if time.Since(sweep) >= time.Minute {
-			if err := w.sweepStaleDispatches(ctx); err != nil && ctx.Err() == nil {
-				w.logger.WithError(err).Warn("durable command stale sweep failed")
-			}
-			sweep = time.Now()
 		}
 		if time.Since(lastExpected) >= 5*time.Second {
 			expectedCtx, expectedCancel := context.WithTimeout(ctx, 2*time.Second)
