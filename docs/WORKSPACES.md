@@ -22,6 +22,7 @@
 | `.claude/worktrees/wp-p2-fix` | `wp/p2-fix-redaction` | P2-fix 凭据脱敏回归修复 | Codex 子任务 | 进行中；审查合并后当天清理 |
 | `.claude/worktrees/wp-p2-fix2-form-brackets` | `wp/p2-fix2-form-brackets` | P2-fix2 原始方括号 form 字段脱敏 | Codex 子任务 | 进行中；审查合并后当天清理 |
 | `.claude/worktrees/wp-p3-device-ack-timeout` | `wp/p3-device-ack-timeout` | P3 Broker 设备回执超时可见 | Codex 子任务 | 进行中；审查合并后当天清理 |
+| `.claude/worktrees/wp-p3-real-broker-20261105` | `wp/p3-real-broker-20261105` | P3 真实 Broker ACK / 无 ACK 验收 | Codex 子任务 | 2026-11-05 登记；完成待审查，清理时间待负责人确认 |
 | `~/.codex/worktrees/native-command-validation/thingspanel-backend-community` | `codex/thingmodel-upgrade-v1` | 已归档（标签 `archive/cleanup-20261104-codex-thingmodel-upgrade-v1`） | — | 干净，已移除，分支已删 |
 | `~/.codex/worktrees/thingspanel-runtime-gateway/thingspanel-backend-community` | `codex/runtime-tenant-source-binding` | 已归档 | — | 已移除，分支已删 |
 | `~/.codex/worktrees/thingspanel-runtime-read-context/thingspanel-backend-community` | `codex/runtime-read-context` | 已归档 | — | 已移除，分支已删 |

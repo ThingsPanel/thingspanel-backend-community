@@ -230,6 +230,42 @@ func TestDurableCommandNativeMosquittoPostgresE2E(t *testing.T) {
 		status, err := commandService.GetCommandStatus(ctx, ids[0], nativeE2ETenant)
 		return err == nil && status.Status == brokercommands.StateDeviceReportedSuccess
 	})
+
+	// A second command is delivered through the real Mosquitto plugin and Paho
+	// device client, but the device deliberately sends no response. Age only the
+	// durable row so this acceptance checks the same timeout transition without
+	// waiting the production acknowledgement interval.
+	noAckRequest := &model.PutMessageForCommand{DeviceID: nativeE2EDevice, Identify: "setPower", Value: stringPtr(`{"value":9}`), IdempotencyKey: "native-command-no-ack"}
+	noAckID, err := commandService.CommandPutMessageWithResult(ctx, user.ID, noAckRequest, fmt.Sprint(constant.Manual), nativeE2ETenant)
+	if err != nil {
+		t.Fatalf("submit no-ACK command: %v", err)
+	}
+	select {
+	case payload = <-deviceMessages:
+		if err := json.Unmarshal(payload, &command); err != nil || command["params"].(map[string]any)["value"] != float64(9) {
+			t.Fatalf("device received no-ACK command payload=%s err=%v", payload, err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatalf("device received no-ACK test command; broker log: %s", nativeE2ETail(brokerLog))
+	}
+	noAckStatus, err := commandService.GetCommandStatus(ctx, noAckID, nativeE2ETenant)
+	if err != nil || noAckStatus.Status != brokercommands.StateBrokerAccepted {
+		t.Fatalf("no-ACK status after real broker delivery=%+v err=%v", noAckStatus, err)
+	}
+	if err := db.Model(&brokercommands.Row{}).Where("id=?", noAckID).Update("updated_at", time.Now().Add(-time.Minute)).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := downlinkService.commands.sweepStaleDispatches(ctx); err != nil {
+		t.Fatalf("sweep no-ACK durable command: %v", err)
+	}
+	noAckStatus, err = commandService.GetCommandStatus(ctx, noAckID, nativeE2ETenant)
+	if err != nil || noAckStatus.Status != brokercommands.StateFailed || noAckStatus.ErrorMessage == nil || *noAckStatus.ErrorMessage != "device acknowledgement timed out" {
+		t.Fatalf("no-ACK command was not visibly failed: status=%+v err=%v", noAckStatus, err)
+	}
+	var noAckLog model.CommandSetLog
+	if err := db.Where("device_id=? AND message_id=?", nativeE2EDevice, noAckID).Take(&noAckLog).Error; err != nil || noAckLog.Status == nil || *noAckLog.Status != "2" || noAckLog.ErrorMessage == nil || *noAckLog.ErrorMessage != "device acknowledgement timed out; no device response received" {
+		t.Fatalf("no-ACK command list projection status=%v error=%v err=%v", noAckLog.Status, noAckLog.ErrorMessage, err)
+	}
 	otherTenantStatus, err := commandService.GetCommandStatus(ctx, ids[0], "other-tenant")
 	if err != nil {
 		t.Fatal(err)
@@ -288,7 +324,7 @@ func TestDurableCommandNativeMosquittoPostgresE2E(t *testing.T) {
 	publishNativeE2E(t, ctx, device, "devices/event/alarm", automationEvent)
 	waitNativeE2EReceipt(t, db, "automation-event-native-e2e", "processed")
 	waitNativeE2E(t, 10*time.Second, "automation durable command request", func() bool {
-		return nativeE2ECount(t, db, "broker_command_requests") == 2 && nativeE2ECount(t, db, "broker_automation_actions") == 1
+		return nativeE2ECount(t, db, "broker_command_requests") == 3 && nativeE2ECount(t, db, "broker_automation_actions") == 1
 	})
 	var automation struct {
 		CommandID string `gorm:"column:command_id"`
