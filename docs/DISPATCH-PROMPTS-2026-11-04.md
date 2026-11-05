@@ -49,7 +49,7 @@
 工作方式：
 - 从 develop 新建自己的 worktree，命令：git -C <仓库> worktree add .claude/worktrees/<卡号> -b wp/<卡号>-<短名> develop。不要在主目录或别人的 worktree 里改东西。
 - 测试容器的名字以 <卡号小写>- 开头；不使用共享的 scripts/dev-databases.sh 容器。删除任何容器、卷或目录前列清单等用户确认。
-- 证据放到 /Volumes/500G/archive/evidence/2026-11-<日>-<卡号>/，不进仓库。共享 Go 缓存曾出现写入错误；遇到异常用任务专属缓存，不清理共享缓存。不要使用 /Volumes/80G（写入很慢）。
+- 新证据放到 /Volumes/KIOXIA/archive/evidence/2026-11-<日>-<卡号>/，不进仓库。Go 缓存使用 KIOXIA 上的独立任务目录；复制完成并核验前不覆盖已有缓存、不清理旧盘。不要使用 /Volumes/80G（写入很慢）。
 
 禁止事项：
 - 不推送、不合并、不发布镜像，不用 git stash。
