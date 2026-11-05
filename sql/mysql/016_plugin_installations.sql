@@ -1,0 +1,25 @@
+-- Hand-written MySQL twin of sql/34.sql (plugin installation records). Timestamps are UTC, set by the application.
+CREATE TABLE IF NOT EXISTS `plugin_installations` (
+ `id` varchar(36) NOT NULL,
+ `tenant_id` varchar(36) NOT NULL,
+ `plugin_id` varchar(64) NOT NULL,
+ `state` varchar(24) NOT NULL,
+ `desired` varchar(16) NOT NULL,
+ `generation` bigint NOT NULL DEFAULT 0,
+ `catalog_version` varchar(64) NOT NULL DEFAULT '',
+ `config_public` text NOT NULL,
+ `secret_keys` text NOT NULL,
+ `health` varchar(16) NOT NULL DEFAULT '',
+ `op_id` varchar(36) NOT NULL DEFAULT '',
+ `op_step` varchar(32) NOT NULL DEFAULT '',
+ `op_attempts` int NOT NULL DEFAULT 0,
+ `error_code` varchar(48) NOT NULL DEFAULT '',
+ `idempotency_key` varchar(128) NOT NULL DEFAULT '',
+ `lease_owner` varchar(64) NOT NULL DEFAULT '',
+ `lease_until` datetime(6) NULL,
+ `maintained_at` datetime(6) NULL,
+ `created_at` datetime(6) NOT NULL,
+ `updated_at` datetime(6) NOT NULL,
+ PRIMARY KEY (`id`),
+ UNIQUE KEY `uq_plugin_install_tenant_plugin` (`tenant_id`, `plugin_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin
