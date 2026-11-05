@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-//go:embed mysql/001_core_users_devices.sql mysql/002_device_identity.sql mysql/003_auth.sql mysql/004_app_push_devices.sql mysql/005_account_support.sql mysql/006_device_status_history.sql mysql/007_service_access.sql mysql/008_history_intent.sql mysql/009_platformconfig_dictionary.sql mysql/010_automation.sql mysql/011_automation_partial_unique.sql mysql/012_platform_base.sql mysql/013_platform_base_extras.sql mysql/014_platform_seed.sql mysql/015_plugin_runtime_identity.sql mysql/016_plugin_installations.sql mysql/017_plugin_install_events.sql
+//go:embed mysql/001_core_users_devices.sql mysql/002_device_identity.sql mysql/003_auth.sql mysql/004_app_push_devices.sql mysql/005_account_support.sql mysql/006_device_status_history.sql mysql/007_service_access.sql mysql/008_history_intent.sql mysql/009_platformconfig_dictionary.sql mysql/010_automation.sql mysql/011_automation_partial_unique.sql mysql/012_platform_base.sql mysql/013_platform_base_extras.sql mysql/014_platform_seed.sql mysql/015_plugin_runtime_identity.sql mysql/016_plugin_installations.sql mysql/017_plugin_install_events.sql mysql/018_plugin_install_menu.sql
 var mysqlMigrationFiles embed.FS
 
 // MySQLMigrationContents returns the raw bytes of one MySQL migration file (the ledger checksum input).
@@ -85,5 +85,5 @@ func MySQLPluginRuntimeIdentityMigrationNames() []string {
 
 // MySQLPluginInstallMigrationNames lists the plugin installation record migrations (twin of sql/34.sql).
 func MySQLPluginInstallMigrationNames() []string {
-	return []string{"016_plugin_installations.sql", "017_plugin_install_events.sql"}
+	return []string{"016_plugin_installations.sql", "017_plugin_install_events.sql", "018_plugin_install_menu.sql"}
 }
