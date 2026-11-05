@@ -92,3 +92,10 @@
 ## 6. 其他散落目录（未处理，需用户决定）
 
 `~/Downloads/code/` 下带日期/handoff/closeout/takeover 的目录：`thingspanel-closeout-internal-20261102`、`thingspanel-closeout-work-20261102`、`thingspanel-takeover-evidence-20261102`、`thingspanel-takeover-final-20261102`、`thingspanel-merged-worktree-uncommitted-20261028`、`thingspanel-notification-schema-handoff-20261102`、`notification-preserved-work-20261028`、`thingspanel-modbus-protocol-plugin-handoff`、`thingspanel-installer-manifest-20261102`、`thingspanel-frontend-typecheck-20261102`。`~/.codex/worktrees/` 下的 team-b-*、thingspanel-takeover-20261102 等非后端目录。均未量大小、未处理。
+
+## PH1-S1（2026-11-05 登记）
+| 路径 | 分支 | 备注 |
+|---|---|---|
+| `.claude/worktrees/wp-ph1-s1-core-c02f8c`（后端） | `claude/wp-ph1-s1-core-c02f8c` | PH1-S1 交付；待总监审查 |
+| `/Volumes/KIOXIA/tmp/ph1-s1-work/frontend`（前端 worktree，分离头 `1da66eca`） | — | PH1-S1 前端构建来源；审查后可删 |
+| `/Volumes/KIOXIA/tmp/ph1-s1-work/ph1-s1`（安装器 `4a8f286` 副本 + compose 项目 `ph1-s1`） | — | **运行中，保留给 HA 卡**；含凭据在 `../secrets/` |
