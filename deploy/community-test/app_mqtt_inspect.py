@@ -34,4 +34,14 @@ out['member_probe']=probe('http://127.0.0.1:9999/api/v1/notification/source-app-
 db=next(name for name,d in runtime['sql_servers'][0]['databases'].items() if d['name']=='automation')
 sql="SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT id,state,attempt,last_error,payload->>'resolution_error' AS resolution_error,payload->>'policy_id' AS policy_id,payload->>'group_revision' AS group_revision FROM auto_outbox WHERE scope_key='alarm:9a4df489-6690-49d0-b7b9-981669e897f1') t;"
 out['outbox']=json.loads(run(['docker','exec','timescaledb','psql','-X','-U','postgres','-d',db,'-At','-c',sql]))
+ndb=next(name for name,d in runtime['sql_servers'][0]['databases'].items() if d['name']=='notification')
+sql="SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT id,purpose,deployment_id,allowed_tenant_ids,expires_at,revoked_at FROM notification_credentials WHERE purpose='source' AND revoked_at IS NULL) t;"
+out['source_scopes']=json.loads(run(['docker','exec','timescaledb','psql','-X','-U','postgres','-d',ndb,'-At','-c',sql]))
+pairfile=ROOT/'notification-app-migration/source.private.json'
+pair=json.loads(pairfile.read_text())
+out['app_pair_keys']=list(pair)
+out['token_matches_app_pair']=e.get('TP_NOTIFICATION_TOKEN')==pair.get('sourceCredential')
+out['token_matches_backend']=e.get('TP_NOTIFICATION_TOKEN')==be.get('NOTIFICATION_SOURCE_BEARER_TOKEN')
+out['renewal_files']=[str(p.relative_to(ROOT)) for p in ROOT.rglob('*renew*') if p.is_file()]
+out['processes']=[{'name':p['name'],'script':p['pm2_env'].get('pm_exec_path')} for p in pm]
 print(json.dumps(out,ensure_ascii=False,indent=2))
