@@ -37,10 +37,33 @@ func tenantAdminClaims(c *gin.Context) (*utils.UserClaims, bool) {
 	return claims, true
 }
 
-// IssuePluginRuntimeIdentity: POST /api/v1/plugin/runtime/identity (tenant administrator JWT). The token is returned
-// once and never stored. A higher generation revokes every lower one of the same plugin instance.
+// managedIdentityScope keeps existing tenant-issued identities tenant-bound. A platform administrator may issue
+// an empty-tenant identity for a platform-installed service plugin; the runtime guard interprets that identity as
+// the explicitly authorized shared instance.
+func managedIdentityScope(c *gin.Context) (string, bool) {
+	value, _ := c.Get("claims")
+	claims, ok := value.(*utils.UserClaims)
+	if !ok || claims.Delegated {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "message": "administrator required"})
+		return "", false
+	}
+	switch claims.Authority {
+	case "SYS_ADMIN":
+		return "", true
+	case "TENANT_ADMIN":
+		if claims.TenantID != "" {
+			return claims.TenantID, true
+		}
+	}
+	c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "message": "administrator required"})
+	return "", false
+}
+
+// IssuePluginRuntimeIdentity: tenant administrators issue tenant-scoped identities; platform administrators issue
+// platform-scoped identities for a shared service instance. The token is returned once and never stored. A higher
+// generation revokes every lower one of the same plugin instance within that scope.
 func IssuePluginRuntimeIdentity(c *gin.Context) {
-	claims, ok := tenantAdminClaims(c)
+	tenant, ok := managedIdentityScope(c)
 	if !ok {
 		return
 	}
@@ -49,7 +72,14 @@ func IssuePluginRuntimeIdentity(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "message": "invalid request"})
 		return
 	}
-	token, rec, err := identityStore().Issue(claims.TenantID, req.PluginInstance, req.ServiceIdentifier, req.Generation,
+	if tenant == "" {
+		plugin, err := dal.GetServicePluginByServiceIdentifier(req.ServiceIdentifier)
+		if err != nil || plugin == nil || plugin.ServiceType != 2 {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "message": "platform identities are limited to registered service plugins"})
+			return
+		}
+	}
+	token, rec, err := identityStore().Issue(tenant, req.PluginInstance, req.ServiceIdentifier, req.Generation,
 		time.Duration(req.TTLHours)*time.Hour, time.Now().UTC())
 	if errors.Is(err, pluginidentity.ErrGenerationNotHigher) {
 		c.AbortWithStatusJSON(http.StatusConflict, gin.H{"code": http.StatusConflict, "message": "generation is not higher than an existing one"})
@@ -66,7 +96,7 @@ func IssuePluginRuntimeIdentity(c *gin.Context) {
 
 // RevokePluginRuntimeIdentity: POST /api/v1/plugin/runtime/identity/revoke {plugin_instance}
 func RevokePluginRuntimeIdentity(c *gin.Context) {
-	claims, ok := tenantAdminClaims(c)
+	tenant, ok := managedIdentityScope(c)
 	if !ok {
 		return
 	}
@@ -77,7 +107,7 @@ func RevokePluginRuntimeIdentity(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "message": "invalid request"})
 		return
 	}
-	n, err := identityStore().Revoke(claims.TenantID, req.PluginInstance, time.Now().UTC())
+	n, err := identityStore().Revoke(tenant, req.PluginInstance, time.Now().UTC())
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"code": http.StatusInternalServerError, "message": "could not revoke"})
 		return
