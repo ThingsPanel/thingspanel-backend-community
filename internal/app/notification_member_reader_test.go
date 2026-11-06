@@ -12,7 +12,7 @@ func TestNotificationMemberReaderEnvironmentFailsClosed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("NOTIFICATION_MEMBER_READER_TOKEN", "")
 	t.Setenv("NOTIFICATION_MEMBER_READER_DEPLOYMENTS", "deployment-a")
-	t.Setenv("NOTIFICATION_MEMBER_READER_TENANT_IDS", "tenant-a")
+
 	reader := NewNotificationMemberReaderFromEnv()
 	engine := gin.New()
 	engine.GET("/api/v1/notification/source-members/:id", reader.GetMemberContact)
@@ -23,11 +23,11 @@ func TestNotificationMemberReaderEnvironmentFailsClosed(t *testing.T) {
 	}
 }
 
-func TestNotificationMemberReaderEnvironmentParsesAllowLists(t *testing.T) {
+func TestNotificationMemberReaderEnvironmentParsesDeploymentIdentity(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("NOTIFICATION_MEMBER_READER_TOKEN", "0123456789abcdef0123456789abcdef")
 	t.Setenv("NOTIFICATION_MEMBER_READER_DEPLOYMENTS", "deployment-a, deployment-b")
-	t.Setenv("NOTIFICATION_MEMBER_READER_TENANT_IDS", "tenant-a,tenant-b")
+
 	reader := NewNotificationMemberReaderFromEnv()
 	engine := gin.New()
 	engine.GET("/api/v1/notification/source-members/:id", reader.GetMemberContact)

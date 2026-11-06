@@ -34,11 +34,11 @@ func TestAutomationPolicySelection(t *testing.T) {
 
 func TestAutomationPolicyReaderBoundaries(t *testing.T) {
 	token := strings.Repeat("x", 40)
-	r := NewNotificationMemberReader(NotificationMemberReaderConfig{Token: token, AllowedDeploymentIDs: []string{"dep-a"}, AllowedTenantIDs: []string{"tenant-a"}})
+	r := NewNotificationMemberReader(NotificationMemberReaderConfig{Token: token, AllowedDeploymentIDs: []string{"dep-a"}})
 	calls := 0
 	r.policyView = func(_ context.Context, deployment, tenant string) (service.TenantDefaultPolicyView, error) {
 		calls++
-		if deployment != "dep-a" || tenant != "tenant-a" {
+		if deployment != "dep-a" || (tenant != "tenant-a" && tenant != "tenant-b") {
 			t.Fatal("identity changed")
 		}
 		return service.TenantDefaultPolicyView{}, nil
@@ -51,7 +51,7 @@ func TestAutomationPolicyReaderBoundaries(t *testing.T) {
 	}{
 		{"/policies/tenant-a", "wrong", "dep-a", 401},
 		{"/policies/tenant-a", token, "dep-b", 403},
-		{"/policies/tenant-b", token, "dep-a", 403},
+		{"/policies/tenant-b", token, "dep-a", 200},
 		{"/policies/tenant-a?alias=a&alias=b", token, "dep-a", 400},
 		{"/policies/tenant-a?extra=x", token, "dep-a", 400},
 		{"/policies/tenant-a", token, "dep-a", 200},
@@ -68,7 +68,7 @@ func TestAutomationPolicyReaderBoundaries(t *testing.T) {
 			t.Fatal("policy responses must not be cached")
 		}
 	}
-	if calls != 1 {
+	if calls != 2 {
 		t.Fatalf("unauthorized requests reached policy owner: %d", calls)
 	}
 }

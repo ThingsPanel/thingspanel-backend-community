@@ -16,7 +16,7 @@ import (
 func TestTenantDefaultPolicyHTTPStrictTenantScopedCAS(t *testing.T) {
 	openNotificationGroupSourceFixture(t)
 	bridge, err := service.NewSourceBridge(service.SourceBridgeConfig{Enabled: true, BaseURL: "https://core-fixture.invalid",
-		DeploymentID: "deployment-default-http", SourceBearerToken: "fixture-source-token", ProjectionBearerToken: "fixture-projection-token"}, groupGuardChecker{})
+		DeploymentID: "deployment-default-http", Credentials: fixtureSourceCredentials{"fixture-source-token", "fixture-projection-token"}}, groupGuardChecker{})
 	if err != nil {
 		t.Fatal("construct fixture bridge")
 	}

@@ -1,11 +1,11 @@
-//go:build notification_cli
+//go:build notification_standalone
 
 package notification
 
 import "database/sql"
 
-// notificationDB is a compile-time stub for the standalone operator binary.
-// The command connects through the explicitly selected physical DB itself and
+// notificationDB is a compile-time stub for the isolated standalone package tests.
+// Tests connect through an explicitly approved fixture DB and
 // never starts Encore service initialization or opens the legacy service DB.
 type notificationDBAdapter struct{}
 

@@ -1,4 +1,5 @@
 """Deploy a verified backend bundle to the community test server (Python 3.6+)."""
+from notification_identity import prepare_notification_identity, backend_process_spec, private_json
 import fcntl,hashlib,json,os,pathlib,re,shutil,subprocess,sys,tarfile,time,urllib.request
 
 ROOT=pathlib.Path('/opt/tp-community-actions')
@@ -70,11 +71,17 @@ def wait_version(expected):
   time.sleep(1)
  raise RuntimeError('Running version did not match deployed source')
 old_version=run([str(target),'--version'])
+notification_env=prepare_notification_identity(pathlib.Path('/opt/tp-community-main-20261028'))
+processes=json.loads(run([PM,'jlist']))
+process=next(p for p in processes if p['name']=='thingspanel-backend-community')
+ecosystem=release/'backend.ecosystem.private.json'
+private_json(ecosystem,{'apps':[backend_process_spec(process,notification_env)]})
 try:
  install_resources(release)
  run([PM,'stop','thingspanel-backend-community'])
  install_file(binary,target)
- run([PM,'restart','thingspanel-backend-community'])
+ run([PM,'delete','thingspanel-backend-community'])
+ run([PM,'start',str(ecosystem),'--only','thingspanel-backend-community'])
  wait_version(version)
  if hashlib.sha256(config.read_bytes()).hexdigest()!=config_sha:raise RuntimeError('Private configuration changed')
  run([PM,'save'])

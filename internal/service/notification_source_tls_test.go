@@ -59,7 +59,7 @@ func TestSourceBridgeLoadsOperatorCAWithoutDisablingTLSVerification(t *testing.T
 	if err != nil {
 		t.Fatalf("load operator CA: %v", err)
 	}
-	checker, err := NewEmailSourceCompatibilityCheckerWithRoots(server.URL, "projection-fixture-token-at-least-32", roots)
+	checker, err := NewEmailSourceCompatibilityCheckerWithRoots(SourceBridgeConfig{BaseURL: server.URL, Credentials: fixtureSourceCredentials{"unused", "projection-fixture-token-at-least-32"}}, roots)
 	if err != nil {
 		t.Fatalf("construct checker with operator CA: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestSourceBridgeLoadsOperatorCAWithoutDisablingTLSVerification(t *testing.T
 		t.Fatalf("trusted private TLS snapshot failed: %v", err)
 	}
 
-	withoutRoots, err := NewEmailSourceCompatibilityChecker(server.URL, "projection-fixture-token-at-least-32")
+	withoutRoots, err := NewEmailSourceCompatibilityChecker(SourceBridgeConfig{BaseURL: server.URL, Credentials: fixtureSourceCredentials{"unused", "projection-fixture-token-at-least-32"}})
 	if err != nil {
 		t.Fatal("construct system-root checker")
 	}

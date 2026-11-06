@@ -57,11 +57,13 @@ type StoreOptions struct {
 }
 
 type Store struct {
-	db            *sql.DB
-	protector     SnapshotProtector
-	now           func() time.Time
-	retry         RetryPolicy
-	sourcePlanner SourceEventPlanner
+	managedSourceFingerprint string
+	managedSourceDeployment  string
+	db                       *sql.DB
+	protector                SnapshotProtector
+	now                      func() time.Time
+	retry                    RetryPolicy
+	sourcePlanner            SourceEventPlanner
 }
 
 // NewStore adapts an Encore database's Stdlib connection or a test-owned

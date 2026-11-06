@@ -172,7 +172,7 @@ func TestNativeE2E02RelayWorkerReceiptFaultMatrix(t *testing.T) {
 		t.Fatal("read isolated legacy group")
 	}
 	makeChecker := func() *EmailSourceCompatibilityChecker {
-		checker, err := newEmailSourceCompatibilityChecker(proxyServer.URL, nativeE2EProjToken, roots)
+		checker, err := newEmailSourceCompatibilityChecker(SourceBridgeConfig{BaseURL: proxyServer.URL, Credentials: fixtureSourceCredentials{nativeE2ESourceToken, nativeE2EProjToken}}, roots)
 		if err != nil {
 			t.Fatal("construct TLS-pinned source compatibility checker")
 		}
@@ -199,7 +199,7 @@ func TestNativeE2E02RelayWorkerReceiptFaultMatrix(t *testing.T) {
 		t.Fatal("source compatibility check failed")
 	}
 	newBridge := func(checker *EmailSourceCompatibilityChecker) *SourceBridge {
-		bridge, err := newSourceBridge(SourceBridgeConfig{Enabled: true, BaseURL: proxyServer.URL, DeploymentID: nativeE2EDeployment, SourceBearerToken: nativeE2ESourceToken, ProjectionBearerToken: nativeE2EProjToken, RequestTimeout: 5 * time.Second}, checker, roots)
+		bridge, err := newSourceBridge(SourceBridgeConfig{Enabled: true, BaseURL: proxyServer.URL, DeploymentID: nativeE2EDeployment, Credentials: fixtureSourceCredentials{nativeE2ESourceToken, nativeE2EProjToken}, RequestTimeout: 5 * time.Second}, checker, roots)
 		if err != nil {
 			checker.Close()
 			t.Fatal("construct TLS-pinned source relay")

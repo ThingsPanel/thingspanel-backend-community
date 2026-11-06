@@ -119,7 +119,6 @@ func TestNotificationMemberReaderPrivateAuthenticationRunsBeforeDatabase(t *test
 	reader := NewNotificationMemberReader(NotificationMemberReaderConfig{
 		Token:                "0123456789abcdef0123456789abcdef",
 		AllowedDeploymentIDs: []string{"deployment-a"},
-		AllowedTenantIDs:     []string{"tenant-a"},
 	})
 	engine := memberReaderFixtureRouter(reader)
 	if recorder := memberReaderRequest(engine, http.MethodGet, "/api/v1/notification/source-members/user-a?tenantId=tenant-a&contactField=email", "", "deployment-a"); recorder.Code != http.StatusUnauthorized {
@@ -142,7 +141,6 @@ func TestNotificationMemberAndTenantReaderHTTPWithApprovedFixture(t *testing.T) 
 	reader := NewNotificationMemberReader(NotificationMemberReaderConfig{
 		Token:                token,
 		AllowedDeploymentIDs: []string{"deployment-a"},
-		AllowedTenantIDs:     []string{"tenant-active", "tenant-other", "tenant-inactive", "tenant-no-admin", "tenant-missing"},
 	})
 	engine := memberReaderFixtureRouter(reader)
 	request := func(path string) *httptest.ResponseRecorder {
@@ -184,8 +182,8 @@ func TestNotificationMemberAndTenantReaderHTTPWithApprovedFixture(t *testing.T) 
 			t.Errorf("non-strict query %q status=%d", path, response.Code)
 		}
 	}
-	if response := request("/api/v1/notification/source-members/member-active?tenantId=tenant-outside-allowlist&contactField=email"); response.Code != http.StatusForbidden {
-		t.Fatalf("tenant outside operator allowlist status=%d", response.Code)
+	if response := request("/api/v1/notification/source-members/member-active?tenantId=tenant-unknown&contactField=email"); response.Code != http.StatusNotFound {
+		t.Fatalf("unknown tenant status=%d", response.Code)
 	}
 
 	activeTenant := request("/api/v1/notification/source-tenants/tenant-active")
@@ -207,8 +205,8 @@ func TestNotificationMemberAndTenantReaderHTTPWithApprovedFixture(t *testing.T) 
 	if response := request("/api/v1/notification/source-tenants/tenant-active?extra=x"); response.Code != http.StatusBadRequest {
 		t.Fatalf("tenant route accepted query parameters: status=%d", response.Code)
 	}
-	if response := request("/api/v1/notification/source-tenants/tenant-outside-allowlist"); response.Code != http.StatusForbidden {
-		t.Fatalf("tenant outside allowlist status=%d", response.Code)
+	if response := request("/api/v1/notification/source-tenants/tenant-unknown"); response.Code != http.StatusNotFound {
+		t.Fatalf("unknown tenant status=%d", response.Code)
 	}
 	if response := request("/api/v1/notification/source-tenants/tenant-active"); response.Header().Get("Cache-Control") != "no-store" {
 		t.Fatal("tenant response is missing no-store")
@@ -226,7 +224,7 @@ func TestNotificationMemberReaderDisabledAndDatabaseFailureResponses(t *testing.
 	if response := memberReaderRequest(engine, http.MethodGet, "/api/v1/notification/source-members/member-a?tenantId=tenant-a&contactField=email", "", ""); response.Code != http.StatusNotFound {
 		t.Fatalf("unconfigured reader did not stay disabled: status=%d", response.Code)
 	}
-	reader := NewNotificationMemberReader(NotificationMemberReaderConfig{Token: "0123456789abcdef0123456789abcdef", AllowedDeploymentIDs: []string{"deployment-a"}, AllowedTenantIDs: []string{"tenant-a"}})
+	reader := NewNotificationMemberReader(NotificationMemberReaderConfig{Token: "0123456789abcdef0123456789abcdef", AllowedDeploymentIDs: []string{"deployment-a"}})
 	engine = memberReaderFixtureRouter(reader)
 	response := memberReaderRequest(engine, http.MethodGet, "/api/v1/notification/source-members/member-a?tenantId=tenant-a&contactField=email", "0123456789abcdef0123456789abcdef", "deployment-a")
 	if response.Code != http.StatusServiceUnavailable {

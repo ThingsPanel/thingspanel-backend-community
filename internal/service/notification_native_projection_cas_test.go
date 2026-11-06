@@ -114,11 +114,11 @@ func TestNativeProjectionSuccessThenLegacyCASConflictKeepsRouteLegacy(t *testing
 		VALUES (?, ?, ?, 'OPEN', ?, ?, now(), now())`, legacyGroupID, "native CAS race source", model.NoticeType_Email, `{"EMAIL":"ops@example.test"}`, nativeE2ETenant).Error; err != nil {
 		t.Fatal("create new isolated source group")
 	}
-	checker, err := newEmailSourceCompatibilityChecker(proxyServer.URL, nativeE2EProjToken, roots)
+	checker, err := newEmailSourceCompatibilityChecker(SourceBridgeConfig{BaseURL: proxyServer.URL, Credentials: fixtureSourceCredentials{nativeE2ESourceToken, nativeE2EProjToken}}, roots)
 	if err != nil {
 		t.Fatal("construct TLS-pinned source compatibility checker")
 	}
-	bridge, err := newSourceBridge(SourceBridgeConfig{Enabled: true, BaseURL: proxyServer.URL, DeploymentID: nativeE2EDeployment, SourceBearerToken: nativeE2ESourceToken, ProjectionBearerToken: nativeE2EProjToken, RequestTimeout: 5 * time.Second}, checker, roots)
+	bridge, err := newSourceBridge(SourceBridgeConfig{Enabled: true, BaseURL: proxyServer.URL, DeploymentID: nativeE2EDeployment, Credentials: fixtureSourceCredentials{nativeE2ESourceToken, nativeE2EProjToken}, RequestTimeout: 5 * time.Second}, checker, roots)
 	if err != nil {
 		checker.Close()
 		t.Fatal("construct TLS-pinned source bridge")

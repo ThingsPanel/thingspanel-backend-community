@@ -1,16 +1,16 @@
-name: Community backend test deploy
+name: Community integrated test deploy
 on:
   push:
     branches: [main]
-    paths-ignore: ['encore-api/**', 'docs/**', '.ai/**', '**/*.md', 'deploy/release/**', '.github/workflows/release.yml', '.github/workflows/build-release.yml', '.github/workflows/docker-image-build.yml', '.github/workflows/encore-image-build.yml', '.github/workflows/deploy.yml']
+    paths-ignore: [ 'docs/**', '.ai/**', '**/*.md', 'deploy/release/**', '.github/workflows/release.yml', '.github/workflows/build-release.yml', '.github/workflows/docker-image-build.yml', '.github/workflows/encore-image-build.yml', '.github/workflows/deploy.yml']
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: community-main-backend-deploy
+  group: community-main-coordinated-deploy
   cancel-in-progress: false
 jobs:
-  deploy:
+  build_backend:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -22,7 +22,8 @@ jobs:
       - name: Verify backend boundaries
         run: |
           go test ./internal/app ./internal/uplink ./internal/automationbridge ./internal/brokercontract ./internal/brokercontrol ./internal/brokermapper
-          go test ./internal/api -run TestAutomationOwner
+          go test ./internal/api ./internal/service -run 'Test(AutomationOwner|Notification|Source|NewSource|EmailSource|AutomationPolicy)'
+          python3 -m unittest discover -s deploy/community-test -p test_notification_identity.py
       - name: Build immutable backend bundle
         env:
           CGO_ENABLED: '0'
@@ -40,26 +41,16 @@ jobs:
           (root/'manifest.json').write_text(json.dumps(manifest,indent=2))
           PY
           tar -czf "backend-$GITHUB_SHA.tar.gz" -C candidate ThingsPanel-Go manifest.json sql static configs
-      - name: Configure authenticated SSH
-        env:
-          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          test -n "$DEPLOY_KEY"
-          umask 077
-          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-deploy-key"
-          ssh -i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'install -d -m 700 /opt/tp-community-actions/incoming'
-      - name: Upload and deploy verified backend
-        run: |
-          set -euo pipefail
-          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
-          scp "${args[@]}" "backend-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_backend.py root@47.92.253.145:/opt/tp-community-actions/incoming/
-          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_backend.py '$GITHUB_SHA'"
-      - name: Preserve source identity
+      - name: Preserve verified backend bundle
         uses: actions/upload-artifact@v4
         with:
-          name: backend-deployment-${{ github.sha }}
-          path: candidate/manifest.json
-      - name: Remove runner SSH key
-        if: always()
-        run: rm -f "$RUNNER_TEMP/community-deploy-key"
+          name: backend-candidate-${{ github.sha }}
+          path: backend-${{ github.sha }}.tar.gz
+          retention-days: 3
+
+  native:
+    needs: build_backend
+    uses: ./.github/workflows/deploy-encore.yml
+    with:
+      deploy_backend: true
+    secrets: inherit

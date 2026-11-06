@@ -113,8 +113,7 @@ const (
 	notificationSourceBridgeEnabledEnv = "NOTIFICATION_SOURCE_BRIDGE_ENABLED"
 	notificationEncoreBaseURLEnv       = "NOTIFICATION_ENCORE_BASE_URL"
 	notificationSourceDeploymentIDEnv  = "NOTIFICATION_SOURCE_DEPLOYMENT_ID"
-	notificationSourceBearerTokenEnv   = "NOTIFICATION_SOURCE_BEARER_TOKEN"
-	notificationProjectionBearerEnv    = "NOTIFICATION_PROJECTION_BEARER_TOKEN"
+	notificationServiceIdentityEnv     = "NOTIFICATION_SERVICE_TOKEN"
 	notificationEncoreCAFileEnv        = "NOTIFICATION_ENCORE_CA_FILE"
 )
 
@@ -146,20 +145,19 @@ func NewNotificationSourceBridgeFromEnv() (*service.SourceBridge, error) {
 		return nil, errors.New("notification source bridge CA configuration invalid")
 	}
 	config := service.SourceBridgeConfig{
-		Enabled:               enabled,
-		BaseURL:               os.Getenv(notificationEncoreBaseURLEnv),
-		DeploymentID:          os.Getenv(notificationSourceDeploymentIDEnv),
-		SourceBearerToken:     os.Getenv(notificationSourceBearerTokenEnv),
-		ProjectionBearerToken: os.Getenv(notificationProjectionBearerEnv),
-		TLSRoots:              roots,
+		Enabled:         enabled,
+		BaseURL:         os.Getenv(notificationEncoreBaseURLEnv),
+		DeploymentID:    os.Getenv(notificationSourceDeploymentIDEnv),
+		ServiceIdentity: os.Getenv(notificationServiceIdentityEnv),
+		TLSRoots:        roots,
 	}
 	if !enabled {
 		return service.NewSourceBridge(config, nil)
 	}
-	if !validSourceBridgeToken(config.SourceBearerToken) || !validSourceBridgeDeploymentID(config.DeploymentID) {
+	if !validSourceBridgeToken(config.ServiceIdentity) || !validSourceBridgeDeploymentID(config.DeploymentID) {
 		return nil, errors.New("notification source bridge configuration incomplete")
 	}
-	checker, err := service.NewEmailSourceCompatibilityCheckerWithRoots(config.BaseURL, config.ProjectionBearerToken, roots)
+	checker, err := service.NewEmailSourceCompatibilityCheckerWithRoots(config, roots)
 	if err != nil {
 		return nil, errors.New("notification source bridge configuration invalid")
 	}

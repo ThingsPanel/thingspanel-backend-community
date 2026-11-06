@@ -1,4 +1,4 @@
-//go:build !notification_cli
+//go:build !notification_standalone
 
 package notification
 

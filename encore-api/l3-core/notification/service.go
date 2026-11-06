@@ -7,9 +7,10 @@ import (
 
 //encore:service
 type Service struct {
-	api    http.Handler
-	store  *Store
-	worker *Worker
+	api            http.Handler
+	store          *Store
+	worker         *Worker
+	managedSources http.Handler
 }
 
 // Shutdown drains the bounded worker before Encore closes its database pool.

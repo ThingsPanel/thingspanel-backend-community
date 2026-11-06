@@ -25,10 +25,6 @@ func (r *NotificationMemberReaderApi) appScope(c *gin.Context) (string, bool) {
 		readerStatus(c, 400)
 		return "", false
 	}
-	if _, ok := r.allowedTenants[tenant]; !ok {
-		readerStatus(c, 403)
-		return "", false
-	}
 	c.Header("Cache-Control", "no-store")
 	return tenant, true
 }

@@ -33,14 +33,14 @@ const (
 )
 
 type SourceBridgeConfig struct {
-	Enabled               bool
-	BaseURL               string
-	DeploymentID          string
-	SourceBearerToken     string
-	ProjectionBearerToken string
-	TLSRoots              *x509.CertPool
-	PollInterval          time.Duration
-	RequestTimeout        time.Duration
+	Enabled         bool
+	BaseURL         string
+	DeploymentID    string
+	ServiceIdentity string
+	Credentials     SourceCredentialProvider
+	TLSRoots        *x509.CertPool
+	PollInterval    time.Duration
+	RequestTimeout  time.Duration
 }
 
 type SourceGroupProjectionRequest struct {
@@ -117,11 +117,11 @@ func newSourceBridge(config SourceBridgeConfig, checker SourceCompatibilityCheck
 	if !config.Enabled {
 		return &SourceBridge{config: config}, nil
 	}
-	parsed, err := url.Parse(config.BaseURL)
-	if err != nil || parsed == nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
+	parsed, err := notificationServiceOrigin(config.BaseURL)
+	if err != nil || parsed == nil || parsed.Host == "" || parsed.User != nil || (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, errors.New("source bridge configuration invalid")
 	}
-	if config.DeploymentID == "" || config.SourceBearerToken == "" || config.ProjectionBearerToken == "" || checker == nil {
+	if config.DeploymentID == "" || checker == nil {
 		return nil, errors.New("source bridge configuration incomplete")
 	}
 	if config.PollInterval <= 0 {
@@ -130,12 +130,19 @@ func newSourceBridge(config SourceBridgeConfig, checker SourceCompatibilityCheck
 	if config.RequestTimeout <= 0 {
 		config.RequestTimeout = 10 * time.Second
 	}
-	return &SourceBridge{
+	bridge := &SourceBridge{
 		config: config,
 		base:   parsed,
 		check:  checker,
 		client: &http.Client{Timeout: config.RequestTimeout, Transport: &http.Transport{Proxy: nil, ForceAttemptHTTP2: false, TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}, MaxIdleConns: 8, MaxIdleConnsPerHost: 2, IdleConnTimeout: 30 * time.Second}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
-	}, nil
+	}
+	if config.Credentials == nil {
+		bridge.config.Credentials, err = newSourceCredentialClient(config.BaseURL, config.DeploymentID, config.ServiceIdentity, bridge.client)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return bridge, nil
 }
 
 func (s *SourceBridge) Enabled() bool { return s != nil && s.config.Enabled }
@@ -164,36 +171,53 @@ func (s *SourceBridge) postJSON(ctx context.Context, path, idempotencyKey string
 	if !s.Enabled() || len(body) == 0 || len(body) > maxSourceBody || len(idempotencyKey) < 8 || len(idempotencyKey) > 128 {
 		return nil, nil, errors.New("source request unavailable")
 	}
-	var bearerToken string
+	var scope struct {
+		TenantID string `json:"tenantId"`
+	}
+	if json.Unmarshal(body, &scope) != nil || scope.TenantID == "" {
+		return nil, nil, errors.New("source tenant unavailable")
+	}
+	var purpose string
 	switch path {
 	case sourceEventPath:
-		bearerToken = s.config.SourceBearerToken
+		purpose = "source"
 	case sourceProjectPath:
-		bearerToken = s.config.ProjectionBearerToken
+		purpose = "projection"
 	default:
 		return nil, nil, errors.New("source request unavailable")
 	}
-	if bearerToken == "" {
-		return nil, nil, errors.New("source request unavailable")
+	if s.config.Credentials == nil {
+		return nil, nil, errors.New("source credentials unavailable")
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint(path), bytes.NewReader(body))
-	if err != nil {
-		return nil, nil, errors.New("source request unavailable")
+	for attempt := 0; attempt < 2; attempt++ {
+		bearerToken, err := s.config.Credentials.Credential(ctx, scope.TenantID, purpose)
+		if err != nil {
+			return nil, nil, err
+		}
+		request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint(path), bytes.NewReader(body))
+		if err != nil {
+			return nil, nil, errors.New("source request unavailable")
+		}
+		request.Header.Set("Authorization", "Bearer "+bearerToken)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Idempotency-Key", idempotencyKey)
+		response, err := s.client.Do(request)
+		if err != nil {
+			return nil, nil, errors.New("source request failed")
+		}
+		limited := io.LimitReader(response.Body, maxSourceBody+1)
+		responseBody, readErr := io.ReadAll(limited)
+		_ = response.Body.Close()
+		if readErr != nil || len(responseBody) > maxSourceBody {
+			return response, nil, errors.New("source response invalid")
+		}
+		if response.StatusCode == http.StatusUnauthorized && attempt == 0 {
+			s.config.Credentials.Invalidate(scope.TenantID, purpose, bearerToken)
+			continue
+		}
+		return response, responseBody, nil
 	}
-	request.Header.Set("Authorization", "Bearer "+bearerToken)
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Idempotency-Key", idempotencyKey)
-	response, err := s.client.Do(request)
-	if err != nil {
-		return nil, nil, errors.New("source request failed")
-	}
-	limited := io.LimitReader(response.Body, maxSourceBody+1)
-	responseBody, readErr := io.ReadAll(limited)
-	_ = response.Body.Close()
-	if readErr != nil || len(responseBody) > maxSourceBody {
-		return response, nil, errors.New("source response invalid")
-	}
-	return response, responseBody, nil
+	return nil, nil, errors.New("source authentication failed")
 }
 
 func (s *SourceBridge) RegisterProjection(ctx context.Context, request SourceGroupProjectionRequest, idempotencyKey string) (SourceGroupProjection, error) {

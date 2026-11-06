@@ -22,9 +22,9 @@ Encore automation 的 migrations 由部署工具管理，与旧业务数据迁�
 
 新策略将默认选择或显式社区通知组别名写入 AlarmSpec。告警触发/恢复时读取当前有效原生组和修订，随告警状态变化事务保存到 outbox；重试使用冻结快照。未设置默认只记录告警；策略不可用或读取失败记录 unresolved，不换用其他策略，也不回滚告警。原生告警策略不再依靠不会执行的 notify 步骤发送通知。
 
-新增 TP_NOTIFICATION_SOURCE_READER_TOKEN（Encore 侧）：与社区侧 NOTIFICATION_MEMBER_READER_TOKEN 使用同一份独立服务凭据。社区侧 NOTIFICATION_MEMBER_READER_DEPLOYMENTS 和 NOTIFICATION_MEMBER_READER_TENANT_IDS（逗号分隔）允许列表必须包含相同部署和所有目标租户；TP_SOURCE_DEPLOYMENT_ID 必须与社区 source bridge 的部署 ID 一致。读取地址为 TP_COMMUNITY_BASE_URL/api/v1/notification/source-policies/:tenant，接口只返回原生组与修订，拒绝未允许的部署、租户和不明确查询。不要使用用户 JWT 替代此凭据。
+新增 TP_NOTIFICATION_SOURCE_READER_TOKEN（Encore 侧）：与社区侧 NOTIFICATION_MEMBER_READER_TOKEN 使用同一份独立服务凭据。社区侧部署标识由安装程序自动接线，联系人和策略按请求租户在数据库中校验归属；不再维护租户允许列表。TP_SOURCE_DEPLOYMENT_ID 必须与社区 source bridge 的部署 ID 一致。读取地址为 TP_COMMUNITY_BASE_URL/api/v1/notification/source-policies/:tenant，接口只返回原生组与修订，拒绝未允许的部署、跨租户成员查询和不明确查询。不要使用用户 JWT 替代此凭据。
 
-TP_NOTIFICATION_URL / TP_NOTIFICATION_TOKEN 继续用于原生通知核心受理。读取策略和发送通知使用不同凭据。通知组发布快照必须可用；受理成功不代表供应商实际送达。
+TP_NOTIFICATION_URL 指向原生通知核心；安装程序自动管理服务身份，运行时按租户和用途获取短期凭据。读取策略和发送通知使用不同凭据。通知组发布快照必须可用；受理成功不代表供应商实际送达。
 
 ## 调度安装材料（尚未在服务器执行）
 

@@ -18,7 +18,6 @@ import (
 type NotificationMemberReaderConfig struct {
 	Token                string
 	AllowedDeploymentIDs []string
-	AllowedTenantIDs     []string
 }
 
 type NotificationMemberReaderApi struct {
@@ -26,14 +25,12 @@ type NotificationMemberReaderApi struct {
 	tokenDigest        [sha256.Size]byte
 	enabled            bool
 	allowedDeployments map[string]struct{}
-	allowedTenants     map[string]struct{}
 }
 
 func NewNotificationMemberReader(config NotificationMemberReaderConfig) *NotificationMemberReaderApi {
 	reader := &NotificationMemberReaderApi{
 		policyView:         service.GetAutomationNotificationPolicies,
 		allowedDeployments: make(map[string]struct{}, len(config.AllowedDeploymentIDs)),
-		allowedTenants:     make(map[string]struct{}, len(config.AllowedTenantIDs)),
 	}
 	if !validReaderToken(config.Token) {
 		return reader
@@ -44,13 +41,7 @@ func NewNotificationMemberReader(config NotificationMemberReaderConfig) *Notific
 		}
 		reader.allowedDeployments[id] = struct{}{}
 	}
-	for _, id := range config.AllowedTenantIDs {
-		if !validReaderScopeID(id) {
-			return reader
-		}
-		reader.allowedTenants[id] = struct{}{}
-	}
-	if len(reader.allowedDeployments) == 0 || len(reader.allowedTenants) == 0 {
+	if len(reader.allowedDeployments) == 0 {
 		return reader
 	}
 	reader.tokenDigest = sha256.Sum256([]byte(config.Token))
@@ -111,10 +102,6 @@ func (reader *NotificationMemberReaderApi) GetMemberContact(c *gin.Context) {
 		readerStatus(c, http.StatusBadRequest)
 		return
 	}
-	if _, allowed := reader.allowedTenants[query.tenantID]; !allowed {
-		readerStatus(c, http.StatusForbidden)
-		return
-	}
 	userID := c.Param("id")
 	if !validReaderScopeID(userID) || (query.contactField != "email" && query.contactField != "phone") {
 		readerStatus(c, http.StatusBadRequest)
@@ -164,10 +151,6 @@ func (reader *NotificationMemberReaderApi) GetTenantPresence(c *gin.Context) {
 	tenantID := c.Param("id")
 	if !validReaderScopeID(tenantID) {
 		readerStatus(c, http.StatusNotFound)
-		return
-	}
-	if _, allowed := reader.allowedTenants[tenantID]; !allowed {
-		readerStatus(c, http.StatusForbidden)
 		return
 	}
 	presence, err := dal.ResolveNotificationTenant(c.Request.Context(), tenantID)

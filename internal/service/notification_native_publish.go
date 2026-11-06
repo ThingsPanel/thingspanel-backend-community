@@ -128,7 +128,7 @@ func (s *SourceBridge) ValidateNativePublishSnapshot(ctx context.Context, reques
 	if !s.Enabled() || s.base == nil || request.SourceDeploymentID != s.config.DeploymentID || request.TenantID == "" || request.NotificationGroupID == "" || request.GroupRevision < 1 {
 		return errors.New("native publish snapshot unavailable")
 	}
-	snapshot, err := fetchSourceGroupSnapshot(ctx, s.client, s.base, s.config.ProjectionBearerToken, request)
+	snapshot, err := fetchManagedGroupSnapshot(ctx, s.client, s.base, s.config.Credentials, request)
 	if err != nil || snapshot.SourceDeploymentID != request.SourceDeploymentID || snapshot.TenantID != request.TenantID ||
 		snapshot.Group.ID != request.NotificationGroupID || !snapshot.Group.Enabled || snapshot.Group.Revision != request.GroupRevision {
 		return errors.New("native publish snapshot unavailable")

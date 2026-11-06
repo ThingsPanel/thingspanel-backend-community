@@ -8,7 +8,6 @@ import (
 const (
 	notificationMemberReaderTokenEnv       = "NOTIFICATION_MEMBER_READER_TOKEN"
 	notificationMemberReaderDeploymentsEnv = "NOTIFICATION_MEMBER_READER_DEPLOYMENTS"
-	notificationMemberReaderTenantsEnv     = "NOTIFICATION_MEMBER_READER_TENANT_IDS"
 )
 
 // NewNotificationMemberReaderFromEnv reads only the private reader settings.
@@ -17,7 +16,6 @@ func NewNotificationMemberReaderFromEnv() *NotificationMemberReaderApi {
 	return NewNotificationMemberReader(NotificationMemberReaderConfig{
 		Token:                os.Getenv(notificationMemberReaderTokenEnv),
 		AllowedDeploymentIDs: parseNotificationReaderIDs(os.Getenv(notificationMemberReaderDeploymentsEnv)),
-		AllowedTenantIDs:     parseNotificationReaderIDs(os.Getenv(notificationMemberReaderTenantsEnv)),
 	})
 }
 

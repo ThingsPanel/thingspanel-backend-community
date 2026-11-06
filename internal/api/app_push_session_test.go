@@ -61,7 +61,7 @@ func TestAppPushSessionRefreshAndRevocation(t *testing.T) {
 }
 
 func TestAppDirectoryRequiresScopedCredential(t *testing.T) {
-	reader := NewNotificationMemberReader(NotificationMemberReaderConfig{Token: "fixture-token-at-least-32-characters", AllowedDeploymentIDs: []string{"source"}, AllowedTenantIDs: []string{"tenant"}})
+	reader := NewNotificationMemberReader(NotificationMemberReaderConfig{Token: "fixture-token-at-least-32-characters", AllowedDeploymentIDs: []string{"source"}})
 	engine := gin.New()
 	engine.GET("/devices/:id", reader.GetAppDevice)
 	for _, tc := range []struct {
@@ -70,7 +70,7 @@ func TestAppDirectoryRequiresScopedCredential(t *testing.T) {
 	}{
 		{"", "source", "tenantId=tenant", 401},
 		{"fixture-token-at-least-32-characters", "other", "tenantId=tenant", 403},
-		{"fixture-token-at-least-32-characters", "source", "tenantId=other", 403},
+		{"fixture-token-at-least-32-characters", "source", "tenantId=invalid/tenant", 400},
 		{"fixture-token-at-least-32-characters", "source", "tenantId=tenant&tenantId=other", 400},
 	} {
 		r := httptest.NewRequest(http.MethodGet, "/devices/device?"+tc.query, nil)

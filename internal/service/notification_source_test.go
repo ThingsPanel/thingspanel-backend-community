@@ -26,7 +26,7 @@ func testSourceBridge(t *testing.T, server *httptest.Server) *SourceBridge {
 	}
 	client := server.Client()
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &SourceBridge{config: SourceBridgeConfig{Enabled: true, DeploymentID: "deployment-test", SourceBearerToken: "source-test-token", ProjectionBearerToken: "projection-test-token"}, base: base, client: client}
+	return &SourceBridge{config: SourceBridgeConfig{Enabled: true, DeploymentID: "deployment-test", Credentials: fixtureSourceCredentials{"source-test-token", "projection-test-token"}}, base: base, client: client}
 }
 
 func testOutboxRecord(t *testing.T) dal.SourceOutboxRecord {
@@ -239,7 +239,7 @@ func TestSourceEventPayloadEnforcesFrozenSchemaBounds(t *testing.T) {
 }
 
 func TestNewSourceBridgeRejectsUnsafeEndpointAndMissingCompatibilityCheck(t *testing.T) {
-	baseConfig := SourceBridgeConfig{Enabled: true, BaseURL: "http://127.0.0.1:1234", DeploymentID: "deployment", SourceBearerToken: "source-token", ProjectionBearerToken: "projection-token"}
+	baseConfig := SourceBridgeConfig{Enabled: true, BaseURL: "http://192.0.2.1:1234", DeploymentID: "deployment", Credentials: fixtureSourceCredentials{"source-token", "projection-token"}}
 	if _, err := NewSourceBridge(baseConfig, testCompatibilityChecker{}); err == nil {
 		t.Fatal("http endpoint accepted")
 	}
@@ -251,7 +251,7 @@ func TestNewSourceBridgeRejectsUnsafeEndpointAndMissingCompatibilityCheck(t *tes
 	if _, err := NewSourceBridge(baseConfig, nil); err == nil {
 		t.Fatal("missing compatibility checker accepted")
 	}
-	if _, err := NewSourceBridge(SourceBridgeConfig{Enabled: true, BaseURL: "https://example.invalid", DeploymentID: "deployment", SourceBearerToken: "source-token"}, testCompatibilityChecker{}); err == nil {
+	if _, err := NewSourceBridge(SourceBridgeConfig{Enabled: true, BaseURL: "https://example.invalid", DeploymentID: "deployment", ServiceIdentity: "invalid-short-identity"}, testCompatibilityChecker{}); err == nil {
 		t.Fatal("missing projection-purpose credential accepted")
 	}
 }

@@ -48,7 +48,7 @@ func TestLegacyNotificationGroupHTTPRetiresWritesAndPreservesExistingData(t *tes
 
 	bridge, err := service.NewSourceBridge(service.SourceBridgeConfig{
 		Enabled: true, BaseURL: "https://core-fixture.example", DeploymentID: key.DeploymentID,
-		SourceBearerToken: "fixture-source-token", ProjectionBearerToken: "fixture-projection-token",
+		Credentials: fixtureSourceCredentials{"fixture-source-token", "fixture-projection-token"},
 	}, groupGuardChecker{})
 	if err != nil {
 		t.Fatal("construct non-networking enabled bridge fixture")

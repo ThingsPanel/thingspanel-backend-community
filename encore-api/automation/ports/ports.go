@@ -28,44 +28,26 @@ var ErrLabelNotExposed = errors.New("device directory does not expose device lab
 
 // Config is resolved from the environment so no secret is baked into code.
 type Config struct {
-	CommunityBaseURL  string
-	CommunityToken    string
-	SourceReaderToken string
-	NotificationURL   string
-	NotificationToken string
-	// A configured map is authoritative: unlisted tenants cannot borrow another
-	// tenant's source credential. Nil preserves single-tenant deployments.
-	NotificationTokens map[string]string
-	DeploymentID       string
-	Timeout            time.Duration
+	CommunityBaseURL            string
+	CommunityToken              string
+	SourceReaderToken           string
+	NotificationURL             string
+	NotificationServiceIdentity string
+	DeploymentID                string
+	Timeout                     time.Duration
 }
 
 // FromEnv builds the port configuration.
 func FromEnv() Config {
 	timeout := 15 * time.Second
 	cfg := Config{
-		CommunityBaseURL:  strings.TrimRight(os.Getenv("TP_COMMUNITY_BASE_URL"), "/"),
-		CommunityToken:    os.Getenv("TP_AUTOMATION_SERVICE_TOKEN"),
-		SourceReaderToken: os.Getenv("TP_NOTIFICATION_SOURCE_READER_TOKEN"),
-		NotificationURL:   strings.TrimRight(os.Getenv("TP_NOTIFICATION_URL"), "/"),
-		NotificationToken: os.Getenv("TP_NOTIFICATION_TOKEN"),
-		DeploymentID:      envOr("TP_SOURCE_DEPLOYMENT_ID", "automation-rewrite"),
-		Timeout:           timeout,
-	}
-	if raw := strings.TrimSpace(os.Getenv("TP_NOTIFICATION_TOKENS_JSON")); raw != "" {
-		cfg.NotificationTokens = map[string]string{}
-		var tokens map[string]string
-		if json.Unmarshal([]byte(raw), &tokens) == nil {
-			valid := true
-			for tenant, token := range tokens {
-				if tenant == "" || strings.TrimSpace(tenant) != tenant || strings.TrimSpace(token) == "" {
-					valid = false
-				}
-			}
-			if valid && tokens != nil {
-				cfg.NotificationTokens = tokens
-			}
-		}
+		CommunityBaseURL:            strings.TrimRight(os.Getenv("TP_COMMUNITY_BASE_URL"), "/"),
+		CommunityToken:              os.Getenv("TP_AUTOMATION_SERVICE_TOKEN"),
+		SourceReaderToken:           os.Getenv("TP_NOTIFICATION_SOURCE_READER_TOKEN"),
+		NotificationURL:             strings.TrimRight(os.Getenv("TP_NOTIFICATION_URL"), "/"),
+		NotificationServiceIdentity: os.Getenv("NOTIFICATION_SERVICE_TOKEN"),
+		DeploymentID:                envOr("TP_SOURCE_DEPLOYMENT_ID", "automation-rewrite"),
+		Timeout:                     timeout,
 	}
 	return cfg
 }
@@ -389,26 +371,27 @@ type NotificationOwner interface {
 
 // HTTPNotificationOwner calls the existing ingress contract.
 type HTTPNotificationOwner struct {
-	cfg    Config
-	client *http.Client
+	credentials *sourceCredentialClient
+	cfg         Config
+	client      *http.Client
 }
 
 func NewHTTPNotificationOwner(cfg Config) *HTTPNotificationOwner {
-	return &HTTPNotificationOwner{cfg: cfg, client: newClient(cfg.Timeout)}
+	client := newClient(cfg.Timeout)
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	client.Transport = transport
+	credentials, _ := newSourceCredentialClient(cfg.NotificationURL, cfg.DeploymentID, cfg.NotificationServiceIdentity, client)
+	return &HTTPNotificationOwner{cfg: cfg, client: client, credentials: credentials}
 }
 
 func (h *HTTPNotificationOwner) Submit(ctx context.Context, req NotificationRequest) (NotificationResult, error) {
-	token := h.cfg.NotificationToken
-	if h.cfg.NotificationTokens != nil {
-		token = h.cfg.NotificationTokens[req.TenantID]
-		if token == "" {
-			return NotificationResult{State: NotificationFailed, Message: "tenant notification source is not configured"}, ErrNotConfigured
-		}
+	token, err := h.credentials.Credential(ctx, req.TenantID, "source")
+	if err != nil {
+		return NotificationResult{State: NotificationAcceptanceUnknown, Message: "notification credential unavailable"}, err
 	}
 	base := h.cfg.NotificationURL
-	if base == "" {
-		base = h.cfg.CommunityBaseURL
-	}
 	if base == "" {
 		return NotificationResult{State: "unknown", Message: "notification owner not configured"}, ErrNotConfigured
 	}
@@ -441,21 +424,33 @@ func (h *HTTPNotificationOwner) Submit(ctx context.Context, req NotificationRequ
 		},
 	}
 	raw, _ := json.Marshal(body)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/api/v2/notification-ingress/events", bytes.NewReader(raw))
-	if err != nil {
-		return NotificationResult{State: "failed", Message: err.Error()}, err
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if token != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+token)
-	}
-	httpReq.Header.Set("Idempotency-Key", req.IdempotencyKey)
+	var resp *http.Response
+	for attempt := 0; attempt < 2; attempt++ {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/api/v2/notification-ingress/events", bytes.NewReader(raw))
+		if err != nil {
+			return NotificationResult{State: "failed", Message: err.Error()}, err
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		if token != "" {
+			httpReq.Header.Set("Authorization", "Bearer "+token)
+		}
+		httpReq.Header.Set("Idempotency-Key", req.IdempotencyKey)
 
-	resp, err := h.client.Do(httpReq)
-	if err != nil {
-		// The request may well have been received: a timeout is not a refusal.
-		// Replaying the same key is what makes the retry safe.
-		return NotificationResult{State: NotificationAcceptanceUnknown, Message: err.Error()}, nil
+		resp, err = h.client.Do(httpReq)
+		if err != nil {
+			// The request may well have been received: a timeout is not a refusal.
+			// Replaying the same key is what makes the retry safe.
+			return NotificationResult{State: NotificationAcceptanceUnknown, Message: err.Error()}, nil
+		}
+		if resp.StatusCode != http.StatusUnauthorized || attempt == 1 {
+			break
+		}
+		resp.Body.Close()
+		h.credentials.Invalidate(req.TenantID, "source", token)
+		token, err = h.credentials.Credential(ctx, req.TenantID, "source")
+		if err != nil {
+			return NotificationResult{State: NotificationAcceptanceUnknown, Message: "notification credential unavailable"}, err
+		}
 	}
 	defer resp.Body.Close()
 	payload, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))

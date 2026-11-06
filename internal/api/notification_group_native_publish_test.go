@@ -16,8 +16,7 @@ import (
 func TestNativePublishStatusIsTenantClaimScopedAndStrict(t *testing.T) {
 	openNotificationGroupSourceFixture(t)
 	bridge, err := service.NewSourceBridge(service.SourceBridgeConfig{Enabled: true, BaseURL: "https://core-fixture.invalid",
-		DeploymentID: "deployment-native-publish-http", SourceBearerToken: "fixture-source-token",
-		ProjectionBearerToken: "fixture-projection-token"}, groupGuardChecker{})
+		DeploymentID: "deployment-native-publish-http", Credentials: fixtureSourceCredentials{"fixture-source-token", "fixture-projection-token"}}, groupGuardChecker{})
 	if err != nil {
 		t.Fatal("construct enabled fixture bridge")
 	}

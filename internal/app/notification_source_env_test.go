@@ -13,8 +13,7 @@ func setSourceBridgeEnv(t *testing.T, enabled, baseURL string) {
 	t.Setenv(notificationSourceBridgeEnabledEnv, enabled)
 	t.Setenv(notificationEncoreBaseURLEnv, baseURL)
 	t.Setenv(notificationSourceDeploymentIDEnv, "deployment-env-test")
-	t.Setenv(notificationSourceBearerTokenEnv, strings.Repeat("s", 32))
-	t.Setenv(notificationProjectionBearerEnv, strings.Repeat("p", 32))
+	t.Setenv(notificationServiceIdentityEnv, strings.Repeat("s", 32))
 }
 
 func stopSourceRelayOption(t *testing.T, application *Application) {
@@ -59,13 +58,13 @@ func TestNotificationSourceRelayFromEnvRequiresStrictFlagAndTLSOrigins(t *testin
 			}
 		})
 	}
-	setSourceBridgeEnv(t, "true", "http://127.0.0.1:8080")
+	setSourceBridgeEnv(t, "true", "http://192.0.2.1:8080")
 	if _, err := NewApplication(WithNotificationSourceRelayFromEnv()); err == nil {
 		t.Fatal("production source bridge accepted HTTP origin")
 	}
 }
 
-func TestNotificationSourceRelayFromEnvConstructsWithSeparateCredentials(t *testing.T) {
+func TestNotificationSourceRelayFromEnvConstructsWithManagedIdentity(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer server.Close()
 	setSourceBridgeEnv(t, "true", server.URL)
