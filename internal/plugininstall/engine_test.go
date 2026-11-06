@@ -110,10 +110,10 @@ func (a *fakeAgent) Prepare(_ context.Context, r PrepareRequest) error {
 	return nil
 }
 func (a *fakeAgent) Grant(_ context.Context, _ string, g uint64, _, id string, _ time.Duration) error {
-	if strings.HasPrefix(id, "renew") {
-		return a.rec("renew")
-	}
 	return a.rec(fmt.Sprintf("grant-%d", g))
+}
+func (a *fakeAgent) Renew(_ context.Context, _ string, _ uint64, _, _ string, _ time.Duration) error {
+	return a.rec("renew")
 }
 func (a *fakeAgent) Activate(_ context.Context, _ string, g uint64, _ string) error {
 	return a.rec(fmt.Sprintf("activate-%d", g))
@@ -425,7 +425,7 @@ func TestDisableEnableUninstallReinstall(t *testing.T) {
 	v := newEnv(t)
 	ctx := context.Background()
 	row, _ := v.e.Submit(ctx, "tn1", "homeassistant", "", fullConfig())
-	v.settle(t, "tn1", row.ID, StateEnabled)
+	row = v.settle(t, "tn1", row.ID, StateEnabled)
 
 	if _, err := v.e.Disable(ctx, "tn1", row.ID); err != nil {
 		t.Fatal(err)
@@ -466,11 +466,13 @@ func TestDisableEnableUninstallReinstall(t *testing.T) {
 	}
 }
 
-func TestMaintainRenewsAndSelfHealsWhenRenewalRefused(t *testing.T) {
+func TestMaintainRenewsAndDoesNotReinstallWhenRenewalRefused(t *testing.T) {
 	v := newEnv(t)
 	ctx := context.Background()
 	row, _ := v.e.Submit(ctx, "tn1", "homeassistant", "", fullConfig())
-	v.settle(t, "tn1", row.ID, StateEnabled)
+	row = v.settle(t, "tn1", row.ID, StateEnabled)
+	prepared := v.agent.prepares
+	generation := row.Generation
 	v.advance(6 * time.Minute)
 	v.e.Tick(ctx)
 	if v.agent.count("renew") != 1 || v.ids.renewed != 1 {
@@ -480,12 +482,34 @@ func TestMaintainRenewsAndSelfHealsWhenRenewalRefused(t *testing.T) {
 	v.agent.conflict = "renew"
 	v.e.Tick(ctx)
 	got, _, _ := v.e.Get("tn1", row.ID)
-	if got.State != StateInstalling {
+	if got.State != StateFailed || got.Generation != generation || v.agent.prepares != prepared {
 		t.Fatalf("%+v", got)
 	}
-	v.agent.conflict = ""
-	if r := v.settle(t, "tn1", row.ID, StateEnabled); r.Generation != 2 {
-		t.Fatalf("generation %d", r.Generation)
+	if v.ids.live {
+		t.Fatal("identity must be revoked after a refused renewal")
+	}
+}
+
+func TestMaintainRetriesTransientFailureWithBoundedBackoffWithoutChangingGeneration(t *testing.T) {
+	v := newEnv(t)
+	ctx := context.Background()
+	row, _ := v.e.Submit(ctx, "tn1", "homeassistant", "", fullConfig())
+	row = v.settle(t, "tn1", row.ID, StateEnabled)
+	generation, prepared := row.Generation, v.agent.prepares
+	v.agent.offline = true
+	v.advance(6 * time.Minute)
+	v.e.Tick(ctx)
+	got, _, _ := v.e.Get("tn1", row.ID)
+	if got.State != StateEnabled || got.Generation != generation || got.OpAttempts != 1 || v.agent.prepares != prepared {
+		t.Fatalf("first retry changed install state: %+v", got)
+	}
+	for attempt := 1; attempt < v.e.Timing.MaxMaintainAttempts; attempt++ {
+		v.advance(*backoff(attempt - 1) + time.Second)
+		v.e.Tick(ctx)
+	}
+	got, _, _ = v.e.Get("tn1", row.ID)
+	if got.State != StateFailed || got.Generation != generation || got.OpAttempts != v.e.Timing.MaxMaintainAttempts || v.agent.prepares != prepared {
+		t.Fatalf("bounded retries did not stop in place: %+v", got)
 	}
 }
 
