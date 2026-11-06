@@ -1,6 +1,7 @@
 package notification
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -58,7 +59,12 @@ func (h *managedSourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var req managedSourceRequest
-	dec := json.NewDecoder(io.LimitReader(r.Body, 4097))
+	body, readErr := io.ReadAll(io.LimitReader(r.Body, 4097))
+	if readErr != nil || len(body) > 4096 {
+		fail(400, "invalid_source_scope")
+		return
+	}
+	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.DisallowUnknownFields()
 	if dec.Decode(&req) != nil || dec.Decode(&struct{}{}) != io.EOF || !validDirectoryPart(req.TenantID) || (req.Purpose != CredentialPurposeSource && req.Purpose != CredentialPurposeProjection) {
 		fail(400, "invalid_source_scope")

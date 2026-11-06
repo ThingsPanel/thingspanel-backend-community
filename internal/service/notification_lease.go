@@ -157,7 +157,7 @@ func (c *sourceCredentialClient) fetch(ctx context.Context, tenant, purpose stri
 		return empty, errors.New("notification credential response invalid")
 	}
 	lease := envelope.Data
-	if envelope.Code != 200 || lease.TenantID != tenant || lease.DeploymentID != c.deployment || lease.Purpose != purpose || len(lease.Credential) < 32 || strings.ContainsAny(lease.Credential, " \t\n\r") || !lease.ExpiresAt.After(c.now().Add(time.Minute)) || lease.ExpiresAt.After(c.now().Add(20*time.Minute)) {
+	if envelope.Code != 200 || lease.TenantID != tenant || lease.DeploymentID != c.deployment || lease.Purpose != purpose || len(lease.Credential) < 32 || len(lease.Credential) > 8192 || strings.ContainsAny(lease.Credential, " \t\n\r") || !lease.ExpiresAt.After(c.now().Add(time.Minute)) || lease.ExpiresAt.After(c.now().Add(20*time.Minute)) {
 		return empty, errors.New("notification credential scope mismatch")
 	}
 	return lease, nil
