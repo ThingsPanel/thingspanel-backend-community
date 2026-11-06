@@ -27,16 +27,6 @@ func identityStore() *pluginidentity.Store {
 	return pluginidentity.NewStore(func() *gorm.DB { return global.DB })
 }
 
-func tenantAdminClaims(c *gin.Context) (*utils.UserClaims, bool) {
-	value, _ := c.Get("claims")
-	claims, ok := value.(*utils.UserClaims)
-	if !ok || claims.Authority != "TENANT_ADMIN" || claims.TenantID == "" {
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "message": "tenant administrator required"})
-		return nil, false
-	}
-	return claims, true
-}
-
 // managedIdentityScope keeps existing tenant-issued identities tenant-bound. A platform administrator may issue
 // an empty-tenant identity for a platform-installed service plugin; the runtime guard interprets that identity as
 // the explicitly authorized shared instance.
