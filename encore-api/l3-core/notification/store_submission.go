@@ -46,9 +46,13 @@ func (s *Store) AcceptSourcePlan(ctx context.Context, tenantID, idempotencyKey, 
 	if plan.BlockedReason == "" && len(plan.Deliveries) == 0 {
 		return contract.AcceptedData{}, storeErr(StoreErrorInvalid)
 	}
-	// V1 ingress is the legacy alarm adapter. "source" is an internal
-	// idempotency operation, not a public sourceType in the frozen contract.
+	// Existing alarm adapters have no origin marker. Native automation freezes
+	// its origin in the signed event variables without changing the V1 envelope.
+	// This is display metadata only, never a principal or authorization input.
 	source := contract.SourceRef{Type: "alarm", ID: event.SourceEventID}
+	if string(event.Payload.Variables["_sourceType"]) == `"automation"` {
+		source.Type = "automation"
+	}
 	return s.acceptDeliveries(ctx, tenantID, "source", idempotencyKey, intentDigest, source, event.SourceDeploymentID, event.SourceEventID, event.ActionID, event.NotificationGroupID, event.GroupRevision, plan.BlockedReason, plan.Deliveries, expires)
 }
 

@@ -857,6 +857,7 @@ func (r *Runtime) performNotify(ctx context.Context, run *store.Run, stepID stri
 		"group_revision": step.NotificationRevision,
 		"subject":        "自动化通知",
 		"text":           step.Value,
+		"variables":      map[string]any{"_sourceType": "automation"},
 		"occurred_at":    now.UTC().Format(time.RFC3339Nano),
 		"expires_at":     now.Add(24 * time.Hour).UTC().Format(time.RFC3339Nano),
 	})

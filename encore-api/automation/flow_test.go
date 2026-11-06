@@ -714,6 +714,9 @@ func TestNotificationStepUsesNotificationOwner(t *testing.T) {
 	if e.notif.calls[0].PolicyID != "np-1" {
 		t.Fatalf("want policy np-1, got %q", e.notif.calls[0].PolicyID)
 	}
+	if e.notif.calls[0].Variables["_sourceType"] != "automation" {
+		t.Fatal("automation notification lost its source classification")
+	}
 }
 
 // TestUnknownCommandResultIsNotSuccess: a command owner that cannot confirm must
