@@ -13,7 +13,7 @@ import time
 import urllib.request
 import urllib.error
 from encore_migrations import source_migrations, pending_migrations
-from encore_artifacts import prune_source_artifacts
+from encore_artifacts import prune_source_artifacts, reclaim_build_cache
 from notification_identity import prepare_notification_identity, retire_notification_renewal
 
 ROOT = pathlib.Path('/opt/tp-community-actions')
@@ -34,7 +34,11 @@ def artifact_command(args):
     return result.stdout.decode().strip()
 
 pruned_artifacts=prune_source_artifacts(ROOT,SHA,artifact_command)
+if reclaim_build_cache(ROOT,artifact_command):
+    print(json.dumps({'reclaimed':'encore-build-cache','free_bytes':shutil.disk_usage(str(ROOT)).free}),flush=True)
 if shutil.disk_usage(str(ROOT)).free < 1024 ** 3:
+    print(artifact_command(['df','-h',str(ROOT)]),flush=True)
+    print(artifact_command(['du','-x','-h','--max-depth=1',str(ROOT)]),flush=True)
     raise RuntimeError('At least 1 GiB free disk required for build')
 mem = int(next(line.split()[1] for line in pathlib.Path('/proc/meminfo').read_text().splitlines()
                if line.startswith('MemAvailable:')))

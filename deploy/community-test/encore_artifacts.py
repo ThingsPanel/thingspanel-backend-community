@@ -1,6 +1,21 @@
 """Remove only completed CI inputs and unreferenced Encore source image tags."""
 import json
 import re
+import shutil
+
+def reclaim_build_cache(root,run):
+    """Reclaim reproducible compiler output only when the build cannot start."""
+    if shutil.disk_usage(str(root)).free >= 1024**3:
+        return False
+    cache=root/'encore-build-cache'
+    if cache.is_symlink() or cache.resolve().parent!=root.resolve():
+        raise RuntimeError('Unsafe build cache path')
+    if cache.is_dir():
+        # go clean preserves cache bookkeeping and never touches module sources,
+        # runtime configuration, releases, database volumes or running images.
+        run(['env','GOCACHE='+str(cache),'/usr/local/go/bin/go','clean','-cache'])
+        return True
+    return False
 
 def prune_source_artifacts(root,current,run):
     containers=run(['docker','ps','-aq']).split()
