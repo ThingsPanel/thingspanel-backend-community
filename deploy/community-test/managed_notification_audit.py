@@ -47,5 +47,14 @@ for tenant in tenants:
  result['lease_probes'].append(item)
 status,_=request('/internal/notification/source-credentials',identity['service_token'],{'tenantId':'nonexistent-audit-tenant','purpose':'source'},identity['deployment_id']);result['unknown_tenant_status']=status
 result['passed']=result['identity_matches_all_services'] and not any(result['retired_runtime_keys'].values()) and result['retired_policy_files']==0 and not result['retired_timers'] and result['active_unmanaged_source_credentials']==0 and status==403 and bool(tenants) and all(p['source_scope_valid'] and p['projection_scope_valid'] and p.get('source_ingress_status')==400 and p.get('projection_ingress_status')==401 for p in result['lease_probes'])
+
+adb=next(n for n,d in runtime['sql_servers'][0]['databases'].items() if d['name']=='automation')
+query="SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT id,state,attempt,last_error,payload->>'resolution_error' AS resolution_error,payload->>'policy_id' AS policy_id,payload->>'group_revision' AS group_revision FROM auto_outbox WHERE scope_key='alarm:956ef9d8-e28a-4719-aaf9-78c16660b50b') t;"
+result['alarm_outbox']=json.loads(run(['docker','exec','timescaledb','psql','-X','-U','postgres','-d',adb,'-At','-c',query]))
+req=urllib.request.Request('http://127.0.0.1:9999/api/v1/notification/source-policies/63a4b529?alias=cf1dd014-7450-5c2a-bfd2-8ec9deab2505',headers={'Authorization':'Bearer '+identity['reader_token'],'X-Notification-Deployment':identity['deployment_id']})
+try:
+ with urllib.request.urlopen(req,timeout=8) as response:result['policy_probe']={'status':response.status,'body':json.load(response)}
+except urllib.error.HTTPError as e:result['policy_probe']={'status':e.code}
+
 print(json.dumps(result,indent=2))
 if not result['passed']:raise SystemExit('Managed notification acceptance failed')
