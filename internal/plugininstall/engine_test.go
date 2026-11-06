@@ -490,6 +490,38 @@ func TestMaintainRenewsAndDoesNotReinstallWhenRenewalRefused(t *testing.T) {
 	}
 }
 
+func TestMaintainKeepsLiveGenerationWhenCatalogUnavailable(t *testing.T) {
+	v := newEnv(t)
+	ctx := context.Background()
+	row, err := v.e.Submit(ctx, "tn1", "homeassistant", "", fullConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	row = v.settle(t, "tn1", row.ID, StateEnabled)
+	gen, prepared := row.Generation, v.agent.prepares
+	// The Agent can still renew the live instance while its signed catalog is
+	// unavailable (for example because it expired).
+	v.agent.failStep = "catalog"
+	for i := 0; i < v.e.Timing.MaxMaintainAttempts+2; i++ {
+		v.advance(6 * time.Minute)
+		v.e.Tick(ctx)
+	}
+	got, _, err := v.e.Get("tn1", row.ID)
+	if err != nil || got.State != StateEnabled || got.Generation != gen || got.Health != "degraded" || got.ErrorCode != CodeCatalogUnavailable || got.OpAttempts != 0 {
+		t.Fatalf("catalog unavailable: row=%+v err=%v", got, err)
+	}
+	if !v.ids.live || v.ids.revoked != 0 || v.agent.prepares != prepared || v.agent.count("renew") != v.e.Timing.MaxMaintainAttempts+2 {
+		t.Fatal("catalog failure interrupted or replaced the live generation")
+	}
+	v.agent.failStep = ""
+	v.advance(6 * time.Minute)
+	v.e.Tick(ctx)
+	got, _, err = v.e.Get("tn1", row.ID)
+	if err != nil || got.State != StateEnabled || got.Generation != gen || got.Health != "ok" || got.ErrorCode != "" {
+		t.Fatalf("catalog recovered: row=%+v err=%v", got, err)
+	}
+}
+
 func TestMaintainRetriesTransientFailureWithBoundedBackoffWithoutChangingGeneration(t *testing.T) {
 	v := newEnv(t)
 	ctx := context.Background()
