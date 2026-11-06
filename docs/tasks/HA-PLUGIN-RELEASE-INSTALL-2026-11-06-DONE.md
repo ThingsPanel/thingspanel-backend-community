@@ -1,6 +1,6 @@
 # HA 服务插件发布与安装收尾记录（2026-11-06）
 
-状态：**候选版本、代码回归和隔离 Agent 实装/续租验收已完成；正式签名与现有平台 UI 安装未完成，不可称为已发布。**
+状态：**候选版本与隔离 Agent 长跑/续租验收已完成；现有 ThingsPanel 页面已识别候选，但一次真实 UI 安装在 Agent prepare 步骤失败。正式签名、UI 安装通过和对外发布均未完成。**
 
 ## 范围决定
 
@@ -37,12 +37,16 @@
 - 续租拒绝、瞬时失败次数上限、无代次变化及身份吊销由后端引擎定向测试覆盖。首轮隔离长跑用 120 秒 TTL、45 秒间隔，在第 25 次成功后续租请求重试耗尽，租约到期后 Agent 吊销身份并正常停止插件；这次约 27 分钟的观察未通过。控制器没有记录最初一次续租失败的具体原因，不能归因于插件故障或外部宿主机问题。
 - 按 Agent 的正确恢复规则没有续活过期的 generation 2，而是在全新 Agent 状态上显式接受 generation 3 并重新安装同一 r2 制品；以 600 秒 TTL、119 秒间隔连续运行 1800 秒，17 次同代续租均成功。插件于 `2026-11-06T03:15:35Z` 启动，至 `2026-11-06T03:49:11Z` 最终核查仍运行；generation=3、started=true、revoked=false，最后租期延至 `1793937518`，镜像摘要不变、`restart_count=0`。Agent 在运行中重启一次后，持久状态恢复为 generation=3、started=true、revoked=false，grant ID 未变；之后续租继续成功。`/health` 返回 `status=ok`。该验证是隔离 Agent/容器真实运行，不是 ThingsPanel 管理页面安装验收。
 - 前端定向 lint 已通过；类型检查仍有既存错误：`packages/axios/src/index.ts:29`、`src/service/api/notification.ts:134`。
-- 没有登录或修改现存平台测试栈，也没有安装此候选。没有验证 HA 实体数据链，按用户最新范围不属于本次验收。
+- 续租解释：当前默认身份和 Agent grant TTL 都是 24 小时，管理程序每 5 分钟给“当前已运行代次”续期；同一 token、grant 和 generation 不变，不会重新授权或重启。它的作用是在控制面长期失联、身份被吊销或 Agent/后端恢复异常时提供到期停止边界，不是要求用户定期重装。真实隔离长跑已证明连续 30 分钟以上稳定；没有证据表明租期导致平台不可用，因此本次没有去掉到期保护。
+- 500G 磁盘：当前挂载为 `/Volumes/KIOXIA`，卷校验通过，可用约 390 GiB。专用 ThingsPanel 测试栈和数据目录放在 `/Volumes/KIOXIA/CodexTests/thingspanel-ha-ui-acceptance-20261106/`；系统盘仍只有约 19 GiB 可用。没有改 Docker 全局存储位置，也没有操作已有共享容器/卷。
+- 隔离 UI 安装验收：从任务后端分支构建后端镜像、从前端候选分支构建静态资源，并启动 PostgreSQL + TimescaleDB、Redis、Broker、平台服务及 Agent。首次管理员初始化成功，现有“应用管理 → 插件管理 → 插件安装”页面显示 `1.0.0-candidate.20261106-4d8d45b-r2`，安装确认页明确不要求 HA 地址或令牌。确认安装后页面失败；数据库事件顺序为 `check=ok`、`identity=ok`、`agent_prepare=agent_rejected`，没有进入 grant/activate/health。Agent catalog 可列出该候选，Agent socket/token 文件接线可读，候选镜像摘要在 Docker 中存在；现有安装适配器丢弃 Agent 响应体，只留下通用 `agent_rejected`，所以确切的 Agent 拒绝原因尚未取得。没有重复点重试，避免在未定位原因时反复提交新代次。
+- 本轮回归：`go test ./internal/plugininstall ./internal/pluginidentity` 通过；`go test ./internal/api -run '^TestPluginInstall' -count=1` 通过。较宽的 `go test ./internal/plugininstall ./internal/pluginidentity ./internal/api` 有既存失败 `TestTelemetryHTTPDeviceAuthorization/owner_key`（`telemetry_http_auth_test.go:371`，预期 owner_key 被允许但返回 `40103`），不属于 HA 安装代码。Agent 全包测试受 Linux build tag 限制，不能在当前 macOS host 直接执行；此前已在 Linux/arm64 隔离容器记录相关 Agent 测试结果。
+- 没有验证 HA 实体数据链，按用户最新范围不属于本次验收。
 
 ## 交接前置项
 
 1. 负责人提供正式签名流程/密钥管理方签出的 catalog 签名，并在目标主机包外分发匹配的信任根；随后重核 catalog、镜像摘要和目标机器架构。
-2. 用专属隔离 ThingsPanel 平台对固定候选做超管页面一键安装验证；当前真实容器验证走了 Agent API，不代表超管 UI 已验收。
-3. 完成目标平台 UI 验收前，需准备可独占操作且有足够磁盘空间的 ThingsPanel 测试栈。2026-11-06 检查时 Docker 主机仅约 22 GiB 可用空间、系统盘使用率约 90%；安装器 Compose 还需额外服务镜像和数据库卷。本次没有登录、修改或占用现存 PUI/共享平台容器，也没有在低余量主机上拉起整套服务。
+2. 修正/查明 `agent_prepare` 的 `agent_rejected` 根因后，在此隔离平台显式 Retry 并验证同一页面安装成功；当前候选安装状态为失败，不能交付使用。
+3. 目前隔离 UI 栈已建在 500G 外置盘，足够复用后续验收；该栈使用本地 test-only catalog 签名和测试凭据，不可当正式发布环境。
 
 各工作区未推送、未合并、未发布；未删除或重置任何工作区、分支、容器和数据卷。
