@@ -259,7 +259,7 @@ func (e *Engine) maintain(ctx context.Context, row *Installation) *time.Duration
 	now := e.now()
 	row.MaintainedAt = &now
 	if err != nil {
-		return e.maintainFailure(row, ErrAgentOffline)
+		return e.maintainFailure(ctx, row, ErrAgentOffline)
 	}
 	gen := uint64(row.Generation)
 	idErr := e.IDs.Renew(row.TenantID, row.PluginID, e.Timing.IdentityTTL, now)
@@ -267,14 +267,14 @@ func (e *Engine) maintain(ctx context.Context, row *Installation) *time.Duration
 		return e.maintainPermanentFailure(ctx, row, "identity_expired")
 	}
 	if idErr != nil {
-		return e.maintainFailure(row, idErr)
+		return e.maintainFailure(ctx, row, idErr)
 	}
 	grantErr := e.Agent.Renew(ctx, row.PluginID, gen, requestKey(row.Generation), fmt.Sprintf("renew-%d", now.Unix()), e.Timing.GrantTTL)
 	if errors.Is(grantErr, ErrAgentConflict) || errors.Is(grantErr, ErrAgentRejected) {
 		return e.maintainPermanentFailure(ctx, row, "renew_refused")
 	}
 	if grantErr != nil {
-		return e.maintainFailure(row, grantErr)
+		return e.maintainFailure(ctx, row, grantErr)
 	}
 	if hErr := e.Health.Check(ctx, *entry); hErr == nil {
 		row.Health, row.ErrorCode = "ok", ""
@@ -286,7 +286,7 @@ func (e *Engine) maintain(ctx context.Context, row *Installation) *time.Duration
 	return nil
 }
 
-func (e *Engine) maintainFailure(row *Installation, _ error) *time.Duration {
+func (e *Engine) maintainFailure(ctx context.Context, row *Installation, _ error) *time.Duration {
 	row.OpStep, row.ErrorCode, row.Health = "maintain", CodeRenewalFailed, "degraded"
 	row.OpAttempts++
 	max := e.Timing.MaxMaintainAttempts
@@ -295,6 +295,10 @@ func (e *Engine) maintainFailure(row *Installation, _ error) *time.Duration {
 	}
 	if row.OpAttempts >= max {
 		row.State, row.Health = StateFailed, "error"
+		// Stop accepting traffic immediately when renewal is exhausted. If the host is offline, the
+		// Agent's existing lease remains the bounded local stop condition.
+		_ = e.IDs.Revoke(row.TenantID, row.PluginID, e.now())
+		_ = e.Agent.Revoke(ctx, row.PluginID, uint64(row.Generation), "renewal attempts exhausted")
 		e.event(row, "maintain", "failed", CodeRenewalFailed)
 		_ = e.Repo.Save(row)
 		return nil
