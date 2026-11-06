@@ -511,6 +511,9 @@ func TestMaintainRetriesTransientFailureWithBoundedBackoffWithoutChangingGenerat
 	if got.State != StateFailed || got.Generation != generation || got.OpAttempts != v.e.Timing.MaxMaintainAttempts || v.agent.prepares != prepared {
 		t.Fatalf("bounded retries did not stop in place: %+v", got)
 	}
+	if v.ids.live {
+		t.Fatal("exhausted renewal attempts must revoke the platform identity")
+	}
 }
 
 func TestTenantsAreIsolated(t *testing.T) {
