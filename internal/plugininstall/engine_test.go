@@ -522,6 +522,24 @@ func TestMaintainKeepsLiveGenerationWhenCatalogUnavailable(t *testing.T) {
 	}
 }
 
+func TestMaintainDoesNotReviveExpiredIdentityWhenCatalogUnavailable(t *testing.T) {
+	v := newEnv(t)
+	ctx := context.Background()
+	row, err := v.e.Submit(ctx, "tn1", "homeassistant", "", fullConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	row = v.settle(t, "tn1", row.ID, StateEnabled)
+	v.agent.failStep = "catalog"
+	v.ids.live = false
+	v.advance(6 * time.Minute)
+	v.e.Tick(ctx)
+	got, _, err := v.e.Get("tn1", row.ID)
+	if err != nil || got.State != StateFailed || got.Generation != row.Generation || v.agent.count("renew") != 0 {
+		t.Fatalf("expired identity was not stopped: row=%+v err=%v", got, err)
+	}
+}
+
 func TestMaintainRetriesTransientFailureWithBoundedBackoffWithoutChangingGeneration(t *testing.T) {
 	v := newEnv(t)
 	ctx := context.Background()
