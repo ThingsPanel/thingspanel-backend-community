@@ -5,7 +5,7 @@
 ## 现有现场与证据使用
 
 - T5 身份安装/卸载/重装曾对 T4 worktree 后端做过真实栈回归；`sql/33.sql` 当时手工执行，不能视为当前 develop 自动迁移已通。参考安装器 `docs/tasks/T5-DONE.md`。
-- T7 的安装、重装、卸载和接入点/设备建立曾通过；真实上行和下行未通过，HA 数据没有进入平台。T7c 周期同步测试运行于无真实 Broker/HA 的最小栈。参考安装器 `docs/tasks/T7-DONE.md`、`T7c-DONE.md`。
+- T7 初测上/下行失败；后续 `docs/tasks/T7b-DONE.md` §8 已用真实 HA 灯打通上报和开关下发，但当时依赖手动迁移、刷新 Broker 范围及重启 owner、mosquitto、插件。`docs/tasks/PLUGIN-UI-DONE.md` 也有安装 UI 后上下行通过记录，建设备则用 API 模拟。T7c 周期同步只在无真实 Broker/HA 的最小栈验证。复验当前固定版本，不重复开发已通功能，并确认这些手动步骤已自动化。
 - HA `startup_sync` 的 Bearer 注入在历史交接和当前未提交源码中证据不一致；要以要发布的 commit/二进制真实请求确认。
 - 上次状态快照里，后端 `wp-plugin-install-ui-8bf83e` dirty 5 个安装文件；安装器 `wp/pui-agent` dirty Agent/service/catalog 并有未跟踪 renew test；HA `main` 有未提交功能改动；前端 `wp/pui-frontend` 干净。实现 owner 开工前重新核对并保留原工作目录。旧提交/日志不可代表当前可发布版本。
 

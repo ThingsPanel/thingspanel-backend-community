@@ -28,7 +28,7 @@
 | 已有成果/限制 | 历史证据及边界 | 本期如何处理 |
 |---|---|---|
 | 身份签发、Bearer 访问、卸载吊销、重装升代已有过真实栈回归。 | 安装器 `docs/tasks/T5-DONE.md`：以 T4 worktree 后端测试，身份 1→2、旧身份拒绝。后端 migration `sql/33.sql` 当时由人工执行，不能证明当前 develop 自动迁移。 | 复用流程和用例；先对当前固定提交复核，集中补缺，不重写已经通过的路径。 |
-| HA 插件安装、重复安装、卸载与设备对象创建已有回归记录。 | `docs/tasks/T7-DONE.md`：安装、重装、卸载通过；上行和下行未通过，未有数据进入平台。`T7c-DONE.md`：周期发现测试通过，但最小栈没有真实 Broker/HA，不等同真实遥测。 | 复用安装与幂等证据；重做上/下行真实链验收。 |
+| HA 插件已有真实上报和下发验证，但当前固定版本仍需复验。 | `docs/tasks/T7-DONE.md` 早期上/下行失败；随后 `T7b-DONE.md` §8 用真实 HA 灯验证上报与开关下发通过，但依赖手动迁移、刷新 Broker 设备范围并重启 owner、mosquitto、插件；`PLUGIN-UI-DONE.md` 也记录 UI 安装后的上/下行通过，但建设备走 API 模拟。 | 不重复开发已通链路；复验当前固定发布版本的自动迁移、范围刷新和真实 HA 上/下行，补齐自动化缺口。 |
 | HA `startup_sync.go` Bearer 注入证据有冲突。 | T5 文字说改用 SDK `Platform()`；当前检查到的 HA worktree `startup_sync.go` 有直接 `http.DefaultClient` POST 的未提交源码。 | 以准备发布的 HA commit/二进制实测实际请求头，不凭文档推断已通或必坏。 |
 | 可信发布仍未收口。 | T5/T6 使用本地测试签名根；旧 HA 条目和镜像是旧候选。 | 冻结一个审核过、签名与 digest 匹配、可在目标架构运行的正式 HA 制品，勿将旧摘要当作当前 release。 |
 | HA 凭据通过服务接入点配置；进程 `/health` 不是凭据有效或接入成功。 | HA `handler.go` 提供 service access form 并从 voucher 建 HA client；`T7-DONE.md` 记录用户建接入点与设备。 | 安装器不向 HA 目录声明 URL/token 字段；保留其他插件的通用 `env_user`/secret 功能。服务接入点由用户认证配置；分别显示容器进程健康和每个接入点状态。 |
