@@ -56,6 +56,7 @@
 
 | 位置 | 内容 |
 |---|---|
+| `/Volumes/KIOXIA/CodexTests/thingspanel-ha-ui-acceptance-20261106/` | 2026-11-06 创建的 HA 插件独立 UI 安装验收栈；使用独立 Compose 项目、网络和外置盘绑定数据目录，候选签名为临时测试签名。待负责人审查；本任务未删除目录、容器或数据卷。 |
 | `/Volumes/80G/archive/evidence/gmqtt-2026-10.tgz` | `docs/gmqtt-evidence-2026-10-19/`、`-20/`（196 项，sha256 `b5904e9b…3744b`） |
 | `/Volumes/80G/archive/secrets-hold/c2-configs-20261104/` | 主目录 `configs/conf*.yml/.conf`、`.telemetry_state.json` 副本（600） |
 | `/Volumes/80G/archive/secrets-hold/{main-worktree,clean-worktrees,dirty-worktrees,codex-worktrees}-20261104/` | 清场早期备份 |
