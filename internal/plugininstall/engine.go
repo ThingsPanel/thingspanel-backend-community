@@ -25,6 +25,7 @@ const (
 	CodeConfigMissing      = "config_missing"
 	CodeGenerationConflict = "generation_conflict"
 	CodeRenewalFailed      = "renewal_failed"
+	CodeCatalogUnavailable = "catalog_unavailable"
 	CodePluginUnknown      = "plugin_unknown"
 )
 

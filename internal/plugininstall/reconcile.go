@@ -255,12 +255,8 @@ func (e *Engine) stop(ctx context.Context, row *Installation, final, step string
 // maintain renews only the live identity and already-running Agent lease for the current generation. A renewal
 // refusal never starts a new generation; only an explicit Retry operation may do that.
 func (e *Engine) maintain(ctx context.Context, row *Installation) *time.Duration {
-	entry, err := e.entry(ctx, row.PluginID)
 	now := e.now()
 	row.MaintainedAt = &now
-	if err != nil {
-		return e.maintainFailure(ctx, row, ErrAgentOffline)
-	}
 	gen := uint64(row.Generation)
 	idErr := e.IDs.Renew(row.TenantID, row.PluginID, e.Timing.IdentityTTL, now)
 	if errors.Is(idErr, ErrIdentityNotLive) {
@@ -276,11 +272,20 @@ func (e *Engine) maintain(ctx context.Context, row *Installation) *time.Duration
 	if grantErr != nil {
 		return e.maintainFailure(ctx, row, grantErr)
 	}
+	// The signed catalog authorizes new installations, but an expired or temporarily
+	// unavailable catalog must not stop renewal of an already-running generation.
+	// Agent.Renew still enforces the live instance, generation and lease rules.
+	row.OpAttempts, row.OpStep = 0, ""
+	entry, err := e.entry(ctx, row.PluginID)
+	if err != nil {
+		row.Health, row.ErrorCode = "degraded", CodeCatalogUnavailable
+		_ = e.Repo.Save(row)
+		return nil
+	}
 	if hErr := e.Health.Check(ctx, *entry); hErr == nil {
 		row.Health, row.ErrorCode = "ok", ""
-		row.OpAttempts, row.OpStep = 0, ""
 	} else {
-		row.Health = "error"
+		row.Health, row.ErrorCode = "error", CodeHealthFailed
 	}
 	_ = e.Repo.Save(row)
 	return nil
