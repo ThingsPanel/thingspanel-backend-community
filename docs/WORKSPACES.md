@@ -18,6 +18,7 @@
 | `.claude/worktrees/wp-missing-api-5613cb` | `claude/wp-missing-api-5613cb` | 补全缺失 API（已暂停认领） | — | 先保留，待总监决定 |
 | `.claude/worktrees/wp-t1-0-relational-b140f7` | `claude/wp-t1-0-relational-b140f7` | T1-0 关系库底座设计 | 进行中会话 | 进行中，不动 |
 | `.claude/worktrees/wp-plugin-install-ui-8bf83e` | `claude/wp-plugin-install-ui-8bf83e` | PLUGIN-UI 插件一键安装界面（第一阶段设计） | 进行中会话 | 2026-11-05 登记；设计待总监审查，合并后当天清理 |
+| `.claude/worktrees/wp-ha-plugin-target-docs-20261106` | `wp/ha-plugin-target-docs-20261106` | HA 插件目标分析与任务拆分（文档） | Codex | 2026-11-06 登记；提交待审查，不推送不合并 |
 | `.claude/worktrees/wp-t1-a1-platform-start` | `wp/t1-a1-platform-start` | T1-A1 平台启动与连接 | Codex 子会话 | 基线 `develop@85b04e7b339cc0b7d4ff78ba6ec5e7de1640e792`；已提交待审查，审查后清理 |
 | `.claude/worktrees/wp-t4-plugin-identity-3cf9d2` | `claude/wp-t4-plugin-identity-3cf9d2` | T4 插件身份 | 进行中会话 | 进行中，不动 |
 | `.claude/worktrees/wp-p2-fix` | `wp/p2-fix-redaction` | P2-fix 凭据脱敏回归修复 | Codex 子任务 | 进行中；审查合并后当天清理 |
