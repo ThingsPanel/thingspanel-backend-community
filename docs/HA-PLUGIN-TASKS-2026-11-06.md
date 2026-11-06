@@ -53,7 +53,7 @@ P6 干净PG+Timescale用户路径和版本冻结
 ## P4：HA 零字段安装和接入点状态
 
 - **仓库/入口：**前端 `/Users/junhong/Downloads/code/thingspanel-frontend-wp-pui` 安装抽屉/资源中心路由/安装状态页；安装器 `plugins/homeassistant.json`、`tools/plugin_install.py`、Agent catalog；HA `startup_sync.go`、`handler.go`；后端 `internal/api/{service_access,protocol_plugin}.go` 与日志脱敏。
-- **工作：**前端串起资源中心发现→详情→安装抽屉→零字段安装→安装后跳转服务接入点创建/配置→实体选择；只允许租户管理员执行安装/重试，其他角色显示权限错误/只读状态。显示安装进度、失败步骤与可重试入口；进程级 HA 插件健康与每个接入点各自的 HA 可达/认证/同步状态分开显示。安装字段保持零个，不恢复通用 `env_user`；HA URL/token 在服务接入点填写，并由受管身份拉取 voucher。
+- **工作：**前端串起资源中心发现→详情→安装抽屉→零字段安装→安装后跳转服务接入点创建/配置→实体选择；只允许租户管理员执行安装/重试，其他角色显示权限错误/只读状态。显示安装进度、失败步骤与可重试入口；进程级 HA 插件健康与每个接入点各自的 HA 可达/认证/同步状态分开显示。HA 目录不声明 HA URL/token 字段；保留通用 `env_user` 和秘密字段支持供其他插件使用。HA URL/token 在服务接入点填写，并由受管身份拉取 voucher。
 - **验收：**租户管理员从资源中心完成零字段安装并被引导到接入点；非管理员不能安装/重试；失败后按失败类型提供重试并保持单实例。一个插件进程健康状态不能代替每个接入点状态：分别验证两个接入点一好一坏时状态准确。有效 voucher 可读 HA，错误 token 显示认证失败；凭据轮换有效；日志/操作记录不含凭据（不把非凭据 URL 一律列为禁止项）；真实请求 Bearer 和租户/service scope 已验证。voucher 加密与密钥保护另列决策。
 - **冲突：**HA目录条目、签名目录和 digest 由 release owner 单独维护；HA `startup_sync.go` 同一时段只交给一个 connector owner。
 - **待决：**voucher 加密与 key management；连接状态由 HA 插件还是控制面汇报。
