@@ -9,7 +9,7 @@
 ## 已有实现与改动
 
 - 后端：`claude/wp-plugin-install-ui-8bf83e`。功能提交 `f0c493d6ab2ade47dd0aa80d323708eaebd24323`，本交接记录提交 `c2279c21a90f778e2592ec9f7112611df050e1aa`，后续权限回归提交 `d56d6151998951b5f7aff067c853b205469d3f1c`。沿用现有插件安装引擎和 UI API；安装范围为平台级，由 `SYS_ADMIN` 操作，非超管拒绝。续租调用独立 Agent renew，不换 generation、不重新 grant、不重启容器；瞬时失败最多 5 次，退避后失败会吊销身份。Agent 拒绝续租时封存当前代次；需显式 Retry 才能开始新代次。
-- 安装器：`wp/pui-agent`，HEAD `f1514a020b5b17c68eac39c1f36d8e32c28927f0`。包含 Agent 启动接线，并要求 catalog 信任根从安装包外部提供；验签失败时不得启动 Agent。
+- 安装器：`wp/pui-agent`。Agent 启动与包外信任根提交 `f1514a020b5b17c68eac39c1f36d8e32c28927f0`；候选清单对齐提交 `b918cd8dd81bcb2b42fc7951c047b15d32ae45ac`。要求 catalog 信任根从安装包外部提供；验签失败时不得启动 Agent。`plugins/homeassistant.json` 现对齐当前 arm64 候选摘要。
 - 前端：`wp/pui-frontend`，HEAD `c40ad2171e81e6677f24002f16c58e4cd65cbebc`。沿用已有插件页面；安装后指向现有服务接入流程。
 - HA 仓库：候选构建取自干净提交 `4d8d45bd6ae67bf329a45f95dbfdac2fbda903eb`。工作区另有未提交修改，均保留且没有混入候选。
 
@@ -31,6 +31,7 @@
 - 后端：`go test ./internal/plugininstall ./internal/pluginidentity` 通过；定向安装 API、超级管理员身份范围测试通过。已有测试覆盖非 `SYS_ADMIN` 拒绝、平台安装作用域和身份租户隔离。
 - 补充回归：`go test ./internal/api -run 'TestPluginInstallRequiresPlatformAdmin|TestPluginInstallRejectsDelegatedPlatformAdmin|TestPluginInstallDoesNotCollectTenantCredentials|TestPluginInstallNotConfiguredIsUnavailable' -count=1` 通过；新增委派 `SYS_ADMIN` 不能读取目录或提交安装的断言。
 - 安装器：`python3 -m unittest tests.test_update_transaction tests.test_reconcile_activation tools.test_plugin_install -q`，69 项通过。
+- 候选清单更新后：`python3 -m unittest tools.test_plugin_install -q`，18 项通过；候选 JSON 通过 `tools.plugin_catalog.check_entry` 校验，`env_user_fields=0`。
 - Agent：linux/arm64 测试二进制在隔离 Alpine 容器运行，全套状态测试通过；目录签名/篡改测试、续租仅延长已启动且已接受代次测试通过。需要专用真实 Docker 验收授权的用例跳过。
 - 续租拒绝、瞬时失败次数上限、无代次变化及身份吊销由后端引擎定向测试覆盖；尚未做真实栈连续 30 分钟运行及缩短 TTL 多周期运行观察。
 - 前端定向 lint 已通过；类型检查仍有既存错误：`packages/axios/src/index.ts:29`、`src/service/api/notification.ts:134`。
