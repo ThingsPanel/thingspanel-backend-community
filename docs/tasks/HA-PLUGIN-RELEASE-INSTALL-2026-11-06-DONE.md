@@ -1,0 +1,44 @@
+# HA 服务插件发布与安装收尾记录（2026-11-06）
+
+状态：**候选版本和代码回归已完成；正式签名、真实平台安装和 30 分钟运行验收未完成，不可称为已发布。**
+
+## 范围决定
+
+本次按用户最新决定只收尾 HA 第三方服务插件的一键安装。安装不收集 HA 地址或令牌；租户接入点配置以及设备上报/控制验收不在本次范围。协议插件、通用市场和自动升级均未处理。
+
+## 已有实现与改动
+
+- 后端：`claude/wp-plugin-install-ui-8bf83e`，HEAD `f0c493d6ab2ade47dd0aa80d323708eaebd24323`。沿用现有插件安装引擎和 UI API；安装范围为平台级，由 `SYS_ADMIN` 操作，非超管拒绝。续租调用独立 Agent renew，不换 generation、不重新 grant、不重启容器；瞬时失败最多 5 次，退避后失败会吊销身份。Agent 拒绝续租时封存当前代次；需显式 Retry 才能开始新代次。
+- 安装器：`wp/pui-agent`，HEAD `f1514a020b5b17c68eac39c1f36d8e32c28927f0`。包含 Agent 启动接线，并要求 catalog 信任根从安装包外部提供；验签失败时不得启动 Agent。
+- 前端：`wp/pui-frontend`，HEAD `c40ad2171e81e6677f24002f16c58e4cd65cbebc`。沿用已有插件页面；安装后指向现有服务接入流程。
+- HA 仓库：候选构建取自干净提交 `4d8d45bd6ae67bf329a45f95dbfdac2fbda903eb`。工作区另有未提交修改，均保留且没有混入候选。
+
+## 候选制品
+
+目录：`/tmp/thingspanel-ha-candidate-20261106/release`。版本 `1.0.0-candidate.20261106-4d8d45b`，目标架构 `linux/arm64`，镜像 ID `sha256:be2578ecf78a37d4477f43a63685cbf1d137370f2f7de54ff11a726dd88d165e`。HA 安装字段为零；catalog 不包含 HA 地址或 HA token。
+
+| 文件 | SHA-256 |
+|---|---|
+| `homeassistant-image.tar` | `9a1e128b3f9994e033c01a0bf50de3e4d9a3ce2979164a848285cb8f01aacb32` |
+| `plugin-catalog.json` | `bf827e119d214ddc77b146b58d46156e602396d6daa81ac5a0b0cfd2e3bbf36d` |
+| `homeassistant.json` | `bab4487be23cb396e68f8e44dbe461ec82f58eef4d17fc1e91c7fbfd14ddbc80` |
+| `bin/tp-agent` | `a741baddac7acb16127638dfd9aa17f8a1da49810a16c65ee34b58583e0fa78f` |
+
+候选没有签名，不能通过签名强制安装器，也不能对外发布。已找到的本地 catalog 根和签名私钥属于历史测试材料；没有用于本候选签名。还缺负责人提供/配置的正式 catalog 签名，以及平台安装环境中包外的对应可信公钥。
+
+## 验证记录
+
+- 后端：`go test ./internal/plugininstall ./internal/pluginidentity` 通过；定向安装 API、超级管理员身份范围测试通过。已有测试覆盖非 `SYS_ADMIN` 拒绝、平台安装作用域和身份租户隔离。
+- 安装器：`python3 -m unittest tests.test_update_transaction tests.test_reconcile_activation tools.test_plugin_install -q`，69 项通过。
+- Agent：linux/arm64 测试二进制在隔离 Alpine 容器运行，全套状态测试通过；目录签名/篡改测试、续租仅延长已启动且已接受代次测试通过。需要专用真实 Docker 验收授权的用例跳过。
+- 续租拒绝、瞬时失败次数上限、无代次变化及身份吊销由后端引擎定向测试覆盖；尚未做真实栈连续 30 分钟运行及缩短 TTL 多周期运行观察。
+- 前端定向 lint 已通过；类型检查仍有既存错误：`packages/axios/src/index.ts:29`、`src/service/api/notification.ts:134`。
+- 没有登录或修改现存平台测试栈，也没有安装此候选。没有验证 HA 实体数据链，按用户最新范围不属于本次验收。
+
+## 交接前置项
+
+1. 负责人提供正式签名流程/密钥管理方签出的 catalog 签名，并在目标主机包外分发匹配的信任根；随后重核 catalog、镜像摘要和目标机器架构。
+2. 用专属隔离安装环境对固定候选做超管页面安装和一键重试验证；不得复用旧测试 catalog 冒充正式制品。
+3. 若仍要求闭环 1 的运行验收，提供仅供本任务操作的完整隔离栈，在其上补足 30 分钟及短 TTL 多周期验收。
+
+各工作区未推送、未合并、未发布；未删除或重置任何工作区、分支、容器和数据卷。
