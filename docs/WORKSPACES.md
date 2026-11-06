@@ -86,6 +86,7 @@
 | `~/Downloads/code/thingspanel-installer-develop-review/.claude/worktrees/wp-mvp-config` | `wp/mvp-config` | — | 默认 PG 配置对齐，2026-11-05 登记；保留，删除待用户确认 |
 | `~/Downloads/code/thingspanel-installer-wp-pui` | `wp/pui-agent` | PLUGIN-UI Agent 目录模式 + 安装器收敛 | 进行中会话 | 2026-11-05 登记；待审查，合并后当天清理 |
 | `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-t6-ha-public-release` | `wp/t6-ha-public-release` | T6 HA 正式制品与安装分发 | Codex | 2026-11-06 登记；进行中，预计审查合并后清理，删除前确认 |
+| `~/Downloads/code/thingspanel-device-connector-homeassistant/.claude/worktrees/t6-public-release` | `wp/t6-ha-public-release` | T6 HA 插件正式制品与受管身份 | Codex | 2026-11-06 登记；进行中，预计审查合并后清理，删除前确认 |
 | `~/Downloads/code/thingspanel-frontend-wp-pui`（前端仓库） | `wp/pui-frontend` | PLUGIN-UI 前端安装页 | 进行中会话 | 2026-11-05 登记；待审查，合并后当天清理 |
 | `~/Downloads/code/thingspanel-installer-wp-p1-fix` | `wp/p1-fix-retry-lock` | — | P1 补救，2026-11-04 登记；待审查完成及用户确认后清理 |
 | `~/Downloads/code/thingspanel-installer-wp-i1` | `wp/i1-pg-profiles` | 0 | 进行中 |
