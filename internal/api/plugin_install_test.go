@@ -46,6 +46,10 @@ func (a *stubAgent) Retire(context.Context, string, uint64) error           { re
 func (a *stubAgent) Status(context.Context) error                           { return nil }
 
 func installRouter(t *testing.T, authority string) (*gin.Engine, *stubAgent) {
+	return installRouterWithClaims(t, utils.UserClaims{Authority: authority, TenantID: "tn1"})
+}
+
+func installRouterWithClaims(t *testing.T, claims utils.UserClaims) (*gin.Engine, *stubAgent) {
 	gin.SetMode(gin.TestMode)
 	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{Logger: logger.Discard})
 	if err != nil {
@@ -61,7 +65,7 @@ func installRouter(t *testing.T, authority string) (*gin.Engine, *stubAgent) {
 	})
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
-		c.Set("claims", &utils.UserClaims{Authority: authority, TenantID: "tn1"})
+		c.Set("claims", &claims)
 		c.Next()
 		if d, ok := c.Get("data"); ok && !c.Writer.Written() {
 			c.JSON(c.Writer.Status(), gin.H{"code": 200, "data": d})
@@ -91,6 +95,16 @@ func TestPluginInstallRequiresPlatformAdmin(t *testing.T) {
 		if w := doJSON(r, "POST", "/plugin/installs", `{"plugin_id":"homeassistant"}`); w.Code != http.StatusForbidden {
 			t.Fatalf("%s: %d", authority, w.Code)
 		}
+	}
+}
+
+func TestPluginInstallRejectsDelegatedPlatformAdmin(t *testing.T) {
+	r, _ := installRouterWithClaims(t, utils.UserClaims{Authority: "SYS_ADMIN", TenantID: "", Delegated: true})
+	if w := doJSON(r, "GET", "/plugin/catalog", ""); w.Code != http.StatusForbidden {
+		t.Fatalf("delegated platform admin must not read the install catalog: %d", w.Code)
+	}
+	if w := doJSON(r, "POST", "/plugin/installs", `{"plugin_id":"homeassistant"}`); w.Code != http.StatusForbidden {
+		t.Fatalf("delegated platform admin must not install plugins: %d", w.Code)
 	}
 }
 
