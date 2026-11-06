@@ -1,88 +1,97 @@
-# HA 插件与可执行连接器资源中心：任务卡（2026-11-06）
+# HA 类型第三方服务插件：五个可独立验收闭环
 
-配套 [目标分析](HA-PLUGIN-TARGET-ANALYSIS-2026-11-06.md)。按依赖顺序推进；每卡从所属仓库批准的 local develop/基线开个人 worktree。入口是定位建议，不代表源码已合入或部署。最终发布需负责人确认。
+配套 [目标与现状](HA-PLUGIN-TARGET-ANALYSIS-2026-11-06.md)。范围只限 HA 类型第三方 service plugin，不做协议插件或通用插件市场。每个闭环能单独演示、验收和交付；产品体验与技术实现分别列出。开始任何代码派工前，重新查所有仓库分支/commit/dirty 状态并保留未提交工作；不得覆盖、stash 或 reset。
 
-## 依赖顺序
+## 现有现场与证据使用
+
+- T5 身份安装/卸载/重装曾对 T4 worktree 后端做过真实栈回归；`sql/33.sql` 当时手工执行，不能视为当前 develop 自动迁移已通。参考安装器 `docs/tasks/T5-DONE.md`。
+- T7 的安装、重装、卸载和接入点/设备建立曾通过；真实上行和下行未通过，HA 数据没有进入平台。T7c 周期同步测试运行于无真实 Broker/HA 的最小栈。参考安装器 `docs/tasks/T7-DONE.md`、`T7c-DONE.md`。
+- HA `startup_sync` 的 Bearer 注入在历史交接和当前未提交源码中证据不一致；要以要发布的 commit/二进制真实请求确认。
+- 上次状态快照里，后端 `wp-plugin-install-ui-8bf83e` dirty 5 个安装文件；安装器 `wp/pui-agent` dirty Agent/service/catalog 并有未跟踪 renew test；HA `main` 有未提交功能改动；前端 `wp/pui-frontend` 干净。实现 owner 开工前重新核对并保留原工作目录。旧提交/日志不可代表当前可发布版本。
+
+## 闭环 1：装好后稳定续租
+
+**用户侧**
+
+管理员安装 HA connector 后，不必每天重装或接受容器重启，平台身份和 Agent 执行租约能持续有效；失联时平台能显示需恢复/等待状态。
+
+**技术派工**
+
+- **仓库/负责人：**社区后端 `/Users/junhong/Downloads/code/thingspanel-backend-community`：`internal/plugininstall`、`internal/pluginidentity`、renew API；安装器 `/Users/junhong/Downloads/code/thingspanel-installer-wp-pui`：Agent `agent/activate.go`、`agent/service.go` 和 `agent/state.go`。
+- **工作：**先审查现有 dirty renew 实现，基于证据补齐同 generation 续 identity + Agent lease；续租不得换 token、升代、重建容器。补好错误分类、有界退避/jitter、状态可观测和 backend restart 接管。对签发一次性 token 在崩溃中的恢复，先由后端/Agent owner 选安全方案；不新增未批准的公开契约。
+- **完成验收：**连续运行至少 30 分钟 generation 不变、无 `renew_refused`、容器不重启；将测试栈 TTL 临时缩短，在多个周期看到两个 lease 延长。断开/恢复 Agent 后有界续作；lease 到期会停止容器。真实被拒身份、跨租户和旧代次仍拒绝。
+- **依赖/复用：**复用 T5 已验证的签发/吊销和当前 dirty renew candidate；先做当前源码审查，已通的签发路径不重写。
+- **单独验收：**使用固定栈与模拟 HA 即可验证续租；不宣称真实 HA 数据链通过。
+
+## 闭环 2：可信的本机安装能稳定工作
+
+**用户侧**
+
+有安装权限的用户可在目标平台安装官方审核的 HA connector；安装时不填写 HA URL/token。安装成功能看到进程状态，失败能重试或得到明确原因。
+
+**技术派工**
+
+- **仓库/负责人：**安装器 `thingspanel-installer-wp-pui`：`plugins/homeassistant.json`、`agent/catalog.go`、`tools/agent_host.py`、`docker-compose.yml`、`install.sh`/`install.bash`、`upgrade.*`、`config/native/prepare.py`；社区后端：现有 `plugininstall` API、PG migrations。
+- **工作：**HA catalog entry 不声明 HA 凭据字段；保留通用 `env_user`/秘密字段供其他插件。正式发布前用受信发布 key 签名审核过的目录，digest 固定到真实可发布制品。首期目录可人工受控分发；在线同步不在本闭环。Agent `run/` 预建最小权限，只读挂载 backend，设置 `TP_AGENT_SOCKET`/`TP_AGENT_TOKEN_FILE`。正式 `install.sh` 和升级链都先运行 `agent_host.py up`。修复独立新装预检 bug。PG migrations 33–35 核验并纳入幂等安装/升级；MySQL 未测不自动运行。
+- **完成验收：**干净 PG+Timescale 新装与受支持升级都能先启动 Agent，再启动 backend；真实 backend UID 能只读访问 socket/token，未授权用户读不到 token。管理员零字段安装得到单容器、受管身份，Agent 本机验签并按 signed digest 启动；同一请求重试不建第二个实例。篡改目录/签名或 image digest 时失败关闭。正式 release 的签名根/公钥来自受控渠道，不用本地测试密钥冒充可发布。
+- **依赖/复用：**闭环1稳定后；复用 T5/T7 的安装、重装、卸载候选证据。迁移必须用当前 develop 重验，不重复抄手工执行结果。
+- **单独验收：**本机平台/CLI 安装闭环可先过；不要求网站跳转，也不宣称上/下行通过。
+
+## 闭环 3：在平台内发现、安装、配置并操作 HA
+
+**用户侧**
+
+管理员在平台资源/插件页面找到 HA connector，点击安装后看到进度；装好后手动创建一个需要认证的 HA 服务接入点，提交 URL/token，选择实体建设备，并看到真实上行和下行回执。安装与接入凭据配置是两个步骤。
+
+**技术派工**
+
+- **仓库/负责人：**前端 `/Users/junhong/Downloads/code/thingspanel-frontend-wp-pui` 安装抽屉、页面路由和状态展示；后端 `/Users/junhong/Downloads/code/thingspanel-backend-community` 现有 catalog/install/access APIs、权限与脱敏；HA `/Users/junhong/Downloads/code/thingspanel-device-connector-homeassistant` service access/startup sync；SDK repo 只在 Bearer 注入缺失时按已批准接口修复。
+- **工作：**平台页面暴露已审核 HA 条目；仅租户管理员可安装/重试，安装失败显示步骤与原因。HA 安装零字段，不要求通用插件市场。完成后导向平台已有服务接入点表单；凭据从接入点 voucher 由受管身份读取。分别展示容器进程 health 和每个接入点的认证/同步/连接状态。复核真实 HA 请求 Bearer 头及租户/service scope；不能直接假设 SDK 已注入。
+- **完成验收：**租户管理员能在平台内完成发现→零字段安装→配置认证接入点→选择实体；非管理员不能安装/重试。两个接入点一好一坏时独立显示状态；凭据不进日志/事件。真实 HA 与 Broker 上行落入平台当前值/历史；平台发控制命令后 HA 状态改变且设备回执可读。
+- **依赖/复用：**闭环2；复用 T7 已有接入点/设备配置与 T7c 周期同步代码，不重复造流程；只补源码/发布版本差异和未通过的真实 Broker 链路。
+- **单独验收：**完全在平台内完成；不依赖 Horizon 网站入口。
+
+## 闭环 4：从资源中心网站进入指定平台安装
+
+**用户侧目标（需决策）**
+
+用户在资源中心网站发现 HA connector，点击“在我的平台安装”，能选定或确认一个 ThingsPanel 平台实例，在该平台完成认证和租户确认，然后看到闭环3的安装页面。不能让网站替用户偷偷选租户或静默安装。
+
+**技术派工与待决边界**
+
+- **仓库/负责人：**Horizon `/Users/junhong/Downloads/code/thingspanel-takeover-final-20261102/horizon` Portal/market；平台前端 `/Users/junhong/Downloads/code/thingspanel-frontend-wp-pui` 接收入口；身份认证/租户 owner 决定授权方式。
+- **第一步仅做设计核对：**当前没有批准的跨网站登录、target platform/tenant 选择、授权确认、回跳与防重放合同。先列出可复用的现有认证/深链方案并交负责人决策。不要自行新增 API、单点登录、市场 token、回调协议或 URL bearer。
+- **合同确认后再实施：**网站只携带经批准且非凭据的 connector/release 标识；目标平台重新验证用户身份和租户权限，并在平台界面确认后调用闭环3已有安装流程。校验 allowlist return URL、state/nonce、防重复提交和目标实例一致性，安全参数按正式认证方案定。
+- **完成验收：**用户从网站跳到正确的平台/租户并明确确认后才能安装；未登录、租户不符、state 失效、取消或回跳篡改均不安装；凭据不经过 URL/浏览器存储。若负责人未批准合同，本闭环以完成边界设计和“不实现未授权接线”为阶段结果，不假报端到端通过。
+- **依赖/复用：**闭环3平台内安装入口先验收；仅复用目标平台既有登录/授权能力，不能推定两个域名共享 session。
+- **单独验收：**可与闭环5分开验收；此闭环未完成不阻塞平台内 HA 使用。
+
+## 闭环 5：冻结版本并完成真实全链验收
+
+**用户侧**
+
+用户从已验收入口进入，安装 HA connector，配置服务接入点并完成实体上下行；重复安装、故障恢复和卸载后身份行为一致。
+
+**技术派工**
+
+- **仓库/负责人：**Horizon、Platform frontend、community backend、installer/Agent、HA/SDK 的 release owners；隔离 PG+Timescale、真实测试 HA 与支持的 Broker 镜像。
+- **验收顺序：**记录每仓 commit/dirty 状态、签名目录版本、公钥指纹、HA 镜像 digest/架构和 migration → 资源发现（网站闭环4按获批边界；平台闭环3必须通过）→ 零字段安装与管理员权限 → 单实例幂等 → 接入点认证与逐点健康 → 真实遥测当前值/历史 → 真实命令及回执 → 闭环1续租/短 TTL证据 → 安装中杀 backend、相同 Owner 立即接管；hostname 重建为不同 Owner 时最多等一个 lease → 卸载吊销身份、停止容器、旧身份拒绝。
+- **正式发布底线：**签名和 immutable digest 属于必要门槛；仅本地测试密钥签名、旧 ARM64 digest 或假 HA token 都不能作为正式发布证明。真实 HA token 不进仓库/日志；权限和迁移从当前被批准版本验证。
+- **历史证据复用：**T5/T7/T7c 的候选测试只按其原范围引用；安装、卸载、周期同步的已通点不重复开发。仅对当前 release candidate 复核，补真实 HA/Broker 上下行、续租、重启恢复、签名和新装/升级自动迁移的空白。
+- **完成标准：**每阶段可单独验收；本阶段全部证据和版本对齐后，负责人才能确认“完整 HA 服务插件用户链已验收”。单测、模拟接口、静态网站页面 200 均不能替代真实业务路径。
+
+## 总体依赖与协作规则
 
 ```text
-P0 现状/合同/信任根冻结
- ├─ P1 Horizon connector发现与官方审核发布
- ├─ P2 官方签名目录交付 + Agent本机验签
- ├─ P3 受管身份请求、同代续期、签发中断恢复
- └─ P4 HA零字段安装、接入点凭据和连接状态
-       ↓
-P5 安装器迁移/恢复/有界退避
-       ↓
-P6 干净PG+Timescale用户路径和版本冻结
+闭环1 稳定续租
+   ↓
+闭环2 正式本机安装/可信制品
+   ↓
+闭环3 平台内发现、安装、接入和上下行
+   ↓（需认证/租户/回跳合同获批）
+闭环4 资源中心网站进入指定平台
+   ↓
+闭环5 冻结版本，真实全链验收
 ```
 
-## P0：现状、接口与正式发布门槛
-
-- **仓库/入口：**社区后端 `docs/plugin-runtime-identity.md`、`sql/33.sql`–`35.sql`、`internal/plugininstall`；安装器 `plugins/homeassistant.json`、`agent/catalog.go`、`config/native/prepare.py`；HA `startup_sync.go`、`main.go`、`handler.go`；SDK `platform.go`；Horizon `services/market-service`、Portal market APIs。
-- **工作：**各仓记录 commit、dirty/untracked 文件、镜像 tag/digest/架构、SDK 版本、migration 集合；核对 PG 33–35 是否在最新安装/升级路径。MySQL 未测不得加进默认迁移执行，须负责人明确范围。逐请求追踪 HA `runStartupSync` 构造、SDK/HTTP transport、Bearer 注入、后端认证及 voucher scope；当前源码片段与 T5 报告不一致，应在准备发布二进制上验证，暂不判定成败。
-- **P0 阻断项：**正式签名 root 不存在；目录指向旧 ARM64 image digest；HA 双架构新制品未冻结；迁移需按最新 develop 重验；身份注入路径需实测。
-- **验收：**版本矩阵区分源码候选/已提交/已构建/已部署/已实测；每项有 commit、摘要、架构、migration 和结果。不得复制任何真实凭据。
-- **冲突：**本卡只读。发现的 dirty worktree 保留，不 cherry-pick 或覆盖。
-- **待决：**MySQL 是否属本期发布；正式 Registry、离线 root 与在线 signer 维护责任人。
-
-## P1：Horizon 连接器发现与审核发布
-
-- **仓库/入口：**Horizon `/Users/junhong/Downloads/code/thingspanel-takeover-final-20261102/horizon` 的 `services/market-service` 模板/Bundle handler、repo、迁移；Portal `src/pages/market`、`src/api/bundle-market.ts`。实施时从 Horizon 认可的基线单独开 worktree。
-- **工作：**新增 connector 资源类型、详情/版本/兼容架构/权限/数据范围/审核状态；作者投稿进入审核，批准后关联官方签名目录版本和 immutable image digest。现有模板/看板/Bundle 不变；Bundle `plugin_dependencies` 不是可执行插件市场。
-- **验收：**draft/rejected 不显示安装；approved 有安装入口及权限/兼容信息；下架/撤回能说明不可安装；普通资源路径无回归；Portal 不接触签名私钥或 Registry 凭据。
-- **冲突：**Horizon schema、migrations、DTO 单一 writer，避免多个分支改同一迁移序号；后端/Agent 不在此卡改。
-- **待决：**market-service 存储目录本体还是只存 release pointer；作者、审核者角色授权。
-
-## P2：官方目录交付及 Agent 双重验签
-
-- **仓库/入口：**安装器 `tools/plugin_catalog.py`、`config/native/` 下载/更新流程；Agent `agent/catalog.go`、`agent/service.go`、`cmd/tp-agent`。
-- **工作：**先决策目录交付：在线 sync（安装器仅访问官方 allowlist，原子更新 catalog+signature 缓存）或首期受控分发同格式签名文件。Agent 启动和执行前继续用预置 root 验签。目录只给不可变 digest；市场 API 不直接下发任意镜像/URL。
-- **验收：**跨语言签名 fixture 一致；篡改、过期、回滚、未知根、重定向外域、mutable tag、错误架构、摘要不匹配都失败关闭；在线方案断网保留 last-known-good，受控文件方案原子校验且损坏文件不覆盖有效目录；Agent 能拒绝未签名条目。
-- **冲突：**`agent/catalog.go`、schema、verifier 在 P0/P2 期间各只有一个 writer；Horizon可基于已冻结 OpenAPI 并行做展示。
-- **待决：**首期在线 sync 还是受控签名目录分发；企业私有官方端点是否允许及如何受信。
-
-## P3：受管身份、续期、失败退避和重启恢复
-
-- **仓库/入口：**社区后端 `internal/pluginidentity`、`internal/api/plugin_runtime_identity.go`、`internal/middleware/plugin_runtime_identity.go`、`internal/plugininstall/{engine,reconcile,repo}.go`；安装器 Agent `agent/{activate,service,state}.go`；SDK/HA startup sync。
-- **工作：**让身份有效期与 Agent 执行租约在同 generation 续期，不换 token、不重启容器；明确 offline、lease refused、identity expired、auth/scope error 的状态和恢复策略。状态机持久化 operation_id、步骤、request_key、次数、下次重试和 Agent receipt；采用指数退避+jitter、并发上限、预算和可观察告警，避免每轮都从头签新 generation。
-- **恢复设计前置决策：**身份 token 只回传一次而数据库只存哈希。选择短期加密 issuance outbox（Agent ACK 后删密文）或按租户/实例/operation_id 绑定的安全幂等重放；不得明文落普通表/日志。未决前不得声称后端崩溃可自动续作。
-- **验收：**匿名、用户 JWT、伪造头、错租户/service、旧代/吊销/过期均拒绝；连续运行至少 30 分钟，generation 不变、没有 `renew_refused`、容器未重启；再把测试环境 lease/identity TTL 临时缩短，在多个续期周期观察有效期推进，以证明续租真实生效。Agent 离线恢复、进程重启、请求已到但响应丢失/请求未到、身份续租失败均不快速重签代次；租约过期会停止容器，恢复后有界重试并可观测。
-- **冲突：**`internal/plugininstall/*`、identity renew API/migration 单一 writer；不能两条后端 worktree并改状态机、代次或迁移序号。
-- **待决：**outbox 与幂等重放选型；续期周期、TTL、退避上限、运营介入状态。
-
-## P4：HA 零字段安装和接入点状态
-
-- **仓库/入口：**前端 `/Users/junhong/Downloads/code/thingspanel-frontend-wp-pui` 安装抽屉/资源中心路由/安装状态页；安装器 `plugins/homeassistant.json`、`tools/plugin_install.py`、Agent catalog；HA `startup_sync.go`、`handler.go`；后端 `internal/api/{service_access,protocol_plugin}.go` 与日志脱敏。
-- **工作：**前端串起资源中心发现→详情→安装抽屉→零字段安装→安装后跳转服务接入点创建/配置→实体选择；只允许租户管理员执行安装/重试，其他角色显示权限错误/只读状态。显示安装进度、失败步骤与可重试入口；进程级 HA 插件健康与每个接入点各自的 HA 可达/认证/同步状态分开显示。HA 目录不声明 HA URL/token 字段；保留通用 `env_user` 和秘密字段支持供其他插件使用。HA URL/token 在服务接入点填写，并由受管身份拉取 voucher。
-- **验收：**租户管理员从资源中心完成零字段安装并被引导到接入点；非管理员不能安装/重试；失败后按失败类型提供重试并保持单实例。一个插件进程健康状态不能代替每个接入点状态：分别验证两个接入点一好一坏时状态准确。有效 voucher 可读 HA，错误 token 显示认证失败；凭据轮换有效；日志/操作记录不含凭据（不把非凭据 URL 一律列为禁止项）；真实请求 Bearer 和租户/service scope 已验证。voucher 加密与密钥保护另列决策。
-- **冲突：**HA目录条目、签名目录和 digest 由 release owner 单独维护；HA `startup_sync.go` 同一时段只交给一个 connector owner。
-- **待决：**voucher 加密与 key management；连接状态由 HA 插件还是控制面汇报。
-
-## P5：安装/升级迁移与主机准备
-
-- **仓库/入口：**安装器 `docker-compose.yml`、`tools/agent_host.py`、`install.sh`/`install.bash`、`upgrade.sh`/`upgrade.ps1`、`config/native/prepare.py` 与 bootstrap/update scripts。
-- **工作：**正式 Compose 预建 Agent `run/` 目录并设最小权限，权限按 Agent 写入、backend 实际 UID 只读来配置；`run/` 只读挂载 backend，明确设置 `TP_AGENT_SOCKET`、`TP_AGENT_TOKEN_FILE`。`install.sh` 正式入口及升级入口都调用 `agent_host.py up`（含 install.bash/upgrade.* 调用链），保证 Agent/socket/token 先于 backend 可用；验证旧栈升级兼容。PG migration 33–35 与 Broker 001–017 纳入幂等流程；不要把未验证 MySQL migration 放入默认流程。修复独立新装预检 bug，并为 install 与 upgrade 各覆盖一次。
-- **验收：**独立干净新装预检通过，Agent启动并创建 socket/token；backend 实际 UID 可通过只读 `run/` 挂载连接 socket、读取 token，未授权用户不可读；新装和升级日志/进程状态都证明 `agent_host.py up` 先于 backend 启动且重复执行幂等。升级旧栈可补建 `run/`。PG新装/升级迁移和 Broker 授权刷新真实通过；MySQL单独待决。
-- **冲突：**`docker-compose.yml`、`agent_host.py`、`install.*`/`upgrade.*`、`prepare.py` 和 migration list 由一个 installer bootstrap owner 修改；不得与 HA catalog release 并行改同一 plugin entry。
-- **待决：**MySQL 支持决定；Broker 刷新由 install command 触发还是 Agent monitor。
-
-## P6：真实最终用户路径和版本冻结
-
-- **涉及仓库：**Horizon、安装器/Agent、社区后端、HA/SDK及必要前端；用隔离 PG+Timescale 栈和测试 HA。
-- **最终路径：**前端资源中心发现→详情/权限→安装抽屉零字段安装→管理员权限验证/安装状态轮询/失败重试→跳转服务接入点→每个接入点状态→实体选择→上行/下行→重装→续租/重启恢复→卸载。
-- **验收：**安装进行中杀掉 backend 再启动：固定 Owner 重启后应立即接管 unfinished rows 并续作，不重签代次/不重复建容器；模拟 hostname 重建导致 Owner 不同，应最多等待原 lease 到期后接管，并在 UI 显示等待。连续至少 30 分钟 generation 不变、无 `renew_refused`；缩短测试 TTL 后观察多个周期的 lease/identity 到期时间推进，证明续期实际生效。双接入点分别显示连接状态；真实 HA MQTT 上下行；跨租户/伪造身份拒绝；凭据在日志和事件 grep 为零。记录四仓 commit、dirty状态、digest、架构、migration、目录版本和root指纹。静态市场页200、mock或单测不算完整路径。
-- **冲突：**安排一个固定测试窗口和版本矩阵；测试期间不可并行更新其中任何服务或签名制品。
-- **待决：**端到端验收使用独立测试根还是正式根；voucher 加密在真实凭据进入前必须决策。
-
-## 并行规则与交付边界
-
-| 文件/接口 | 单一 writer | 允许并行 | 禁止并行 |
-|---|---|---|---|
-| `plugins/homeassistant.json`、signed catalog、digest | T6/release owner | Horizon mock UI | 多条线同时改字段/版本/digest |
-| Agent `catalog.go`、trust root、schema | P2 Agent owner，待P0 contract冻结 | Horizon基于fixture展示 | 两个 worktree同时改验签/schema |
-| 后端 `plugininstall/*`、identity renew | P3 backend owner | 其他仓只读核对 | 两个后端 worktree改状态机/代次/migration |
-| HA `startup_sync.go` | HA connector owner | 后端验证冻结的 API | 多 worktree同时改同文件/先于源码发镜像 |
-| Horizon migration/API DTO | Horizon owner | Portal fixture页面 | 多 worktree改同迁移序号/shared DTO |
-| PG migrations 33–35 与 bootstrap清单 | 后端/安装器 migration owner 联签 | 只读版本核查 | 单边改号或默认自动运行未验证 MySQL migrations |
-
-本次任务只交付文档，不改代码、不发布、不推送、不合并。证据、真实 HA token、签名私钥、JWT、Agent bearer 和完整环境文件留在批准的仓外位置；仓库仅留脱敏索引。实现卡结束时分别汇报候选代码、聚焦测试、跨服务验收、迁移/升级和未验证风险。
+各仓按各自批准基线建 worktree，由一个 owner 写共享文件。backend `internal/plugininstall/*` 和 identity renewal、installer Compose/`agent_host.py`/升级脚本、HA `startup_sync.go`、Horizon migration/DTO、前端页面分别单一 writer；跨仓接口先引用现有 API，任何新认证/跨域契约先获批准。证据留仓外并脱敏；不复制真实凭据。当前所有未提交改动均应保留，实施 owner 需先逐仓复核再开工。
