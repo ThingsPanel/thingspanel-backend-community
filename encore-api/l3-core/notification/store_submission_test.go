@@ -415,7 +415,7 @@ func TestSourceOriginPreservesAutomationAndAlarm(t *testing.T) {
 	s, db := newMigratedTestStore(t)
 	for i, origin := range []string{"", "automation"} {
 		event := contract.SourceEventV1{SchemaVersion: "1.0", SourceDeploymentID: "origin-test", SourceEventID: fmt.Sprintf("origin-%d", i), ActionID: "notify", TenantID: "tenant-origin", NotificationGroupID: "unavailable", GroupRevision: 1, OccurredAt: time.Now().UTC().Format(time.RFC3339), ExpiresAt: time.Now().UTC().Add(time.Hour).Format(time.RFC3339)}
-		event.Payload.Variables = map[string]json.RawMessage{"_sourceType": json.RawMessage(`"` + origin + `"`)}
+		event.Payload.Variables = map[string]json.RawMessage{"sourceType": json.RawMessage(`"` + origin + `"`)}
 		accepted, err := s.AcceptSourcePlan(context.Background(), event.TenantID, fmt.Sprintf("origin-key-%d", i), strings.Repeat("a", 64), SourceAcceptancePlan{Event: event, BlockedReason: "blocked_group_unavailable"})
 		if err != nil {
 			t.Fatal(err)

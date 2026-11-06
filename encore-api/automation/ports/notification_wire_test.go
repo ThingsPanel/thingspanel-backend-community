@@ -51,7 +51,7 @@ func TestAutomationNotificationMatchesActualCoreWireSchema(t *testing.T) {
 	}))
 	defer server.Close()
 	owner := NewHTTPNotificationOwner(Config{NotificationURL: server.URL, NotificationServiceIdentity: fixtureIdentity, DeploymentID: "deployment-a"})
-	result, err := owner.Submit(context.Background(), NotificationRequest{TenantID: "tenant-a", PolicyID: "group-a", GroupRevision: 1, Subject: "acceptance", Text: "body", SourceEventID: "event-a", ActionID: "action-a", IdempotencyKey: "notification-key", OccurredAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour)})
+	result, err := owner.Submit(context.Background(), NotificationRequest{TenantID: "tenant-a", PolicyID: "group-a", GroupRevision: 1, Subject: "acceptance", Text: "body", Variables: map[string]any{"sourceType": "automation"}, SourceEventID: "event-a", ActionID: "action-a", IdempotencyKey: "notification-key", OccurredAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour)})
 	if err != nil || result.State != NotificationAccepted {
 		t.Fatalf("valid notification not accepted: %+v %v", result, err)
 	}

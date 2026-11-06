@@ -50,7 +50,7 @@ func (s *Store) AcceptSourcePlan(ctx context.Context, tenantID, idempotencyKey, 
 	// its origin in the signed event variables without changing the V1 envelope.
 	// This is display metadata only, never a principal or authorization input.
 	source := contract.SourceRef{Type: "alarm", ID: event.SourceEventID}
-	if string(event.Payload.Variables["_sourceType"]) == `"automation"` {
+	if string(event.Payload.Variables["sourceType"]) == `"automation"` {
 		source.Type = "automation"
 	}
 	return s.acceptDeliveries(ctx, tenantID, "source", idempotencyKey, intentDigest, source, event.SourceDeploymentID, event.SourceEventID, event.ActionID, event.NotificationGroupID, event.GroupRevision, plan.BlockedReason, plan.Deliveries, expires)
