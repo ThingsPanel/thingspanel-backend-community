@@ -37,6 +37,9 @@ func (a *stubAgent) Prepare(context.Context, plugininstall.PrepareRequest) error
 func (a *stubAgent) Grant(context.Context, string, uint64, string, string, time.Duration) error {
 	return nil
 }
+func (a *stubAgent) Renew(context.Context, string, uint64, string, string, time.Duration) error {
+	return nil
+}
 func (a *stubAgent) Activate(context.Context, string, uint64, string) error { return nil }
 func (a *stubAgent) Revoke(context.Context, string, uint64, string) error   { return nil }
 func (a *stubAgent) Retire(context.Context, string, uint64) error           { return nil }

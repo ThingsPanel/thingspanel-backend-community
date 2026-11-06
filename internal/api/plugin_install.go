@@ -230,7 +230,7 @@ func installAction(do func(*plugininstall.Engine, context.Context, string, strin
 			installFail(c, err)
 			return
 		}
-			c.Set("data", toInstallView(row, nil))
+		c.Set("data", toInstallView(row, nil))
 	}
 }
 

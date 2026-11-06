@@ -77,6 +77,7 @@ type Agent interface {
 	Prepare(ctx context.Context, req PrepareRequest) error
 	Grant(ctx context.Context, instance string, generation uint64, requestKey, grantID string, ttl time.Duration) error
 	Activate(ctx context.Context, instance string, generation uint64, requestKey string) error
+	Renew(ctx context.Context, instance string, generation uint64, requestKey, grantID string, ttl time.Duration) error
 	Revoke(ctx context.Context, instance string, generation uint64, reason string) error
 	Retire(ctx context.Context, instance string, generation uint64) error
 	Status(ctx context.Context) error // reachability + auth
@@ -174,6 +175,10 @@ func (a *UnixAgent) Prepare(ctx context.Context, r PrepareRequest) error {
 }
 func (a *UnixAgent) Grant(ctx context.Context, instance string, g uint64, key, grantID string, ttl time.Duration) error {
 	_, err := a.call(ctx, "/v1/grant", wireRequest{Instance: instance, Generation: g, RequestKey: key, GrantID: grantID, TTLSeconds: int64(ttl.Seconds())})
+	return err
+}
+func (a *UnixAgent) Renew(ctx context.Context, instance string, g uint64, key, grantID string, ttl time.Duration) error {
+	_, err := a.call(ctx, "/v1/renew", wireRequest{Instance: instance, Generation: g, RequestKey: key, GrantID: grantID, TTLSeconds: int64(ttl.Seconds())})
 	return err
 }
 func (a *UnixAgent) Activate(ctx context.Context, instance string, g uint64, key string) error {

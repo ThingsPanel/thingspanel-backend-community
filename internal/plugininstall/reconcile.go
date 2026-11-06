@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // Reconcile advances one row by at most one operation pass. It is safe to call from several processes: the lease is
@@ -32,7 +30,7 @@ func (e *Engine) Reconcile(ctx context.Context, id string) error {
 	case row.Desired == DesiredAbsent && row.State == StateUninstalling:
 		wait = e.stop(ctx, row, StateUninstalled, "uninstall")
 	case row.State == StateEnabled:
-		e.maintain(ctx, row)
+		wait = e.maintain(ctx, row)
 	}
 	var until *time.Time
 	if wait != nil {
@@ -254,36 +252,66 @@ func (e *Engine) stop(ctx context.Context, row *Installation, final, step string
 	return nil
 }
 
-// maintain renews the Agent lease and the platform identity (same generation, same token) and probes health. A
-// renewal the Agent refuses or an identity that is gone means the running generation can no longer be trusted: the
-// row goes back to installing, which starts a fresh generation.
-func (e *Engine) maintain(ctx context.Context, row *Installation) {
+// maintain renews only the live identity and already-running Agent lease for the current generation. A renewal
+// refusal never starts a new generation; only an explicit Retry operation may do that.
+func (e *Engine) maintain(ctx context.Context, row *Installation) *time.Duration {
 	entry, err := e.entry(ctx, row.PluginID)
 	now := e.now()
 	row.MaintainedAt = &now
 	if err != nil {
-		row.Health = "error"
-		_ = e.Repo.Save(row)
-		return
+		return e.maintainFailure(row, ErrAgentOffline)
 	}
 	gen := uint64(row.Generation)
-	grantErr := e.Agent.Grant(ctx, row.PluginID, gen, requestKey(row.Generation), fmt.Sprintf("renew-%d", now.Unix()), e.Timing.GrantTTL)
 	idErr := e.IDs.Renew(row.TenantID, row.PluginID, e.Timing.IdentityTTL, now)
-	if errors.Is(grantErr, ErrAgentConflict) || errors.Is(idErr, ErrIdentityNotLive) {
-		row.State, row.OpID, row.OpStep, row.OpAttempts = StateInstalling, uuid.NewString(), "", 0
-		e.event(row, "maintain", "waiting", "renew_refused")
-		_ = e.Repo.Save(row)
-		return
+	if errors.Is(idErr, ErrIdentityNotLive) {
+		return e.maintainPermanentFailure(ctx, row, "identity_expired")
 	}
-	switch hErr := e.Health.Check(ctx, *entry); {
-	case hErr == nil && grantErr == nil:
+	if idErr != nil {
+		return e.maintainFailure(row, idErr)
+	}
+	grantErr := e.Agent.Renew(ctx, row.PluginID, gen, requestKey(row.Generation), fmt.Sprintf("renew-%d", now.Unix()), e.Timing.GrantTTL)
+	if errors.Is(grantErr, ErrAgentConflict) || errors.Is(grantErr, ErrAgentRejected) {
+		return e.maintainPermanentFailure(ctx, row, "renew_refused")
+	}
+	if grantErr != nil {
+		return e.maintainFailure(row, grantErr)
+	}
+	if hErr := e.Health.Check(ctx, *entry); hErr == nil {
 		row.Health, row.ErrorCode = "ok", ""
-	case hErr == nil:
-		row.Health = "degraded"
-	default:
+		row.OpAttempts, row.OpStep = 0, ""
+	} else {
 		row.Health = "error"
 	}
 	_ = e.Repo.Save(row)
+	return nil
+}
+
+func (e *Engine) maintainFailure(row *Installation, _ error) *time.Duration {
+	row.OpStep, row.ErrorCode, row.Health = "maintain", CodeRenewalFailed, "degraded"
+	row.OpAttempts++
+	max := e.Timing.MaxMaintainAttempts
+	if max <= 0 {
+		max = 5
+	}
+	if row.OpAttempts >= max {
+		row.State, row.Health = StateFailed, "error"
+		e.event(row, "maintain", "failed", CodeRenewalFailed)
+		_ = e.Repo.Save(row)
+		return nil
+	}
+	e.event(row, "maintain", "waiting", CodeRenewalFailed)
+	_ = e.Repo.Save(row)
+	return backoff(row.OpAttempts - 1)
+}
+
+func (e *Engine) maintainPermanentFailure(ctx context.Context, row *Installation, reason string) *time.Duration {
+	row.State, row.Health, row.OpStep, row.ErrorCode = StateFailed, "error", "maintain", CodeRenewalFailed
+	// Prevent this generation from using an identity after the Agent has rejected its renewal.
+	_ = e.IDs.Revoke(row.TenantID, row.PluginID, e.now())
+	_ = e.Agent.Revoke(ctx, row.PluginID, uint64(row.Generation), reason)
+	e.event(row, "maintain", "failed", CodeRenewalFailed)
+	_ = e.Repo.Save(row)
+	return nil
 }
 
 func without(list []string, drop string) []string {
