@@ -121,8 +121,8 @@ func newPluginIDEnv(t *testing.T) *pluginIDEnv {
 	e.voucher["other"] = "vother" + suffix
 
 	r := gin.New()
-	// The user-authenticated routes read tenant-admin claims; the test supplies them from a header (the real router
-	// uses the JWT middleware).
+	// The user-authenticated identity routes read administrator claims; the test supplies them from headers (the real
+	// router uses JWT middleware).
 	asAdmin := func(c *gin.Context) {
 		if c.GetHeader("X-Test-Platform-Admin") == "true" {
 			c.Set("claims", &utils.UserClaims{Authority: "SYS_ADMIN"})
