@@ -2,6 +2,7 @@ package api
 
 import (
 	"project/internal/dal"
+	"project/internal/middleware"
 	"project/internal/model"
 	"project/internal/service"
 	"project/pkg/utils"
@@ -11,6 +12,16 @@ import (
 )
 
 type ServiceAccessApi struct{}
+
+// Empty tenant on a verified managed identity means the platform administrator installed one shared service
+// instance. That instance may consume every tenant's access points. Ordinary managed identities remain limited to
+// their own tenant, and user-facing service-access handlers below continue to apply their existing tenant checks.
+func pluginIdentityCanAccessTenant(identity *middleware.PluginRuntimeIdentity, tenant string) bool {
+	if identity == nil || tenant == "" {
+		return false
+	}
+	return identity.TenantID == "" || identity.TenantID == tenant
+}
 
 // /api/v1/service/access [post]
 func (*ServiceAccessApi) Create(c *gin.Context) {
@@ -115,11 +126,11 @@ func (*ServiceAccessApi) HandlePluginServiceAccessList(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	// Only the identity's own tenant's access points.
+	// Platform-installed service instances consume each tenant's access points; tenant-issued identities stay local.
 	if list, isList := resp.([]map[string]interface{}); isList {
 		own := make([]map[string]interface{}, 0, len(list))
 		for _, item := range list {
-			if tenant, _ := item["tenant_id"].(string); tenant == identity.TenantID {
+			if tenant, _ := item["tenant_id"].(string); pluginIdentityCanAccessTenant(identity, tenant) {
 				own = append(own, item)
 			}
 		}
@@ -143,12 +154,12 @@ func (*ServiceAccessApi) HandlePluginServiceAccess(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	// The access point must belong to the identity's tenant and to the identity's own service plugin.
+	// The access point must belong to the identity's scope and to the identity's own service plugin.
 	access, isMap := resp.(map[string]interface{})
 	tenant, _ := access["tenant_id"].(string)
 	pluginID, _ := access["service_plugin_id"].(string)
 	own, ownErr := dal.GetServicePluginByServiceIdentifier(identity.ServiceIdentifier)
-	if !isMap || tenant != identity.TenantID || ownErr != nil || own == nil || own.ID != pluginID {
+	if !isMap || !pluginIdentityCanAccessTenant(identity, tenant) || ownErr != nil || own == nil || own.ID != pluginID {
 		scopeDenied(c)
 		return
 	}

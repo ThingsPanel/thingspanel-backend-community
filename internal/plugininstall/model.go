@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// PlatformTenantID is the tenant-scope sentinel for the single platform-wide managed service installation.
+const PlatformTenantID = ""
+
 // User-visible states.
 const (
 	StatePendingConfig = "pending_config" // row exists, required site information is missing; nothing runs

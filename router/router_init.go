@@ -241,7 +241,7 @@ func RouterInit() *gin.Engine {
 
 			v1.POST("plugin/runtime/identity", pluginidentity.IssuePluginRuntimeIdentity)
 			v1.POST("plugin/runtime/identity/revoke", pluginidentity.RevokePluginRuntimeIdentity)
-			// Plugin one-click installation (tenant administrator; docs/PLUGIN-INSTALL-UI-DESIGN.md)
+			// Plugin one-click installation (platform administrator; tenants configure their own service access points)
 			v1.GET("plugin/catalog", pluginidentity.PluginInstallCatalog)
 			v1.GET("plugin/installs", pluginidentity.PluginInstallList)
 			v1.POST("plugin/installs", pluginidentity.PluginInstallCreate)
