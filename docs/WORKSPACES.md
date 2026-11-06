@@ -88,6 +88,7 @@
 | `~/Downloads/code/thingspanel-installer-wp-pui` | `wp/pui-agent` | PLUGIN-UI Agent 目录模式 + 安装器收敛 | 进行中会话 | 2026-11-05 登记；待审查，合并后当天清理 |
 | `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-t6-ha-public-release` | `wp/t6-ha-public-release` | T6 HA 正式制品与安装分发 | Codex | 2026-11-06 登记；进行中，预计审查合并后清理，删除前确认 |
 | `~/Downloads/code/thingspanel-device-connector-homeassistant/.claude/worktrees/t6-public-release` | `wp/t6-ha-public-release` | T6 HA 插件正式制品与受管身份 | Codex | 2026-11-06 登记；进行中，预计审查合并后清理，删除前确认 |
+| `~/Downloads/code/thingspanel-device-connector-homeassistant/.claude/worktrees/t6-public-artifact` | `wp/t6-ha-public-artifact` | T6 HA 公开源码制品 | Codex | 2026-11-07 登记；进行中，预计审查合并后清理，删除前确认 |
 | `~/Downloads/code/thingspanel-device-connector-sdk-go-wp-t5-runtime-identity` | `wp/t5-sdk-runtime-identity-20261106` | T5 SDK 兼容上游的受管身份 | Codex | 2026-11-06 登记；进行中，预计审查合并后清理，删除前确认 |
 | `~/Downloads/code/thingspanel-device-connector-sdk-go-wp-t5-public-release` | `wp/t5-sdk-public-release` | T5 SDK 公开发布源码候选 | Codex | 2026-11-07 登记；进行中，预计审查合并后清理，删除前确认 |
 | `~/Downloads/code/thingspanel-frontend-wp-pui`（前端仓库） | `wp/pui-frontend` | PLUGIN-UI 前端安装页 | 进行中会话 | 2026-11-05 登记；待审查，合并后当天清理 |
