@@ -7,7 +7,7 @@
 | 候选 | 结论 | 理由 |
 |---|---|---|
 | Encore `marketinstall` | 否 | 它的协议明确只有 thingmodel/社区配置/ThingsVis 三类 owner 动作，“没有 prepare/activate/revoke 或任意命令”；仅 PG、需 `TP_MARKETINSTALL_ENABLED`；它装的是模型/看板资源，不是运行容器。硬塞会改它的安全边界 |
-| **插件管理（Gin：`service_plugins` + 运行时身份所在处）** | **选它** | 运行时身份签发/吊销（`internal/pluginidentity`）、`service_plugins` 登记、租户管理员 JWT 都已在这里；同进程直接调用，不产生 Encore→Gin 回调（A5）。目前仓库里**没有**任何“运行时插件安装登记”，所以新增一张表不构成“第二套安装登记”（§5.1），也不碰 `marketinstall` 的 operations 表 |
+| **插件管理（Gin：`service_plugins` + 运行时身份所在处）** | **选它** | 运行时身份签发/吊销（`internal/pluginidentity`）、`service_plugins` 登记都已在这里；同进程直接调用，不产生 Encore→Gin 回调（A5）。受管服务插件由平台超级管理员安装一次，`plugin_installations.tenant_id=''` 表示唯一的平台级实例；租户仍通过既有服务接入点 API 管理各自配置。 |
 
 约束：`plugininstall` 是**不依赖 gin 的领域包**（GORM repository + 引擎 + 接口），Gin handler 只做薄适配；Gin 退役时整包平移到 Encore。关系库只用 GORM，PG/MySQL 各一份迁移文件（同 `sql/33.sql` + `sql/mysql/015` 做法）；不用 `sqldialect`/`dbx`。
 
@@ -35,23 +35,25 @@
 
 现有页是 Tab（服务插件 / 通知插件）。**新增第三个 Tab“插件安装”**（新文件 `InstallPlugins.vue` + `components/install/*`，API 封装 `src/service/api/plugin-install.ts`，只调用后端新接口）。
 
-1. **目录卡片列表**：名称、版本、说明、本租户状态徽标（未安装 / 待配置 / 已安装 / 已启用 / 失败 / 卸载中）、主机 Agent 在线灯。
-2. **安装抽屉**：先列“将做什么/权限”（运行容器、受管身份、登记服务插件、不读取遥测）；表单由目录 `env_user` 渲染（HA：地址 `HA_BASE_URL`、令牌 `HA_ACCESS_TOKEN` 为密码框），确认后提交。
+1. **目录卡片列表**：名称、版本、说明、平台安装状态徽标（未安装 / 待配置 / 已安装 / 已启用 / 失败 / 卸载中）、主机 Agent 在线灯。
+2. **安装抽屉**：先列“将做什么/权限”（运行容器、受管身份、登记服务插件、不读取遥测）；通用插件表单继续由目录 `env_user` 渲染。HA 安装项不声明 HA 地址或令牌字段，凭据由租户在既有服务接入点页填写。
 3. **实例详情抽屉**：步骤时间线（检查→身份→准备→启动→登记→健康）、当前错误（脱敏码+建议）、健康；按钮：修改配置、启用/停用、重试、卸载（弹窗列出依赖它的服务接入点/设备，默认保留数据）。
 4. 完成后给“去添加设备”链接，跳到现有服务接入点页（选实体建设备走原有流程）。
 - 每处用户可见文案走 `$t` 双语；不做 OTA/升级入口（社区版）。
 
-接口（均 `TENANT_ADMIN` JWT，`/api/v1/plugin/...`，信封与现有一致）：
+安装目录和生命周期接口（均 `SYS_ADMIN` JWT，`/api/v1/plugin/...`，信封与现有一致）：
 
 | 方法 路径 | 用途 |
 |---|---|
-| `GET catalog` | 目录公开字段（含 env_user 规格，**不含**任何值）+ 本租户安装状态 |
+| `GET catalog` | 目录公开字段（含通用 env_user 规格，**不含**任何值）+ 平台安装状态 |
 | `GET agent/status` | Agent 在线/版本 |
 | `POST installs` + `Idempotency-Key` | 创建安装（含 config）→ 202 `{id, operation_id}` |
 | `GET installs` / `GET installs/{id}` | 状态、步骤、健康、非秘密配置值、秘密“已设置”标记 |
 | `PUT installs/{id}/config` | 改配置；秘密字段缺省=不变 |
 | `POST installs/{id}/enable` `disable` `retry` | 生命周期 |
 | `DELETE installs/{id}` | 卸载（v1 不提供“清除数据”） |
+
+平台安装的 HA 实例使用空租户标记的运行身份，只能读取自身服务标识下的各租户服务接入点；该服务插件运行身份不改变面向用户的租户隔离规则。现有租户服务接入点页面/API 仍按登录用户所属租户授权。
 
 ## 4. 状态机与恢复
 

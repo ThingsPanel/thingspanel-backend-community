@@ -24,7 +24,7 @@ type stubAgent struct{ secrets map[string]string }
 
 func (a *stubAgent) Catalog(context.Context) ([]plugininstall.CatalogEntry, error) {
 	return []plugininstall.CatalogEntry{{ID: "homeassistant", Version: "1", ServiceIdentifier: "homeassistant",
-		EnvUser: map[string]plugininstall.FieldSpec{"HA_BASE_URL": {Required: true, Validate: "url"}, "HA_ACCESS_TOKEN": {Required: true, Secret: true}}}}, nil
+		EnvUser: map[string]plugininstall.FieldSpec{}}}, nil
 }
 func (a *stubAgent) PutSecret(_ context.Context, i, k, v string) error {
 	a.secrets[i+k] = v
@@ -37,12 +37,19 @@ func (a *stubAgent) Prepare(context.Context, plugininstall.PrepareRequest) error
 func (a *stubAgent) Grant(context.Context, string, uint64, string, string, time.Duration) error {
 	return nil
 }
+func (a *stubAgent) Renew(context.Context, string, uint64, string, string, time.Duration) error {
+	return nil
+}
 func (a *stubAgent) Activate(context.Context, string, uint64, string) error { return nil }
 func (a *stubAgent) Revoke(context.Context, string, uint64, string) error   { return nil }
 func (a *stubAgent) Retire(context.Context, string, uint64) error           { return nil }
 func (a *stubAgent) Status(context.Context) error                           { return nil }
 
 func installRouter(t *testing.T, authority string) (*gin.Engine, *stubAgent) {
+	return installRouterWithClaims(t, utils.UserClaims{Authority: authority, TenantID: "tn1"})
+}
+
+func installRouterWithClaims(t *testing.T, claims utils.UserClaims) (*gin.Engine, *stubAgent) {
 	gin.SetMode(gin.TestMode)
 	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{Logger: logger.Discard})
 	if err != nil {
@@ -58,7 +65,7 @@ func installRouter(t *testing.T, authority string) (*gin.Engine, *stubAgent) {
 	})
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
-		c.Set("claims", &utils.UserClaims{Authority: authority, TenantID: "tn1"})
+		c.Set("claims", &claims)
 		c.Next()
 		if d, ok := c.Get("data"); ok && !c.Writer.Written() {
 			c.JSON(c.Writer.Status(), gin.H{"code": 200, "data": d})
@@ -79,8 +86,8 @@ func doJSON(r http.Handler, method, path, body string) *httptest.ResponseRecorde
 	return w
 }
 
-func TestPluginInstallRequiresTenantAdmin(t *testing.T) {
-	for _, authority := range []string{"SYS_ADMIN", "TENANT_USER"} {
+func TestPluginInstallRequiresPlatformAdmin(t *testing.T) {
+	for _, authority := range []string{"TENANT_ADMIN", "TENANT_USER"} {
 		r, _ := installRouter(t, authority)
 		if w := doJSON(r, "GET", "/plugin/catalog", ""); w.Code != http.StatusForbidden {
 			t.Fatalf("%s: %d", authority, w.Code)
@@ -91,8 +98,18 @@ func TestPluginInstallRequiresTenantAdmin(t *testing.T) {
 	}
 }
 
+func TestPluginInstallRejectsDelegatedPlatformAdmin(t *testing.T) {
+	r, _ := installRouterWithClaims(t, utils.UserClaims{Authority: "SYS_ADMIN", TenantID: "", Delegated: true})
+	if w := doJSON(r, "GET", "/plugin/catalog", ""); w.Code != http.StatusForbidden {
+		t.Fatalf("delegated platform admin must not read the install catalog: %d", w.Code)
+	}
+	if w := doJSON(r, "POST", "/plugin/installs", `{"plugin_id":"homeassistant"}`); w.Code != http.StatusForbidden {
+		t.Fatalf("delegated platform admin must not install plugins: %d", w.Code)
+	}
+}
+
 func TestPluginInstallNotConfiguredIsUnavailable(t *testing.T) {
-	r, _ := installRouter(t, "TENANT_ADMIN")
+	r, _ := installRouter(t, "SYS_ADMIN")
 	installOnce, installEngine = sync.Once{}, nil
 	installOnce.Do(func() {})
 	if w := doJSON(r, "GET", "/plugin/catalog", ""); w.Code != http.StatusServiceUnavailable {
@@ -100,13 +117,13 @@ func TestPluginInstallNotConfiguredIsUnavailable(t *testing.T) {
 	}
 }
 
-func TestPluginInstallNeverEchoesSecrets(t *testing.T) {
-	r, agent := installRouter(t, "TENANT_ADMIN")
-	w := doJSON(r, "POST", "/plugin/installs", `{"plugin_id":"homeassistant","config":{"HA_BASE_URL":"http://ha:8123","HA_ACCESS_TOKEN":"TOPSECRET-1"}}`)
+func TestPluginInstallDoesNotCollectTenantCredentials(t *testing.T) {
+	r, agent := installRouter(t, "SYS_ADMIN")
+	w := doJSON(r, "POST", "/plugin/installs", `{"plugin_id":"homeassistant"}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
-	if strings.Contains(w.Body.String(), "TOPSECRET-1") || agent.secrets["homeassistantHA_ACCESS_TOKEN"] != "TOPSECRET-1" {
+	if strings.Contains(w.Body.String(), "TOPSECRET-1") || len(agent.secrets) != 0 {
 		t.Fatalf("secret handling wrong: %s", w.Body)
 	}
 	var out struct {
@@ -117,13 +134,10 @@ func TestPluginInstallNeverEchoesSecrets(t *testing.T) {
 		}
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &out)
-	if out.Data.State != "installing" || len(out.Data.SecretsSet) != 1 || out.Data.Config["HA_BASE_URL"] != "http://ha:8123" {
+	if out.Data.State != "installing" || len(out.Data.SecretsSet) != 0 || len(out.Data.Config) != 0 {
 		t.Fatalf("%+v", out)
 	}
 	if g := doJSON(r, "GET", "/plugin/installs/"+out.Data.ID, ""); g.Code != 200 || strings.Contains(g.Body.String(), "TOPSECRET-1") {
 		t.Fatalf("%d %s", g.Code, g.Body)
-	}
-	if w := doJSON(r, "POST", "/plugin/installs", `{"plugin_id":"homeassistant","config":{"HA_BASE_URL":"javascript:1"}}`); w.Code != http.StatusBadRequest {
-		t.Fatalf("%d", w.Code)
 	}
 }

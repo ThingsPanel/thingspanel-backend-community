@@ -12,6 +12,7 @@ import (
 	"project/internal/pluginidentity"
 	"project/internal/plugininstall"
 	"project/pkg/global"
+	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -19,7 +20,7 @@ import (
 )
 
 // Plugin one-click installation (docs/PLUGIN-INSTALL-UI-DESIGN.md). Handlers are thin: the single implementation of
-// the installation flow is internal/plugininstall. Only a tenant administrator may use these routes. The host Agent is
+// the installation flow is internal/plugininstall. Only a platform administrator may use these routes. The host Agent is
 // configured by TP_AGENT_SOCKET and TP_AGENT_TOKEN_FILE; without them the feature answers 503 and nothing else changes.
 
 var (
@@ -107,8 +108,10 @@ func installFail(c *gin.Context, err error) {
 }
 
 func installGuard(c *gin.Context) (string, *plugininstall.Engine, bool) {
-	claims, ok := tenantAdminClaims(c)
-	if !ok {
+	value, _ := c.Get("claims")
+	claims, ok := value.(*utils.UserClaims)
+	if !ok || claims.Authority != "SYS_ADMIN" || claims.Delegated {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "message": "platform administrator required"})
 		return "", nil, false
 	}
 	engine := pluginInstallEngine()
@@ -118,7 +121,9 @@ func installGuard(c *gin.Context) (string, *plugininstall.Engine, bool) {
 		return "", nil, false
 	}
 	c.Header("Cache-Control", "no-store")
-	return claims.TenantID, engine, true
+	// A managed service plugin is installed once for the platform. Tenant access points remain
+	// tenant-owned and are configured through the existing service-access APIs.
+	return plugininstall.PlatformTenantID, engine, true
 }
 
 // GET /api/v1/plugin/catalog
@@ -230,7 +235,7 @@ func installAction(do func(*plugininstall.Engine, context.Context, string, strin
 			installFail(c, err)
 			return
 		}
-			c.Set("data", toInstallView(row, nil))
+		c.Set("data", toInstallView(row, nil))
 	}
 }
 

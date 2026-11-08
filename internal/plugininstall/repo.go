@@ -68,7 +68,7 @@ func (r *Repo) Save(row *Installation) error {
 // Candidates are rows that may need work now: an operation in flight, or an enabled row whose maintenance is due.
 func (r *Repo) Candidates(now time.Time, maintainBefore time.Time) ([]Installation, error) {
 	var rows []Installation
-	err := r.db().Where("(lease_until IS NULL OR lease_until < ?) AND ((state IN ? ) OR (state = ? AND (maintained_at IS NULL OR maintained_at < ?)))",
+	err := r.db().Where("(lease_until IS NULL OR lease_until < ?) AND ((state IN ? ) OR (state = ? AND (op_attempts > 0 OR maintained_at IS NULL OR maintained_at < ?)))",
 		now, []string{StateInstalling, StateUninstalling}, StateEnabled, maintainBefore).Limit(50).Find(&rows).Error
 	return rows, err
 }

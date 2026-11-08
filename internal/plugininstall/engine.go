@@ -24,6 +24,8 @@ const (
 	CodeHealthFailed       = "health_failed"
 	CodeConfigMissing      = "config_missing"
 	CodeGenerationConflict = "generation_conflict"
+	CodeRenewalFailed      = "renewal_failed"
+	CodeCatalogUnavailable = "catalog_unavailable"
 	CodePluginUnknown      = "plugin_unknown"
 )
 
@@ -36,18 +38,19 @@ var (
 
 // Timing knobs; tests shrink them.
 type Timing struct {
-	Lease          time.Duration // how long one reconcile pass owns a row
-	MaintainEvery  time.Duration // grant/identity renewal and health probe cadence for enabled rows
-	IdentityTTL    time.Duration
-	GrantTTL       time.Duration
-	HealthWait     time.Duration
-	HealthInterval time.Duration
-	MaxAttempts    int // consecutive waiting passes (agent offline) before the operation fails
+	Lease               time.Duration // how long one reconcile pass owns a row
+	MaintainEvery       time.Duration // grant/identity renewal and health probe cadence for enabled rows
+	IdentityTTL         time.Duration
+	GrantTTL            time.Duration
+	HealthWait          time.Duration
+	HealthInterval      time.Duration
+	MaxAttempts         int // consecutive waiting passes (agent offline) before the operation fails
+	MaxMaintainAttempts int // consecutive transient maintenance failures before the current generation is stopped
 }
 
 func DefaultTiming() Timing {
 	return Timing{Lease: 5 * time.Minute, MaintainEvery: 5 * time.Minute, IdentityTTL: 24 * time.Hour, GrantTTL: 24 * time.Hour,
-		HealthWait: 90 * time.Second, HealthInterval: 3 * time.Second, MaxAttempts: 40}
+		HealthWait: 90 * time.Second, HealthInterval: 3 * time.Second, MaxAttempts: 40, MaxMaintainAttempts: 5}
 }
 
 type Engine struct {

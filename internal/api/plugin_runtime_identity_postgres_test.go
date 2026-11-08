@@ -89,7 +89,7 @@ func newPluginIDEnv(t *testing.T) *pluginIDEnv {
 	e := &pluginIDEnv{t: t, db: db, tenantA: "tnA" + suffix, tenantB: "tnB" + suffix, service: "svc_" + suffix,
 		access: map[string]string{}, device: map[string]string{}, voucher: map[string]string{}}
 	now := time.Now().UTC()
-	plugin := model.ServicePlugin{ID: "sp" + suffix, Name: "t4 " + suffix, ServiceIdentifier: e.service, ServiceType: 1, CreateAt: now, UpdateAt: now}
+	plugin := model.ServicePlugin{ID: "sp" + suffix, Name: "t4 " + suffix, ServiceIdentifier: e.service, ServiceType: 2, CreateAt: now, UpdateAt: now}
 	if err := db.Create(&plugin).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -121,10 +121,12 @@ func newPluginIDEnv(t *testing.T) *pluginIDEnv {
 	e.voucher["other"] = "vother" + suffix
 
 	r := gin.New()
-	// The user-authenticated routes read tenant-admin claims; the test supplies them from a header (the real router
-	// uses the JWT middleware).
+	// The user-authenticated identity routes read administrator claims; the test supplies them from headers (the real
+	// router uses JWT middleware).
 	asAdmin := func(c *gin.Context) {
-		if tenant := c.GetHeader("X-Test-Admin-Tenant"); tenant != "" {
+		if c.GetHeader("X-Test-Platform-Admin") == "true" {
+			c.Set("claims", &utils.UserClaims{Authority: "SYS_ADMIN"})
+		} else if tenant := c.GetHeader("X-Test-Admin-Tenant"); tenant != "" {
 			c.Set("claims", &utils.UserClaims{TenantID: tenant, Authority: "TENANT_ADMIN"})
 		} else if tenant := c.GetHeader("X-Test-User-Tenant"); tenant != "" {
 			c.Set("claims", &utils.UserClaims{TenantID: tenant, Authority: "TENANT_USER"})
@@ -155,6 +157,7 @@ func newPluginIDEnv(t *testing.T) *pluginIDEnv {
 			db.Where("tenant_id = ?", tenant).Delete(&model.ServiceAccess{})
 			db.Where("tenant_id = ?", tenant).Delete(&model.DeviceConfig{})
 		}
+		db.Where("tenant_id = ?", "").Delete(&pluginidentity.Record{})
 		db.Where("id = ?", plugin.ID).Delete(&model.ServicePlugin{})
 		global.DB, global.REDIS = oldDB, oldRedis
 	})
@@ -181,6 +184,15 @@ func (e *pluginIDEnv) do(path, auth string, body any, headers map[string]string)
 func (e *pluginIDEnv) issue(tenant, instance string, generation int, service string) (int, string) {
 	code, out := e.do("/identity", "", map[string]any{"plugin_instance": instance, "service_identifier": service, "generation": generation, "ttl_hours": 1},
 		map[string]string{"X-Test-Admin-Tenant": tenant})
+	if code != http.StatusOK {
+		return code, ""
+	}
+	return code, out["data"].(map[string]any)["token"].(string)
+}
+
+func (e *pluginIDEnv) issuePlatform(instance string, generation int, service string) (int, string) {
+	code, out := e.do("/identity", "", map[string]any{"plugin_instance": instance, "service_identifier": service, "generation": generation, "ttl_hours": 1},
+		map[string]string{"X-Test-Platform-Admin": "true"})
 	if code != http.StatusOK {
 		return code, ""
 	}
@@ -223,6 +235,24 @@ func TestManagedIdentityAllowsAllFiveEntrypointsWithinScope(t *testing.T) {
 	_, list := e.do("/plugin/service/access/list", "Bearer "+token, e.entrypoints()["/plugin/service/access/list"], nil)
 	if items := list["data"].([]any); len(items) != 1 {
 		t.Fatalf("access list must contain only the tenant's own access point, got %d", len(items))
+	}
+}
+
+func TestPlatformIdentityServesAllTenantAccessPoints(t *testing.T) {
+	e := newPluginIDEnv(t)
+	code, token := e.issuePlatform("platform-inst-1", 1, e.service)
+	if code != http.StatusOK || token == "" {
+		t.Fatalf("platform issue failed: %d", code)
+	}
+	_, list := e.do("/plugin/service/access/list", "Bearer "+token, e.entrypoints()["/plugin/service/access/list"], nil)
+	if items, ok := list["data"].([]any); !ok || len(items) != 2 {
+		t.Fatalf("platform instance must see both tenant access points for its service, got %#v", list["data"])
+	}
+	for _, tenant := range []string{e.tenantA, e.tenantB} {
+		status, out := e.do("/plugin/service/access", "Bearer "+token, map[string]any{"service_access_id": e.access[tenant]}, nil)
+		if status != http.StatusOK {
+			t.Fatalf("platform instance must read %s access point, got %d %v", tenant, status, out)
+		}
 	}
 }
 
