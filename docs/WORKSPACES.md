@@ -107,3 +107,10 @@
 | `.claude/worktrees/wp-ph1-s1-core-c02f8c`（后端） | `claude/wp-ph1-s1-core-c02f8c` | PH1-S1 交付；待总监审查 |
 | `/Volumes/KIOXIA/tmp/ph1-s1-work/frontend`（前端 worktree，分离头 `1da66eca`） | — | PH1-S1 前端构建来源；审查后可删 |
 | `/Volumes/KIOXIA/tmp/ph1-s1-work/ph1-s1`（安装器 `4a8f286` 副本 + compose 项目 `ph1-s1`） | — | **运行中，保留给 HA 卡**；含凭据在 `../secrets/` |
+
+## T3（2026-11-09 登记）
+| 路径 | 分支 | 任务 | 负责人 | 预计清理 |
+|---|---|---|---|---|
+| `.claude/worktrees/wp-db-handover/.claude/worktrees/wp-t3-tdengine` | `wp/t3-tdengine` | T3 TDengine 转正与完整栈验收 | Codex | 审查合并后按规则确认清理 |
+| `/Volumes/KIOXIA/tmp/dbp1-tdengine-stack` | — | 独立安装器副本与 `dbp1-tdengine` Compose 项目（含本地配置） | Codex | 验收后留存，删除前确认 |
+| `/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine` | — | 日志和截图，不含凭据 | Codex | 交付证据 |
