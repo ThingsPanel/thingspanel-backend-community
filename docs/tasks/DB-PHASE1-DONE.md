@@ -16,7 +16,7 @@
 - `go test -count=1 ./internal/app/...` PASS；TDengine 定向测试 5 PASS、3 SKIP（均需 broker 集成测试 DSN）。
 - `go test -count=1 ./internal/service` PASS；`go test -count=1 ./internal/repo` PASS。
 - `go test ./... -run '^$'` 根 Go 模块编译 PASS。
-- `go test -count=1 ./internal/api`：1 个既有失败 `TestTelemetryHTTPDeviceAuthorization/owner_key`；API 文件与 `origin/develop` 相同，失败已登记 TODO，非本阶段数据库变更。
+- `go test -count=1 ./internal/api`：1 个失败 `TestTelemetryHTTPDeviceAuthorization/owner_key`；相关 API 文件与 `origin/develop` 相同，判断与本阶段数据库改动无关，但未在 origin 基线上复跑；已登记 TODO。
 - SQL 依赖禁用引用检查新增行为 0 处；PG 已执行迁移文件差分为空；`git diff --check` PASS。
 - CSV 下载修复将 Blob URL 回收延后 1 秒并把隐藏链接挂入页面。浏览器下载事件收到 `telemetry_data.csv`，本机文件内容可读；前端 `pnpm build` PASS，类型检查通过。
 
