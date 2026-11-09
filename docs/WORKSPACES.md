@@ -12,7 +12,7 @@
 | `~/.codex/worktrees/thingspanel-develop-backend/thingspanel-backend-community` | `develop` | 共享开发线 | 总监 | 保护，不动 |
 | `.claude/worktrees/wp-db-compat-f6f630` | `wp/d1-dbx-returning` | 数据库兼容（D1） | 进行中会话 | 保护，不动 |
 | `.claude/worktrees/wp-missing-api-5613cb` | `claude/wp-missing-api-5613cb` | 补全缺失 API（已暂停认领） | — | 先保留，待总监决定 |
-| `.claude/worktrees/wp-ha-handover` | `wp/ha-handover` | HA 插件一键安装测试移交（入口文档、用例、校验脚本、缺口分析） | Claude | 2026-11-09 登记；未提交，待负责人决定；合并后当天删除 |
+| `.claude/worktrees/wp-ha-handover` | `wp/ha-handover` | HA 插件一键安装测试移交（入口文档、用例、校验脚本、缺口分析） | Claude | 2026-11-09 登记；已推送远端分支（未合并），待负责人决定；合并后当天删除 |
 | `~/.codex/worktrees/native-command-validation/thingspanel-backend-community` | `codex/thingmodel-upgrade-v1` | 已归档（标签 `archive/cleanup-20261104-codex-thingmodel-upgrade-v1`） | — | 干净，已移除，分支已删 |
 | `~/.codex/worktrees/thingspanel-runtime-gateway/thingspanel-backend-community` | `codex/runtime-tenant-source-binding` | 已归档 | — | 已移除，分支已删 |
 | `~/.codex/worktrees/thingspanel-runtime-read-context/thingspanel-backend-community` | `codex/runtime-read-context` | 已归档 | — | 已移除，分支已删 |

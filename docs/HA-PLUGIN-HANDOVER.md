@@ -2,17 +2,18 @@
 
 > **从这里开始读。** 读完这一份你就知道：要测什么、被测的东西在哪、环境怎么来、怎么测、哪些问题已知。
 > 更细的步骤在 [`ha-plugin-handover/TEST-CASES.md`](ha-plugin-handover/TEST-CASES.md)；**负责发布镜像的人看 [`HA-PLUGIN-PUBLISH-TASK.md`](HA-PLUGIN-PUBLISH-TASK.md)**。
-> 文档日期 2026-11-09。状态会变，**动手前先跑 §6 的两个体检脚本**，别全信文字。
+> 文档日期 2026-11-09（冒烟已通过，见 §3）。状态会变，**动手前先跑 §6 的两个体检脚本**，别全信文字。
 
 ## 0. 三十秒版
 
 - **在测什么**：Home Assistant（下面简称 HA）是“第三方服务插件”的第一个样例。平台**超管**在页面上点一下就装好插件（安装时不填 HA 地址、不填令牌）；装好后，**每个租户**在自己的“接入点”里填自己的 HA 地址和令牌，选 HA 实体建成设备，实现 **上行**（HA 状态进平台）和 **下行**（平台开关灯、HA 跟着变、平台收到回执）。
 - **你要做的**：按 [`TEST-CASES.md`](ha-plugin-handover/TEST-CASES.md) 的 A 组（安装）和 B 组（租户接入与数据）逐条做，每条留证据，失败的写清楚现象，**不要在这个任务里修代码**。
 - **别做的**：不推送、不合并、不发布；不删别人的容器/卷/目录；HA 令牌不进日志、截图、聊天（§8）。
-- **三个最大的坑，开工前先看**：
-  1. **现成的验收栈现在是坏的**：HA 插件安装记录是 `failed / renewal_failed`，最新一代身份已吊销。它跑的后端代码来自一个**不在任何分支上**的提交，而且比 develop 少了续租修复。**别直接拿它当“好环境”，先看 §4。**
-  2. **干净机器路径目前走不通**：公开安装器默认装的后端和前端镜像（`v1.3.0`）里**没有**插件安装接口和页面，带插件安装功能的镜像还没发布（§4.2）。
-  3. **租户那一半（B 组）从没在页面上完整验证过**：历史上的上行下行是用 API 模拟建设备测的（§3）。
+- **当前进度**：冒烟已经在验收栈上通过——**页面安装 → 租户建接入点和设备 → 上行 → 下行 → 卸载 → 重装 → 再上下行**，全程用页面操作（见 §3）。你们的任务是在此基础上做**正式的逐条验证**，并找出冒烟没覆盖的问题。
+- **开工前要知道的三件事**：
+  1. **验收栈会被环境抖动搞坏**：2026-11-09 实际发生过——Agent 容器退出（退出码 135）没有自动重启，Postgres 也异常重启，之后安装变成 `failed / renewal_failed`。症状是页面一直转圈、目录接口 503；处理见 §4.1 和 [`STACK.md`](ha-plugin-handover/STACK.md) 的“Agent 掉了怎么办”。
+  2. **干净机器路径目前走不通**：公开安装器默认装的后端和前端镜像（`v1.3.0`）里**没有**插件安装接口和页面，带这些功能的镜像还没发布（§4.2）。同事在这台 Mac 的验收栈上测，不受影响。
+  3. **冒烟不等于验收**：每项只做了一次、用的是演示 HA、没有长跑。这个范围之外的问题已记在仓库 `docs/TODO.md`。
 
 ## 1. 整件事是怎么串起来的
 
@@ -20,7 +21,8 @@
 
 ```mermaid
 flowchart TD
-    R["资源中心 r.thingspanel.cn<br/>只是介绍页和跳转链接，不存放安装包"]
+    R["三个入口，都只是跳转到你的平台安装页：<br/>1 资源中心 r.thingspanel.cn 的“安装插件”按钮<br/>2 GitHub 连接器仓库 README 的图标按钮<br/>3 平台内：应用管理 → 插件管理 → 插件安装<br/>入口本身不存放、不传输安装包"]
+    UPD["主机更新器<br/>在安装或升级平台时运行，不是点击时"]
     UI["平台页面：应用管理 → 插件管理 → 插件安装<br/>只有平台超管 SYS_ADMIN 能点安装"]
     BE["后端安装引擎 internal/plugininstall<br/>签发身份、续租、登记服务、健康检查"]
     AG["宿主机 Agent tp-agent<br/>验签目录、核对摘要、docker load、起容器"]
@@ -31,11 +33,12 @@ flowchart TD
     TN["租户用户：设备接入 → 三方接入 → Home Assistant<br/>新建接入点：HA 地址 + 长期令牌，选实体建设备"]
     PF["平台：设备、当前值、历史、命令记录"]
 
-    R -->|"点击跳转到你的平台"| UI
+    R -->|"普通网页跳转，需要先填平台地址"| UI
     UI -->|"安装 / 停用 / 卸载 / 重试"| BE
     BE -->|"Unix socket + token"| AG
-    CAT -.->|"下载并验签"| AG
-    AG -->|"启动并授权"| PL
+    CAT -.->|"下载并验签"| UPD
+    UPD -.->|"放好目录、docker load 镜像、启动 Agent"| AG
+    AG -->|"点击安装后：用本机目录授权并启动"| PL
     BE -.->|"同代次续租，不换令牌不重启"| AG
     TN -->|"接入点、设备"| PF
     PF -.->|"设备范围同步，最长约 80 秒"| BR
@@ -57,8 +60,9 @@ sequenceDiagram
     participant HA as Home Assistant
     participant Ten as 租户用户
 
+    Note over Agent: 平台安装或升级时，主机更新器已下载、验签并放好目录和镜像
     Admin->>Plat: 点“安装”（不填 HA 地址和令牌）
-    Plat->>Agent: 验签目录、签发身份、授权、启动
+    Plat->>Agent: 签发身份、用本机目录授权并启动
     Agent->>Plug: 起容器（带受管身份）
     Plug-->>Plat: 心跳、拉接入点列表
     Plat-->>Admin: 已启用 / 健康 ok
@@ -91,7 +95,7 @@ stateDiagram-v2
     已启用 --> 已卸载: 卸载（设备和历史保留）
 ```
 
-> 简版文字链路：资源中心（只跳转）→ 平台“插件安装”页（超管）→ 后端安装引擎 → 宿主机 Agent（验签、起容器）→ HA 插件容器 ⇄ Broker ⇄ 平台；租户在“三方接入”里配自己的接入点和设备；插件 ⇄ Home Assistant。
+> 简版文字链路：三个入口（只跳转）→ 平台“插件安装”页（超管）→ 后端安装引擎 → 宿主机 Agent（验签、起容器）→ HA 插件容器 ⇄ Broker ⇄ 平台；租户在“三方接入”里配自己的接入点和设备；插件 ⇄ Home Assistant。
 
 要点：
 - **签名目录** 决定能装什么。目录由官方私钥签名，Agent 用**包外**的公钥验签；篡改过的目录或镜像必须被拒绝。
@@ -102,8 +106,8 @@ stateDiagram-v2
 
 | 部分 | 仓库 / 位置 | 要看的分支 / 提交 | 状态 |
 |---|---|---|---|
-| 后端（安装引擎、身份、API） | `thingspanel-backend-community` | 本地 `develop` @ `c0ab14d1`（含续租修复）；回移到发布线的候选 `wp/t7-ha-release-backport` @ `91b1e958` | **都没合入远端**；远端 develop 是 `9d071b7`，与本地 develop 不是同一条线（见 §4.3） |
-| 前端（插件安装页、租户接入点入口） | `thingspanel-frontend-wp-pui`（前端仓库 worktree） | `wp/pui-frontend` @ `c40ad217` | 未合入；这个 worktree 有 4 个未提交的路由文件，别覆盖 |
+| 后端（安装引擎、身份、API） | `thingspanel-backend-community` | **冒烟基线：本地 `develop` @ `c0ab14d1`**（含续租修复）；`wp/t7-ha-release-backport` @ `91b1e958` 是备选，冒烟没用 | 本地 develop 是远端 develop（`9d071b7`）的**快进**，领先 183 个提交，**还没推送**（见 §4.3） |
+| 前端（插件安装页、租户接入点入口） | `thingspanel-frontend-community` | **冒烟基线：远端 `origin/develop` @ `76298db6`**（已含插件安装页、租户菜单、资源中心跳转）；验收栈实际挂的 `web/dist` 是由 `wp/pui-frontend` @ `c40ad217` 构建的，内容等价，多一个“去配置 HA 接入点”按钮 | 本地 develop 和远端分叉（内容等价、哈希不同），以远端为准 |
 | 安装器 + Agent | `thingspanel-installer` | `wp/t6-ha-public-release` @ `1f2f5a96`（已推送同名远端分支）；公网站点由 `codex/ha-plugin-public-site-20261108` @ `72946f1` 发布 | 公开安装入口和插件目录**已上线**（§6 脚本可验证） |
 | HA 插件 | `thingspanel-device-connector-homeassistant` | 发布的 `1.0.0` = 提交 `0b3240e`，在分支 `wp/t6-ha-public-artifact`（本地） | **不要用该仓库 `main` 目录测**：`main` 有未提交的新改动（`ha_actions.go` 等），不属于已发布版本 |
 | SDK | `thingspanel-device-connector-sdk-go` | `v1.1.0` @ `fa39f24e`（被发布版本引用） | — |
@@ -118,19 +122,21 @@ stateDiagram-v2
 | 能力 | 状态 | 依据（读之前注意它们说的是哪个版本） |
 |---|---|---|
 | 超管页面一键安装 HA（候选 r2，临时测试签名） | ✅ 通过，含 30 分钟稳定观察 | [`tasks/HA-PLUGIN-RELEASE-INSTALL-2026-11-06-DONE.md`](tasks/HA-PLUGIN-RELEASE-INSTALL-2026-11-06-DONE.md) |
-| 用**公开 1.0.0 签名目录**在页面安装 | ⚠️ 装成功过一次（2026-11-08 12:47，gen5 健康 ok），之后 16:01 起续租失败变 `failed` | 验收栈数据库事件表（§4.1 能复现这个查询） |
+| 用**公开 1.0.0 签名目录**在页面安装 | ✅ 2026-11-09 实测：安装成功（第 7、8 代）。⚠️ 但 11-08 和 11-09 各发生过一次因环境抖动转成 `failed`，要点“重试” | 验收栈数据库事件表；§7 第 1 条 |
 | 公开制品签名 / 摘要 / 篡改拒绝 | ✅ 2026-11-09 实测通过（amd64、arm64） | `tools/verify-public-release.sh` |
 | 公网下载 → Agent → 插件 `/health`（隔离、无平台） | ✅ 通过（仅 arm64 实跑） | `tasks/T6-DISTRIBUTION-DONE.md`（在安装器仓库 `wp/t6-plugin-distribution`） |
 | 真实 HA 上行 + 下行 | ✅ 历史通过：2026-11-04，手工做了迁移、刷新 Broker 范围、重启；建设备用 API 模拟 | [`tasks/T7b-DONE.md`](tasks/T7b-DONE.md) |
 | 租户账号在**页面**里新建接入点、选实体、建设备 | ✅ 2026-11-09 实测通过（演示 HA，租户 A；共 33 个实体，页面 10 个一页，勾选跨页保留） | 整理时现场操作；旧记录见 [`tasks/PLUGIN-UI-DONE.md`](tasks/PLUGIN-UI-DONE.md) §4.8 |
 | 超管安装 + 租户接入点 + 上下行整条链（develop 后端 + develop Broker + 公开 1.0.0 插件） | ✅ 2026-11-09 实测：上行（HA 温度改为 43.3，平台当前值 43.3）、下行（灯 off→on→off，两次回执状态 3、`result:0`）。**只做了一次，没有长跑，用的是演示 HA 不是真实设备** | 现场操作；任务卡见 [`HA-PLUGIN-TASKS-2026-11-06.md`](HA-PLUGIN-TASKS-2026-11-06.md) |
+| **页面卸载**（确认框 → 状态 `uninstalled`） | ✅ 2026-11-09 实测：身份吊销，插件容器退出码 0，**设备 3 台、接入点 1 个、服务登记 1 行、历史 106 条全部保留**，伪造令牌被拒（503；真实旧令牌没单独测） | 现场操作 |
+| **卸载后重装**（页面点安装，不填任何东西） | ✅ 2026-11-09 实测：约 5 秒变成第 8 代“已启用 / 健康 ok”；Agent 自己回收了旧代容器，只剩 1 个运行容器；服务登记没有重复；重装后上下行再验通过 | 现场操作；结果记录见 [`tasks/HA-HANDOVER-DONE.md`](tasks/HA-HANDOVER-DONE.md) §8 |
 | 两个租户互相隔离 | ✅ 2026-11-09 实测：租户 B 设备列表为空；对 A 的设备下发命令返回“device not found”，读 A 的遥测返回“无访问权限” | 现场操作；单测见 `tasks/T4-DONE.md` |
 | amd64 真实运行 | ❌ 只验过签名和摘要，没真起过 | — |
 | MySQL | ❌ 未验证（发行版只有 PG + TimescaleDB） | — |
 
 ## 4. 环境：怎么得到一个能测的栈
 
-### 4.1 路线 A：复用现成的验收栈（最快，但先修复）
+### 4.1 路线 A：复用现成的验收栈（最快；改过的地方和注意事项都在下面）
 
 位置 `/Volumes/KIOXIA/CodexTests/thingspanel-ha-ui-acceptance-20261106/`（compose 项目前缀 `tp-ha-ui-acceptance-20261106`，网络 `tp-codex-ha-ui-net-20261106`）。
 - 页面：`http://127.0.0.1:58800`（同一局域网的同事用 `http://<这台 Mac 的 IP>:58800`）；后端 `58999`。
@@ -142,7 +148,8 @@ stateDiagram-v2
 - ✅ **安装已恢复**：2026-11-09 08:16 由超管在页面点 Retry，起了 generation 6，页面“已启用 / 健康: ok”，身份未吊销，插件容器（公开 1.0.0 arm64 镜像）在栈网络 `tp-codex-ha-ui-net-20261106` 里运行，重启 0 次。之后若再变 `failed`，先看 `check-test-env.sh` 第 6 项事件。**不要把它当成“已稳定”**：A10（30 分钟）、A13（失联恢复）还没做。
 - ✅ **Broker 已换成 develop 线镜像**（`thingspanel-mosquitto:ph1-520a3222`）。**对照实验（2026-11-09）**：同一个栈、同样的设备范围、同一个 HA 插件（每次都重启过），**只换 Broker 镜像**——v1.3.0：插件所有连接 `not authorised`，上行没数据，下行灯不动；develop 线镜像：上行（温度 93.3 进平台）和下行（灯 off→on→off，回执 `result:0`）都通。所以“v1.3.0 的 Broker 连不上插件设备”**有实验支持**；但 v1.3.0 能不能承载**别的**三方接入（不走插件的设备）我没测，不要外推。换镜像前备份了覆盖文件（`.bak2-20261109`）。
 - 栈的完整说明（跑什么、账号文件放哪、常用命令）见 [`ha-plugin-handover/STACK.md`](ha-plugin-handover/STACK.md)。
-- 这个栈里有别的会话的残留（`http_adapter` 一直 Restarting 与本任务无关；`tp-agent-prepared-*` 里有一堆已退出的旧代次容器）。**别清理它们**，列清单给负责人。
+- ⚠️ **Agent 会掉**：`tp-agent-tp-ha-ui-acceptance-20261106` 在 2026-11-09 09:21 以退出码 135 退出，重启策略虽是 unless-stopped 却没有被拉起；11:21 Postgres 也异常重启。结果是后端连不上 Agent，续租 5 次失败后安装转 `failed`、身份吊销。**恢复办法**：`docker start tp-agent-tp-ha-ui-acceptance-20261106`，再在页面点“重试”。（诱因没查清，怀疑和程序、数据放在外置盘上有关。）
+- 当前（2026-11-09 11:32）：生成代次 8，已启用 / 健康 ok；旧代次容器已由 Agent 回收，只剩 1 个运行中的插件容器。这个栈里还有别的会话的残留（`http_adapter` 一直 Restarting，与本任务无关；mvp 栈的一个旧容器被它自己的 Agent 引用）。**别清理它们**，列清单给负责人。
 
 ### 4.2 路线 B：干净机器，用公开安装器（目前被阻塞）
 
@@ -152,11 +159,12 @@ stateDiagram-v2
 
 带这些功能的镜像（后端、前端、`thingspanel-mosquitto`）**还没发布**，这是总监任务清单 P4（只有负责人本人能做：推 SDK、发镜像、建正式信任根）。在那之前，路线 B 只能用本地构建的镜像覆盖：`TP_BACKEND_IMAGE=<本地后端镜像>`，前端同理，并且 compose 里 Agent 的 socket/token 挂载由升级器负责。**这条路没有人走通过**，同事如要尝试，请单独记录，不要和 A 组结果混在一起。
 
-### 4.3 先弄清的基线问题（需要负责人拍板，不是同事的活）
+### 4.3 基线（2026-11-09 负责人已定：发布到 main 之前，都用 develop 测试）
 
-- 本机 `develop`（`~/.codex/worktrees/thingspanel-develop-backend/...`，`c0ab14d1`）和**远端** `develop`（`9d071b7`）不是一条线；上面所有候选提交都不在远端 develop 里。
-- 后端主目录 `thingspanel-backend-community` 现在停在 detached HEAD，并且**有一个没做完的 cherry-pick**（`91b1e958`，`docs/WORKSPACES.md`、`initialize/platform_driver.go`、`router/router_init.go` 等文件有冲突标记）。**别在那个目录里提交、别 `git add`、别 reset**，先问负责人。
-- 同事要测的“被测后端”请用本文件给出的提交，而不是自己选分支。
+- 后端：**本地 `develop` @ `c0ab14d1`**。它是远端 `develop`（`9d071b7`）的快进，领先 183 个提交，**没有分叉**；还没推送。
+- 前端：**远端 `origin/develop` @ `76298db6`**，已含插件安装页和租户入口；不用推。
+- 冒烟范围只证明“能用”；合入 main、镜像发布、安装器版本号、签名公钥是否正式等，都在仓库 `docs/TODO.md` 和 [`HA-PLUGIN-PUBLISH-TASK.md`](HA-PLUGIN-PUBLISH-TASK.md) 里。
+- 后端主目录 `thingspanel-backend-community` 停在 detached HEAD，并且**有一个没做完的 cherry-pick**（`91b1e958`）。**别在那个目录里提交、别 `git add`、别 reset**，先问负责人。
 
 ## 5. 准备一个测试用 HA
 
@@ -198,6 +206,8 @@ docs/ha-plugin-handover/tools/check-test-env.sh <栈前缀> <后端端口>
 | # | 现象 | 来源 / 状态 |
 |---|---|---|
 | 1 | 控制面（后端或 Agent）失联一段时间后，安装记录进入 `failed / renewal_failed`，身份被吊销，要点 **Retry** 才会起新代次。设计上这是“长期失联就停”的安全边界，但**多久会触发、一次电脑休眠够不够**没有测过——**A13 就是测这个**。验收栈现在就处在这个状态。 | `tasks/HA-PLUGIN-RELEASE-INSTALL-2026-11-06-DONE.md`；验收栈事件表 |
+| 1a | **环境抖动会把安装打成 `failed`**：Agent 容器退出没被拉起、或 Postgres 重启后，续租 5 次（约 8 分钟）失败就转 `failed` 并吊销身份，需人工“重试”。2026-11-09 实际发生。 | 2026-11-09 现场；`docs/TODO.md` |
+| 1b | 卸载确认框里写着“重新安装需再次填写令牌”，但现在安装不填令牌，文字过期。 | 2026-11-09 现场 |
 | 2 | HA 令牌仍**明文**存在数据库 `service_access.voucher`。P2 只做了日志/操作日志脱敏，加密存储（P2b）只有待办卡没有设计。 | `PROJECT-AUDIT-2026-11-04.md` §7.5 |
 | 3 | 插件**只在 HA 状态变化时上报**，不在启动时推一次当前值，刚接入的设备在变化前平台没有数据。 | PLUGIN-UI-DONE / T7b §8；P5 未做 |
 | 4 | 新建设备后 Broker 范围刷新有延迟，最长约 80 秒，这期间下行命令可能发不出去。刷新靠安装器起的主机监视进程（不是系统服务）。 | PLUGIN-UI-DONE §4.7；`docs/TODO.md` |
