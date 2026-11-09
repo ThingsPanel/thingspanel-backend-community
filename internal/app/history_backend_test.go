@@ -12,13 +12,12 @@ import (
 )
 
 func validTDengine() historyBackendSettings {
-	return historyBackendSettings{Backend: "tdengine", URL: "http://127.0.0.1:6041", User: "root", Password: "pw-8Zq1", Database: "tp_history", Experimental: true}
+	return historyBackendSettings{Backend: "tdengine", URL: "http://127.0.0.1:6041", User: "root", Password: "pw-8Zq1", Database: "tp_history"}
 }
 
 func TestHistoryBackendSelectionIsFailClosed(t *testing.T) {
 	for name, mutate := range map[string]func(*historyBackendSettings){
 		"unknown backend":      func(s *historyBackendSettings) { s.Backend = "influx" },
-		"not acknowledged":     func(s *historyBackendSettings) { s.Experimental = false },
 		"conflicting mode":     func(s *historyBackendSettings) { s.ModeExplicit = "postgres" },
 		"missing url":          func(s *historyBackendSettings) { s.URL = "" },
 		"non-http url":         func(s *historyBackendSettings) { s.URL = "ftp://host" },
@@ -42,6 +41,17 @@ func TestHistoryBackendSelectionIsFailClosed(t *testing.T) {
 				t.Fatalf("error leaks a credential: %v", err)
 			}
 		})
+	}
+}
+
+func TestHistoryBackendTDengineSelectionNeedsNoExperimentalFlag(t *testing.T) {
+	config := storage.DefaultConfig()
+	prepare, err := selectHistoryBackend(validTDengine(), &config)
+	if err != nil || prepare == nil {
+		t.Fatalf("TDengine selection must not depend on an experimental flag: prepare=%v err=%v", prepare != nil, err)
+	}
+	if config.HistoryMode != storage.HistoryModeIntent || config.HistorySink == nil {
+		t.Fatalf("TDengine selection must configure intent storage: %+v", config)
 	}
 }
 
