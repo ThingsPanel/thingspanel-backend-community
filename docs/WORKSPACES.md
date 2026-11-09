@@ -114,4 +114,4 @@
 | `.claude/worktrees/wp-db-handover/.claude/worktrees/wp-t3-tdengine` | `wp/t3-tdengine` | T3 TDengine 转正与完整栈验收 | Codex | 审查合并后按规则确认清理 |
 | `/Volumes/KIOXIA/tmp/dbp1-tdengine-stack` | — | 独立安装器副本与 `dbp1-tdengine` Compose 项目（含本地配置） | Codex | 验收后留存，删除前确认 |
 | `/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine/stack` | — | 不含凭据的安装器源码快照（早期初始化副本） | Codex | 保留，删除前确认 |
-| `/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine` | — | A1 失败观察与后端日志，不含凭据 | Codex | 交付证据 |
+| `/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine` | — | A1 观察与后端日志；历史/统计已验证，导出文件待确认，不含凭据 | Codex | 交付证据 |
