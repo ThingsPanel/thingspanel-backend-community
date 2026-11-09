@@ -31,6 +31,7 @@
 - 用户随后要求重开页面重试；本次页面停在加载中。前端 nginx 对 `/api/v1/logo` 和 `/api/v1/ui_elements/menu` 返回 502，代理地址为 `28.0.0.40:9999`；backend 容器已重启 8 次并在 MQTT adapter 初始化时报 `context deadline exceeded`，health 为 starting。因此这次无法再次点击导出。按派工要求未自行重启或改配置扩大排查。
 - 用户确认页面没有弹出 CSV；检查本机 Downloads 最近 3 小时没有新 CSV。复查时 backend 已重启 11 次，页面仍因 API 502 停在加载中，无法现场再点导出。因此导出目前判定为**未验证/疑似失败**，待临时栈恢复后复测。
 - 按用户要求继续实际复测：发现本栈 Mosquitto 已因共享网络的 broker-owner 重启而退出；只启动了本栈 Mosquitto，并重启本栈前端代理以刷新后端地址，未改配置。后端恢复 healthy 后重新打开设备页，最近 24 小时湿度数据和统计可见；再次点击“导出数据”并检查 Downloads，仍无新 CSV 或完成提示。前端本地实现将其保存为浏览器生成的 `telemetry_data.csv`；此次运行未在宿主下载目录观察到文件，故导出验收**失败/未通过**。
+- 原因调查：运行中 frontend image 的 `SOURCE_COMMIT` 为 `b911926fd15eb3eee5c3034a91f1dc7592d68dbe`，bundle `assets/time-series-data-UmxnbkxD.js` 中导出代码按 `anchor.click()` 后立即同步调用 `URL.revokeObjectURL()` 并移除 anchor；对应本地源码见 `thingspanel-frontend-develop-merge-20261103/src/views/device/details/modules/telemetry/modules/time-series-data.vue` 的 `exportData`。此流程完全在浏览器端生成 Blob，不会请求后端导出 API，且没有成功提示。同步 revoke 是下载未落盘的**高可能原因**，但受限于当前浏览器下载观察能力，未能以下载事件最终证明；本任务未改前端代码。
 - B-2 仍需等 T1-A2 经负责人审查合入 develop 后再开始。
 - A-2 不依赖安装器环境变量；`GOTP_STORAGE_TDENGINE_EXPERIMENTAL` 仍由安装器 compose 传入但后端已忽略。
 - 隔离验收栈、TDengine 测试容器和数据卷均保留，供负责人检查。独立启动探针容器已停止并移除；为测试 broker 自动创建的匿名卷 `b61b4bdc2d16`、`c2e1008577a1` 仍保留，未删除。测试配置保存在 `/Volumes/KIOXIA/tmp/dbp1-tdengine-stack/.env`，权限为 600，不属于证据目录。
