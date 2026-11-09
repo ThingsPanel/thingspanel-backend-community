@@ -78,10 +78,10 @@
 - Agent：`tp-agent-tp-ha-ui-acceptance-20261106`，状态目录 `agent2/`；用的是**公开 1.0.0 目录**（和线上目录字节相同）。
 - 它是手工拼的：`docker-compose.yml` + `docker-compose.override.yml`（后端换成本地镜像 `thingspanel-backend-ha-ui:20261106`，前端挂 `web/dist`）+ `agent-proxy`。**没有一键启动脚本**，也没有 README。
 - ⚠️ **它现在的状态**（2026-11-09 实测，`tools/check-test-env.sh tp-ha-ui-acceptance-20261106 58999`）：`plugin_installations` 里 `homeassistant | failed | enabled | generation=5 | health=error | error=renewal_failed`，三代身份都已吊销；事件表里 2026-11-08 16:01–16:09 连续 `renewal_failed` 后转 `failed`。
-- ⚠️ **它的后端代码有两个问题**：
-  1. 镜像来自提交 `96d1964c`，**这个提交不在任何分支上**（已经给它所在链的末端打了标签 `archive/ha-ui-acceptance-stack-20261109` → `67f4afe9` 防止被垃圾回收）。
-  2. 它的 `internal/plugininstall/reconcile.go` 的续租逻辑**要求目录可用**，而 develop 已有修复（提交 `4bf3ee22`、`5707e9bc`：续租不依赖目录）。这与观察到的 `renewal_failed` **可能相关，但没验证过**，不要当结论。
-- 所以：**要么**用页面的 **Retry** 把它恢复一次再测（A13 会专门测“失联多久后会坏”），**要么**用 develop 重新构建后端镜像再测（更推荐，因为被测的应该是有修复的代码；构建方法见 `…/backend-source/Dockerfile` 与 override 里的 `build:` 段）。**不管哪种，都要在记录里写清楚后端镜像 ID。**
+- ✅ **后端已在 2026-11-09 换成 develop 代码**：用本地 develop `c0ab14d1` 构建了镜像 `thingspanel-backend-ha-ui:develop-c0ab14d1`（镜像 ID `sha256:018b6b5d94f7…`），只替换了栈里的后端容器（数据在绑定目录里没动）。镜像里已确认有 `internal/plugininstall`、`sql/33~35.sql`，以及续租不依赖目录的修复。覆盖文件 `docker-compose.override.yml` 已改指新镜像，旧版备份在同目录 `docker-compose.override.yml.bak-20261109`；旧镜像 `thingspanel-backend-ha-ui:20261106` 还在，想回滚就把备份拷回去再 `up -d --no-deps --no-build backend`。
+- 旧后端的来历（供参考）：旧镜像取自提交 `96d1964c`，**该提交不在任何分支上**（已给其链末端打标签 `archive/ha-ui-acceptance-stack-20261109` → `67f4afe9` 防回收），且续租逻辑要求目录可用，比 develop 少修复 `4bf3ee22`、`5707e9bc`。它与旧的 `renewal_failed` 是否有因果**没验证**。
+- ⚠️ **安装记录仍是 `failed`**：换后端不会把它救回来，**必须由平台超管在页面点 Retry**（会起新代次）。点完用 `check-test-env.sh` 确认变成 `enabled / ok`。
+- ⚠️ **栈里的 Broker 还是 v1.3.0 镜像**。T7（2026-11-04）里 v1.3.0 的 Broker 让插件设备连不上（CONNACK 5），T7b 换成用 develop 重建的 `thingspanel-mosquitto` 后通过。这个栈的 Broker 能不能跑通 B 组数据，**没有验证过**；本机有 `thingspanel-mosquitto:ph1-520a3222`（develop 线构建）可用来替换，但没替换（要同时重启 broker-owner 和 mosquitto，并确认数据库里的 Broker 迁移够新）。B 组如果在 B4/B5 卡住，先查这一点。
 - 这个栈里有别的会话的残留（`http_adapter` 一直 Restarting 与本任务无关；`tp-agent-prepared-*` 里有一堆已退出的旧代次容器）。**别清理它们**，列清单给负责人。
 
 ### 4.2 路线 B：干净机器，用公开安装器（目前被阻塞）
