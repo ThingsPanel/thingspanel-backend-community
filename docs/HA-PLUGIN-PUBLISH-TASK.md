@@ -26,13 +26,19 @@
 
 镜像会同时推到 **ghcr.io** 和 **阿里云 `registry.cn-hangzhou.aliyuncs.com/thingspanel/`**（工作流里已经配好，用的是仓库的 Actions Secrets，所以需要有这个仓库的写权限）。要求 **amd64 + arm64 两个架构**。
 
-## 三、开工前必须先定的两件事（需要负责人答复，发布的人别自己决定）
+## 三、2026-11-09 已定：先做“冒烟”，基线用 develop
 
-1. **被测/被发布的代码基线**。要打 Tag，Tag 对应的提交必须**包含**这次的改动（`release.py select-tag` 会检查）。现在这些改动**都还没合入**远端 `develop` / `main`：
-   - 后端：本地 develop `c0ab14d1`（含续租修复）；远端 develop 是 `9d071b7`，两者不是一条线；发布线的候选是 `wp/t7-ha-release-backport`（`91b1e958`）。
-   - 前端：`wp/pui-frontend` `c40ad217`（工作区还有 4 个未提交路由文件，不要覆盖）。
-   - 具体选哪个、怎么合、版本号叫什么（例如 `v1.3.1`），**由负责人定**。
-2. **签名用的信任根**。公开的 HA 目录现在用“候选公钥”签（指纹 `6f6e902e807b86949e9dc3090de82eb932c27c6bd7f95987c8f44de00cca4fe8`），公钥写在安装器 `config/native/update.py` 里。这把钥匙算不算正式的，需要负责人确认；如果要换，目录要重新签、安装器里的公钥要同步改，HA 目录和 Release 也要重发。
+负责人决定：**发布到 main 之前，都用 develop 做测试；目标只是证明这套东西“能用”**——能上传代码、生成制品、点击一键安装、一键卸载，卸载后清干净再装一遍成功。其余小问题记在 `docs/TODO.md`，不挡冒烟。
+
+| 部分 | 冒烟用的基线 | 说明 |
+|---|---|---|
+| 后端 | 本地 `develop` @ `c0ab14d1` | 远端 `develop` 是 `9d071b7`，本地是它的**快进**（领先 183 个提交，没有分叉）。推上去就是把这 183 个提交公开到远端 develop |
+| 前端 | 远端 `origin/develop` @ `76298db6` | 已含插件安装页、租户菜单、资源中心跳转（我核对过文件和路由）。本地 develop 和它分叉（各有几个提交，内容等价但哈希不同），**以远端为准，不用推** |
+| Broker | 同后端仓库（`deploy/mosquitto-community`） | 随后端 Tag 一起构建 |
+| HA 插件 | 已发布 `1.0.0`，不重做 | 用 `verify-public-release.sh` 核对 |
+| 签名公钥 | 现有候选公钥 | 是否算正式，进 main 之前再定 |
+
+**怎么生成制品（不发布 Release）**：`release.py select-tag` 只要求远端有这个 **Git Tag**，不要求 GitHub Release。所以可以只推一个预发布 Tag（如 `v1.3.1-rc.1`），再手动运行 `docker-image-build.yml`（workflow_dispatch，version 填该 Tag），不会触发 `release.yml` 那条正式发布流水线。后端仓库和前端仓库各做一次。
 
 ## 四、步骤（基线和版本号定下来之后）
 
