@@ -72,3 +72,34 @@
 ## 6. 工作区
 
 `.claude/worktrees/wp-ha-handover` ← 分支 `wp/ha-handover`。合并（或决定不合并）后当天删除分支和 worktree，并更新 `docs/WORKSPACES.md`。
+
+## 7. 清理清单（2026-11-09，逐项取证；**未删除任何东西**，等你确认）
+
+### 7.1 可以删（已确认）
+
+| 对象 | 为什么可以删（证据） | 删完的影响 |
+|---|---|---|
+| 容器 `tp-agent-prepared-288f94e3…`、`…4afe2038…`（镜像 r2 候选，网络 `tp-codex-ha-net-20261106`，2026-11-06 退出码 0） | 已退出；所有 Agent 的状态文件和 compose 文件里都搜不到它们；所属网络里没有任何运行中的容器；r2 候选已被公开 1.0.0 取代 | 无。日志本来就读不出（日志驱动不支持读取） |
+| 容器 `tp-agent-prepared-c6acd118…`、`…97a87a08…`、`…8481b53a…`（2026-11-08 的公开分发冒烟，退出码 0） | 已退出；它们所在的三个网络（`ha-updater-nov8c`、`ha-public-nov8b`、`ha-smoke-nov8a`）**已经不存在**，容器没法再启动；引用它们的只有 `/Volumes/KIOXIA/CodexTests/ha-public-dist-review-42436565819/…/agent/state/state.json`，那是冒烟的证据快照，**保留不动**；对应的 Agent 没有在运行 | 无。冒烟证据（状态文件、`PUBLICATION-MANIFEST.md`）不受影响 |
+| Docker 网络 `tp-codex-ha-net-20261106`（要在上面两个容器删除之后） | 0 个容器在用、无标签、没有任何 compose 文件或运行中的 Agent 引用它 | 无 |
+| `docs/WORKSPACES.md` 里 16 条登记行：`phase1-progress-handoff`、`wp-kioxia-config-20261105`、`wp-mvp-dispatch-20261105`、`wp-plugin-install-e5e1f9`、`wp-t1-0-relational-b140f7`、`wp-plugin-install-ui-8bf83e`、`wp-ha-plugin-target-docs-20261106`、`wp-t7-ha-catalog-renewal`、`wp-t1-a1-platform-start`、`wp-t4-plugin-identity-3cf9d2`、`wp-p2-fix`、`wp-p2-fix2-form-brackets`、`wp-p3-device-ack-timeout`、`wp-p3-real-broker-20261105`、`wp-t0-work-rules`、`wp-ph1-s1-core-c02f8c` | 这些目录**都已不存在**，对应分支**也都已不存在**；develop 的合并记录里能找到对应合并（P2、P2-fix、P3、T0、T4、T1-0、T1-A1、PH1-S1、plugin-install-ui、t7-ha-catalog-renewal、kioxia、phase1-progress、ha-plugin-target、mvp dispatch），`docs/tasks/` 下有相应 DONE 文件。只是文字登记，删行不丢任何代码。**例外**：`wp-plugin-install-e5e1f9` 我没找到对应的合并记录，只有总监审计里“已被 T4 取代，可以归档”这一句，置信度低一档 | 登记表变干净；没有登记的目录“视为可清理”这条规则不受影响，因为这些目录本来就没有了 |
+
+### 7.2 不能删（看着像垃圾，其实不是）
+
+| 对象 | 为什么不能删 |
+|---|---|
+| 容器 `tp-agent-prepared-28560728…`（mvp-ha 栈，退出码 137） | 正在运行的 `tp-agent-mvp-ha-20261105` 的状态文件 `/Volumes/KIOXIA/tmp/mvp-ha-resume-20261105/agent/state/state.json` 还引用它；删了 Agent 下一轮巡检可能报错或重建 |
+| 后端 worktree：`wp-db-compat-f6f630`（领先 develop 29 个提交，未合并）、`wp-missing-api-5613cb`（领先 32，未合并）、`wp-t1-a2-platform-dal-service`（领先 1，未合并，有 2 个未提交文件）、`wp-t1b-ota-fix-f44bb3`（领先 1，等企业版接收）、`wp-t7-ha-release-backport`（候选 `91b1e958`，发布要用）、`wp-t7-plugin-install-test-deploy`（领先 17，未合并）、`mvp-run-default-stack`（已合并，但有 2 个未提交文件，且 mvp 栈还在运行） | 都有未合并的独有提交或未提交文件，或者还有运行中的栈在用 |
+| 镜像 `thingspanel-backend-ha-ui:20261106`、覆盖文件备份 `*.bak-20261109`、`*.bak2-20261109` | 回滚用，等同事验证新后端、新 Broker 没问题后再说 |
+| `/Volumes/KIOXIA/archive/evidence/2026-11-09-HA-HANDOVER/` | 里面有本次的测试账号和演示 HA 令牌（0600），同事要用 |
+| 演示 HA 容器 `ha-demo`、Broker 范围监视进程 | 同事测试要用 |
+| 标签 `archive/ha-ui-acceptance-stack-20261109` | 保护那个不在任何分支上的验收提交，删了它可能被垃圾回收 |
+| 后端主目录里没做完的 cherry-pick | abort 会丢暂存状态，需要你决定 |
+
+### 7.3 怎么执行（你确认后）
+
+```bash
+docker rm tp-agent-prepared-288f94e3600b4bd6575c5315351facd5be646a7f tp-agent-prepared-4afe203862f32020563cff98f6c865f5d286efc5
+docker rm tp-agent-prepared-c6acd118461359da8d5d5331b5d34eba29b4c196 tp-agent-prepared-97a87a08900e63bf1ead6bb1e59a49144f2420c9 tp-agent-prepared-8481b53a9556887f8ddc0c65f6752eb1bfac8cd0
+docker network rm tp-codex-ha-net-20261106
+```
