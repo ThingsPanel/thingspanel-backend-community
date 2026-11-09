@@ -43,3 +43,7 @@ zsh 里必须用数组 `F=( … )` 再 `"${F[@]}"`，直接用字符串变量会
 ## Agent 掉了怎么办
 
 页面一直转圈、`/api/v1/plugin/catalog` 返回 503，多半是 Agent 容器退出了（2026-11-09 实际发生过，退出码 135，没有自动重启）：`docker ps -a | grep tp-agent-tp-ha-ui`，已退出就 `docker start tp-agent-tp-ha-ui-acceptance-20261106`，再到页面点“重试”。
+
+## 数据库也可能掉
+
+验收栈的 Postgres 数据放在外置盘，当天出现过 I/O 错误导致容器崩溃（`PANIC: could not write to log file`）。症状：页面报错、后端日志里 `failed to connect … unexpected EOF`。处理：`docker start tp-ha-ui-acceptance-20261106-postgres-1`，数据会自动崩溃恢复；之后看 `check-test-env.sh`，必要时在页面点“重试”。备份在会话临时目录里，别当长期备份用。
