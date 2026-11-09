@@ -3,6 +3,7 @@
 > 日期：2026-11-09。基线：`develop` @ `c0ab14d1`（已推到远端）。
 > **这一阶段只交付两样东西：① TDengine 成为正式可选的时序库；② 平台根模块能在 MySQL 上跑起来。** 两样都已经做了一大半，补完就能用。
 > 其余（devicemetadata 等 Encore 服务改 MySQL、删除翻译器）是几十人天的大工程，**这一阶段一律不碰**，见 §2。
+> **派工直接用 [`DB-PHASE1-DISPATCH-PROMPT.md`](DB-PHASE1-DISPATCH-PROMPT.md)**：里面的卡点都是实际跑过才写的。
 
 ---
 
@@ -68,13 +69,13 @@
 - **完成标准**：`go test ./internal/app/...` 通过；不设 `experimental` 时 `history_backend=tdengine` 能启动。
 
 ### 4.3 B-1 接手 T1-A2（平台 DAL / repo / service，≤3 天）
-- **现状**：已做了一半。分支 `wp/t1-a2-platform-dal-service` @ `3b68fe6a`（worktree `.claude/worktrees/wp-t1-a2-platform-dal-service`），改了 21 个文件，**落后 develop 64 个提交**，还有 2 个未提交文件。**不要从头写。**
+- **现状**：大部分已做完。分支 `wp/t1-a2-platform-dal-service` @ `3b68fe6a`（worktree `.claude/worktrees/wp-t1-a2-platform-dal-service`），改了 21 个文件，落后 develop 64 个提交，还有 2 个未提交文件。**2026-11-09 实测**：试合到 develop 没有冲突、能编译；起测试库后，A2 相关的 MySQL 差分测试除 1 个外**两库全部 PASS**（含队列双 worker 领取、`InsertIfAbsent`、automation 守卫、菜单 JSON 数组、设备趋势等）。唯一失败的是 `TestMarketInstallAuthorizationCreateAndLegacySealPostgresMySQL`：半成品把 `plan=CAST(? AS jsonb)` 改成了 `plan=?`，两个库都错，需要按方言写两份（细节见派工提示词卡点 B1-2）。**不要从头写。**
 - **做**：
   1. 先把 2 个未提交文件提交成 `wip:`（`internal/repo/a2_relational_test.go`、`internal/repo/market_install_authorization_repo.go`）。
   2. `git rebase develop`。冲突解决不了就停下问。
   3. 对照 `docs/T1-CARDS.md` 的 T1-A2 一节，补完没做的。要点：`notification_source_outbox.go` 的队列领取、`native_automation_command.go` 的 upsert、`board.go`。
-  4. 测试：develop 已有的 4 个 MySQL 测试（`internal/dal/` 下 `device_identity_mysql_test.go`、`service_access_operation_mysql_test.go`、`ui_menu_mysql_test.go`、`board_trend_mysql_test.go`）跑通；从 d1 分支搬 2 个（`notification_source_outbox_mysql_test.go`、`do_nothing_rows_mysql_test.go`，取法见 §5）。
-- **完成标准**：`grep -rn 'pkg/dbdialect' --include='*.go' internal pkg` 为空；上面 6 个测试在两个库上都是 PASS（不是 SKIP）；`go test ./internal/dal/... ./internal/repo/... ./internal/service/...` 通过。
+  4. 测试：修好上面那 1 个失败；队列领取的测试**不用再从 d1 搬**（A2 里已有等价测试并通过）；`do_nothing_rows` 先看 A2 现有测试是否已覆盖，没覆盖再从 d1 搬，搬时把里面的 `sqldialect.OpenMySQL`（翻译器）换成直接用 GORM 打开。
+- **完成标准**：`grep -rln --include='*.go' 'pkg/dbdialect' internal pkg | grep -v '^pkg/dbdialect'` 无输出；A2 相关 MySQL 差分测试两库全部 PASS（不是 SKIP）；`go test ./internal/dal/... ./internal/repo/... ./internal/service/...` 通过。
 - **不碰**：`internal/dal/telemetry_*.go`（B-2 的）。
 
 ### 4.4 B-2 T1-A3 平台存储与遥测（≤3 天，B-1 合入后做）
@@ -85,7 +86,7 @@
 - **完成标准**：这 3 个测试两库 PASS；`go test ./internal/storage/...` 通过。
 
 ### 4.5 B-3 平台在 MySQL 上冒烟（约 1 天）
-- `scripts/smoke_mvp1.sh` 分别对 PG 和 MySQL 平台跑一次，都通过；`go build ./...` 通过；`grep -rln --include='*.go' -E 'pkg/(sqldialect|dbx|dbdialect)' initialize internal cmd` 为空。
+- `scripts/smoke_mvp1.sh` 需要一个正在运行的平台（平台启动依赖 MySQL/PG、Redis、MQTT 三样，MQTT 连不上会启动失败；起法见派工提示词卡点 B3-1、B3-2）。分别对 PG 和 MySQL 平台跑一次，都通过；`go build ./...` 通过；`grep -rln --include='*.go' -E 'pkg/(sqldialect|dbx|dbdialect)' initialize internal cmd` 为空。
 - 这一步就是第一阶段的收尾，写一份阶段完成说明 `docs/tasks/DB-PHASE1-DONE.md`。
 
 ---
@@ -97,7 +98,7 @@
 docker ps -a | grep tp-dev-              # 先看有没有别人在用同名容器；有就问负责人
 scripts/dev-databases.sh up
 eval "$(scripts/dev-databases.sh env)"
-export TEST_DBDIALECT_PG_DSN="$TEST_PG_SCHEMA_DSN"   # 脚本没导出这个，有 2 个平台测试要用（指向 56001 未实测，跑不通就问）
+export TEST_DBDIALECT_PG_DSN="$TEST_PG_SCHEMA_DSN"   # 脚本没导出这个，有 2 个平台测试要用（2026-11-09 实测可用）
 scripts/dev-databases.sh down            # 用完
 ```
 
