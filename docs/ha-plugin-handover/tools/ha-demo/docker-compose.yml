@@ -1,0 +1,16 @@
+# 演示用 Home Assistant（只用于测试，不接真实设备）。
+#   启动： docker compose -p ha-demo up -d
+#   停止并清掉数据： docker compose -p ha-demo down -v
+# 端口默认 58123，可用环境变量 HA_DEMO_PORT 修改。只监听本机回环地址。
+services:
+  homeassistant-demo:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: ha-demo
+    volumes:
+      - ha-demo-config:/config
+      - ./configuration.yaml:/config/configuration.yaml:ro
+    ports:
+      - "127.0.0.1:${HA_DEMO_PORT:-58123}:8123"
+    restart: "no"
+volumes:
+  ha-demo-config: {}
