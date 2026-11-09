@@ -17,7 +17,6 @@
 | `~/.codex/worktrees/thingspanel-runtime-gateway/thingspanel-backend-community` | `codex/runtime-tenant-source-binding` | 已归档 | — | 已移除，分支已删 |
 | `~/.codex/worktrees/thingspanel-runtime-read-context/thingspanel-backend-community` | `codex/runtime-read-context` | 已归档 | — | 已移除，分支已删 |
 | `/Volumes/80G/tp-develop-integration/sources/backend-api-1efd4878` | detached `1efd4878` | 18080 本地栈 fixture | — | 保护，不动 |
-| （C7 完成后）`.claude/worktrees/wp-t0-work-rules` | `wp/t0-work-rules` | T0 工作规则 | T0 会话 | 等待审查；合并后当天删 |
 
 ### 后端本地分支
 
