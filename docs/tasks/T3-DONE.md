@@ -31,4 +31,4 @@
 - A-2 不依赖安装器环境变量；`GOTP_STORAGE_TDENGINE_EXPERIMENTAL` 仍由安装器 compose 传入但后端已忽略。
 - 隔离验收栈、测试容器和数据卷均保留，供负责人检查；没有删除容器或卷。测试配置保存在 `/Volumes/KIOXIA/tmp/dbp1-tdengine-stack/.env`，权限为 600，不属于证据目录。
 
-证据：`/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine/A1-observation.txt`、`backend-relevant.log`。历史/统计截图未写入证据目录。
+证据：`/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine/A1-observation.txt`、`backend-relevant.log`、`tdengine-targeted-tests.log`。历史/统计截图未写入证据目录。
