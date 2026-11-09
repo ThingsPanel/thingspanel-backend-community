@@ -42,8 +42,10 @@
 - [ ] 测试账号、演示 HA 令牌用完轮换或删除；资源中心 Horizon 分支 `wp/t6-ha-resource-copy` 已部署但未合入 main。
 - [ ] （冒烟中发现，2026-11-09）基础设施抖动会让安装进入 `failed`：验收栈的 Agent 容器 09:21 以退出码 135 退出且没有被重启（重启策略是 unless-stopped），11:21 Postgres 也异常重启（日志“没有正常关闭”）。后端随后续租连续 5 次失败，安装转 `failed`、身份吊销，要人工点“重试”。需要：Agent 自动拉起、续租失败的重试窗口是否太短（约 8 分钟）、验收栈的程序和数据放外置盘是否是诱因。
 - [ ] 卸载确认框文字过期：写着“重新安装需再次填写令牌”，但现在安装不填令牌。
-- [ ] （2026-11-09 清理时发现）验收栈 Postgres 当天第 3 次因 I/O 错误崩溃（PANIC，数据目录在外置 USB 盘上经 OrbStack 挂载）：评估把 Postgres/Redis 数据改放 Docker 命名卷；`docs/CLEANUP-INVENTORY-2026-11-09.md` 第 H 节有细节。
-- [ ] `thingspanel-closeout-internal-20261102` 下 6 个仓库有未提交的独有改动（backend 504、installer 37、thingsvis 47、horizon 18、sdk 9、frontend 2），先归档再决定删不删。
-- [ ] KIOXIA 历史栈（`t5/t7/t7b/t7c/p1-stack`、`tp-i1`、`tp-a-access-test`，约 6.5 GB）：逐个比对证据已归档后再清。
+- [ ] （2026-11-09 清理时发现）验收栈 Postgres 当天第 3 次因 I/O 错误崩溃（PANIC，数据目录在外置 USB 盘上经 OrbStack 挂载）：负责人决定数据库和 Redis 继续放外置盘，由负责人解决外置盘稳定性（线索：`disksleep` 为 10 分钟，见清理盘点 I 节）；`docs/CLEANUP-INVENTORY-2026-11-09.md` 第 H 节有细节。
+- [x] closeout 目录已归档到 `archive/secrets-hold/closeout-20261102/` 并删除（见清理盘点 I 节）。
+- [x] KIOXIA 历史栈已合并成配方包并删除（见清理盘点 I 节）。
 - [ ] 主仓库 `.git/objects/pack/tmp_pack_*` 有一个中断留下的垃圾文件，可 `git gc` 清理。
+- [ ] 保留的 9 个 Docker 卷（`automation-rewrite_tp-auto-pgdata`、`tp-stage3-20261018_stage3_pg_data`、`thingspanel-install_*`、`codex-dm-native-read-*-pgdata`）：确认归属的工作线后再决定删不删。
+- [ ] 仍保留的未完成工作线（不碰）：后端 `wp/d1-dbx-returning`、`wp/t1-a2-platform-dal-service`、`wp/t1b-ota-fix`、`wp/t7-ha-release-backport`、`wp/mvp-run-default-stack`；安装器 `wp/t6-ha-*`、`codex/ha-image-preload`、`feat/thingmodel-api`；前端 `wp/pui-frontend`、`wp-t7-plugin-list-urgent`、`wp-t8-ha-public-frontend`、`ha-r-deeplink`、主目录 `master`（38 个改动）；连接器 `t6-public-artifact`、`t6-public-release`。
 

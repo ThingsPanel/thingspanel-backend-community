@@ -145,3 +145,25 @@
 - **和清理有没有关系**：KIOXIA 的大批量删除可能和这次崩溃同一时段，但前两次事故发生时我并没有在做这类操作，所以**不能下结论**。
 - **更像是共同原因**：验收栈的 Postgres 数据目录绑定在外置 USB 盘 `/Volumes/KIOXIA/…/data/postgres`，经 OrbStack 的文件共享挂进容器。容器侧读写出 I/O 错误，宿主机上文件却完好，指向挂载层/USB 抖动，而不是数据损坏。**这是推断，不是证实。**
 - **建议**：把验收栈的 Postgres（和 Redis）数据改放 Docker 命名卷（内置盘现在有 32 GB），这样不再经过外置盘的挂载。这会改动栈的 compose，等你决定。
+
+## I. 第二轮（2026-11-09，负责人决定：数据库和 Redis 继续放外置盘；没做完的清理项由我收尾，有价值的合并、该删的删，未完成的工作线不碰）
+
+| 项 | 做了什么 | 依据 |
+|---|---|---|
+| closeout 两个目录（内置盘 3.65 GB） | **先归档后删除**：`archive/secrets-hold/closeout-20261102/` 下 7 个压缩包（共约 216 MB，权限 0600，附 `INDEX.md` 和 sha256）。backend/frontend/installer 只存工作区文件（含全部 504/2/37 个未提交改动），不带 `.git`，因为 HEAD 提交都在正式仓库里；horizon、thingsvis、sdk 连 `.git` 一起存；`node_modules`、`gomodcache` 不存 | 条目数与源目录逐项对得上；抽检 `sdk/managed_runtime.go` 和 `backend/cmd/tp-broker-owner/main.go` 与原文件逐字节一致；没有容器、符号链接或 worktree 引用这两个目录。里面有开发用私钥、`.env`、夹具凭据，所以放 `secrets-hold` |
+| KIOXIA 7 个历史测试栈（约 6.5 GB） | **合并成一个“配方包”再删**：`archive/secrets-hold/old-test-stacks-20261104/old-test-stack-recipes.tar.gz`（2910 个文件，6.1 MB）：只留小于 2 MB 的脚本、compose、配置、说明、日志；二进制（4 份 79 MB 的 `ThingsPanel-Go`）、缓存、密钥目录、运行状态、HA 数据没留 | 没有任何容器（含已退出）、worktree、符号链接引用它们；T5/T7/T7b/T7c/P1 的证据已在 `archive/evidence/`；`tp-a-access-test` 基本是 3 GB 的编译缓存 |
+| Docker 容器 | 删 44 个已退出且无人引用的：`t1a1-*`、`t1a2-*`、`p2-pg`、`p3-device-ack-pg`、`pui-pg`、`tp-closeout-*`、从未启动过的 2 个、11-06 隔离候选测试留下的 `tp-codex-ha-*`（`docker rm -v`）。**保留**：运行中的栈、`tp-develop-local`、`tp-takeover-b-horizon-minio`（`AGENTS.md` 第 4 节）、`sqldb-*`（Encore 自己管）、被 mvp 栈 Agent 引用的那个 | 逐个核对过不被运行中 Agent 的状态文件引用 |
+| Docker 卷 | 删 25 个孤儿卷：11-02 closeout/takeover 测试的数据库卷（`tp-b-*`、`tp-takeover-b-*`、`tp-cb-v130-isolated-*`、`tp-closeout-*`）和无名匿名卷。**保留 9 个**：`automation-rewrite_*`、`tp-stage3-20261018_*`、`thingspanel-install_*`、`codex-dm-native-read-*`，看着是别的工作线的数据库，我不能确认能不能删 | 卷没有被任何容器引用 |
+| Docker 镜像 | 容器清掉后又删 5 个无人引用的镜像（两个 1.4 GB 的 `tp-closeout-thingsvis-final:*`、1 个悬空镜像等） | — |
+| 重复分支和 worktree | 删 8 个：后端 `wp/t7-plugin-install-test-deploy`（已在 `origin/main`）；安装器 `codex/t6-cloudflare-worker-assets`（在 `origin/wp/t6-ha-develop-validation`）、`wp/t6-ha-signing-dispatch` 和 `wp/t6-plugin-distribution`（都在 `origin/develop`）、`wp/pui-agent`（与 `codex/ha-image-preload-20261106` 是同一个提交）；前端 `codex/ha-install-platform-origin-20261108`、`codex/ha-redirect-permission-20261109`（都在 `origin/develop`）；连接器 `wp/t6-ha-package`（在 `wp/t6-ha-public-release`）。**今天新建的那个前端 worktree 这次也删了**，因为它已完整合入 `origin/develop` 且没有改动 | 删前重新核对：worktree 无改动，且分支是目标引用的祖先 |
+| KIOXIA `tmp/` | 删 `mvp-run-20261105`、`mvp-run-20261105-gocache`、`p3-real-broker-20261105`（共约 260 MB）。**保留** `mvp-ha-resume-20261105`、`ph1-s1-work`（有运行中的容器绑着） | 无容器、无 worktree 引用；里面只有构建产物、前端副本和一个干净的上游克隆；证据已归档 |
+
+### 结果
+- 内置盘：可用 **21 GB → 41 GB**（已用 90% → 80%）；KIOXIA 可用 406 GB。
+- worktree / 本地分支：后端 8 / 12，安装器 6 / 8，前端 9 / 13，连接器 3 / 3（清理前 5 个仓库共 45 个 worktree、79 个分支，这四个仓库已合计少了 26 个 worktree 和 26 个分支左右）。
+- 没动：运行中的栈（验收栈 11 个容器、`pui-stack`、`ph1-s1`、`mvp-ha`）和它们的数据目录。验收栈后端 `/health` 仍是 200。
+
+### 外置盘稳定性（你说你来解决，这是我看到的线索，都是推断）
+- 这台机器 `pmset` 的 `disksleep` 是 **10 分钟**：外置盘空闲 10 分钟会休眠，下一次读写要等它唤醒，容器里的 Postgres 刚好在这时写事务日志就可能报 I/O 错误。**今天三次事故（09:21、11:21、11:44）都不是在我连续操作时发生的**，和“间歇性空闲后唤醒”这个解释不矛盾，但我没有证实。改法是 `sudo pmset -a disksleep 0`（需要你自己执行，我不改系统设置）。
+- 盘走 USB 且 `Solid State: Info not available`，多半是 USB 转接芯片：换个直连口、不经集线器，或者用带外接供电的集线器。
+- 数据放外置盘本身可以，但 Postgres 对 I/O 错误很敏感：如果以后还崩，可以先在 `docker logs` 里看是不是同样的 `could not write to log file … I/O error`。
