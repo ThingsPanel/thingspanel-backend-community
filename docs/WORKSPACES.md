@@ -9,24 +9,10 @@
 
 | 路径 | 分支 | 任务 | 负责人 | 状态 / 处置 |
 |---|---|---|---|---|
-| `.claude/worktrees/phase1-progress-handoff` | `wp/phase1-progress-handoff` | PHASE1 产品进度交接文档 | Codex | 2026-11-05 登记；待审查，删除需用户确认，2026-11-12 后再评估 |
-| `.claude/worktrees/wp-kioxia-config-20261105` | `wp/kioxia-config-20261105` | 新盘路径配置 | 总监 | 2026-11-05 登记；保留，删除待用户确认 |
-| `.claude/worktrees/wp-mvp-dispatch-20261105` | `wp/mvp-dispatch-20261105` | 第一阶段派工调整 | 总监 | 2026-11-05 登记；验收合并后保留，删除时间待用户确认 |
 | `~/.codex/worktrees/thingspanel-develop-backend/thingspanel-backend-community` | `develop` | 共享开发线 | 总监 | 保护，不动 |
 | `.claude/worktrees/wp-db-compat-f6f630` | `wp/d1-dbx-returning` | 数据库兼容（D1） | 进行中会话 | 保护，不动 |
-| `.claude/worktrees/wp-plugin-install-e5e1f9` | `claude/wp-plugin-install-e5e1f9` | 插件安装 | 进行中会话 | 保护，不动 |
 | `.claude/worktrees/wp-missing-api-5613cb` | `claude/wp-missing-api-5613cb` | 补全缺失 API（已暂停认领） | — | 先保留，待总监决定 |
-| `.claude/worktrees/wp-t1-0-relational-b140f7` | `claude/wp-t1-0-relational-b140f7` | T1-0 关系库底座设计 | 进行中会话 | 进行中，不动 |
-| `.claude/worktrees/wp-plugin-install-ui-8bf83e` | `claude/wp-plugin-install-ui-8bf83e` | PLUGIN-UI 插件一键安装界面（第一阶段设计） | 进行中会话 | 2026-11-05 登记；设计待总监审查，合并后当天清理 |
-| `.claude/worktrees/wp-ha-plugin-target-docs-20261106` | `wp/ha-plugin-target-docs-20261106` | HA 插件目标分析与任务拆分（文档） | Codex | 2026-11-06 登记；提交待审查，不推送不合并 |
-| `.claude/worktrees/wp-t7-ha-catalog-renewal` | `wp/t7-ha-catalog-renewal` | T7 HA 共享安装与续期稳定 | Codex | 2026-11-06 登记；进行中，预计审查合并后清理，删除前确认 |
-| `.claude/worktrees/wp-t1-a1-platform-start` | `wp/t1-a1-platform-start` | T1-A1 平台启动与连接 | Codex 子会话 | 基线 `develop@85b04e7b339cc0b7d4ff78ba6ec5e7de1640e792`；已提交待审查，审查后清理 |
 | `.claude/worktrees/wp-ha-handover` | `wp/ha-handover` | HA 插件一键安装测试移交（入口文档、用例、校验脚本、缺口分析） | Claude | 2026-11-09 登记；未提交，待负责人决定；合并后当天删除 |
-| `.claude/worktrees/wp-t4-plugin-identity-3cf9d2` | `claude/wp-t4-plugin-identity-3cf9d2` | T4 插件身份 | 进行中会话 | 进行中，不动 |
-| `.claude/worktrees/wp-p2-fix` | `wp/p2-fix-redaction` | P2-fix 凭据脱敏回归修复 | Codex 子任务 | 进行中；审查合并后当天清理 |
-| `.claude/worktrees/wp-p2-fix2-form-brackets` | `wp/p2-fix2-form-brackets` | P2-fix2 原始方括号 form 字段脱敏 | Codex 子任务 | 进行中；审查合并后当天清理 |
-| `.claude/worktrees/wp-p3-device-ack-timeout` | `wp/p3-device-ack-timeout` | P3 Broker 设备回执超时可见 | Codex 子任务 | 进行中；审查合并后当天清理 |
-| `.claude/worktrees/wp-p3-real-broker-20261105` | `wp/p3-real-broker-20261105` | P3 真实 Broker ACK / 无 ACK 验收 | Codex 子任务 | 2026-11-05 登记；完成待审查，清理时间待负责人确认 |
 | `~/.codex/worktrees/native-command-validation/thingspanel-backend-community` | `codex/thingmodel-upgrade-v1` | 已归档（标签 `archive/cleanup-20261104-codex-thingmodel-upgrade-v1`） | — | 干净，已移除，分支已删 |
 | `~/.codex/worktrees/thingspanel-runtime-gateway/thingspanel-backend-community` | `codex/runtime-tenant-source-binding` | 已归档 | — | 已移除，分支已删 |
 | `~/.codex/worktrees/thingspanel-runtime-read-context/thingspanel-backend-community` | `codex/runtime-read-context` | 已归档 | — | 已移除，分支已删 |
@@ -105,6 +91,5 @@
 ## PH1-S1（2026-11-05 登记）
 | 路径 | 分支 | 备注 |
 |---|---|---|
-| `.claude/worktrees/wp-ph1-s1-core-c02f8c`（后端） | `claude/wp-ph1-s1-core-c02f8c` | PH1-S1 交付；待总监审查 |
 | `/Volumes/KIOXIA/tmp/ph1-s1-work/frontend`（前端 worktree，分离头 `1da66eca`） | — | PH1-S1 前端构建来源；审查后可删 |
 | `/Volumes/KIOXIA/tmp/ph1-s1-work/ph1-s1`（安装器 `4a8f286` 副本 + compose 项目 `ph1-s1`） | — | **运行中，保留给 HA 卡**；含凭据在 `../secrets/` |
