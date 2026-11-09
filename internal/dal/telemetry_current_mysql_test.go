@@ -9,6 +9,7 @@ import (
 	"time"
 
 	mysqldriver "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -16,6 +17,7 @@ import (
 
 	"project/internal/model"
 	"project/internal/query"
+	"project/pkg/global"
 	componentsql "project/sql"
 )
 
@@ -133,6 +135,35 @@ func TestCurrentTelemetryReadsBehaveTheSameOnMySQLAsOnPostgres(t *testing.T) {
 	}
 	if len(a) != 11 {
 		t.Fatalf("unexpected scenario length %d: %v", len(a), a)
+	}
+}
+
+func TestReadTenantLatestTelemetrySupportsMySQL(t *testing.T) {
+	_, my := platformMySQL(t)
+	previousDB := global.DB
+	global.DB = my
+	t.Cleanup(func() { global.DB = previousDB })
+	tenantID, deviceID := uuid.NewString(), uuid.NewString()
+	if err := my.Exec("INSERT INTO device_id_reservations (id, tenant_id, state) VALUES (?, ?, 'active')", deviceID, tenantID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := my.Exec("INSERT INTO devices (id, name, tenant_id, device_number, is_online) VALUES (?, ?, ?, ?, 1)", deviceID, "boiler", tenantID, uuid.NewString()).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range []struct {
+		key string
+		v   float64
+	}{{"temperature", 23.5}, {"humidity", 48.2}} {
+		if err := my.Exec("INSERT INTO telemetry_current_datas (device_id, `key`, ts, number_v, tenant_id) VALUES (?, ?, ?, ?, ?)", deviceID, row.key, time.Now().UTC(), row.v, tenantID).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows, err := ReadTenantLatestTelemetry(tenantID)
+	if err != nil {
+		t.Fatalf("read latest telemetry on MySQL: %v", err)
+	}
+	if len(rows) != 2 || rows[0].DeviceID != deviceID || rows[1].DeviceID != deviceID {
+		t.Fatalf("unexpected latest telemetry rows: %+v", rows)
 	}
 }
 

@@ -24,7 +24,7 @@ func (*Device) getTenantTelemetryDataCurrent(tenantID string) ([]map[string]inte
 		return nil, errcode.New(errcode.CodeDBError)
 	}
 	dialect := global.DB.Dialector.Name()
-	if dialect != "postgres" && dialect != "sqlite" {
+	if dialect != "postgres" && dialect != "mysql" && dialect != "sqlite" {
 		return nil, errcode.New(errcode.CodeServiceUnavailable)
 	}
 	rows, err := dal.ReadTenantLatestTelemetry(tenantID)

@@ -213,3 +213,59 @@ func TestMySQLIntentsAreIdempotentAndValidated(t *testing.T) {
 	}
 	_ = url.QueryEscape
 }
+
+func TestHistoryDeletionClaimSkipsLockedRowsOnBothDialects(t *testing.T) {
+	for _, scenario := range []struct {
+		name string
+		open func(*testing.T) *gorm.DB
+	}{
+		{name: "postgres", open: newHistoryIntentDB},
+		{name: "mysql", open: openMySQLIngest},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			db := scenario.open(t)
+			if err := EnqueueHistoryDeviceDeletion(db, "locked-device"); err != nil {
+				t.Fatal(err)
+			}
+			lock := db.Begin()
+			if lock.Error != nil {
+				t.Fatal(lock.Error)
+			}
+			var id int64
+			if err := lock.Raw("SELECT id FROM telemetry_history_deletions WHERE device_id = ? FOR UPDATE", "locked-device").Scan(&id).Error; err != nil {
+				_ = lock.Rollback().Error
+				t.Fatal(err)
+			}
+			result := make(chan struct {
+				n   int
+				err error
+			}, 1)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			go func() {
+				n, err := ReplayHistoryDeletions(ctx, db, &recordingDeleter{}, "worker-1", 10, time.Minute)
+				result <- struct {
+					n   int
+					err error
+				}{n: n, err: err}
+			}()
+			select {
+			case got := <-result:
+				if got.err != nil || got.n != 0 {
+					_ = lock.Rollback().Error
+					t.Fatalf("claim should skip the locked row, got n=%d err=%v", got.n, got.err)
+				}
+			case <-time.After(3 * time.Second):
+				_ = lock.Rollback().Error
+				t.Fatal("claim waited on a locked deletion instead of skipping it")
+			}
+			if err := lock.Rollback().Error; err != nil {
+				t.Fatal(err)
+			}
+			deleter := &recordingDeleter{}
+			if n, err := ReplayHistoryDeletions(context.Background(), db, deleter, "worker-2", 10, time.Minute); err != nil || n != 1 || fmt.Sprint(deleter.deleted) != "[locked-device]" {
+				t.Fatalf("unlocked deletion should complete, got n=%d err=%v deleted=%v", n, err, deleter.deleted)
+			}
+		})
+	}
+}

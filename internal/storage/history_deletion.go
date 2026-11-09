@@ -52,7 +52,7 @@ func ReplayHistoryDeletions(ctx context.Context, db *gorm.DB, deleter HistoryDel
 			WHERE d.state = 'pending' AND (d.claimed_until IS NULL OR d.claimed_until < `+flavor.now()+`)
 			AND NOT EXISTS (SELECT 1 FROM telemetry_history_intents i
 				WHERE i.device_id = d.device_id AND i.state = 'pending' AND i.claimed_until IS NOT NULL AND i.claimed_until >= `+flavor.now()+`)
-			ORDER BY d.id LIMIT ? FOR UPDATE OF d SKIP LOCKED`, limit).Scan(&claimed).Error; err != nil {
+			ORDER BY d.id LIMIT ? `+flavor.forUpdate("d"), limit).Scan(&claimed).Error; err != nil {
 			return err
 		}
 		for _, d := range claimed {

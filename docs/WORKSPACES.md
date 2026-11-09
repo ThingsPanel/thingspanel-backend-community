@@ -21,7 +21,7 @@
 | `.claude/worktrees/wp-ha-plugin-target-docs-20261106` | `wp/ha-plugin-target-docs-20261106` | HA 插件目标分析与任务拆分（文档） | Codex | 2026-11-06 登记；提交待审查，不推送不合并 |
 | `.claude/worktrees/wp-t7-ha-catalog-renewal` | `wp/t7-ha-catalog-renewal` | T7 HA 共享安装与续期稳定 | Codex | 2026-11-06 登记；进行中，预计审查合并后清理，删除前确认 |
 | `.claude/worktrees/wp-t1-a1-platform-start` | `wp/t1-a1-platform-start` | T1-A1 平台启动与连接 | Codex 子会话 | 基线 `develop@85b04e7b339cc0b7d4ff78ba6ec5e7de1640e792`；已提交待审查，审查后清理 |
-| `.claude/worktrees/wp-t1-a2-platform-dal-service` | `wp/t1-a2-platform-dal-service` | T1-A2 平台 DAL / repo / service | Codex 子会话 | 基线 `develop@45887d964a36d3a599d05eca0eb52a6557397a6d`；进行中 |
+| `.claude/worktrees/wp-t1-a2-platform-dal-service` | `wp/t1-a2-platform-dal-service` | T1-A2 平台 DAL / repo / service | Codex 子会话 | 已合入本地 develop `fcb364d1`；worktree 暂留，等待整体验收后确认清理 |
 | `.claude/worktrees/wp-t4-plugin-identity-3cf9d2` | `claude/wp-t4-plugin-identity-3cf9d2` | T4 插件身份 | 进行中会话 | 进行中，不动 |
 | `.claude/worktrees/wp-p2-fix` | `wp/p2-fix-redaction` | P2-fix 凭据脱敏回归修复 | Codex 子任务 | 进行中；审查合并后当天清理 |
 | `.claude/worktrees/wp-p2-fix2-form-brackets` | `wp/p2-fix2-form-brackets` | P2-fix2 原始方括号 form 字段脱敏 | Codex 子任务 | 进行中；审查合并后当天清理 |
@@ -112,7 +112,7 @@
 ## T3（2026-11-09 登记）
 | 路径 | 分支 | 任务 | 负责人 | 预计清理 |
 |---|---|---|---|---|
-| `.claude/worktrees/wp-db-handover/.claude/worktrees/wp-t3-tdengine` | `wp/t3-tdengine` | T3 TDengine 转正与完整栈验收 | Codex | 审查合并后按规则确认清理 |
+| `.claude/worktrees/wp-db-handover/.claude/worktrees/wp-t3-tdengine` | `wp/t3-tdengine` | T3 TDengine 转正与完整栈验收 | Codex | 已合入本地 develop `d7fbfebf`；worktree 暂留，等待整体验收后确认清理 |
 | `/Volumes/KIOXIA/tmp/dbp1-tdengine-stack` | — | 独立安装器副本与 `dbp1-tdengine` Compose 项目（含本地配置）；A2 独立启动探针已移除，遗留匿名 Mosquitto 卷 `b61b4bdc2d16`、`c2e1008577a1` 保留 | Codex | 验收后留存，卷删除前确认 |
 | `/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine/stack` | — | 不含凭据的安装器源码快照（早期初始化副本） | Codex | 保留，删除前确认 |
 | `/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine` | — | A1 观察、后端日志和 TDengine A2 测试结果；历史/统计已验证，导出文件待用户回到电脑后确认，不含凭据 | Codex | 交付证据 |
@@ -120,4 +120,4 @@
 ## T1-A3（2026-11-09 登记）
 | 路径 | 分支 | 任务 | 负责人 | 预计清理 |
 |---|---|---|---|---|
-| `.claude/worktrees/wp-t1-a3-storage` | `wp/t1-a3-storage` | T1-A3 平台存储与遥测 MySQL 兼容 | Codex | 审查合并后按规则确认清理 |
+| `.claude/worktrees/wp-t1-a3-storage` | `wp/t1-a3-storage` | T1-A3 平台存储与遥测 MySQL 兼容 | Codex | 开发及验证中；合入本地 develop 后等待整体验收确认清理 |

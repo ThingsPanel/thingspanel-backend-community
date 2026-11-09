@@ -30,6 +30,13 @@ func (f sqlFlavor) now() string {
 	return "NOW()"
 }
 
+func (f sqlFlavor) forUpdate(alias string) string {
+	if f.mysql {
+		return "FOR UPDATE SKIP LOCKED"
+	}
+	return "FOR UPDATE OF " + alias + " SKIP LOCKED"
+}
+
 // leaseExpr returns the expression and argument for "now plus a lease of whole seconds".
 func (f sqlFlavor) leaseExpr(seconds float64) (string, any) {
 	if f.mysql {
