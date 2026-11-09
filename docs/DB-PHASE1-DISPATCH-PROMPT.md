@@ -88,7 +88,17 @@ docker run -d --name dbp1-redis -p 56179:6379 redis:7-alpine
 docker run -d --name dbp1-mqtt  -p 56183:1883 eclipse-mosquitto:2 mosquitto -c /mosquitto-no-auth.conf
 ```
 **卡点 B3-2：配置**。复制 `configs/conf.yml` 成一个临时文件，用 `go run . -config <临时文件>` 启动。要改：`relational.driver: mysql` 和 `relational.mysql.platform.*`（写法见 `docs/tasks/T1-A1-DONE.md` 的“最小 MySQL 配置示例”）、`db.redis.addr`、MQTT 地址。也可以用环境变量，前缀是 `GOTP_`，点换成下划线，例如 `GOTP_RELATIONAL_DRIVER=mysql`。**不要用 `mqtt.input_profile=ingress_v1`**（那条路只支持 PG）。
-**卡点 B3-3：账号**。MySQL 的种子数据（`sql/mysql/014_platform_seed.sql`）里有默认租户账号 `tenant@tenant.cn`，密码问我，**不要写进任何文件**。
+**卡点 B3-3：账号**。种子数据（MySQL：`sql/mysql/014_platform_seed.sql`）里有默认租户账号 `tenant@tenant.cn`，**没人知道密码，自己重置**：这是你自己起的临时库，直接把它的密码改成你定的测试密码。登录用的是普通 bcrypt（`pkg/utils/hash.go`），所以：
+  ```bash
+  cat > /tmp/bc.go <<'EOF'
+  package main
+  import ("fmt";"os";"golang.org/x/crypto/bcrypt")
+  func main(){h,_:=bcrypt.GenerateFromPassword([]byte(os.Args[1]),10);fmt.Println(string(h))}
+  EOF
+  HASH=$(go run /tmp/bc.go '<你定的测试密码>')       # 在仓库根目录运行，依赖已在 go.mod 里
+  docker exec dbp1-mysql mysql -uroot -ppw thingspanel -e "UPDATE users SET password='$HASH' WHERE email='tenant@tenant.cn';"
+  ```
+  PG 那次同理（`docker exec … psql … -c "UPDATE users SET password='…' WHERE email='tenant@tenant.cn';"`）。**只能改你自己起的临时库，别人的栈一律不碰**；测试密码不要写进仓库文件。
 - PG 那一次同理，把 `relational.driver` 换成 `postgres`，用 `tp-dev-pg-oracle`（56001）或自己的 PG 容器。
 - 完成标准：两次冒烟每一步都 `ok`；输出存到证据目录；写 `docs/tasks/DB-PHASE1-DONE.md`（第一阶段总结，一页）。
 
@@ -153,7 +163,7 @@ git diff develop -- ':(glob)sql/[0-9]*.sql' ':(glob)sql/broker/*.sql' ':(glob)sq
 - 要改范围外的文件；
 - 一个测试失败，半天看不懂；
 - PG 和 MySQL 结果不一样，不知道哪个对；
-- 安装器初始化、账号密码、端口冲突；
+- 安装器初始化、端口冲突；
 - 任何一项做到第 3 天还没完：把已做的提交成 `wip:`，写清楚还差什么，停下。
 
 ### 顺序小结
