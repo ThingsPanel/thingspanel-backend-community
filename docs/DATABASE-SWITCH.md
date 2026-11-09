@@ -10,7 +10,7 @@ storage:
   tdengine:
     url: http://tdengine:6041
     user: root
-    password: <your-tdengine-password>
+    password: "<your-tdengine-password>"
     database: thingspanel_history
 ```
 

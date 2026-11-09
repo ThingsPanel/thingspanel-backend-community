@@ -1,6 +1,6 @@
 # T3 完成说明（A-2 完成，A-1 导出待确认）
 
-分支：`wp/t3-tdengine`  基线：`develop@c0ab14d1`  当前提交：见本文件提交
+分支：`wp/t3-tdengine`  基线：`develop@c0ab14d1`  A-2 实现提交：`b76e3a38`
 
 ## 改了什么
 
