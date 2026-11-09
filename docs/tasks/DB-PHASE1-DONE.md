@@ -1,6 +1,6 @@
 # 数据库兼容第一阶段完成说明
 
-分支：`develop`（本地，未推送）  基线：`origin/develop@c0ab14d1`  当前提交：`2c03050b`
+分支：`develop`（本地，未推送）  基线：`origin/develop@c0ab14d1`  当前代码提交：`ee288cbc`（双库测试所用代码快照）
 
 ## 改了什么
 
@@ -16,7 +16,8 @@
 - `go test -count=1 ./internal/app/...` PASS；TDengine 定向测试 5 PASS、3 SKIP（均需 broker 集成测试 DSN）。
 - `go test -count=1 ./internal/service` PASS；`go test -count=1 ./internal/repo` PASS。
 - `go test ./... -run '^$'` 根 Go 模块编译 PASS。
-- `go test -count=1 ./internal/api`：1 个失败 `TestTelemetryHTTPDeviceAuthorization/owner_key`；相关 API 文件与 `origin/develop` 相同，判断与本阶段数据库改动无关，但未在 origin 基线上复跑；已登记 TODO。
+- `TestTelemetryHTTPDeviceAuthorization/owner_key` 在基线 `origin/develop@c0ab14d1` 上同样失败（`code=40103 allowed=true`），属于原有问题，和本阶段无关；已登记 TODO。
+- 双库定向重跑：grep 汇总 30 PASS / 37 SKIP / 0 FAIL；所有名称含 `PostgresMySQL` 或 `MySQL` 的用例均 PASS、0 SKIP。完整日志与逐项跳过原因见外置证据索引：`/Volumes/KIOXIA/archive/evidence/2026-11-09-DB-PHASE1-fix/`（`/Volumes/80G` 当前未挂载）。
 - SQL 依赖禁用引用检查新增行为 0 处；PG 已执行迁移文件差分为空；`git diff --check` PASS。
 - CSV 下载修复将 Blob URL 回收延后 1 秒并把隐藏链接挂入页面。浏览器下载事件收到 `telemetry_data.csv`，本机文件内容可读；前端 `pnpm build` PASS，类型检查通过。
 
