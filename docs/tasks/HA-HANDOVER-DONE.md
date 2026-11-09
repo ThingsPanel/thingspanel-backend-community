@@ -103,3 +103,14 @@ docker rm tp-agent-prepared-288f94e3600b4bd6575c5315351facd5be646a7f tp-agent-pr
 docker rm tp-agent-prepared-c6acd118461359da8d5d5331b5d34eba29b4c196 tp-agent-prepared-97a87a08900e63bf1ead6bb1e59a49144f2420c9 tp-agent-prepared-8481b53a9556887f8ddc0c65f6752eb1bfac8cd0
 docker network rm tp-codex-ha-net-20261106
 ```
+
+## 8. 冒烟结果（2026-11-09，验收栈，基线：后端本地 develop `c0ab14d1`、Broker `ph1-520a3222`、前端 `web/dist`、公开 HA 1.0.0）
+
+| 步骤 | 结果 |
+|---|---|
+| 超管点“安装”，装好显示“已启用 / 健康 ok” | ✅ 第 7 代、第 8 代各一次（第 7 代是“重试”，第 8 代是卸载后的全新安装，约 5 秒） |
+| 租户页面建接入点、选实体建设备，上行、下行 | ✅ 租户 A，3 台设备；上行 HA 温度 93.3、103.3 进平台；下行灯 off→on→off，回执 `result:0`；租户 B 隔离 ✅ |
+| 超管点“卸载” | ✅ 状态 `uninstalled/absent`，第 7 代身份吊销，插件容器退出码 0；设备 3 台、接入点 1 个、服务登记 1 行、历史 106 条全部保留；伪造令牌调心跳被拒（503）。没有单独测“真实的旧令牌” |
+| 卸载后重装 | ✅ 第 8 代 `enabled/ok`，Agent 自己回收了第 7 代的旧容器，只有 1 个运行容器，服务登记没有重复；重装后上下行再验一次 ✅ |
+
+**过程中的意外**：开始卸载前发现安装记录是 `failed / renewal_failed`——Agent 容器 09:21 退出（退出码 135）没有被重启，11:21 Postgres 也异常重启，后端续租 5 次失败后转 `failed`。手工 `docker start` 了 Agent 并点“重试”后恢复。已记入 `docs/TODO.md`。冒烟不依赖它，但同事测的时候如果页面一直转圈、目录接口 503，先 `docker ps -a | grep tp-agent-tp-ha-ui`，Agent 退出了就 `docker start` 它。

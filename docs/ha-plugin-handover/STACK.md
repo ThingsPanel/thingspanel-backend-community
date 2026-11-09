@@ -39,3 +39,7 @@ zsh 里必须用数组 `F=( … )` 再 `"${F[@]}"`，直接用字符串变量会
 ## 重启顺序提醒
 
 改了 Broker（换镜像、重启 broker-owner / mosquitto）之后，**要重启插件容器**：`docker restart $(docker ps -q --filter name=tp-agent-prepared)`（栈里只有一个在跑的插件容器时），否则插件可能不再重连（入口文档 §7 的 7d）。
+
+## Agent 掉了怎么办
+
+页面一直转圈、`/api/v1/plugin/catalog` 返回 503，多半是 Agent 容器退出了（2026-11-09 实际发生过，退出码 135，没有自动重启）：`docker ps -a | grep tp-agent-tp-ha-ui`，已退出就 `docker start tp-agent-tp-ha-ui-acceptance-20261106`，再到页面点“重试”。
