@@ -28,6 +28,7 @@
 ## 没做 / 发现的问题
 
 - A-1 的导出文件尚未目视确认；待用户回到电脑后核实，并把非敏感截图补入证据目录。
+- 用户随后要求重开页面重试；本次页面停在加载中。前端 nginx 对 `/api/v1/logo` 和 `/api/v1/ui_elements/menu` 返回 502，代理地址为 `28.0.0.40:9999`；backend 容器已重启 8 次并在 MQTT adapter 初始化时报 `context deadline exceeded`，health 为 starting。因此这次无法再次点击导出。按派工要求未自行重启或改配置扩大排查。
 - B-2 仍需等 T1-A2 经负责人审查合入 develop 后再开始。
 - A-2 不依赖安装器环境变量；`GOTP_STORAGE_TDENGINE_EXPERIMENTAL` 仍由安装器 compose 传入但后端已忽略。
 - 隔离验收栈、TDengine 测试容器和数据卷均保留，供负责人检查。独立启动探针容器已停止并移除；为测试 broker 自动创建的匿名卷 `b61b4bdc2d16`、`c2e1008577a1` 仍保留，未删除。测试配置保存在 `/Volumes/KIOXIA/tmp/dbp1-tdengine-stack/.env`，权限为 600，不属于证据目录。
