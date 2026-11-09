@@ -63,9 +63,9 @@
 | 公开制品签名 / 摘要 / 篡改拒绝 | ✅ 2026-11-09 实测通过（amd64、arm64） | `tools/verify-public-release.sh` |
 | 公网下载 → Agent → 插件 `/health`（隔离、无平台） | ✅ 通过（仅 arm64 实跑） | `tasks/T6-DISTRIBUTION-DONE.md`（在安装器仓库 `wp/t6-plugin-distribution`） |
 | 真实 HA 上行 + 下行 | ✅ 历史通过：2026-11-04，手工做了迁移、刷新 Broker 范围、重启；建设备用 API 模拟 | [`tasks/T7b-DONE.md`](tasks/T7b-DONE.md) |
-| 租户账号在**页面**里新建接入点、选实体、建设备 | ❌ **没验证过** | [`tasks/PLUGIN-UI-DONE.md`](tasks/PLUGIN-UI-DONE.md) §4.8 |
-| 当前固定组合下的“超管安装 + 租户接入点 + 真实上下行”整条链 | ❌ 没做（HA 任务卡闭环 3、4 未完成） | [`HA-PLUGIN-TASKS-2026-11-06.md`](HA-PLUGIN-TASKS-2026-11-06.md) |
-| 两个租户互相隔离 | ❌ 只有单测，没有真实栈验证 | `tasks/T4-DONE.md` |
+| 租户账号在**页面**里新建接入点、选实体、建设备 | ✅ 2026-11-09 实测通过（演示 HA，租户 A；共 33 个实体，页面 10 个一页，勾选跨页保留） | 整理时现场操作；旧记录见 [`tasks/PLUGIN-UI-DONE.md`](tasks/PLUGIN-UI-DONE.md) §4.8 |
+| 超管安装 + 租户接入点 + 上下行整条链（develop 后端 + develop Broker + 公开 1.0.0 插件） | ✅ 2026-11-09 实测：上行（HA 温度改为 43.3，平台当前值 43.3）、下行（灯 off→on→off，两次回执状态 3、`result:0`）。**只做了一次，没有长跑，用的是演示 HA 不是真实设备** | 现场操作；任务卡见 [`HA-PLUGIN-TASKS-2026-11-06.md`](HA-PLUGIN-TASKS-2026-11-06.md) |
+| 两个租户互相隔离 | ✅ 2026-11-09 实测：租户 B 设备列表为空；对 A 的设备下发命令返回“device not found”，读 A 的遥测返回“无访问权限” | 现场操作；单测见 `tasks/T4-DONE.md` |
 | amd64 真实运行 | ❌ 只验过签名和摘要，没真起过 | — |
 | MySQL | ❌ 未验证（发行版只有 PG + TimescaleDB） | — |
 
@@ -81,7 +81,8 @@
 - ✅ **后端已在 2026-11-09 换成 develop 代码**：用本地 develop `c0ab14d1` 构建了镜像 `thingspanel-backend-ha-ui:develop-c0ab14d1`（镜像 ID `sha256:018b6b5d94f7…`），只替换了栈里的后端容器（数据在绑定目录里没动）。镜像里已确认有 `internal/plugininstall`、`sql/33~35.sql`，以及续租不依赖目录的修复。覆盖文件 `docker-compose.override.yml` 已改指新镜像，旧版备份在同目录 `docker-compose.override.yml.bak-20261109`；旧镜像 `thingspanel-backend-ha-ui:20261106` 还在，想回滚就把备份拷回去再 `up -d --no-deps --no-build backend`。
 - 旧后端的来历（供参考）：旧镜像取自提交 `96d1964c`，**该提交不在任何分支上**（已给其链末端打标签 `archive/ha-ui-acceptance-stack-20261109` → `67f4afe9` 防回收），且续租逻辑要求目录可用，比 develop 少修复 `4bf3ee22`、`5707e9bc`。它与旧的 `renewal_failed` 是否有因果**没验证**。
 - ✅ **安装已恢复**：2026-11-09 08:16 由超管在页面点 Retry，起了 generation 6，页面“已启用 / 健康: ok”，身份未吊销，插件容器（公开 1.0.0 arm64 镜像）在栈网络 `tp-codex-ha-ui-net-20261106` 里运行，重启 0 次。之后若再变 `failed`，先看 `check-test-env.sh` 第 6 项事件。**不要把它当成“已稳定”**：A10（30 分钟）、A13（失联恢复）还没做。
-- ⚠️ **栈里的 Broker 还是 v1.3.0 镜像**。T7（2026-11-04）里 v1.3.0 的 Broker 让插件设备连不上（CONNACK 5），T7b 换成用 develop 重建的 `thingspanel-mosquitto` 后通过。这个栈的 Broker 能不能跑通 B 组数据，**没有验证过**；本机有 `thingspanel-mosquitto:ph1-520a3222`（develop 线构建）可用来替换，但没替换（要同时重启 broker-owner 和 mosquitto，并确认数据库里的 Broker 迁移够新）。B 组如果在 B4/B5 卡住，先查这一点。
+- ✅ **Broker 已换成 develop 线镜像**（`thingspanel-mosquitto:ph1-520a3222`），并实测了上行、下行和租户隔离（见 §3）。换镜像前备份了覆盖文件（`.bak2-20261109`）。
+- 栈的完整说明（跑什么、账号文件放哪、常用命令）见 [`ha-plugin-handover/STACK.md`](ha-plugin-handover/STACK.md)。
 - 这个栈里有别的会话的残留（`http_adapter` 一直 Restarting 与本任务无关；`tp-agent-prepared-*` 里有一堆已退出的旧代次容器）。**别清理它们**，列清单给负责人。
 
 ### 4.2 路线 B：干净机器，用公开安装器（目前被阻塞）
@@ -143,7 +144,10 @@ docs/ha-plugin-handover/tools/check-test-env.sh <栈前缀> <后端端口>
 | 4 | 新建设备后 Broker 范围刷新有延迟，最长约 80 秒，这期间下行命令可能发不出去。刷新靠安装器起的主机监视进程（不是系统服务）。 | PLUGIN-UI-DONE §4.7；`docs/TODO.md` |
 | 5 | 插件“健康：ok”**不代表 HA 连得上**：HA 地址或令牌填错，插件 `/health` 仍是 ok。接入点自己的状态要单独看。 | PLUGIN-UI-DONE §4.2 |
 | 6 | 下行命令被 Broker 丢弃时，P3 已改为超过 30 秒没回执就标失败（默认，`mqtt.command_ack_timeout`）。如果你看到的是“一直成功但 HA 没变”，那就是**新问题**，立刻记录。 | `tasks/P3-DONE.md` |
-| 7 | 实体列表一次最多取 100 个。 | T7b §8 |
+| 7 | 实体列表一次最多取 100 个（演示 HA 有 123 个实体，页面里显示“总计 33”，每页 10 个）。 | T7b §8；2026-11-09 现场 |
+| 7a | **建完设备并同步 Broker 范围后，头一两分钟内 HA 的变化没进平台**：同步完立刻改了两次温度（41.7、42.9）都没收到，约 1 分钟后第三次（43.3）才收到，同时插件才出现遥测连接。原因没查。B4 做的时候留意，改完等一会再改一次。 | 2026-11-09 现场 |
+| 7b | 栈里的 `http_adapter`、`modbus_service` 容器反复连 Broker 被拒（`not authorised`），与 HA 无关，别被日志误导。 | 2026-11-09 现场 |
+| 7c | 租户账号的菜单里也有“设备接入 → 插件安装”，应拒绝租户安装（A5 要验证），**这次没验证**。 | 2026-11-09 现场 |
 | 8 | 只有每个平台一个 HA 插件实例；没有升级入口（社区版不做 OTA）；MySQL、amd64 实跑都没验证。 | PLUGIN-UI-DONE §4.9 |
 | 9 | 后端容器要以 root 才能读 Agent 的 socket 和 token（0600）；换非 root 用户会不通。 | PLUGIN-UI-DONE §4.4 |
 

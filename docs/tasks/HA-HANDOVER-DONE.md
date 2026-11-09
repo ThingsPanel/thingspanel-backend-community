@@ -29,7 +29,9 @@
 
 - **G3 已修**：用本地 develop `c0ab14d1` 构建 `thingspanel-backend-ha-ui:develop-c0ab14d1`（ID `sha256:018b6b5d94f7…`），验收栈只替换后端容器，健康检查通过；覆盖文件已备份（`.bak-20261109`），旧镜像保留可回滚。
 - **G1 已修**：负责人提供本机测试超管账号后，在页面点 Retry，generation 6、`enabled/ok`、身份未吊销、容器重启 0 次（`check-test-env.sh` 核对）。稳定性（A10/A13）未测。
-- **新发现**：栈里 Broker 仍是 v1.3.0 镜像，历史上它会让插件设备 CONNACK 5（T7）；是否影响 B 组没验证，未替换。
+- **Broker 已处理**：栈里 Broker 原是 v1.3.0 镜像（历史上会让插件设备 CONNACK 5）。换成本机 `thingspanel-mosquitto:ph1-520a3222`（develop 线，T7b 用的同一个镜像；Broker 相关目录 `deploy/mosquitto-community`、`cmd`、`internal/brokercontrol`、`sql/broker` 自 `520a3222` 起在 develop 上无变化）。换后 broker-owner 健康。
+- **端到端实测（演示 HA，租户 A）**：租户页面建接入点、选 3 个实体建设备 ✅；`prepare.py --sync-scope` 把平台账号范围从 0 同步为 3 台设备 ✅；上行 ✅（43.3）；下行 ✅（off→on→off，回执 `result:0`）；租户 B 隔离 ✅。起了主机后台 `scope_sync` 监视进程。新发现见入口文档 §7 的 7a–7c。
+- **镜像发布没做**：本机 docker 只登录了 Docker Hub，没有阿里云 / ghcr 凭据，我不会输入凭据；同事在这台 Mac 上测试也用不着发布。发布（P4）留给你。
 - 本文件之前的提交：`05c08404`（本地，未推送）。
 - `WORKSPACES.md` 里有 19 条指向已不存在目录的旧登记（多为已合并清理的工作线），**没改**，它们是你的记录，清理前该先对账。
 
