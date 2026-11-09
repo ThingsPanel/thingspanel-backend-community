@@ -9,6 +9,7 @@
 
 | 路径 | 分支 | 任务 | 负责人 | 状态 / 处置 |
 |---|---|---|---|---|
+| `.claude/worktrees/wp-db-handover` | `wp/db-handover` | 数据库兼容（PG/MySQL/TDengine）接手说明与任务清单（只写文档） | Claude | 2026-11-09 登记；文档交负责人审阅，合并后当天删除 |
 | `.claude/worktrees/phase1-progress-handoff` | `wp/phase1-progress-handoff` | PHASE1 产品进度交接文档 | Codex | 2026-11-05 登记；待审查，删除需用户确认，2026-11-12 后再评估 |
 | `.claude/worktrees/wp-kioxia-config-20261105` | `wp/kioxia-config-20261105` | 新盘路径配置 | 总监 | 2026-11-05 登记；保留，删除待用户确认 |
 | `.claude/worktrees/wp-mvp-dispatch-20261105` | `wp/mvp-dispatch-20261105` | 第一阶段派工调整 | 总监 | 2026-11-05 登记；验收合并后保留，删除时间待用户确认 |
