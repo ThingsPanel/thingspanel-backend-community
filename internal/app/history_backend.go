@@ -25,7 +25,6 @@ type historyBackendSettings struct {
 	User         string
 	Password     string
 	Database     string
-	Experimental bool
 }
 
 // selectHistoryBackend validates the settings and, for a non-default backend, adjusts the
@@ -39,9 +38,6 @@ func selectHistoryBackend(s historyBackendSettings, config *storage.Config) (pre
 	case historyBackendTDengine:
 	default:
 		return nil, fmt.Errorf("unsupported storage.history_backend %q", s.Backend)
-	}
-	if !s.Experimental {
-		return nil, errors.New("storage.history_backend=tdengine has not been validated on a running stack; set storage.tdengine.experimental=true to accept that")
 	}
 	if s.ModeExplicit != "" && s.ModeExplicit != storage.HistoryModeIntent {
 		return nil, fmt.Errorf("storage.history_mode=%q conflicts with storage.history_backend=tdengine", s.ModeExplicit)

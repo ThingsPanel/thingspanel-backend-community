@@ -110,7 +110,6 @@ func WithStorageService() Option {
 			User:         viper.GetString("storage.tdengine.user"),
 			Password:     viper.GetString("storage.tdengine.password"),
 			Database:     viper.GetString("storage.tdengine.database"),
-			Experimental: viper.GetBool("storage.tdengine.experimental"),
 		}, &config)
 		if err != nil {
 			return err

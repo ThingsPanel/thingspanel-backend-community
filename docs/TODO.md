@@ -2,6 +2,7 @@
 
 - [ ] 目录整理
 - [ ] 数据转发
+- [ ] 安装器 compose 仍传 `GOTP_STORAGE_TDENGINE_EXPERIMENTAL`；后端已不再读取，后续可从 compose 清理该无效环境变量。
 
 ## PH1-S1 发现（2026-11-05）
 - 后端：Broker 对平台命令发布返回 PUBACK 拒绝码（如 rc135）时，命令状态仍为 `broker_acknowledged`，应直接 `failed` 并带原因。
