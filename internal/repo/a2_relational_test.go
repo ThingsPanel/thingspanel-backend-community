@@ -2,8 +2,10 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -66,6 +68,65 @@ func TestMarketNativeImportTenantBoundaryPostgresMySQL(t *testing.T) {
 				return nil, fmt.Errorf("other-tenant reservation created=%t, want true", otherCreated)
 			}
 			return fmt.Sprintf("first=%t replay=%t other-tenant-created=%t", first, replay, otherCreated), nil
+		})
+	})
+}
+
+func TestMarketInstallAuthorizationCreateAndLegacySealPostgresMySQL(t *testing.T) {
+	reltest.Run(t, "market-install-authorization-create-and-legacy-seal", func(s *reltest.Scenario) {
+		s.Step("create authorization table with legacy and exact-plan columns", func(ctx context.Context, db *gorm.DB) (any, error) {
+			planType, timeType := "JSONB", "TIMESTAMPTZ"
+			if relational.MustDialectOf(db) == relational.MySQL {
+				planType, timeType = "JSON", "DATETIME(6)"
+			}
+			ddl := `CREATE TABLE market_install_authorizations (
+				id VARCHAR(36) PRIMARY KEY, tenant_id VARCHAR(100) NOT NULL, subject_id VARCHAR(100) NOT NULL,
+				authority VARCHAR(100) NOT NULL, auth_version BIGINT NOT NULL, actor_id VARCHAR(100) NOT NULL,
+				actor_version BIGINT NOT NULL, delegated BOOLEAN NOT NULL, purpose VARCHAR(100) NOT NULL,
+				request_key VARCHAR(128) NOT NULL, request_digest VARCHAR(67) NOT NULL, plan_digest CHAR(64) NOT NULL,
+				operation_id VARCHAR(100) NOT NULL, plan ` + planType + ` NOT NULL, plan_exact TEXT NULL,
+				plan_encoding VARCHAR(64) NULL, session_hash VARCHAR(128) NOT NULL, expires_at ` + timeType + ` NOT NULL,
+				revoked_at ` + timeType + ` NULL, created_at ` + timeType + ` NOT NULL,
+				UNIQUE (tenant_id, request_key))`
+			return nil, db.WithContext(ctx).Exec(ddl).Error
+		})
+		s.Step("create a current authorization and seal only the matching tenant's legacy row", func(ctx context.Context, db *gorm.DB) (any, error) {
+			previous := global.DB
+			global.DB = db
+			defer func() { global.DB = previous }()
+			now := time.Now().UTC().Truncate(time.Microsecond)
+			plan := json.RawMessage(`{"version":1,"count":1.0}`)
+			exact, encoding := string(plan), MarketInstallPlanEncoding
+			created := MarketInstallAuthorization{ID: "grant-new", TenantID: "tenant-a", SubjectID: "subject-a", Authority: "TENANT_ADMIN",
+				AuthVersion: 3, ActorID: "subject-a", ActorVersion: 3, Purpose: "a08.install.v1", RequestKey: "new-request",
+				RequestDigest: "request-digest", PlanDigest: "plan-digest", Plan: plan, PlanExact: &exact, PlanEncoding: &encoding,
+				SessionHash: "session-new", ExpiresAt: now.Add(time.Hour), CreatedAt: now}
+			if err := CreateMarketInstallAuthorization(ctx, &created); err != nil {
+				return nil, fmt.Errorf("create authorization: %w", err)
+			}
+			legacy := MarketInstallAuthorization{ID: "grant-legacy", TenantID: "tenant-a", SubjectID: "subject-a", Authority: "TENANT_ADMIN",
+				AuthVersion: 3, ActorID: "subject-a", ActorVersion: 3, Purpose: "a08.install.v1", RequestKey: "legacy-request",
+				RequestDigest: "legacy-digest", PlanDigest: "legacy-plan-digest", Plan: plan, SessionHash: "session-legacy",
+				ExpiresAt: now.Add(time.Hour), CreatedAt: now}
+			if err := db.WithContext(ctx).Create(&legacy).Error; err != nil {
+				return nil, fmt.Errorf("seed legacy authorization: %w", err)
+			}
+			wrongTenant := legacy
+			wrongTenant.TenantID = "tenant-b"
+			if err := SealMarketInstallAuthorizationPlan(ctx, wrongTenant, string(plan)); err != ErrMarketInstallUnauthorized {
+				return nil, fmt.Errorf("cross-tenant seal error=%v, want unauthorized", err)
+			}
+			if err := SealMarketInstallAuthorizationPlan(ctx, legacy, string(plan)); err != nil {
+				return nil, fmt.Errorf("seal matching legacy authorization: %w", err)
+			}
+			var sealed MarketInstallAuthorization
+			if err := db.WithContext(ctx).Where("id=? AND tenant_id=?", legacy.ID, legacy.TenantID).Take(&sealed).Error; err != nil {
+				return nil, err
+			}
+			if sealed.PlanExact == nil || sealed.PlanEncoding == nil || *sealed.PlanExact != string(plan) || *sealed.PlanEncoding != MarketInstallPlanEncoding {
+				return nil, fmt.Errorf("legacy row not sealed exactly: exact=%v encoding=%v", sealed.PlanExact, sealed.PlanEncoding)
+			}
+			return "created current grant; cross-tenant seal rejected; legacy grant sealed and read back", nil
 		})
 	})
 }

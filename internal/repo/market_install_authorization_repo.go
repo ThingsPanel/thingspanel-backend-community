@@ -95,7 +95,7 @@ func SealMarketInstallAuthorizationPlan(ctx context.Context, expected MarketInst
 			}
 			return verifyMarketInstallGrantWrite(tx, expected, exact)
 		}
-		updated := tx.Model(&MarketInstallAuthorization{}).Where("id=? AND plan_exact IS NULL AND plan_encoding IS NULL AND plan_digest=? AND plan=CAST(? AS jsonb)", expected.ID, expected.PlanDigest, string(expected.Plan)).Updates(map[string]interface{}{"plan_exact": exact, "plan_encoding": MarketInstallPlanEncoding})
+		updated := tx.Model(&MarketInstallAuthorization{}).Where("id=? AND plan_exact IS NULL AND plan_encoding IS NULL AND plan_digest=? AND plan=?", expected.ID, expected.PlanDigest, string(expected.Plan)).Updates(map[string]interface{}{"plan_exact": exact, "plan_encoding": MarketInstallPlanEncoding})
 		if updated.Error != nil {
 			return updated.Error
 		}
@@ -108,9 +108,10 @@ func SealMarketInstallAuthorizationPlan(ctx context.Context, expected MarketInst
 
 func verifyMarketInstallGrantWrite(tx *gorm.DB, expected MarketInstallAuthorization, exact string) error {
 	var stored MarketInstallAuthorization
-	// JSONB remains a compatibility copy. Compare its value to the original
-	// request in PostgreSQL, while comparing the exact text byte for byte.
-	result := tx.Where("id=? AND plan=CAST(? AS jsonb)", expected.ID, string(expected.Plan)).Take(&stored)
+	// Plan is a JSON column in both supported dialects. Binding the JSON value
+	// directly avoids PostgreSQL-only casts while keeping the exact text check
+	// below as the integrity fence.
+	result := tx.Where("id=? AND plan=?", expected.ID, string(expected.Plan)).Take(&stored)
 	if result.Error != nil {
 		return result.Error
 	}
