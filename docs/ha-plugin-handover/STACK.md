@@ -35,3 +35,7 @@ zsh 里必须用数组 `F=( … )` 再 `"${F[@]}"`，直接用字符串变量会
 ## 改动记录（可回滚）
 
 - `docker-compose.override.yml.bak-20261109`：改后端镜像前的版本；`.bak2-20261109`：改 Broker 镜像前的版本。旧镜像 `thingspanel-backend-ha-ui:20261106` 和 `registry…/thingspanel-mosquitto:v1.3.0` 都还在。
+
+## 重启顺序提醒
+
+改了 Broker（换镜像、重启 broker-owner / mosquitto）之后，**要重启插件容器**：`docker restart $(docker ps -q --filter name=tp-agent-prepared)`（栈里只有一个在跑的插件容器时），否则插件可能不再重连（入口文档 §7 的 7d）。

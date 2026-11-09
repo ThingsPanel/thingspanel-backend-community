@@ -1,7 +1,7 @@
 # HA 插件一键安装 — 测试移交入口
 
 > **从这里开始读。** 读完这一份你就知道：要测什么、被测的东西在哪、环境怎么来、怎么测、哪些问题已知。
-> 更细的步骤在 [`ha-plugin-handover/TEST-CASES.md`](ha-plugin-handover/TEST-CASES.md)。
+> 更细的步骤在 [`ha-plugin-handover/TEST-CASES.md`](ha-plugin-handover/TEST-CASES.md)；**负责发布镜像的人看 [`HA-PLUGIN-PUBLISH-TASK.md`](HA-PLUGIN-PUBLISH-TASK.md)**。
 > 文档日期 2026-11-09。状态会变，**动手前先跑 §6 的两个体检脚本**，别全信文字。
 
 ## 0. 三十秒版
@@ -16,23 +16,82 @@
 
 ## 1. 整件事是怎么串起来的
 
+**图 1：总览流程图**（谁装、装到哪、数据怎么走。GitHub 上会直接渲染成图）
+
+```mermaid
+flowchart TD
+    R["资源中心 r.thingspanel.cn<br/>只是介绍页和跳转链接，不存放安装包"]
+    UI["平台页面：应用管理 → 插件管理 → 插件安装<br/>只有平台超管 SYS_ADMIN 能点安装"]
+    BE["后端安装引擎 internal/plugininstall<br/>签发身份、续租、登记服务、健康检查"]
+    AG["宿主机 Agent tp-agent<br/>验签目录、核对摘要、docker load、起容器"]
+    CAT[("签名目录 + 制品<br/>install.thingspanel.io/plugins<br/>GitHub Release plugin-ha-v1.0.0")]
+    PL["HA 插件容器<br/>网络别名 tp-plugin-homeassistant"]
+    BR["Broker：broker-owner + mosquitto<br/>只放行“范围内”的设备"]
+    HA["Home Assistant<br/>租户自己的实例"]
+    TN["租户用户：设备接入 → 三方接入 → Home Assistant<br/>新建接入点：HA 地址 + 长期令牌，选实体建设备"]
+    PF["平台：设备、当前值、历史、命令记录"]
+
+    R -->|"点击跳转到你的平台"| UI
+    UI -->|"安装 / 停用 / 卸载 / 重试"| BE
+    BE -->|"Unix socket + token"| AG
+    CAT -.->|"下载并验签"| AG
+    AG -->|"启动并授权"| PL
+    BE -.->|"同代次续租，不换令牌不重启"| AG
+    TN -->|"接入点、设备"| PF
+    PF -.->|"设备范围同步，最长约 80 秒"| BR
+    PL <-->|"MQTT：devices/telemetry 上行<br/>plugin/homeassistant/... 下行"| BR
+    BR <--> PF
+    PL <-->|"WebSocket 状态事件 / REST 服务调用"| HA
 ```
-资源中心 r.thingspanel.cn（只是介绍页 + 跳转链接，不存放安装包）
-   │  点“在本机/我的 ThingsPanel 安装”→ 浏览器跳到  <你的平台>/apply/plugin?tab=install&plugin=homeassistant
-   ▼
-平台页面 应用管理 → 插件管理 → 插件安装         （仅平台超管 SYS_ADMIN 能装）
-   │  调后端 plugininstall 接口（后端：internal/plugininstall，迁移 sql/33~35.sql）
-   ▼
-后端安装引擎 ──Unix socket + token──▶ 宿主机上的 Agent（tp-agent）
-                                        │ 本机验签目录 → 校验镜像摘要 → docker load → 起插件容器
-                                        ▼
-                                  HA 插件容器（tp-agent-prepared-<hash>，网络别名 tp-plugin-homeassistant）
-                                        │ 带受管身份（Authorization: Bearer）调后端 5 个插件入口
-                                        │ 连 Mosquitto：上行发 devices/telemetry，下行订阅 plugin/homeassistant/devices/command/+/+
-                                        ▼
-租户在 设备 → 三方接入 → Home Assistant → 新建接入点（填 HA 地址 + 令牌）→ 选实体建设备
-   插件 ──HA WebSocket 事件──▶ 平台（上行）；平台命令 ──MQTT──▶ 插件 ──HA REST 服务调用──▶ HA（下行）
+
+**图 2：一次完整的上行和下行（时序）**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Admin as 平台超管
+    participant Plat as 平台（后端 + 页面）
+    participant Agent as Agent
+    participant Plug as HA 插件
+    participant Brk as Broker
+    participant HA as Home Assistant
+    participant Ten as 租户用户
+
+    Admin->>Plat: 点“安装”（不填 HA 地址和令牌）
+    Plat->>Agent: 验签目录、签发身份、授权、启动
+    Agent->>Plug: 起容器（带受管身份）
+    Plug-->>Plat: 心跳、拉接入点列表
+    Plat-->>Admin: 已启用 / 健康 ok
+    Ten->>Plat: 新建接入点（HA 地址 + 令牌），选实体建设备
+    Plat->>Brk: 设备范围同步（监视进程，最长约 80 秒）
+    Note over Plug,Brk: 上行
+    HA-->>Plug: state_changed 事件
+    Plug->>Brk: devices/telemetry（设备自己的身份）
+    Brk->>Plat: 写入当前值和历史
+    Note over Plat,HA: 下行
+    Ten->>Plat: 对灯下发 switch
+    Plat->>Brk: plugin/homeassistant/devices/command/...
+    Brk->>Plug: 命令
+    Plug->>HA: 服务调用
+    Plug-->>Plat: 回执 result 0（状态 3）
 ```
+
+**图 3：失败时的状态（安装记录）**
+
+```mermaid
+stateDiagram-v2
+    [*] --> 安装中: 超管点安装
+    安装中 --> 已启用: check、identity、prepare、grant、activate、register、health 全部 ok
+    安装中 --> 失败: 某一步失败（看事件表）
+    已启用 --> 已启用: 每 5 分钟同代次续租
+    已启用 --> 失败: 续租连续失败（renewal_failed），身份吊销
+    失败 --> 安装中: 点“重试”（起更高一代）
+    已启用 --> 已停用: 停用
+    已停用 --> 安装中: 启用
+    已启用 --> 已卸载: 卸载（设备和历史保留）
+```
+
+> 简版文字链路：资源中心（只跳转）→ 平台“插件安装”页（超管）→ 后端安装引擎 → 宿主机 Agent（验签、起容器）→ HA 插件容器 ⇄ Broker ⇄ 平台；租户在“三方接入”里配自己的接入点和设备；插件 ⇄ Home Assistant。
 
 要点：
 - **签名目录** 决定能装什么。目录由官方私钥签名，Agent 用**包外**的公钥验签；篡改过的目录或镜像必须被拒绝。
@@ -81,7 +140,7 @@
 - ✅ **后端已在 2026-11-09 换成 develop 代码**：用本地 develop `c0ab14d1` 构建了镜像 `thingspanel-backend-ha-ui:develop-c0ab14d1`（镜像 ID `sha256:018b6b5d94f7…`），只替换了栈里的后端容器（数据在绑定目录里没动）。镜像里已确认有 `internal/plugininstall`、`sql/33~35.sql`，以及续租不依赖目录的修复。覆盖文件 `docker-compose.override.yml` 已改指新镜像，旧版备份在同目录 `docker-compose.override.yml.bak-20261109`；旧镜像 `thingspanel-backend-ha-ui:20261106` 还在，想回滚就把备份拷回去再 `up -d --no-deps --no-build backend`。
 - 旧后端的来历（供参考）：旧镜像取自提交 `96d1964c`，**该提交不在任何分支上**（已给其链末端打标签 `archive/ha-ui-acceptance-stack-20261109` → `67f4afe9` 防回收），且续租逻辑要求目录可用，比 develop 少修复 `4bf3ee22`、`5707e9bc`。它与旧的 `renewal_failed` 是否有因果**没验证**。
 - ✅ **安装已恢复**：2026-11-09 08:16 由超管在页面点 Retry，起了 generation 6，页面“已启用 / 健康: ok”，身份未吊销，插件容器（公开 1.0.0 arm64 镜像）在栈网络 `tp-codex-ha-ui-net-20261106` 里运行，重启 0 次。之后若再变 `failed`，先看 `check-test-env.sh` 第 6 项事件。**不要把它当成“已稳定”**：A10（30 分钟）、A13（失联恢复）还没做。
-- ✅ **Broker 已换成 develop 线镜像**（`thingspanel-mosquitto:ph1-520a3222`），并实测了上行、下行和租户隔离（见 §3）。换镜像前备份了覆盖文件（`.bak2-20261109`）。
+- ✅ **Broker 已换成 develop 线镜像**（`thingspanel-mosquitto:ph1-520a3222`）。**对照实验（2026-11-09）**：同一个栈、同样的设备范围、同一个 HA 插件（每次都重启过），**只换 Broker 镜像**——v1.3.0：插件所有连接 `not authorised`，上行没数据，下行灯不动；develop 线镜像：上行（温度 93.3 进平台）和下行（灯 off→on→off，回执 `result:0`）都通。所以“v1.3.0 的 Broker 连不上插件设备”**有实验支持**；但 v1.3.0 能不能承载**别的**三方接入（不走插件的设备）我没测，不要外推。换镜像前备份了覆盖文件（`.bak2-20261109`）。
 - 栈的完整说明（跑什么、账号文件放哪、常用命令）见 [`ha-plugin-handover/STACK.md`](ha-plugin-handover/STACK.md)。
 - 这个栈里有别的会话的残留（`http_adapter` 一直 Restarting 与本任务无关；`tp-agent-prepared-*` 里有一堆已退出的旧代次容器）。**别清理它们**，列清单给负责人。
 
@@ -145,6 +204,7 @@ docs/ha-plugin-handover/tools/check-test-env.sh <栈前缀> <后端端口>
 | 5 | 插件“健康：ok”**不代表 HA 连得上**：HA 地址或令牌填错，插件 `/health` 仍是 ok。接入点自己的状态要单独看。 | PLUGIN-UI-DONE §4.2 |
 | 6 | 下行命令被 Broker 丢弃时，P3 已改为超过 30 秒没回执就标失败（默认，`mqtt.command_ack_timeout`）。如果你看到的是“一直成功但 HA 没变”，那就是**新问题**，立刻记录。 | `tasks/P3-DONE.md` |
 | 7 | 实体列表一次最多取 100 个（演示 HA 有 123 个实体，页面里显示“总计 33”，每页 10 个）。 | T7b §8；2026-11-09 现场 |
+| 7d | **插件被 Broker 拒绝一阵之后，Broker 恢复了它也不会自己重连**，要重启插件容器（`docker restart <tp-agent-prepared-…>`）才恢复。2026-11-09 对照实验里实测：Broker 切回正常镜像后插件 3 分钟以上没有任何连接尝试，重启容器后立刻连上、上下行都通。 | 2026-11-09 现场；插件仓库的问题，没修 |
 | 7a | **建完设备并同步 Broker 范围后，头一两分钟内 HA 的变化没进平台**：同步完立刻改了两次温度（41.7、42.9）都没收到，约 1 分钟后第三次（43.3）才收到，同时插件才出现遥测连接。原因没查。B4 做的时候留意，改完等一会再改一次。 | 2026-11-09 现场 |
 | 7b | 栈里的 `http_adapter`、`modbus_service` 容器反复连 Broker 被拒（`not authorised`），与 HA 无关，别被日志误导。 | 2026-11-09 现场 |
 | 7c | 租户账号的菜单里也有“设备接入 → 插件安装”，应拒绝租户安装（A5 要验证），**这次没验证**。 | 2026-11-09 现场 |
