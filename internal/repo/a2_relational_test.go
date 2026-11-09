@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -99,14 +100,14 @@ func TestMarketInstallAuthorizationCreateAndLegacySealPostgresMySQL(t *testing.T
 			exact, encoding := string(plan), MarketInstallPlanEncoding
 			created := MarketInstallAuthorization{ID: "grant-new", TenantID: "tenant-a", SubjectID: "subject-a", Authority: "TENANT_ADMIN",
 				AuthVersion: 3, ActorID: "subject-a", ActorVersion: 3, Purpose: "a08.install.v1", RequestKey: "new-request",
-				RequestDigest: "request-digest", PlanDigest: "plan-digest", Plan: plan, PlanExact: &exact, PlanEncoding: &encoding,
+				RequestDigest: "request-digest", PlanDigest: strings.Repeat("a", 64), Plan: plan, PlanExact: &exact, PlanEncoding: &encoding,
 				SessionHash: "session-new", ExpiresAt: now.Add(time.Hour), CreatedAt: now}
 			if err := CreateMarketInstallAuthorization(ctx, &created); err != nil {
 				return nil, fmt.Errorf("create authorization: %w", err)
 			}
 			legacy := MarketInstallAuthorization{ID: "grant-legacy", TenantID: "tenant-a", SubjectID: "subject-a", Authority: "TENANT_ADMIN",
 				AuthVersion: 3, ActorID: "subject-a", ActorVersion: 3, Purpose: "a08.install.v1", RequestKey: "legacy-request",
-				RequestDigest: "legacy-digest", PlanDigest: "legacy-plan-digest", Plan: plan, SessionHash: "session-legacy",
+				RequestDigest: "legacy-digest", PlanDigest: strings.Repeat("b", 64), Plan: plan, SessionHash: "session-legacy",
 				ExpiresAt: now.Add(time.Hour), CreatedAt: now}
 			if err := db.WithContext(ctx).Create(&legacy).Error; err != nil {
 				return nil, fmt.Errorf("seed legacy authorization: %w", err)
