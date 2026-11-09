@@ -116,3 +116,8 @@
 | `/Volumes/KIOXIA/tmp/dbp1-tdengine-stack` | — | 独立安装器副本与 `dbp1-tdengine` Compose 项目（含本地配置）；A2 独立启动探针已移除，遗留匿名 Mosquitto 卷 `b61b4bdc2d16`、`c2e1008577a1` 保留 | Codex | 验收后留存，卷删除前确认 |
 | `/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine/stack` | — | 不含凭据的安装器源码快照（早期初始化副本） | Codex | 保留，删除前确认 |
 | `/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine` | — | A1 观察、后端日志和 TDengine A2 测试结果；历史/统计已验证，导出文件待用户回到电脑后确认，不含凭据 | Codex | 交付证据 |
+
+## T1-A3（2026-11-09 登记）
+| 路径 | 分支 | 任务 | 负责人 | 预计清理 |
+|---|---|---|---|---|
+| `.claude/worktrees/wp-t1-a3-storage` | `wp/t1-a3-storage` | T1-A3 平台存储与遥测 MySQL 兼容 | Codex | 审查合并后按规则确认清理 |
