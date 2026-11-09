@@ -21,7 +21,8 @@
 - 设备状态仍显示离线（online status 0），尽管遥测和历史页可见。另有 `/api/v1/plugin/heartbeat` 503，未追查。
 - 使用测试专用 `dbp1-tdengine` 容器（TDengine 3.3.6.0，REST 56041）：`TP_TDENGINE_TEST_URL=http://127.0.0.1:56041 go test -count=1 -v ./internal/app ./internal/storage -run 'TDengine|Tdengine'`：5 PASS、3 SKIP、0 FAIL。3 个 SKIP 均需要 `TP_TELEMETRY_BROKER_TEST_DSN`（其中一个同时要求 `TP_TDENGINE_TEST_URL`）。
 - `go test -count=1 ./internal/app/...`：通过。
-- TDengine 的无开关选择测试通过；真实 TDengine 集成测试在未配置实验字段的 `historyBackendSettings` 上选择并执行了 schema prepare。没有启动第二个完整后端进程验证 compose 层端到端启动。
+- TDengine 的无开关选择测试通过；真实 TDengine 集成测试在未配置实验字段的 `historyBackendSettings` 上选择并执行了 schema prepare。
+- 用 A2 候选镜像启动独立后端实例，确认容器环境中完全没有 `GOTP_STORAGE_TDENGINE_EXPERIMENTAL`，连接 PG、Redis、TDengine 并返回 `/health` HTTP 200。第一次使用独立 client ID 接原 Mosquitto 时被 ACL 拒绝；随后改连独立无认证测试 broker 后启动成功，原 A1 栈未中断。
 - `git diff --check`：通过。
 
 ## 没做 / 发现的问题
@@ -29,6 +30,6 @@
 - A-1 的导出文件尚未目视确认；待用户回到电脑后核实，并把非敏感截图补入证据目录。
 - B-2 仍需等 T1-A2 经负责人审查合入 develop 后再开始。
 - A-2 不依赖安装器环境变量；`GOTP_STORAGE_TDENGINE_EXPERIMENTAL` 仍由安装器 compose 传入但后端已忽略。
-- 隔离验收栈、测试容器和数据卷均保留，供负责人检查；没有删除容器或卷。测试配置保存在 `/Volumes/KIOXIA/tmp/dbp1-tdengine-stack/.env`，权限为 600，不属于证据目录。
+- 隔离验收栈、TDengine 测试容器和数据卷均保留，供负责人检查。独立启动探针容器已停止并移除；为测试 broker 自动创建的匿名卷 `b61b4bdc2d16`、`c2e1008577a1` 仍保留，未删除。测试配置保存在 `/Volumes/KIOXIA/tmp/dbp1-tdengine-stack/.env`，权限为 600，不属于证据目录。
 
-证据：`/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine/A1-observation.txt`、`backend-relevant.log`、`tdengine-targeted-tests.log`。历史/统计截图未写入证据目录。
+证据：`/Volumes/KIOXIA/archive/evidence/2026-11-09-T3-tdengine/A1-observation.txt`、`backend-relevant.log`、`tdengine-targeted-tests.log`、`tdengine-noexp-startup.txt`。历史/统计截图未写入证据目录。
