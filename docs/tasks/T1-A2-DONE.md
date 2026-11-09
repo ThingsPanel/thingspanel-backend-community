@@ -1,6 +1,6 @@
 # T1-A2 完成说明
 
-分支：`wp/t1-a2-platform-dal-service`  基线：`develop@c0ab14d1`  提交：见本文件提交
+分支：`wp/t1-a2-platform-dal-service`  基线：`develop@c0ab14d1`  提交：`8739b666`（代码修正；本说明单独提交）
 
 ## 改了什么
 
