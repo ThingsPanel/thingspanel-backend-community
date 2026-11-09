@@ -37,23 +37,24 @@ func GetDeviceGroupPathsByDeviceIDs(deviceIDs []string, tenantID string, allTena
 	}
 	// The names of one chain are joined here, not with string_agg/GROUP_CONCAT (dialect specific; GROUP_CONCAT
 	// truncates silently).
+	groupTable := quotedGroupsTable()
 	sql := fmt.Sprintf(`
 		WITH RECURSIVE group_chain AS (
 			SELECT rgd.device_id, rgd.group_id AS assigned_group_id, rgd.tenant_id,
 				g.id, g.parent_id, g.name, 1 AS level
 			FROM r_group_device rgd
-			JOIN groups g ON g.id = rgd.group_id AND g.tenant_id = rgd.tenant_id
+			JOIN %s g ON g.id = rgd.group_id AND g.tenant_id = rgd.tenant_id
 			WHERE %s
 			UNION ALL
 			SELECT gc.device_id, gc.assigned_group_id, gc.tenant_id,
 				g.id, g.parent_id, g.name, gc.level + 1
-			FROM groups g
+			FROM %s g
 			JOIN group_chain gc ON gc.parent_id = g.id AND gc.tenant_id = g.tenant_id
 		)
 		SELECT device_id, assigned_group_id, name, level
 		FROM group_chain
 		ORDER BY device_id, assigned_group_id, level DESC
-	`, deviceFilter)
+	`, groupTable, deviceFilter, groupTable)
 
 	var chain []struct {
 		DeviceID        string `gorm:"column:device_id"`

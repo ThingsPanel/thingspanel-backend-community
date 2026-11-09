@@ -121,3 +121,8 @@
 | 路径 | 分支 | 任务 | 负责人 | 预计清理 |
 |---|---|---|---|---|
 | `.claude/worktrees/wp-t1-a3-storage` | `wp/t1-a3-storage` | T1-A3 平台存储与遥测 MySQL 兼容 | Codex | 开发及验证中；合入本地 develop 后等待整体验收确认清理 |
+
+## T1-A4（2026-11-09 登记）
+| 路径 | 分支 | 任务 | 负责人 | 预计清理 |
+|---|---|---|---|---|
+| `.claude/worktrees/wp-t1-a4-mysql-groups` | `wp/t1-a4-mysql-groups` | T1-A4 双库平台烟测与 MySQL 分组查询修复 | Codex | 整体验收结束后更新；worktree/分支删除前确认 |
