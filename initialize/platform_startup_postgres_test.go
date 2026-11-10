@@ -19,12 +19,12 @@ func TestRelationalInitPostgresOwnsConfiguredPool(t *testing.T) {
 		t.Fatal(err)
 	}
 	setViper(t, map[string]interface{}{
-		"relational.driver":                     "postgres",
-		"relational.postgres.platform.host":     host,
-		"relational.postgres.platform.port":     port,
-		"relational.postgres.platform.database": database,
-		"relational.postgres.platform.username": username,
-		"relational.postgres.platform.password": os.Getenv("TP_TEST_PLATFORM_PASSWORD"),
+		"relational.driver":                      "postgres",
+		"relational.postgres.platform.host":      host,
+		"relational.postgres.platform.port":      port,
+		"relational.postgres.platform.database":  database,
+		"relational.postgres.platform.username":  username,
+		"relational.postgres.platform.password":  os.Getenv("TP_TEST_PLATFORM_PASSWORD"),
 		"relational.postgres.platform.time_zone": "UTC",
 		"relational.postgres.platform.log_level": 1,
 	})

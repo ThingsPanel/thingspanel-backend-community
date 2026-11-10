@@ -47,6 +47,19 @@ var createdTable = regexp.MustCompile("(?i)^\\s*CREATE TABLE IF NOT EXISTS\\s+`?
 // verified receipts from the prior platform ledger. SQL files keep their exact
 // bytes; only their virtual names are adapted to relational's numbered format.
 func ApplyMySQLPlatformSchema(ctx context.Context, db *gorm.DB) error {
+	flavor, err := relational.FlavorOf(db)
+	if err != nil {
+		return err
+	}
+	return ApplyMySQLFamilyPlatformSchema(ctx, db, flavor)
+}
+
+// ApplyMySQLFamilyPlatformSchema executes MySQL or MariaDB-owned migrations.
+// The logical owner and legacy receipt names remain stable across flavors.
+func ApplyMySQLFamilyPlatformSchema(ctx context.Context, db *gorm.DB, flavor relational.Flavor) error {
+	if !flavor.Valid() {
+		return fmt.Errorf("unsupported MySQL-family flavor %q", flavor)
+	}
 	modules := []mysqlOwnerModule{
 		{"mysql-core", "MySQL core", componentsql.MySQLMigrationNames()},
 		{"mysql-auth", "MySQL auth", componentsql.MySQLAuthMigrationNames()},
@@ -54,7 +67,7 @@ func ApplyMySQLPlatformSchema(ctx context.Context, db *gorm.DB) error {
 	modules = append(modules, mysqlOwnerModules()...)
 	return withLegacyPlatformMigrationLock(ctx, db, func() error {
 		for _, module := range modules {
-			if err := applyRelationalMySQLModule(ctx, db, module); err != nil {
+			if err := applyRelationalMySQLModule(ctx, db, module, flavor); err != nil {
 				return err
 			}
 		}
@@ -65,19 +78,27 @@ func ApplyMySQLPlatformSchema(ctx context.Context, db *gorm.DB) error {
 // ApplyMySQLCoreSchema and ApplyMySQLAuthSchema remain useful to focused
 // initialize tests; runtime startup calls ApplyMySQLPlatformSchema once.
 func ApplyMySQLCoreSchema(ctx context.Context, db *gorm.DB) error {
-	return applyOneMySQLModule(ctx, db, mysqlOwnerModule{"mysql-core", "MySQL core", componentsql.MySQLMigrationNames()})
+	flavor, err := relational.FlavorOf(db)
+	if err != nil {
+		return err
+	}
+	return applyOneMySQLModule(ctx, db, mysqlOwnerModule{"mysql-core", "MySQL core", componentsql.MySQLMigrationNames()}, flavor)
 }
 
 func ApplyMySQLAuthSchema(ctx context.Context, db *gorm.DB) error {
-	return applyOneMySQLModule(ctx, db, mysqlOwnerModule{"mysql-auth", "MySQL auth", componentsql.MySQLAuthMigrationNames()})
+	flavor, err := relational.FlavorOf(db)
+	if err != nil {
+		return err
+	}
+	return applyOneMySQLModule(ctx, db, mysqlOwnerModule{"mysql-auth", "MySQL auth", componentsql.MySQLAuthMigrationNames()}, flavor)
 }
 
-func applyOneMySQLModule(ctx context.Context, db *gorm.DB, module mysqlOwnerModule) error {
-	return withLegacyPlatformMigrationLock(ctx, db, func() error { return applyRelationalMySQLModule(ctx, db, module) })
+func applyOneMySQLModule(ctx context.Context, db *gorm.DB, module mysqlOwnerModule, flavor relational.Flavor) error {
+	return withLegacyPlatformMigrationLock(ctx, db, func() error { return applyRelationalMySQLModule(ctx, db, module, flavor) })
 }
 
-func applyRelationalMySQLModule(ctx context.Context, db *gorm.DB, module mysqlOwnerModule) error {
-	fsys, originals, err := migrationFS(module)
+func applyRelationalMySQLModule(ctx context.Context, db *gorm.DB, module mysqlOwnerModule, flavor relational.Flavor) error {
+	fsys, originals, err := migrationFS(module, flavor)
 	if err != nil {
 		return err
 	}
@@ -85,7 +106,7 @@ func applyRelationalMySQLModule(ctx context.Context, db *gorm.DB, module mysqlOw
 	if err != nil {
 		return err
 	}
-	legacy, err := readLegacyMigrationReceipts(ctx, db, module.module, originals, migrations)
+	legacy, err := readLegacyMigrationReceipts(ctx, db, module.module, originals, migrations, flavor)
 	if err != nil {
 		return err
 	}
@@ -136,7 +157,7 @@ func retryRelationalMigrationLock(ctx context.Context, run func() error) error {
 
 // migrationFS makes a private per-owner fs.FS. The filename translation is
 // one-to-one by the numeric prefix; migration contents remain byte-identical.
-func migrationFS(module mysqlOwnerModule) (fs.FS, map[string]string, error) {
+func migrationFS(module mysqlOwnerModule, flavor relational.Flavor) (fs.FS, map[string]string, error) {
 	files := fstest.MapFS{}
 	originals := map[string]string{}
 	for _, original := range module.files {
@@ -148,7 +169,7 @@ func migrationFS(module mysqlOwnerModule) (fs.FS, map[string]string, error) {
 		if _, exists := originals[name]; exists {
 			return nil, nil, fmt.Errorf("%s migration filename mapping is not one-to-one: %s", module.module, original)
 		}
-		contents, err := componentsql.MySQLMigrationContents(original)
+		contents, err := componentsql.MySQLFamilyMigrationContents(string(flavor), original)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -170,7 +191,7 @@ func migrationVersion(name string) (int64, error) {
 	return version, nil
 }
 
-func readLegacyMigrationReceipts(ctx context.Context, db *gorm.DB, module string, originals map[string]string, migrations []relational.Migration) ([]relational.MigrationReceipt, error) {
+func readLegacyMigrationReceipts(ctx context.Context, db *gorm.DB, module string, originals map[string]string, migrations []relational.Migration, flavor relational.Flavor) ([]relational.MigrationReceipt, error) {
 	pool, err := db.DB()
 	if err != nil {
 		return nil, err
@@ -201,7 +222,7 @@ func readLegacyMigrationReceipts(ctx context.Context, db *gorm.DB, module string
 		if !ok {
 			return nil, fmt.Errorf("legacy migration receipt %s/%s has no current migration mapping", module, original)
 		}
-		contents, err := componentsql.MySQLMigrationContents(original)
+		contents, err := componentsql.MySQLFamilyMigrationContents(string(flavor), original)
 		if err != nil {
 			return nil, err
 		}

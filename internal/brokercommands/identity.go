@@ -63,7 +63,8 @@ func lockReservations(tx *gorm.DB, tenant string, ids []string) error {
 			ID, TenantID, State string
 			DeletedAt           *time.Time
 		}
-		r := tx.Raw("SELECT id,tenant_id,state,deleted_at FROM "+table+" WHERE id=? FOR SHARE", id).Scan(&reservation)
+		r := tx.Table(table).Select("id,tenant_id,state,deleted_at").
+			Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", id).Scan(&reservation)
 		if r.Error != nil {
 			var state interface{ SQLState() string }
 			if errors.As(r.Error, &state) && (state.SQLState() == "42P01" || state.SQLState() == "42703") {

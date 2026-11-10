@@ -24,6 +24,9 @@ type DeviceTopicMapping struct {
 	CreatedAt      time.Time `gorm:"column:created_at;not null;default:now()" json:"created_at"`
 	UpdatedAt      time.Time `gorm:"column:updated_at;not null;default:now()" json:"updated_at"`
 	DataIdentifier *string   `gorm:"column:data_identifier" json:"data_identifier"`
+	// MariaDB cannot use SHA2 in a generated unique key column. The DAL writes
+	// this value only for MariaDB; MySQL and PostgreSQL keep their own indexes.
+	UniqueKeyDigest string `gorm:"column:ux_device_topic_mapping_unique__uk" json:"-"`
 }
 
 // TableName DeviceTopicMapping's table name

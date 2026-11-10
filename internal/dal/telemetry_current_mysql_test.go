@@ -47,7 +47,7 @@ func TestCurrentTelemetryReadsBehaveTheSameOnMySQLAsOnPostgres(t *testing.T) {
 		_ = my.Exec("DROP TABLE IF EXISTS " + table).Error
 	}
 	for _, name := range componentsql.MySQLHistoryIntentMigrationNames() {
-		statements, _ := componentsql.MySQLMigrationStatements(name)
+		statements, _ := componentsql.MySQLFamilyMigrationStatements(os.Getenv("TP_MYSQL_TEST_FLAVOR"), name)
 		for _, s := range statements {
 			if err := my.Exec(s).Error; err != nil {
 				t.Fatal(err)

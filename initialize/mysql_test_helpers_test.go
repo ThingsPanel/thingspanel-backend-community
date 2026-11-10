@@ -2,6 +2,7 @@ package initialize
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"gorm.io/gorm"
@@ -13,7 +14,7 @@ import (
 // Production startup uses RelationalInit and never exposes this forced dialect.
 func MysqlConnect(config *DbConfig) (*gorm.DB, error) {
 	return relational.Open(context.Background(), relational.Target{
-		Name: "test", Dialect: relational.MySQL,
+		Name: "test", Dialect: relational.MySQL, Flavor: relational.Flavor(os.Getenv("TP_MYSQL_TEST_FLAVOR")),
 		Host: config.Host, Port: config.Port, Database: config.DbName,
 		Username: config.Username, Password: config.Password, TimeZone: config.TimeZone,
 		Pool: relational.PoolOptions{MaxOpenConns: config.OpenConns, MaxIdleConns: config.IdleConns, LogLevel: config.LogLevel},

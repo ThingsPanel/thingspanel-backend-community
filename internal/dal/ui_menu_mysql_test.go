@@ -80,7 +80,7 @@ func platformMySQL(t *testing.T) (pg, my *gorm.DB) {
 	names = append(names, componentsql.MySQLAutomationMigrationNames()...)
 	names = append(names, componentsql.MySQLPlatformBaseMigrationNames()...)
 	for _, name := range names {
-		statements, err := componentsql.MySQLMigrationStatements(name)
+		statements, err := componentsql.MySQLFamilyMigrationStatements(os.Getenv("TP_MYSQL_TEST_FLAVOR"), name)
 		if err != nil {
 			t.Fatal(err)
 		}

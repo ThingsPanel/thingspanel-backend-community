@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,14 +25,31 @@ func gormConfig(p PoolOptions) *gorm.Config {
 	}
 }
 
-func dialector(d Dialect, pool *sql.DB) (gorm.Dialector, error) {
+type mysqlFamilyDialector struct {
+	gormmysql.Dialector
+	flavor Flavor
+}
+
+func (d mysqlFamilyDialector) RelationalFlavor() Flavor { return d.flavor }
+
+func dialector(d Dialect, flavor Flavor, pool *sql.DB) (gorm.Dialector, error) {
 	switch d {
 	case Postgres:
 		return gormpostgres.New(gormpostgres.Config{Conn: pool}), nil
 	case MySQL:
 		// SkipInitializeWithVersion: no statement is sent while the dialector initialises, and nothing here uses
 		// AutoMigrate, the only feature that reads the server version.
-		return gormmysql.New(gormmysql.Config{Conn: pool, SkipInitializeWithVersion: true}), nil
+		if flavor == "" {
+			flavor = FlavorMySQL
+		}
+		if !flavor.Valid() {
+			return nil, fmt.Errorf("relational: invalid mysql flavor %q", flavor)
+		}
+		base := gormmysql.New(gormmysql.Config{
+			Conn: pool, SkipInitializeWithVersion: true,
+			DontSupportForShareClause: flavor == FlavorMariaDB,
+		}).(*gormmysql.Dialector)
+		return mysqlFamilyDialector{Dialector: *base, flavor: flavor}, nil
 	}
 	return nil, fmt.Errorf("relational: no valid dialect")
 }
@@ -54,7 +72,7 @@ func Open(ctx context.Context, t Target) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("relational: open %q (%s): %w", t.Name, t.Dialect, redact(err, t))
 	}
-	db, err := Adopt(t.Dialect, pool, t.Pool)
+	db, err := AdoptWithFlavor(t.Dialect, t.Flavor, pool, t.Pool)
 	if err != nil {
 		_ = pool.Close()
 		return nil, err
@@ -65,17 +83,68 @@ func Open(ctx context.Context, t Target) (*gorm.DB, error) {
 		_ = pool.Close()
 		return nil, fmt.Errorf("relational: ping %q (%s): %w", t.Name, t.Dialect, redact(err, t))
 	}
+	if t.Dialect == MySQL {
+		if err := validateServerFlavor(pingCtx, pool, t.Flavor); err != nil {
+			_ = pool.Close()
+			return nil, fmt.Errorf("relational: validate %q server flavor: %w", t.Name, err)
+		}
+	}
 	return db, nil
+}
+
+func validateServerFlavor(ctx context.Context, pool *sql.DB, flavor Flavor) error {
+	if flavor == "" {
+		flavor = FlavorMySQL
+	}
+	var version string
+	if err := pool.QueryRowContext(ctx, "SELECT VERSION()").Scan(&version); err != nil {
+		return err
+	}
+	isMariaDB := strings.Contains(strings.ToLower(version), "mariadb")
+	return validateServerVersion(version, flavor, isMariaDB)
+}
+
+func validateServerVersion(version string, flavor Flavor, isMariaDB bool) error {
+	if flavor == FlavorMySQL {
+		if isMariaDB {
+			return fmt.Errorf("server reports %q; set relational.mysql.flavor=mariadb to opt in", version)
+		}
+		return nil
+	}
+	if flavor != FlavorMariaDB {
+		return fmt.Errorf("unsupported flavor %q", flavor)
+	}
+	if !isMariaDB {
+		return fmt.Errorf("configured MariaDB flavor but server reports %q", version)
+	}
+	parts := strings.SplitN(strings.SplitN(version, "-", 2)[0], ".", 3)
+	if len(parts) != 3 {
+		return fmt.Errorf("unsupported MariaDB version %q; supported lines are 10.11 and 11.4", version)
+	}
+	major, e1 := strconv.Atoi(parts[0])
+	minor, e2 := strconv.Atoi(parts[1])
+	patch, e3 := strconv.Atoi(parts[2])
+	if e1 != nil || e2 != nil || e3 != nil || patch < 0 || !((major == 10 && minor == 11) || (major == 11 && minor == 4)) {
+		return fmt.Errorf("unsupported MariaDB version %q; supported lines are 10.11 and 11.4", version)
+	}
+	return nil
 }
 
 // Adopt wraps a pool somebody else created (for example the *sql.DB behind an Encore sqldb.Database) in a GORM handle
 // and applies the pool options. The pool's owner keeps closing it, so register a handle from Adopt with owned=false.
 func Adopt(d Dialect, pool *sql.DB, p PoolOptions) (*gorm.DB, error) {
+	return AdoptWithFlavor(d, FlavorMySQL, pool, p)
+}
+
+// AdoptWithFlavor wraps a caller-owned pool with an explicit MySQL-family
+// flavor. The returned GORM dialector still reports "mysql" so GORM uses its
+// mature MySQL SQL builder for both MySQL and MariaDB.
+func AdoptWithFlavor(d Dialect, flavor Flavor, pool *sql.DB, p PoolOptions) (*gorm.DB, error) {
 	if pool == nil {
 		return nil, fmt.Errorf("relational: adopt: nil pool")
 	}
 	p = DefaultPool(p)
-	dial, err := dialector(d, pool)
+	dial, err := dialector(d, flavor, pool)
 	if err != nil {
 		return nil, err
 	}

@@ -21,3 +21,17 @@ func TestDialectValid(t *testing.T) {
 		t.Fatal("Valid is wrong")
 	}
 }
+
+func TestParseFlavor(t *testing.T) {
+	for raw, want := range map[string]Flavor{"": FlavorMySQL, "mysql": FlavorMySQL, " MYSQL ": FlavorMySQL, "mariadb": FlavorMariaDB, "MariaDB": FlavorMariaDB} {
+		got, err := ParseFlavor(raw)
+		if err != nil || got != want {
+			t.Errorf("ParseFlavor(%q) = %q, %v; want %q", raw, got, err, want)
+		}
+	}
+	for _, raw := range []string{"postgres", "mysql8", "sqlite"} {
+		if got, err := ParseFlavor(raw); err == nil {
+			t.Errorf("ParseFlavor(%q) = %q; want an error", raw, got)
+		}
+	}
+}

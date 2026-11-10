@@ -33,6 +33,7 @@
 7. **跑双库测试**要设环境变量，否则会全部跳过：`TP_MYSQL_TEST_HOST/PORT/USER/PASSWORD/DB`，以及 `TEST_PG_SCHEMA_DSN`、`TEST_DBDIALECT_PG_DSN`、`TEST_AUTOMATION_GUARD_DSN`、`NOTIFICATION_TEST_DSN`。
 
 ## 已知问题（报 bug 前先看）
+- **只支持 MySQL，不支持 MariaDB**：`relational.driver` 不接受 `mariadb`，下限 MySQL 8.0.16，验收版本 8.4。迁移脚本用了 MySQL 的 JSON 列和 `CAST(... AS JSON)` 等写法，没有在 MariaDB 上验证过，不要用。
 - `TestTelemetryHTTPDeviceAuthorization/owner_key` 失败：在基线 `c0ab14d1` 上同样失败，是原有问题。
 - 新建设备后要先执行 `--sync-scope`，否则平台命令会被 Broker 拒绝。
 - 冒烟脚本里的“菜单 404”“分组关系缺 `GroupId`”是已知提示项，不算失败。
@@ -41,9 +42,8 @@
 
 ## 还需要负责人做的事
 1. 用 `origin/develop` 重新构建镜像，起一套同事能访问的测试环境。
-2. 确认删除遗留的 `dbp1-tdengine-*` 验收栈、6 个数据卷、网络和 `/Volumes/KIOXIA/tmp/dbp1-tdengine-stack`（含本地凭据）。见 `docs/WORKSPACES.md` 末尾。
-3. 不进 `main`：等 T8（安装器单一发行版）做完一起发版。
-4. 分支 `wp/db-handover`（仅交接文档，已推送）合不合都行。
+2. 不进 `main`：等 T8（安装器单一发行版）做完一起发版。
+3. 分支 `wp/db-handover`（仅交接文档，已推送）合不合都行。
 
 ## 规则提醒
 同时最多 2 条改代码的工作线；范围外的问题写进 `docs/TODO.md`，不要另开分支修；跳过的测试要写明原因，不能把单元测试通过说成端到端验收通过。

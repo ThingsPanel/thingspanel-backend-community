@@ -31,7 +31,7 @@ import (
 // TargetsFromEnv reads the administrative connection of each engine:
 //
 //	PostgreSQL: TEST_PG_SCHEMA_DSN            (postgres://user:pw@host:port/db?sslmode=disable; needs CREATE DATABASE)
-//	MySQL:      TP_MYSQL_TEST_HOST/PORT/USER/PASSWORD/DB
+//	MySQL-family: TP_MYSQL_TEST_HOST/PORT/USER/PASSWORD/DB and optional TP_MYSQL_TEST_FLAVOR
 func TargetsFromEnv() map[relational.Dialect]relational.Target {
 	out := map[relational.Dialect]relational.Target{}
 	if dsn := os.Getenv("TEST_PG_SCHEMA_DSN"); dsn != "" {
@@ -41,7 +41,7 @@ func TargetsFromEnv() map[relational.Dialect]relational.Target {
 		port, _ := strconv.Atoi(os.Getenv("TP_MYSQL_TEST_PORT"))
 		out[relational.MySQL] = relational.Target{Name: "reltest_my", Dialect: relational.MySQL, Host: host, Port: port,
 			Database: os.Getenv("TP_MYSQL_TEST_DB"), Username: os.Getenv("TP_MYSQL_TEST_USER"),
-			Password: os.Getenv("TP_MYSQL_TEST_PASSWORD"), TimeZone: "UTC"}
+			Password: os.Getenv("TP_MYSQL_TEST_PASSWORD"), TimeZone: "UTC", Flavor: relational.Flavor(os.Getenv("TP_MYSQL_TEST_FLAVOR"))}
 	}
 	return out
 }

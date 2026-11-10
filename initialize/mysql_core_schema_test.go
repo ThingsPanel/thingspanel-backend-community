@@ -47,7 +47,7 @@ func openCoreDialects(t *testing.T) (pg, my *gorm.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	statements, err := componentsql.MySQLMigrationStatements("001_core_users_devices.sql")
+	statements, err := componentsql.MySQLFamilyMigrationStatements(os.Getenv("TP_MYSQL_TEST_FLAVOR"), "001_core_users_devices.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

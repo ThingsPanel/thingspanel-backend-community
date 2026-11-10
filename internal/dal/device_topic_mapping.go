@@ -2,15 +2,54 @@ package dal
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"strings"
 
 	model "project/internal/model"
 	"project/internal/query"
+	"project/pkg/global"
 
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
+// isMariaDBHandle reports whether db is a MariaDB-flavored MySQL handle. FlavorOf is only defined for
+// MySQL-family dialectors, so PostgreSQL (the default) must be ruled out first.
+func isMariaDBHandle(db *gorm.DB) (bool, error) {
+	dialect, err := relational.DialectOf(db)
+	if err != nil {
+		return false, err
+	}
+	if dialect != relational.MySQL {
+		return false, nil
+	}
+	flavor, err := relational.FlavorOf(db)
+	if err != nil {
+		return false, err
+	}
+	return flavor == relational.FlavorMariaDB, nil
+}
+
 func CreateDeviceTopicMapping(mapping *model.DeviceTopicMapping) error {
-	return query.DeviceTopicMapping.Create(mapping)
+	mariadb, err := isMariaDBHandle(global.DB)
+	if err != nil {
+		return err
+	}
+	if mariadb {
+		mapping.UniqueKeyDigest = topicMappingUniqueDigest(mapping.DeviceConfigID, mapping.Direction, mapping.SourceTopic, mapping.TargetTopic)
+		return global.DB.Create(mapping).Error
+	}
+	return global.DB.Omit("UniqueKeyDigest").Create(mapping).Error
+}
+
+func topicMappingUniqueDigest(deviceConfigID, direction, sourceTopic, targetTopic string) string {
+	key := strings.Join([]string{deviceConfigID, direction, sourceTopic, targetTopic}, string(rune(31)))
+	sum := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(sum[:])
 }
 
 func TopicMappingExists(ctx context.Context, deviceConfigID, direction, sourceTopic, targetTopic string) (bool, error) {
@@ -104,9 +143,37 @@ func ListDeviceTopicMappings(ctx context.Context, req *model.ListDeviceTopicMapp
 }
 
 func UpdateDeviceTopicMappingByID(ctx context.Context, id int64, updateMap map[string]interface{}) error {
+	mariadb, err := isMariaDBHandle(global.DB)
+	if err != nil {
+		return err
+	}
+	if mariadb {
+		return global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			var current model.DeviceTopicMapping
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Take(&current, "id = ?", id).Error; err != nil {
+				return err
+			}
+			deviceConfigID := valueOrString(updateMap, "device_config_id", current.DeviceConfigID)
+			direction := valueOrString(updateMap, "direction", current.Direction)
+			sourceTopic := valueOrString(updateMap, "source_topic", current.SourceTopic)
+			targetTopic := valueOrString(updateMap, "target_topic", current.TargetTopic)
+			updateMap["ux_device_topic_mapping_unique__uk"] = topicMappingUniqueDigest(deviceConfigID, direction, sourceTopic, targetTopic)
+			return tx.Model(&model.DeviceTopicMapping{}).Where("id = ?", id).UpdateColumns(updateMap).Error
+		})
+	}
 	q := query.DeviceTopicMapping
-	_, err := q.WithContext(ctx).Where(q.ID.Eq(id)).UpdateColumns(updateMap)
+	_, err = q.WithContext(ctx).Where(q.ID.Eq(id)).UpdateColumns(updateMap)
 	return err
+}
+
+func valueOrString(values map[string]interface{}, key, fallback string) string {
+	if value, ok := values[key]; ok {
+		if s, ok := value.(string); ok {
+			return s
+		}
+		return fmt.Sprint(value)
+	}
+	return fallback
 }
 
 func DeleteDeviceTopicMappingByID(ctx context.Context, id int64) error {

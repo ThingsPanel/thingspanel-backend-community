@@ -10,9 +10,9 @@ import (
 )
 
 // A session-local table named like the reservation table must not satisfy the fence in
-// PostgreSQL (pg_temp is searched last). MySQL has no such pinning; this test records what
-// actually happens so the deployment requirement in sql/mysql/002_device_identity.sql
-// (the application account must not hold CREATE TEMPORARY TABLES) is a measured fact.
+// PostgreSQL (pg_temp is searched last). MySQL-family deployment roles must not have
+// CREATE TEMPORARY TABLES; when the test role is correctly restricted, record that the
+// shadow table cannot be created at all.
 func TestDeviceIdentityFenceAgainstShadowingTemporaryTable(t *testing.T) {
 	pg, my := openIdentityDialects(t)
 	attempt := func(db *gorm.DB, create string) error {
@@ -20,7 +20,7 @@ func TestDeviceIdentityFenceAgainstShadowingTemporaryTable(t *testing.T) {
 		tx := conn.Begin()
 		defer tx.Rollback()
 		if err := tx.Exec(create).Error; err != nil {
-			t.Fatalf("temporary table: %v", err)
+			return err
 		}
 		id := "shadow-" + uuid.NewString()[:8]
 		if err := tx.Exec("INSERT INTO device_id_reservations (id, tenant_id, state) VALUES (?, 'tenant-s', 'active')", id).Error; err != nil {
@@ -33,7 +33,7 @@ func TestDeviceIdentityFenceAgainstShadowingTemporaryTable(t *testing.T) {
 		t.Fatal("PostgreSQL must reject a device whose only reservation sits in a shadowing temporary table")
 	}
 	myErr := attempt(my, "CREATE TEMPORARY TABLE device_id_reservations (id VARCHAR(36), tenant_id VARCHAR(36), state VARCHAR(16), created_at DATETIME(6) NULL, deleted_at DATETIME(6) NULL)")
-	t.Logf("MySQL with CREATE TEMPORARY TABLES privilege: device insert error=%v (nil means the fence was bypassed)", myErr)
+	t.Logf("MySQL-family shadow-table attempt: device insert error=%v (nil means the fence was bypassed; CREATE privilege denial means shadowing is unavailable)", myErr)
 	if myErr == nil {
 		t.Log("RESULT: shadowing bypasses the MySQL fence; the privilege must be withheld from the application account")
 	} else {

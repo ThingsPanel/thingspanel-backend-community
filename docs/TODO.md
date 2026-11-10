@@ -14,3 +14,4 @@
 - [ ] `TestTelemetryHTTPDeviceAuthorization/owner_key` 在基线 `origin/develop@c0ab14d1` 上同样失败（`code=40103 allowed=true`），属于原有问题，和本阶段无关。
 - [ ] 方言分支散落在函数里（如 `internal/dal/telemetry_datas.go`、`internal/automationguard/guard.go`、`internal/dal/insert_if_absent.go` 中的 `Dialector.Name()=="mysql"`）；按架构规则 A2，后续收拢到所属 repository 的 PG/MySQL 显式实现。
 - [ ] `telemetry_datas.go` 的 MySQL `ON DUPLICATE KEY UPDATE ... VALUES(col)` 写法在 MySQL 8.0.20 后不推荐，后续改为行别名写法。
+- [ ] `encore-api/marketinstall/store` 是独立 MySQL owner，仍拒绝 MariaDB；探测其 MariaDB 10.11 迁移时 schema verifier 报列结构差异，需单独评估该 owner 的 DDL、校验和双库回归后再扩展。
