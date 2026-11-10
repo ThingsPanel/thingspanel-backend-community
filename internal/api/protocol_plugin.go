@@ -34,6 +34,9 @@ func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPlugin(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	if !pluginMayReadDevice(c, req) {
+		return
+	}
 
 	// 限流检查：只对voucher和device_number进行限流
 	var limitKey string
@@ -69,6 +72,13 @@ func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPluginByProtocolType(c *g
 		return
 	}
 
+	identity, ok := requirePluginService(c, req.ServiceIdentifier)
+	if !ok {
+		return
+	}
+	if identity != nil {
+		req.TenantID = identity.TenantID
+	}
 	data, err := service.GroupApp.ProtocolPlugin.GetDevicesByProtocolPlugin(req)
 	if err != nil {
 		c.Error(err)

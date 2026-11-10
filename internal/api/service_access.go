@@ -1,6 +1,8 @@
 package api
 
 import (
+	"project/internal/dal"
+	"project/internal/middleware"
 	"project/internal/model"
 	"project/internal/service"
 	"project/pkg/utils"
@@ -10,6 +12,16 @@ import (
 )
 
 type ServiceAccessApi struct{}
+
+// Empty tenant on a verified managed identity means the platform administrator installed one shared service
+// instance. That instance may consume every tenant's access points. Ordinary managed identities remain limited to
+// their own tenant, and user-facing service-access handlers below continue to apply their existing tenant checks.
+func pluginIdentityCanAccessTenant(identity *middleware.PluginRuntimeIdentity, tenant string) bool {
+	if identity == nil || tenant == "" {
+		return false
+	}
+	return identity.TenantID == "" || identity.TenantID == tenant
+}
 
 // /api/v1/service/access [post]
 func (*ServiceAccessApi) Create(c *gin.Context) {
@@ -105,10 +117,24 @@ func (*ServiceAccessApi) HandlePluginServiceAccessList(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	identity, ok := requirePluginService(c, req.ServiceIdentifier)
+	if !ok {
+		return
+	}
 	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccessList(&req)
 	if err != nil {
 		c.Error(err)
 		return
+	}
+	// Platform-installed service instances consume each tenant's access points; tenant-issued identities stay local.
+	if list, isList := resp.([]map[string]interface{}); isList && identity != nil {
+		own := make([]map[string]interface{}, 0, len(list))
+		for _, item := range list {
+			if tenant, _ := item["tenant_id"].(string); pluginIdentityCanAccessTenant(identity, tenant) {
+				own = append(own, item)
+			}
+		}
+		resp = own
 	}
 	c.Set("data", resp)
 }
@@ -119,9 +145,36 @@ func (*ServiceAccessApi) HandlePluginServiceAccess(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	accessRow, err := dal.GetServiceAccessByID(req.ServiceAccessID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	plugin, err := dal.GetServicePluginByID(accessRow.ServicePluginID)
+	if err != nil || plugin == nil {
+		scopeDenied(c)
+		return
+	}
+	identity, ok := requirePluginService(c, plugin.ServiceIdentifier)
+	if !ok {
+		return
+	}
 	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccess(&req)
 	if err != nil {
 		c.Error(err)
+		return
+	}
+	if identity == nil {
+		c.Set("data", resp)
+		return
+	}
+	// The access point must belong to the identity's scope and to the identity's own service plugin.
+	access, isMap := resp.(map[string]interface{})
+	tenant, _ := access["tenant_id"].(string)
+	pluginID, _ := access["service_plugin_id"].(string)
+	own, ownErr := dal.GetServicePluginByServiceIdentifier(identity.ServiceIdentifier)
+	if !isMap || !pluginIdentityCanAccessTenant(identity, tenant) || ownErr != nil || own == nil || own.ID != pluginID {
+		scopeDenied(c)
 		return
 	}
 	c.Set("data", resp)

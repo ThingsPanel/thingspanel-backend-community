@@ -1,0 +1,6 @@
+# 演示用 Home Assistant 配置：只打开默认集成 + demo 集成。
+# demo 会自动生成虚拟灯（Bed Light、Ceiling Lights、Kitchen Lights、Office RGBW Lights、
+# Living Room RGBWW Lights、Entrance Color + White Lights）、虚拟开关和温湿度传感器
+# （sensor.outside_temperature、sensor.outside_humidity 等），足够测试上行和下行。
+default_config:
+demo:

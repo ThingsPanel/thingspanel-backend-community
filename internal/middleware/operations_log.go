@@ -10,6 +10,7 @@ import (
 
 	model "project/internal/model"
 	query "project/internal/query"
+	"project/pkg/logredact"
 	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,8 @@ func OperationLogs() gin.HandlerFunc {
 
 		logrus.Info("开始处理请求:", c.Request.URL.Path, "方法:", c.Request.Method)
 		requestMessage, _ := processRequestBody(c)
+		// voucher/token/password/secret values must never reach logs or the table.
+		requestMessage = logredact.Text(requestMessage)
 		// 对于文件上传请求，不打印完整请求体（包含二进制内容）
 		if !isMultipartRequest(c) {
 			logrus.Info("请求体:", requestMessage)
@@ -49,9 +52,10 @@ func OperationLogs() gin.HandlerFunc {
 
 		logrus.Info("请求处理完成，状态码:", c.Writer.Status(), "耗时(ms):", cost)
 		logrus.Info("响应体大小:", writer.body.Len())
-		logrus.Info("响应的信息:", writer.body.String())
+		responseMessage := logredact.Text(writer.body.String())
+		logrus.Info("响应的信息:", responseMessage)
 
-		saveOperationLog(c, start, cost, requestMessage, writer.body.String())
+		saveOperationLog(c, start, cost, requestMessage, responseMessage)
 	}
 }
 
@@ -152,5 +156,7 @@ func sensitiveAccountPath(path string) bool {
 	p := strings.ToLower(path)
 	return p == "/api/v1/login" || strings.HasPrefix(p, "/api/v1/auth/") ||
 		strings.HasPrefix(p, "/api/v1/user/") || strings.HasPrefix(p, "/api/v1/tenant/") ||
+		strings.HasPrefix(p, "/api/v1/plugin/installs") || // site configuration with plugin secrets
+
 		strings.Contains(p, "password") || strings.Contains(p, "/login")
 }

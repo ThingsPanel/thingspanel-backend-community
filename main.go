@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"project/internal/api"
 	"project/internal/app"
 	"project/pkg/global"
 
@@ -79,6 +80,8 @@ func main() {
 		}
 		logrus.Fatalf("启动服务失败: %v", err)
 	}
+
+	api.StartPluginInstallEngine(runCtx) // no-op unless TP_AGENT_SOCKET / TP_AGENT_TOKEN_FILE are set
 
 	// WaitGroup entries are released by StopAll, so waiting before Shutdown
 	// deadlocks a healthy long-running process. Wait for an OS termination

@@ -359,8 +359,15 @@ func (s *Store) Acknowledge(ctx context.Context, tx *gorm.DB, tenant, transportD
 
 // MarkStaleDispatches converts expired accepted intents and old ambiguous
 // dispatches to terminal states; dispatching rows are never requeued.
-func (s *Store) MarkStaleDispatches(ctx context.Context, age time.Duration) (int64, error) {
-	if s == nil || s.db == nil || ctx == nil || age <= 0 {
+func (s *Store) MarkStaleDispatches(ctx context.Context, age time.Duration, acknowledgementTimeout ...time.Duration) (int64, error) {
+	if s == nil || s.db == nil || ctx == nil || age <= 0 || len(acknowledgementTimeout) > 1 {
+		return 0, ErrInvalid
+	}
+	timeout := 30 * time.Second
+	if len(acknowledgementTimeout) == 1 {
+		timeout = acknowledgementTimeout[0]
+	}
+	if timeout <= 0 {
 		return 0, ErrInvalid
 	}
 	now := time.Now().UTC()
@@ -374,16 +381,44 @@ func (s *Store) MarkStaleDispatches(ctx context.Context, age time.Duration) (int
 		if stale.Error != nil {
 			return stale.Error
 		}
-		unreported := tx.Model(&Row{}).Where("state = ? AND expires_at <= ?", StateBrokerAccepted, now).Updates(map[string]any{"state": StateUnknown, "last_error": "broker acknowledged publish; no device report before expiry, execution unknown", "updated_at": now})
-		if unreported.Error != nil {
-			return unreported.Error
+		var timedOut []Row
+		var unreportedCount int64
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("state = ? AND (updated_at <= ? OR expires_at <= ?)", StateBrokerAccepted, now.Add(-timeout), now).
+			Find(&timedOut).Error; err != nil {
+			return err
 		}
-		total = expired.RowsAffected + stale.RowsAffected + unreported.RowsAffected
+		if len(timedOut) > 0 {
+			ids := make([]string, 0, len(timedOut))
+			for _, row := range timedOut {
+				ids = append(ids, row.ID)
+			}
+			unreported := tx.Model(&Row{}).Where("id IN ? AND state = ?", ids, StateBrokerAccepted).
+				Updates(map[string]any{"state": StateFailed, "last_error": "device acknowledgement timed out", "completed_at": now, "updated_at": now})
+			if unreported.Error != nil {
+				return unreported.Error
+			}
+			unreportedCount = unreported.RowsAffected
+			if err := markCommandLogsFailed(tx, ids); err != nil {
+				return err
+			}
+		}
+		total = expired.RowsAffected + stale.RowsAffected + unreportedCount
 		return nil
 	}); err != nil {
 		return 0, err
 	}
 	return total, nil
+}
+
+// Command logs are a compatibility projection used by the device command UI.
+// Their absence must not prevent the authoritative broker state from becoming
+// terminal; single-command status remains available from broker state.
+func markCommandLogsFailed(tx *gorm.DB, ids []string) error {
+	return tx.Table("command_set_logs").
+		Where("message_id IN ?", ids).
+		Where("status IN ?", []string{"0", "1"}).
+		Updates(map[string]any{"status": "2", "error_message": "device acknowledgement timed out; no device response received"}).Error
 }
 
 func (s *Store) GetScoped(ctx context.Context, tenant, id string) (Row, error) {

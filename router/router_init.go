@@ -25,6 +25,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	api "project/internal/api"
+	pluginidentity "project/internal/api"
 	service "project/internal/service"
 )
 
@@ -32,7 +33,8 @@ import (
 
 func RouterInit() *gin.Engine {
 	// gin.SetMode(gin.ReleaseMode) //开启生产模式
-	router := gin.Default()
+	router := gin.New()
+	router.Use(middleware.AccessLogger(), gin.Recovery())
 	router.Use(middleware.RetireAuthWriters())
 	// Swagger文档路由
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -117,7 +119,7 @@ func RouterInit() *gin.Engine {
 	router.GET("/api/v1/notification/source-tenants/:id", reader.GetTenantPresence)
 	router.GET("/api/v1/notification/source-policies/:id", reader.GetAutomationPolicy)
 
-	api.RegisterAutomationOwnerRoutes(router,global.DB)
+	api.RegisterAutomationOwnerRoutes(router, global.DB)
 
 	// 记录操作日志
 	router.Use(middleware.OperationLogs())
@@ -143,11 +145,11 @@ func RouterInit() *gin.Engine {
 		v1 := api.Group("v1")
 		{
 			// v1.GET("notice/test", controllers.NoticeTest)
-			v1.POST("plugin/heartbeat", controllers.Heartbeat)
-			v1.POST("plugin/device/config", controllers.HandleDeviceConfigForProtocolPlugin)
-			v1.POST("plugin/devices", controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
-			v1.POST("plugin/service/access/list", controllers.HandlePluginServiceAccessList)
-			v1.POST("plugin/service/access", controllers.HandlePluginServiceAccess)
+			v1.POST("plugin/heartbeat", middleware.ManagedPluginRuntimeOrLegacy(), controllers.Heartbeat)
+			v1.POST("plugin/device/config", middleware.ManagedPluginRuntimeOrLegacy(), controllers.HandleDeviceConfigForProtocolPlugin)
+			v1.POST("plugin/devices", middleware.ManagedPluginRuntimeOrLegacy(), controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
+			v1.POST("plugin/service/access/list", middleware.ManagedPluginRuntimeOrLegacy(), controllers.HandlePluginServiceAccessList)
+			v1.POST("plugin/service/access", middleware.ManagedPluginRuntimeOrLegacy(), controllers.HandlePluginServiceAccess)
 			v1.POST("login", controllers.Login)
 			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password", controllers.ResetPassword)
@@ -237,6 +239,19 @@ func RouterInit() *gin.Engine {
 			apps.Model.DataPolicy.Init(v1) // 数据清理
 
 			apps.Model.DeviceConfig.Init(v1) // 设备配置
+
+			v1.POST("plugin/runtime/identity", pluginidentity.IssuePluginRuntimeIdentity)
+			v1.POST("plugin/runtime/identity/revoke", pluginidentity.RevokePluginRuntimeIdentity)
+			// Plugin one-click installation (platform administrator; tenants configure their own service access points)
+			v1.GET("plugin/catalog", pluginidentity.PluginInstallCatalog)
+			v1.GET("plugin/installs", pluginidentity.PluginInstallList)
+			v1.POST("plugin/installs", pluginidentity.PluginInstallCreate)
+			v1.GET("plugin/installs/:id", pluginidentity.PluginInstallGet)
+			v1.PUT("plugin/installs/:id/config", pluginidentity.PluginInstallConfig)
+			v1.POST("plugin/installs/:id/enable", pluginidentity.PluginInstallEnable)
+			v1.POST("plugin/installs/:id/disable", pluginidentity.PluginInstallDisable)
+			v1.POST("plugin/installs/:id/retry", pluginidentity.PluginInstallRetry)
+			v1.DELETE("plugin/installs/:id", pluginidentity.PluginInstallUninstall)
 
 			apps.Model.DataScript.Init(v1) // 数据处理脚本
 
