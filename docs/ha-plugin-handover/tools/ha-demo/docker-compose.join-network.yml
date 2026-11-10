@@ -1,0 +1,15 @@
+# 可选：把演示 HA 加入 ThingsPanel 栈的网络，这样插件容器可以用
+#   http://homeassistant-demo:8123
+# 访问它。需要先设置 TP_NETWORK 为栈的 Docker 网络名（用 `docker network ls` 查，
+# 通常以 `_thingspanel_network` 结尾，且必须和 HA 插件容器所在的网络一致）。
+#   TP_NETWORK=xxx_thingspanel_network docker compose -p ha-demo \
+#     -f docker-compose.yml -f docker-compose.join-network.yml up -d
+services:
+  homeassistant-demo:
+    networks:
+      tp:
+        aliases: [homeassistant-demo]
+networks:
+  tp:
+    external: true
+    name: ${TP_NETWORK:?set TP_NETWORK to the ThingsPanel stack network name}
