@@ -1,7 +1,7 @@
 """Read-only runtime provenance audit. No sends, credentials, migrations or restarts."""
 import pathlib,subprocess,json,hashlib,datetime,re
 def run(args,timeout=30):
-    p=subprocess.run(args,capture_output=True,text=True,timeout=timeout)
+    p=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=timeout)
     if p.returncode: return None
     return p.stdout.strip()
 def fingerprint(path):
