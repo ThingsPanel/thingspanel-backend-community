@@ -1,10 +1,10 @@
-name: Reclaim unused Encore build executables
+name: Read-only Encore deployment progress
 on:
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: community-main-encore-deploy
+  group: community-main-encore-readonly-progress
   cancel-in-progress: false
 jobs:
   audit:
@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Reclaim verified unused compilation outputs
+      - name: Read container images and build provenance
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
