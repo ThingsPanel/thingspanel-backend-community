@@ -276,6 +276,8 @@ func principalForData(d *authn.Data) (core.Principal, error) {
 		case "TENANT_ADMIN":
 			p.Capabilities = []string{string(core.CapabilityRead), string(core.CapabilityWrite), string(core.CapabilityPublish), string(core.CapabilityDelete)}
 			return p, nil
+		case "TENANT_USER", "TENANT_VIEWER":
+			p.Capabilities = []string{string(core.CapabilityRead)}
 		}
 	}
 	return p, nil

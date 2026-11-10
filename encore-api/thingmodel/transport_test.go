@@ -160,3 +160,12 @@ func TestVersionPaginationRejectsOverflow(t *testing.T) {
 		t.Fatalf("ordinary second page: %d %v", start, e)
 	}
 }
+
+func TestCommunityReadersKeepOnlyModelReadCapability(t *testing.T) {
+	for _, role := range []string{"TENANT_USER", "TENANT_VIEWER"} {
+		p, err := principalForData(&authn.Data{UserID: "reader", TenantID: "tenant-a", Roles: []string{role}, Scopes: []string{"*", "thingmodel.delete"}})
+		if err != nil || !reflect.DeepEqual(p.Capabilities, []string{string(core.CapabilityRead)}) {
+			t.Fatalf("role %s: principal=%+v err=%v", role, p, err)
+		}
+	}
+}
