@@ -97,6 +97,7 @@ type Transaction interface {
 	Get(context.Context, core.TenantID, core.ModelID) (Record, error)
 	Insert(context.Context, Record) error
 	Update(context.Context, Record) error
+	Delete(context.Context, core.TenantID, core.ModelID) error
 	Publish(context.Context, Publication) error
 	GetResources(context.Context, core.TenantID, core.ModelID, bool) (ResourcesRecord, error)
 	SaveResources(context.Context, core.TenantID, core.ModelID, uint64, ResourcesDocument) (ResourcesRecord, error)

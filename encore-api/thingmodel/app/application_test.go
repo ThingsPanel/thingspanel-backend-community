@@ -562,6 +562,22 @@ func (tx *memoryTransaction) Update(ctx context.Context, record Record) error {
 	return nil
 }
 
+func (tx *memoryTransaction) Delete(ctx context.Context, tenant core.TenantID, id core.ModelID) error {
+	if tx.repo.failAt == "delete" {
+		return errors.New("delete failed")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	key := memoryRecordKey(string(tenant), string(id))
+	if _, ok := tx.records[key]; !ok {
+		return ErrNotFound
+	}
+	delete(tx.records, key)
+	delete(tx.resources, key)
+	return nil
+}
+
 func (tx *memoryTransaction) Publish(ctx context.Context, publication Publication) error {
 	if err := ctx.Err(); err != nil {
 		return err
