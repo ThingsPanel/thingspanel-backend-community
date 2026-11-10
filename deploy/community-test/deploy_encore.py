@@ -13,6 +13,7 @@ import time
 import urllib.request
 import urllib.error
 from encore_migrations import source_migrations, pending_migrations
+from deployment_guard import restore_services_on_failure
 from encore_artifacts import prune_source_artifacts, reclaim_build_cache
 from notification_identity import prepare_notification_identity, retire_notification_renewal
 
@@ -171,69 +172,70 @@ def verify_tenant():
             json.load(response)
 
 
-if any(pending for _, _, pending in plans):
-    run(compose_args + ['stop'] + services)
-for database, role, pending in plans:
-    if not pending:
-        continue
-    script = 'BEGIN; SET LOCAL ROLE "' + role + '";\n'
-    for migration in pending:
-        script += migration['sql'] + '\n'
-        script += "INSERT INTO deployment_schema_ledger VALUES ({},'{}','{}');\n".format(
-            migration['version'], migration['filename'], migration['checksum'])
-    script += 'UPDATE schema_migrations SET version={}, dirty=false; COMMIT;'.format(pending[-1]['version'])
-    sql(database, script)
-for name in services:
-    config['services'][name]['image'] = image
-temp = compose.with_name('compose.encore.next.private.json')
-temp.write_text(json.dumps(config, indent=2))
-run(['docker', 'compose', '-f', str(temp), 'config', '--quiet'])
-os.replace(str(temp), str(compose))
-run(compose_args + ['up', '-d', '--no-deps'] + services)
-wait_healthy({name: image_id for name in services})
-verify_tenant()
+with restore_services_on_failure(compose, services, run):
+    if any(pending for _, _, pending in plans):
+        run(compose_args + ['stop'] + services)
+    for database, role, pending in plans:
+        if not pending:
+            continue
+        script = 'BEGIN; SET LOCAL ROLE "' + role + '";\n'
+        for migration in pending:
+            script += migration['sql'] + '\n'
+            script += "INSERT INTO deployment_schema_ledger VALUES ({},'{}','{}');\n".format(
+                migration['version'], migration['filename'], migration['checksum'])
+        script += 'UPDATE schema_migrations SET version={}, dirty=false; COMMIT;'.format(pending[-1]['version'])
+        sql(database, script)
+    for name in services:
+        config['services'][name]['image'] = image
+    temp = compose.with_name('compose.encore.next.private.json')
+    temp.write_text(json.dumps(config, indent=2))
+    run(['docker', 'compose', '-f', str(temp), 'config', '--quiet'])
+    os.replace(str(temp), str(compose))
+    run(compose_args + ['up', '-d', '--no-deps'] + services)
+    wait_healthy({name: image_id for name in services})
+    verify_tenant()
 
-# Deployment-scoped worker credentials live only in the existing private config.
-# A single systemd oneshot cannot overlap itself, even if one pass is slow.
-scheduler = ROOT / 'automation-scheduler'
-scheduler.mkdir(mode=0o700, exist_ok=True)
-shutil.copyfile(str(ROOT / 'incoming/automation_tick.py'), str(scheduler / 'automation_tick.next.py'))
-os.replace(str(scheduler / 'automation_tick.next.py'), str(scheduler / 'automation_tick.py'))
-pathlib.Path('/etc/systemd/system/tp-automation-tick.service').write_text('''[Unit]
-Description=ThingsPanel native automation scheduler pass
-After=network-online.target docker.service
+    # Deployment-scoped worker credentials live only in the existing private config.
+    # A single systemd oneshot cannot overlap itself, even if one pass is slow.
+    scheduler = ROOT / 'automation-scheduler'
+    scheduler.mkdir(mode=0o700, exist_ok=True)
+    shutil.copyfile(str(ROOT / 'incoming/automation_tick.py'), str(scheduler / 'automation_tick.next.py'))
+    os.replace(str(scheduler / 'automation_tick.next.py'), str(scheduler / 'automation_tick.py'))
+    pathlib.Path('/etc/systemd/system/tp-automation-tick.service').write_text('''[Unit]
+    Description=ThingsPanel native automation scheduler pass
+    After=network-online.target docker.service
 
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/python3 /opt/tp-community-actions/automation-scheduler/automation_tick.py
-TimeoutStartSec=40
-UMask=0077
-''')
-pathlib.Path('/etc/systemd/system/tp-automation-tick.timer').write_text('''[Unit]
-Description=Wake ThingsPanel native automation every five seconds
+    [Service]
+    Type=oneshot
+    ExecStart=/usr/bin/python3 /opt/tp-community-actions/automation-scheduler/automation_tick.py
+    TimeoutStartSec=40
+    UMask=0077
+    ''')
+    pathlib.Path('/etc/systemd/system/tp-automation-tick.timer').write_text('''[Unit]
+    Description=Wake ThingsPanel native automation every five seconds
 
-[Timer]
-OnBootSec=10s
-OnUnitInactiveSec=5s
-AccuracySec=1s
-Unit=tp-automation-tick.service
+    [Timer]
+    OnBootSec=10s
+    OnUnitInactiveSec=5s
+    AccuracySec=1s
+    Unit=tp-automation-tick.service
 
-[Install]
-WantedBy=timers.target
-''')
-run(['systemctl', 'daemon-reload'])
-run(['systemctl', 'start', 'tp-automation-tick.service'])
-run(['systemctl', 'enable', '--now', 'tp-automation-tick.timer'])
-receipt = json.loads((scheduler / 'last-tick.json').read_text())
-if receipt.get('status') != 'passed':
-    raise RuntimeError('Native scheduler acceptance failed')
+    [Install]
+    WantedBy=timers.target
+    ''')
+    run(['systemctl', 'daemon-reload'])
+    run(['systemctl', 'start', 'tp-automation-tick.service'])
+    run(['systemctl', 'enable', '--now', 'tp-automation-tick.timer'])
+    receipt = json.loads((scheduler / 'last-tick.json').read_text())
+    if receipt.get('status') != 'passed':
+        raise RuntimeError('Native scheduler acceptance failed')
 
-retire_notification_renewal(RUNTIME, ROOT, run)
+    retire_notification_renewal(RUNTIME, ROOT, run)
 
-(release / 'deployment.json').write_text(json.dumps({'commit': SHA, 'image': image, 'image_id': image_id,
-    'scheduler': 'tp-automation-tick.timer',
-    'notification_identity': 'automatic-scoped-leases',
-    'pruned_artifacts':pruned_artifacts,
-    'previous_images': old_images, 'migrations_applied': {database: [m['version'] for m in pending]
-                                                       for database, _, pending in plans}}, indent=2))
-print('Encore and notification deployed and verified: ' + SHA)
+    (release / 'deployment.json').write_text(json.dumps({'commit': SHA, 'image': image, 'image_id': image_id,
+        'scheduler': 'tp-automation-tick.timer',
+        'notification_identity': 'automatic-scoped-leases',
+        'pruned_artifacts':pruned_artifacts,
+        'previous_images': old_images, 'migrations_applied': {database: [m['version'] for m in pending]
+                                                           for database, _, pending in plans}}, indent=2))
+    print('Encore and notification deployed and verified: ' + SHA)

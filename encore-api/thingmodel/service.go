@@ -91,6 +91,28 @@ func (s *Service) Publish(ctx context.Context, req *PublishRequest) (*app.Result
 	return &r, nil
 }
 
+type DeleteRequest struct {
+	IdempotencyKey        string `header:"Idempotency-Key"`
+	ModelID               string `json:"modelID"`
+	ExpectedDraftRevision uint64 `json:"expectedDraftRevision"`
+}
+
+//encore:api auth method=POST path=/api/v2/thing-model-commands/delete
+func (s *Service) Delete(ctx context.Context, req *DeleteRequest) (*app.Result, error) {
+	p, err := currentPrincipal()
+	if err != nil {
+		return nil, err
+	}
+	if req == nil {
+		return nil, apiError(app.ErrInvalid)
+	}
+	out, err := application().Delete(ctx, p, req.IdempotencyKey, core.ModelID(req.ModelID), req.ExpectedDraftRevision)
+	if err != nil {
+		return nil, apiError(err)
+	}
+	return &out, nil
+}
+
 type ListRequest struct {
 	Page      int    `query:"page"`
 	PageSize  int    `query:"pageSize"`
@@ -249,6 +271,8 @@ func principalForData(d *authn.Data) (core.Principal, error) {
 	p := core.Principal{SubjectID: canonicalIdentity("subject", d.UserID), TenantID: core.TenantID(canonicalIdentity("tenant", d.TenantID))}
 	for _, r := range d.Roles {
 		switch strings.ToUpper(r) {
+		// Preserve the existing model API's role mapping. The authenticated
+		// tenant comes from the verified Community session, never request data.
 		case "TENANT_ADMIN", "SYS_ADMIN", "PLATFORM_ADMIN":
 			p.Capabilities = []string{string(core.CapabilityRead), string(core.CapabilityWrite), string(core.CapabilityPublish), string(core.CapabilityDelete)}
 			return p, nil

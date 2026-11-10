@@ -1,0 +1,12 @@
+services:
+  unipush:
+    build:
+      context: ../..
+      dockerfile: deployments/unipush/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:5009:5009"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]

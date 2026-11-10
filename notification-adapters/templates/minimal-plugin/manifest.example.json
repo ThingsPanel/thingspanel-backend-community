@@ -1,0 +1,27 @@
+{
+  "api_version": "1.0",
+  "plugin_id": "example.local.notification",
+  "name": "Local Example",
+  "plugin_version": "0.1.0",
+  "channels": ["email"],
+  "content_modes": ["text"],
+  "config_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["label"],
+    "properties": {
+      "label": {"type": "string", "minLength": 1}
+    }
+  },
+  "recipient_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["kind", "address"],
+    "properties": {
+      "kind": {"const": "email"},
+      "address": {"type": "string", "format": "email"}
+    }
+  },
+  "secret_fields": [],
+  "capabilities": {"delivery_receipts": false}
+}

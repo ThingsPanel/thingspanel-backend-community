@@ -71,7 +71,7 @@ func listThingModels(ctx context.Context, tenantID string, q *ThingModelListReq)
 		return nil, 0, wrapDBErr(err, "list thing models failed")
 	}
 	defer rows.Close()
-	var items []ThingModel
+	items := make([]ThingModel, 0)
 	total := 0
 	for rows.Next() {
 		var item ThingModel
@@ -444,7 +444,7 @@ func listThingModelItems(ctx context.Context, tenantID, thingModelID, kind, quer
 		return nil, 0, wrapDBErr(err, "list thing model items failed")
 	}
 	defer rows.Close()
-	var out []ThingModelItem
+	out := make([]ThingModelItem, 0)
 	total := 0
 	for rows.Next() {
 		var item ThingModelItem
@@ -658,16 +658,31 @@ func createDeviceTemplate(ctx context.Context, tenantID string, req *DeviceTempl
 	if err := ensureNonEmpty("thing_model_snapshot_id", req.ThingModelSnapshotID); err != nil {
 		return nil, err
 	}
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "device template create failed")
+	}
+	defer tx.Rollback()
+	out, err := createDeviceTemplateTx(ctx, tx, tenantID, req)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, wrapDBErr(err, "device template create failed")
+	}
+	return out, nil
+}
 
+func createDeviceTemplateTx(ctx context.Context, tx *sqldb.Tx, tenantID string, req *DeviceTemplate) (*DeviceTemplate, error) {
 	// Verify thing_model exists and belongs to tenant
-	tm, err := getThingModelByID(ctx, tenantID, req.ThingModelID)
+	tm, err := getThingModelByIDTx(ctx, tx, tenantID, req.ThingModelID)
 	if err != nil {
 		return nil, &errs.Error{Code: errs.NotFound, Message: "thing model not found"}
 	}
 
 	// Verify snapshot exists and belongs to the thing model
 	var snapshotTMID string
-	if err := db.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		SELECT thing_model_id FROM thing_model_snapshots
 		WHERE id = $1 AND tenant_id = $2
 	`, req.ThingModelSnapshotID, tenantID).Scan(&snapshotTMID); err != nil {
@@ -679,8 +694,8 @@ func createDeviceTemplate(ctx context.Context, tenantID string, req *DeviceTempl
 
 	var out DeviceTemplate
 	id := newID()
-	err = db.QueryRow(ctx, `
-		INSERT INTO device_templates (
+	err = tx.QueryRow(ctx, `
+		INSERT INTO device_access_templates (
 			id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
 			protocol_type, protocol_config, voucher_type, connection_type, auto_register, online_config,
 			tags, extras, description_i18n, image_url, status, created_at, updated_at
@@ -710,6 +725,11 @@ func createDeviceTemplate(ctx context.Context, tenantID string, req *DeviceTempl
 
 func listDeviceTemplates(ctx context.Context, tenantID string, req *ListDeviceTemplatesReq) ([]DeviceTemplate, int, error) {
 	req.pageRequest.normalize()
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, true)
+	if err != nil {
+		return nil, 0, wrapCustomControlTxError(err, "list templates failed")
+	}
+	defer tx.Rollback()
 
 	query := strings.Builder{}
 	query.WriteString(`
@@ -717,7 +737,7 @@ func listDeviceTemplates(ctx context.Context, tenantID string, req *ListDeviceTe
 		       protocol_type, protocol_config, voucher_type, connection_type, auto_register, online_config,
 		       tags, extras, description_i18n, image_url, status, created_at, updated_at,
 		       COUNT(*) OVER()
-		FROM device_templates
+		FROM device_access_templates
 		WHERE tenant_id = $1 AND deleted_at IS NULL
 	`)
 
@@ -763,13 +783,13 @@ func listDeviceTemplates(ctx context.Context, tenantID string, req *ListDeviceTe
 	query.WriteString(fmt.Sprintf(` ORDER BY updated_at DESC LIMIT $%d OFFSET $%d`, argNum, argNum+1))
 	args = append(args, req.PageSize, (req.Page-1)*req.PageSize)
 
-	rows, err := db.Query(ctx, query.String(), args...)
+	rows, err := tx.Query(ctx, query.String(), args...)
 	if err != nil {
 		return nil, 0, wrapDBErr(err, "list templates failed")
 	}
 	defer rows.Close()
 
-	var out []DeviceTemplate
+	out := make([]DeviceTemplate, 0)
 	total := 0
 	for rows.Next() {
 		var item DeviceTemplate
@@ -780,21 +800,37 @@ func listDeviceTemplates(ctx context.Context, tenantID string, req *ListDeviceTe
 		}
 		out = append(out, item)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, wrapDBErr(err, "list templates failed")
+	}
+	rows.Close()
+	if err := tx.Commit(); err != nil {
+		return nil, 0, wrapDBErr(err, "list templates failed")
+	}
 	return out, total, nil
 }
 
 func getDeviceTemplate(ctx context.Context, tenantID, id string) (*DeviceTemplate, error) {
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, true)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "device template not found")
+	}
+	defer tx.Rollback()
+
 	var item DeviceTemplate
-	err := db.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
 		       protocol_type, protocol_config, voucher_type, connection_type, auto_register, online_config,
 		       tags, extras, description_i18n, image_url, status, created_at, updated_at
-		FROM device_templates
+		FROM device_access_templates
 		WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL
 	`, tenantID, id).Scan(&item.ID, &item.TenantID, &item.Name, &item.Brand, &item.ProductName, &item.ModelNumber, &item.ThingModelID, &item.ThingModelSnapshotID,
 		&item.ProtocolType, &item.ProtocolConfig, &item.VoucherType, &item.ConnectionType, &item.AutoRegister, &item.OnlineConfig,
 		&item.Tags, &item.Extras, &item.DescriptionI18n, &item.ImageURL, &item.Status, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
+		return nil, wrapDBErr(err, "device template not found")
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, wrapDBErr(err, "device template not found")
 	}
 	return &item, nil
@@ -811,13 +847,32 @@ func updateDeviceTemplate(ctx context.Context, tenantID, id string, req *DeviceT
 	if err := ensureNonEmpty("thing_model_snapshot_id", req.ThingModelSnapshotID); err != nil {
 		return nil, err
 	}
-
-	// Check if template is ARCHIVED (immutable)
-	current, err := getDeviceTemplate(ctx, tenantID, id)
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "device template not found")
+	}
+	defer tx.Rollback()
+	out, err := updateDeviceTemplateTx(ctx, tx, tenantID, id, req)
 	if err != nil {
 		return nil, err
 	}
-	if current.Status == "ARCHIVED" {
+	if err := tx.Commit(); err != nil {
+		return nil, wrapDBErr(err, "device template not found")
+	}
+	return out, nil
+}
+
+func updateDeviceTemplateTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string, req *DeviceTemplate) (*DeviceTemplate, error) {
+	// Check if template is ARCHIVED (immutable)
+	var currentStatus string
+	if err := tx.QueryRow(ctx, `
+		SELECT status FROM device_access_templates
+		WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL
+		FOR UPDATE
+	`, tenantID, id).Scan(&currentStatus); err != nil {
+		return nil, wrapDBErr(err, "device template not found")
+	}
+	if currentStatus == "ARCHIVED" {
 		return nil, &errs.Error{
 			Code:    errs.FailedPrecondition,
 			Message: "ARCHIVED templates cannot be modified",
@@ -825,14 +880,14 @@ func updateDeviceTemplate(ctx context.Context, tenantID, id string, req *DeviceT
 	}
 
 	// Verify thing_model exists and belongs to tenant
-	tm, err := getThingModelByID(ctx, tenantID, req.ThingModelID)
+	tm, err := getThingModelByIDTx(ctx, tx, tenantID, req.ThingModelID)
 	if err != nil {
 		return nil, &errs.Error{Code: errs.NotFound, Message: "thing model not found"}
 	}
 
 	// Verify snapshot exists and belongs to the thing model
 	var snapshotTMID string
-	if err := db.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		SELECT thing_model_id FROM thing_model_snapshots
 		WHERE id = $1 AND tenant_id = $2
 	`, req.ThingModelSnapshotID, tenantID).Scan(&snapshotTMID); err != nil {
@@ -843,8 +898,8 @@ func updateDeviceTemplate(ctx context.Context, tenantID, id string, req *DeviceT
 	}
 
 	var out DeviceTemplate
-	err = db.QueryRow(ctx, `
-		UPDATE device_templates
+	err = tx.QueryRow(ctx, `
+		UPDATE device_access_templates
 		SET name = $3, brand = $4, product_name = $5, model_number = $6, thing_model_id = $7, thing_model_snapshot_id = $8,
 		    protocol_type = $9, protocol_config = $10, voucher_type = $11, connection_type = COALESCE(NULLIF($12, ''), 'DIRECT'),
 		    auto_register = $13, online_config = $14, tags = COALESCE($15, '[]'::jsonb), extras = COALESCE($16, '{}'::jsonb),
@@ -870,9 +925,36 @@ func updateDeviceTemplate(ctx context.Context, tenantID, id string, req *DeviceT
 }
 
 func deleteDeviceTemplate(ctx context.Context, tenantID, id string) error {
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
+	if err != nil {
+		return wrapCustomControlTxError(err, "device template not found")
+	}
+	defer tx.Rollback()
+
+	if err := deleteDeviceTemplateTx(ctx, tx, tenantID, id); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return wrapDBErr(err, "device template not found")
+	}
+	return nil
+}
+
+func deleteDeviceTemplateTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) error {
+	// FOR UPDATE conflicts with the FOR SHARE checks in product/device creation,
+	// so deletion cannot pass reference checks while a new reference is inserted.
+	var lockedID string
+	if err := tx.QueryRow(ctx, `
+		SELECT id FROM device_access_templates
+		WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL
+		FOR UPDATE
+	`, tenantID, id).Scan(&lockedID); err != nil {
+		return wrapDBErr(err, "device template not found")
+	}
+
 	// Check if any Device references this template
 	var deviceCount int
-	if err := db.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		SELECT COUNT(*) FROM devices
 		WHERE tenant_id = $1 AND device_template_id = $2 AND deleted_at IS NULL
 	`, tenantID, id).Scan(&deviceCount); err != nil {
@@ -884,7 +966,7 @@ func deleteDeviceTemplate(ctx context.Context, tenantID, id string) error {
 
 	// Check if any Product references this template
 	var productCount int
-	if err := db.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		SELECT COUNT(*) FROM products
 		WHERE tenant_id = $1 AND device_template_id = $2 AND deleted_at IS NULL
 	`, tenantID, id).Scan(&productCount); err != nil {
@@ -894,7 +976,7 @@ func deleteDeviceTemplate(ctx context.Context, tenantID, id string) error {
 		return &errs.Error{Code: errs.FailedPrecondition, Message: "device template is referenced by products"}
 	}
 
-	res, err := db.Exec(ctx, `UPDATE device_templates SET deleted_at = NOW(), updated_at = NOW() WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL`, tenantID, id)
+	res, err := tx.Exec(ctx, `UPDATE device_access_templates SET deleted_at = NOW(), updated_at = NOW() WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL`, tenantID, id)
 	if err != nil {
 		return wrapDBErr(err, "device template not found")
 	}
@@ -905,7 +987,7 @@ func deleteDeviceTemplate(ctx context.Context, tenantID, id string) error {
 }
 
 func setDeviceTemplateStatus(ctx context.Context, tenantID, id, status string) error {
-	_, err := db.Exec(ctx, `UPDATE device_templates SET status = $3, updated_at = NOW() WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL`, tenantID, id, status)
+	_, err := db.Exec(ctx, `UPDATE device_access_templates SET status = $3, updated_at = NOW() WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL`, tenantID, id, status)
 	return wrapDBErr(err, "device template not found")
 }
 
@@ -930,11 +1012,17 @@ func bindThingModelVersion(ctx context.Context, tenantID, id, snapshotID string)
 }
 
 func listDeviceTemplatesByThingModel(ctx context.Context, tenantID, thingModelID string) ([]DeviceTemplate, error) {
-	rows, err := db.Query(ctx, `
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, true)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "list templates by thing model failed")
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.Query(ctx, `
 		SELECT id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
 		       protocol_type, protocol_config, voucher_type, connection_type, auto_register, online_config,
 		       tags, extras, description_i18n, image_url, status, created_at, updated_at
-		FROM device_templates
+		FROM device_access_templates
 		WHERE tenant_id = $1 AND thing_model_id = $2 AND deleted_at IS NULL
 		ORDER BY updated_at DESC
 	`, tenantID, thingModelID)
@@ -953,15 +1041,52 @@ func listDeviceTemplatesByThingModel(ctx context.Context, tenantID, thingModelID
 		}
 		templates = append(templates, item)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, wrapDBErr(err, "list templates by thing model failed")
+	}
+	rows.Close()
+	if err := tx.Commit(); err != nil {
+		return nil, wrapDBErr(err, "list templates by thing model failed")
+	}
 	return templates, nil
 }
 
 // publishDeviceTemplate validates and publishes a device template from DRAFT to PUBLISHED
 func publishDeviceTemplate(ctx context.Context, tenantID, id string) (*DeviceTemplate, error) {
-	// Fetch current template
-	tpl, err := getDeviceTemplate(ctx, tenantID, id)
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "device template not found")
+	}
+	defer tx.Rollback()
+
+	out, err := publishDeviceTemplateTx(ctx, tx, tenantID, id)
 	if err != nil {
 		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, wrapDBErr(err, "device template not found")
+	}
+	return out, nil
+}
+
+// publishDeviceTemplateTx performs every read, validation and write for a
+// publication while holding the tenant-scoped template row lock.
+func publishDeviceTemplateTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) (*DeviceTemplate, error) {
+	var tpl DeviceTemplate
+	err := tx.QueryRow(ctx, `
+		SELECT id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
+		       protocol_type, protocol_config, voucher_type, connection_type, auto_register, online_config,
+		       tags, extras, description_i18n, image_url, status, created_at, updated_at
+		FROM device_access_templates
+		WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL
+		FOR UPDATE
+	`, tenantID, id).Scan(
+		&tpl.ID, &tpl.TenantID, &tpl.Name, &tpl.Brand, &tpl.ProductName, &tpl.ModelNumber, &tpl.ThingModelID, &tpl.ThingModelSnapshotID,
+		&tpl.ProtocolType, &tpl.ProtocolConfig, &tpl.VoucherType, &tpl.ConnectionType, &tpl.AutoRegister, &tpl.OnlineConfig,
+		&tpl.Tags, &tpl.Extras, &tpl.DescriptionI18n, &tpl.ImageURL, &tpl.Status, &tpl.CreatedAt, &tpl.UpdatedAt,
+	)
+	if err != nil {
+		return nil, wrapDBErr(err, "device template not found")
 	}
 
 	// Check current status is DRAFT
@@ -995,28 +1120,15 @@ func publishDeviceTemplate(ctx context.Context, tenantID, id string) (*DeviceTem
 		}
 	}
 
-	// Verify thing model snapshot still exists
-	var snapshotTMID string
-	if err := db.QueryRow(ctx, `
-		SELECT thing_model_id FROM thing_model_snapshots
-		WHERE id = $1 AND tenant_id = $2
-	`, tpl.ThingModelSnapshotID, tenantID).Scan(&snapshotTMID); err != nil {
-		return nil, &errs.Error{
-			Code:    errs.NotFound,
-			Message: "referenced thing model snapshot no longer exists",
-		}
-	}
-	if snapshotTMID != tpl.ThingModelID {
-		return nil, &errs.Error{
-			Code:    errs.InvalidArgument,
-			Message: "snapshot does not belong to the specified thing model",
-		}
+	if err := validateDeviceTemplateSnapshotTx(ctx, tx, tenantID, tpl.ThingModelID, tpl.ThingModelSnapshotID); err != nil {
+		return nil, err
 	}
 
-	// Update status atomically with updated_at
+	// The row lock serializes competing publish calls, so this update cannot
+	// race between validation and the DRAFT-to-PUBLISHED transition.
 	var out DeviceTemplate
-	err = db.QueryRow(ctx, `
-		UPDATE device_templates
+	err = tx.QueryRow(ctx, `
+		UPDATE device_access_templates
 		SET status = 'PUBLISHED', updated_at = NOW()
 		WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL AND status = 'DRAFT'
 		RETURNING id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
@@ -1039,15 +1151,63 @@ func publishDeviceTemplate(ctx context.Context, tenantID, id string) (*DeviceTem
 	return &out, nil
 }
 
+func validateDeviceTemplateSnapshotTx(ctx context.Context, tx *sqldb.Tx, tenantID, thingModelID, snapshotID string) error {
+	var snapshotTMID string
+	if err := tx.QueryRow(ctx, `
+		SELECT thing_model_id FROM thing_model_snapshots
+		WHERE id = $1 AND tenant_id = $2
+	`, snapshotID, tenantID).Scan(&snapshotTMID); err != nil {
+		return &errs.Error{
+			Code:    errs.NotFound,
+			Message: "referenced thing model snapshot no longer exists",
+		}
+	}
+	if snapshotTMID != thingModelID {
+		return &errs.Error{
+			Code:    errs.InvalidArgument,
+			Message: "snapshot does not belong to the specified thing model",
+		}
+	}
+	return nil
+}
+
 // archiveDeviceTemplate archives a template (DRAFT or PUBLISHED → ARCHIVED)
 func archiveDeviceTemplate(ctx context.Context, tenantID, id string) (*DeviceTemplate, error) {
-	// Fetch current template
-	tpl, err := getDeviceTemplate(ctx, tenantID, id)
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "archive device template failed")
+	}
+	defer tx.Rollback()
+
+	out, err := archiveDeviceTemplateTx(ctx, tx, tenantID, id)
 	if err != nil {
 		return nil, err
 	}
+	if err := tx.Commit(); err != nil {
+		return nil, wrapDBErr(err, "archive device template failed")
+	}
+	return out, nil
+}
 
-	// Check if already archived
+func archiveDeviceTemplateTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) (*DeviceTemplate, error) {
+	var tpl DeviceTemplate
+	err := tx.QueryRow(ctx, `
+		SELECT id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
+		       protocol_type, protocol_config, voucher_type, connection_type, auto_register, online_config,
+		       tags, extras, description_i18n, image_url, status, created_at, updated_at
+		FROM device_access_templates
+		WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL
+		FOR UPDATE
+	`, tenantID, id).Scan(
+		&tpl.ID, &tpl.TenantID, &tpl.Name, &tpl.Brand, &tpl.ProductName, &tpl.ModelNumber, &tpl.ThingModelID, &tpl.ThingModelSnapshotID,
+		&tpl.ProtocolType, &tpl.ProtocolConfig, &tpl.VoucherType, &tpl.ConnectionType, &tpl.AutoRegister, &tpl.OnlineConfig,
+		&tpl.Tags, &tpl.Extras, &tpl.DescriptionI18n, &tpl.ImageURL, &tpl.Status, &tpl.CreatedAt, &tpl.UpdatedAt,
+	)
+	if err != nil {
+		return nil, wrapDBErr(err, "device template not found")
+	}
+
+	// Preserve the existing sequential archive failure and state-machine errors.
 	if tpl.Status == "ARCHIVED" {
 		return nil, &errs.Error{
 			Code:    errs.FailedPrecondition,
@@ -1063,10 +1223,9 @@ func archiveDeviceTemplate(ctx context.Context, tenantID, id string) (*DeviceTem
 		}
 	}
 
-	// Update status atomically
 	var out DeviceTemplate
-	err = db.QueryRow(ctx, `
-		UPDATE device_templates
+	err = tx.QueryRow(ctx, `
+		UPDATE device_access_templates
 		SET status = 'ARCHIVED', updated_at = NOW()
 		WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL AND status != 'ARCHIVED'
 		RETURNING id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
@@ -1091,13 +1250,42 @@ func archiveDeviceTemplate(ctx context.Context, tenantID, id string) (*DeviceTem
 
 // deriveDeviceTemplateDraftAdvanced creates a new DRAFT from a PUBLISHED template
 func deriveDeviceTemplateDraftAdvanced(ctx context.Context, tenantID, id string) (*DeviceTemplate, error) {
-	// Fetch source template
-	src, err := getDeviceTemplate(ctx, tenantID, id)
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "derive device template draft failed")
+	}
+	defer tx.Rollback()
+
+	out, err := deriveDeviceTemplateDraftAdvancedTx(ctx, tx, tenantID, id)
 	if err != nil {
 		return nil, err
 	}
+	if err := tx.Commit(); err != nil {
+		return nil, wrapDBErr(err, "derive device template draft failed")
+	}
+	return out, nil
+}
 
-	// Validate source is PUBLISHED
+func deriveDeviceTemplateDraftAdvancedTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) (*DeviceTemplate, error) {
+	// Lock the published source so derivation and archive serialize on the same row.
+	var src DeviceTemplate
+	err := tx.QueryRow(ctx, `
+		SELECT id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
+		       protocol_type, protocol_config, voucher_type, connection_type, auto_register, online_config,
+		       tags, extras, description_i18n, image_url, status, created_at, updated_at
+		FROM device_access_templates
+		WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL
+		FOR UPDATE
+	`, tenantID, id).Scan(
+		&src.ID, &src.TenantID, &src.Name, &src.Brand, &src.ProductName, &src.ModelNumber, &src.ThingModelID, &src.ThingModelSnapshotID,
+		&src.ProtocolType, &src.ProtocolConfig, &src.VoucherType, &src.ConnectionType, &src.AutoRegister, &src.OnlineConfig,
+		&src.Tags, &src.Extras, &src.DescriptionI18n, &src.ImageURL, &src.Status, &src.CreatedAt, &src.UpdatedAt,
+	)
+	if err != nil {
+		return nil, wrapDBErr(err, "device template not found")
+	}
+
+	// Validate source is PUBLISHED.
 	if src.Status != "PUBLISHED" {
 		return nil, &errs.Error{
 			Code:    errs.FailedPrecondition,
@@ -1105,7 +1293,8 @@ func deriveDeviceTemplateDraftAdvanced(ctx context.Context, tenantID, id string)
 		}
 	}
 
-	// Create new template with new ID, same models, DRAFT status
+	// Keep the existing draft name and field mapping. The shared transaction
+	// helper validates the tenant model and snapshot before inserting.
 	newTemplate := &DeviceTemplate{
 		TenantID:             src.TenantID,
 		Name:                 src.Name + " (draft)",
@@ -1126,48 +1315,53 @@ func deriveDeviceTemplateDraftAdvanced(ctx context.Context, tenantID, id string)
 		ImageURL:             src.ImageURL,
 		Status:               "DRAFT",
 	}
-
-	newID := uuid.New().String()
-	now := time.Now()
-
-	var out DeviceTemplate
-	err = db.QueryRow(ctx, `
-		INSERT INTO device_templates (
-			id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
-			protocol_type, protocol_config, voucher_type, connection_type, auto_register, online_config,
-			tags, extras, description_i18n, image_url, status, created_at, updated_at
-		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8,
-			$9, $10, $11, COALESCE(NULLIF($12, ''), 'DIRECT'), $13, $14,
-			COALESCE($15, '[]'::jsonb), COALESCE($16, '{}'::jsonb), $17, $18, 'DRAFT', $19, $19
-		)
-		RETURNING id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
-		          protocol_type, protocol_config, voucher_type, connection_type, auto_register, online_config,
-		          tags, extras, description_i18n, image_url, status, created_at, updated_at
-	`, newID, newTemplate.TenantID, newTemplate.Name, newTemplate.Brand, newTemplate.ProductName, newTemplate.ModelNumber,
-		newTemplate.ThingModelID, newTemplate.ThingModelSnapshotID, newTemplate.ProtocolType, jsonOrNull(newTemplate.ProtocolConfig),
-		newTemplate.VoucherType, newTemplate.ConnectionType, newTemplate.AutoRegister, jsonOrNull(newTemplate.OnlineConfig),
-		jsonOrNull(newTemplate.Tags), jsonOrNull(newTemplate.Extras), jsonOrNull(newTemplate.DescriptionI18n),
-		newTemplate.ImageURL, now).Scan(
-		&out.ID, &out.TenantID, &out.Name, &out.Brand, &out.ProductName, &out.ModelNumber, &out.ThingModelID, &out.ThingModelSnapshotID,
-		&out.ProtocolType, &out.ProtocolConfig, &out.VoucherType, &out.ConnectionType, &out.AutoRegister, &out.OnlineConfig,
-		&out.Tags, &out.Extras, &out.DescriptionI18n, &out.ImageURL, &out.Status, &out.CreatedAt, &out.UpdatedAt,
-	)
+	out, err := createDeviceTemplateTx(ctx, tx, tenantID, newTemplate)
 	if err != nil {
-		return nil, wrapDBErr(err, "derive device template draft failed")
+		if errs.Code(err) == errs.AlreadyExists {
+			return nil, &errs.Error{Code: errs.Internal, Message: "device metadata persistence error"}
+		}
+		return nil, err
 	}
-	return &out, nil
+	return out, nil
 }
 
 // bindThingModelVersionAdvanced updates template's snapshot with validation
 func bindThingModelVersionAdvanced(ctx context.Context, tenantID, id, snapshotID string) (*DeviceTemplate, error) {
-	// Fetch current template
-	tpl, err := getDeviceTemplate(ctx, tenantID, id)
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "bind thing model version failed")
+	}
+	defer tx.Rollback()
+
+	out, err := bindThingModelVersionAdvancedTx(ctx, tx, tenantID, id, snapshotID)
 	if err != nil {
 		return nil, err
 	}
+	if err := tx.Commit(); err != nil {
+		return nil, wrapDBErr(err, "bind thing model version failed")
+	}
+	return out, nil
+}
 
-	// Check if ARCHIVED (immutable)
+func bindThingModelVersionAdvancedTx(ctx context.Context, tx *sqldb.Tx, tenantID, id, snapshotID string) (*DeviceTemplate, error) {
+	var tpl DeviceTemplate
+	err := tx.QueryRow(ctx, `
+		SELECT id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
+		       protocol_type, protocol_config, voucher_type, connection_type, auto_register, online_config,
+		       tags, extras, description_i18n, image_url, status, created_at, updated_at
+		FROM device_access_templates
+		WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL
+		FOR UPDATE
+	`, tenantID, id).Scan(
+		&tpl.ID, &tpl.TenantID, &tpl.Name, &tpl.Brand, &tpl.ProductName, &tpl.ModelNumber, &tpl.ThingModelID, &tpl.ThingModelSnapshotID,
+		&tpl.ProtocolType, &tpl.ProtocolConfig, &tpl.VoucherType, &tpl.ConnectionType, &tpl.AutoRegister, &tpl.OnlineConfig,
+		&tpl.Tags, &tpl.Extras, &tpl.DescriptionI18n, &tpl.ImageURL, &tpl.Status, &tpl.CreatedAt, &tpl.UpdatedAt,
+	)
+	if err != nil {
+		return nil, wrapDBErr(err, "device template not found")
+	}
+
+	// Check if ARCHIVED (immutable) after acquiring the row lock.
 	if tpl.Status == "ARCHIVED" {
 		return nil, &errs.Error{
 			Code:    errs.FailedPrecondition,
@@ -1177,7 +1371,7 @@ func bindThingModelVersionAdvanced(ctx context.Context, tenantID, id, snapshotID
 
 	// Verify new snapshot exists and belongs to same thing model
 	var snapshotTMID string
-	if err := db.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		SELECT thing_model_id FROM thing_model_snapshots
 		WHERE id = $1 AND tenant_id = $2
 	`, snapshotID, tenantID).Scan(&snapshotTMID); err != nil {
@@ -1196,8 +1390,8 @@ func bindThingModelVersionAdvanced(ctx context.Context, tenantID, id, snapshotID
 
 	// Update snapshot ID atomically
 	var out DeviceTemplate
-	err = db.QueryRow(ctx, `
-		UPDATE device_templates
+	err = tx.QueryRow(ctx, `
+		UPDATE device_access_templates
 		SET thing_model_snapshot_id = $3, updated_at = NOW()
 		WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL
 		RETURNING id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
@@ -1230,15 +1424,6 @@ func createProduct(ctx context.Context, tenantID string, req *Product) (*Product
 		return nil, err
 	}
 
-	tmpl, err := getDeviceTemplate(ctx, tenantID, req.DeviceTemplateID)
-	if err != nil {
-		return nil, &errs.Error{Code: errs.NotFound, Message: "THING_MODEL_TEMPLATE_NOT_FOUND"}
-	}
-
-	if tmpl.Status == "ARCHIVED" {
-		return nil, &errs.Error{Code: errs.FailedPrecondition, Message: "TEMPLATE_ARCHIVED"}
-	}
-
 	productKey := strings.TrimSpace(req.ProductKey)
 	if productKey == "" {
 		generated, err := generateProductKey()
@@ -1247,9 +1432,37 @@ func createProduct(ctx context.Context, tenantID string, req *Product) (*Product
 		}
 		productKey = generated
 	}
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "product create failed")
+	}
+	defer tx.Rollback()
+
+	out, err := createProductTx(ctx, tx, tenantID, req, productKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, wrapDBErr(err, "product create failed")
+	}
+	return out, nil
+}
+
+func createProductTx(ctx context.Context, tx *sqldb.Tx, tenantID string, req *Product, productKey string) (*Product, error) {
+	var templateStatus string
+	if err := tx.QueryRow(ctx, `
+		SELECT status FROM device_access_templates
+		WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL
+		FOR SHARE
+	`, tenantID, req.DeviceTemplateID).Scan(&templateStatus); err != nil {
+		return nil, &errs.Error{Code: errs.NotFound, Message: "THING_MODEL_TEMPLATE_NOT_FOUND"}
+	}
+	if templateStatus == "ARCHIVED" {
+		return nil, &errs.Error{Code: errs.FailedPrecondition, Message: "TEMPLATE_ARCHIVED"}
+	}
 
 	var out Product
-	err = db.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		INSERT INTO products (id, tenant_id, name, device_template_id, product_key, sku, image_url, ota_package_id, description_i18n, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
 		RETURNING id, tenant_id, name, device_template_id, product_key, sku, image_url, ota_package_id, description_i18n, created_at, deleted_at
@@ -1297,7 +1510,7 @@ func listProducts(ctx context.Context, tenantID string, req *ListProductsReq) ([
 	}
 	defer rows.Close()
 
-	var out []*Product
+	out := make([]*Product, 0)
 	total := 0
 	for rows.Next() {
 		var item Product
@@ -1448,69 +1661,83 @@ func sanitizeDevice(d *Device) *Device {
 }
 
 func createDevice(ctx context.Context, tenantID string, req *Device) (*Device, error) {
-	// Validation: device_template_id must exist and be PUBLISHED
-	tmpl, err := getDeviceTemplate(ctx, tenantID, req.DeviceTemplateID)
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
 	if err != nil {
+		return nil, wrapCustomControlTxError(err, "device create failed")
+	}
+	defer tx.Rollback()
+
+	out, err := createDeviceTx(ctx, tx, tenantID, req)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, wrapDBErr(err, "device create failed")
+	}
+	return out, nil
+}
+
+func createDeviceTx(ctx context.Context, tx *sqldb.Tx, tenantID string, req *Device) (*Device, error) {
+	// FOR SHARE allows concurrent reference creators but conflicts with the
+	// deleteDeviceTemplateTx FOR UPDATE lock while this reference is inserted.
+	var templateStatus string
+	if err := tx.QueryRow(ctx, `
+		SELECT status FROM device_access_templates
+		WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL
+		FOR SHARE
+	`, tenantID, req.DeviceTemplateID).Scan(&templateStatus); err != nil {
 		return nil, &errs.Error{Code: errs.NotFound, Message: "device template not found"}
 	}
-	if tmpl.Status != "PUBLISHED" {
+	if templateStatus != "PUBLISHED" {
 		return nil, &errs.Error{Code: errs.FailedPrecondition, Message: "device template must be PUBLISHED"}
 	}
 
-	// Validation: product_id if provided must match template
 	if req.ProductID != nil && strings.TrimSpace(*req.ProductID) != "" {
-		product, err := getProduct(ctx, tenantID, *req.ProductID)
-		if err != nil {
+		var productTemplateID string
+		if err := tx.QueryRow(ctx, `SELECT device_template_id FROM products WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL`, tenantID, *req.ProductID).Scan(&productTemplateID); err != nil {
 			return nil, &errs.Error{Code: errs.NotFound, Message: "product not found"}
 		}
-		if product.DeviceTemplateID != req.DeviceTemplateID {
+		if productTemplateID != req.DeviceTemplateID {
 			return nil, &errs.Error{Code: errs.InvalidArgument, Message: "product does not match device template"}
 		}
 	}
 
-	// Validation: parent_device_id if provided must exist and be GATEWAY
 	if req.ParentDeviceID != nil && strings.TrimSpace(*req.ParentDeviceID) != "" {
-		parent, err := getDevice(ctx, tenantID, *req.ParentDeviceID)
-		if err != nil {
+		var parentTemplateID string
+		if err := tx.QueryRow(ctx, `SELECT device_template_id FROM devices WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL`, tenantID, *req.ParentDeviceID).Scan(&parentTemplateID); err != nil {
 			return nil, &errs.Error{Code: errs.NotFound, Message: "parent device not found"}
 		}
-		// Verify parent's template has GATEWAY connection type
-		parentTmpl, err := getDeviceTemplate(ctx, tenantID, parent.DeviceTemplateID)
-		if err != nil {
+		var connectionType string
+		if err := tx.QueryRow(ctx, `SELECT connection_type FROM device_access_templates WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL`, tenantID, parentTemplateID).Scan(&connectionType); err != nil {
 			return nil, &errs.Error{Code: errs.NotFound, Message: "parent device template not found"}
 		}
-		if parentTmpl.ConnectionType != "GATEWAY" {
+		if connectionType != "GATEWAY" {
 			return nil, &errs.Error{Code: errs.InvalidArgument, Message: "parent device must be a GATEWAY"}
 		}
 	}
 
-	// Auto-generate SN if empty
 	sn := strings.TrimSpace(req.SN)
 	if sn == "" {
 		sn = generateSN()
 	}
-
-	// Validation: SN unique per tenant
-	existingDevice, _ := getDeviceBySN(ctx, tenantID, sn)
-	if existingDevice != nil {
+	var existingID string
+	if err := tx.QueryRow(ctx, `SELECT id FROM devices WHERE tenant_id=$1 AND sn=$2 AND deleted_at IS NULL`, tenantID, sn).Scan(&existingID); err == nil {
 		return nil, &errs.Error{Code: errs.AlreadyExists, Message: "serial number already exists for this tenant"}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return nil, wrapDBErr(err, "device create failed")
 	}
-
-	// Prepare voucher (generate if empty, encrypt before storage)
 	voucher := strings.TrimSpace(req.Voucher)
 	if voucher == "" {
 		voucher = uuid.NewString()
 	}
-	// MVP: Store as-is (no encryption for now, can add encryption layer)
-	encryptedVoucher := voucher
 
 	var out Device
 	id := newID()
-	err = db.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		INSERT INTO devices (id, tenant_id, device_template_id, product_id, sn, voucher, is_online, activate_flag, parent_device_id, created_at, activated_at, deleted_at)
 		VALUES ($1, $2, $3, $4, $5, $6, 0, COALESCE(NULLIF($7, ''), 'INACTIVE'), $8, NOW(), NULL, NULL)
 		RETURNING id, tenant_id, device_template_id, product_id, sn, voucher, is_online, activate_flag, parent_device_id, created_at, activated_at, deleted_at
-	`, id, tenantID, req.DeviceTemplateID, req.ProductID, sn, encryptedVoucher, req.ActivateFlag, req.ParentDeviceID).Scan(
+	`, id, tenantID, req.DeviceTemplateID, req.ProductID, sn, voucher, req.ActivateFlag, req.ParentDeviceID).Scan(
 		&out.ID, &out.TenantID, &out.DeviceTemplateID, &out.ProductID, &out.SN, &out.Voucher, &out.IsOnline, &out.ActivateFlag, &out.ParentDeviceID, &out.CreatedAt, &out.ActivatedAt, &out.DeletedAt,
 	)
 	if err != nil {
@@ -1537,7 +1764,7 @@ func listDevices(ctx context.Context, tenantID string, req *ListDevicesReq) ([]D
 		  AND ($3 = '' OR device_template_id::text = $3)
 		  AND ($4 = '' OR product_id::text = $4)
 		  AND ($5 = '' OR activate_flag = $5)
-		ORDER BY created_at DESC LIMIT $6 OFFSET $7
+		ORDER BY created_at DESC, id DESC LIMIT $6 OFFSET $7
 	`
 
 	rows, err := db.Query(ctx, query, tenantID, snFilter, req.DeviceTemplateID, req.ProductID, req.Status, req.PageSize, (req.Page-1)*req.PageSize)
@@ -1546,7 +1773,7 @@ func listDevices(ctx context.Context, tenantID string, req *ListDevicesReq) ([]D
 	}
 	defer rows.Close()
 
-	var out []Device
+	out := make([]Device, 0)
 	total := 0
 	for rows.Next() {
 		var item Device

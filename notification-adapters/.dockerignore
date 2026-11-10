@@ -1,0 +1,9 @@
+.env
+**/.env
+**/*.private.json
+**/*.pem
+**/*.key
+**/*.log
+**/*.exe
+.git
+**/node_modules

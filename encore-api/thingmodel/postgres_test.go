@@ -333,6 +333,106 @@ func TestPostgresRepositoryReceiptScopeMatchesContract(t *testing.T) {
 	}
 }
 
+func TestPostgresExecuteSetsTenantLocallyBeforeCallbackAndSharesTransaction(t *testing.T) {
+	ctx := context.Background()
+	repo := newPostgresRepository()
+	principal := postgresPrincipal()
+	scope := app.ReceiptScope{TenantID: core.TenantID(strings.ToUpper(string(principal.TenantID))), SubjectID: principal.SubjectID, Operation: "test-tenant-context", Key: "tenant-context-001", PayloadHash: strings.Repeat("f", 64)}
+	model := core.Model{ID: core.ModelID(uuid.NewString()), TenantID: principal.TenantID, Name: "tenant context rollback", Fields: []core.Field{}, DraftRevision: 1}
+	callbackErr := errors.New("force transaction rollback")
+	_, err := repo.Execute(ctx, scope, func(tx app.Transaction) (app.Result, error) {
+		postgresTx, ok := tx.(*postgresTransaction)
+		if !ok {
+			t.Fatalf("transaction type = %T", tx)
+		}
+		var tenantSetting string
+		var transactionID string
+		if err := postgresTx.tx.QueryRow(ctx, `SELECT current_setting('app.current_tenant_id', true), txid_current()::text`).Scan(&tenantSetting, &transactionID); err != nil {
+			return app.Result{}, err
+		}
+		if tenantSetting != strings.ToLower(string(scope.TenantID)) || transactionID == "" {
+			t.Fatalf("transaction context tenant=%q transaction=%q", tenantSetting, transactionID)
+		}
+		if err := tx.Insert(ctx, app.Record{Model: model, Lifecycle: "DRAFT"}); err != nil {
+			return app.Result{}, err
+		}
+		return app.Result{}, callbackErr
+	})
+	if !errors.Is(err, callbackErr) {
+		t.Fatalf("Execute error = %v, want callback error", err)
+	}
+	if _, err := repo.Get(ctx, model.TenantID, model.ID); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("business insert survived helper failure: %v", err)
+	}
+}
+
+func TestPostgresExecuteRejectsInvalidTenantBeforeCallback(t *testing.T) {
+	ctx := context.Background()
+	for _, tenantID := range []core.TenantID{"invalid-tenant", core.TenantID(uuid.Nil.String())} {
+		scope := app.ReceiptScope{TenantID: tenantID, SubjectID: uuid.NewString(), Operation: "test-invalid-tenant", Key: "invalid-tenant-001", PayloadHash: strings.Repeat("a", 64)}
+		called := false
+		if _, err := newPostgresRepository().Execute(ctx, scope, func(app.Transaction) (app.Result, error) {
+			called = true
+			return app.Result{Status: "SHOULD_NOT_RUN"}, nil
+		}); !errors.Is(err, app.ErrInvalid) {
+			t.Fatalf("Execute tenant %q = %v, want invalid", tenantID, err)
+		}
+		if called {
+			t.Fatalf("business callback ran for invalid tenant %q", tenantID)
+		}
+	}
+}
+
+func TestPostgresTenantReadTxSetsTenantAndReadOnlyIsolation(t *testing.T) {
+	ctx := context.Background()
+	principal := postgresPrincipal()
+	uppercaseTenantID := core.TenantID(strings.ToUpper(string(principal.TenantID)))
+	tx, normalizedTenantID, err := beginTenantReadTx(ctx, uppercaseTenantID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	var tenantSetting, isolation, readOnly string
+	if err := tx.QueryRow(ctx, `SELECT current_setting('app.current_tenant_id'), current_setting('transaction_isolation'), current_setting('transaction_read_only')`).Scan(&tenantSetting, &isolation, &readOnly); err != nil {
+		t.Fatal(err)
+	}
+	if normalizedTenantID != principal.TenantID || tenantSetting != string(principal.TenantID) || isolation != "repeatable read" || readOnly != "on" {
+		t.Fatalf("read transaction context tenant=%q normalized=%q isolation=%q read_only=%q", tenantSetting, normalizedTenantID, isolation, readOnly)
+	}
+	if _, _, err := beginTenantReadTx(ctx, core.TenantID(uuid.Nil.String())); !errors.Is(err, app.ErrInvalid) {
+		t.Fatalf("nil tenant read transaction = %v, want invalid", err)
+	}
+}
+
+func TestPostgresRepositoryReadMethodsUseTenantTransactions(t *testing.T) {
+	ctx := context.Background()
+	service := app.New(newPostgresRepository(), uuid.NewString)
+	principal := postgresPrincipal()
+	created, err := service.Create(ctx, principal, "read-path-create-001", core.Model{Name: "read paths", Fields: []core.Field{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	modelID := core.ModelID(created.ModelID)
+	if record, err := service.Get(ctx, principal, modelID); err != nil || record.Model.Name != "read paths" {
+		t.Fatalf("Get = %+v, %v", record, err)
+	}
+	if records, total, err := service.List(ctx, principal, 1, 20, "read paths"); err != nil || total != 1 || len(records) != 1 || records[0].Model.ID != modelID {
+		t.Fatalf("List = %+v, total=%d, err=%v", records, total, err)
+	}
+	if _, err := service.Publish(ctx, principal, "read-path-publish-001", modelID, created.DraftRevision, "read path snapshot"); err != nil {
+		t.Fatal(err)
+	}
+	if versions, err := service.Versions(ctx, principal, modelID); err != nil || len(versions) != 1 || versions[0].Snapshot.Revision != 1 {
+		t.Fatalf("Versions = %+v, %v", versions, err)
+	}
+	if version, err := service.Version(ctx, principal, modelID, 1); err != nil || version.Snapshot.Revision != 1 {
+		t.Fatalf("Version = %+v, %v", version, err)
+	}
+	if resources, err := service.Resources(ctx, principal, modelID); err != nil || resources.Revision != 0 {
+		t.Fatalf("Resources = %+v, %v", resources, err)
+	}
+}
+
 func TestPostgresConcurrentRequestsCreateOnceAndCASSelectsOneWriter(t *testing.T) {
 	ctx := context.Background()
 	p := postgresPrincipal()
@@ -431,5 +531,55 @@ func TestPostgresPublishedSnapshotCannotBeModified(t *testing.T) {
 	after, e := s.Version(ctx, p, core.ModelID(r.ModelID), 1)
 	if e != nil || before.Snapshot.Checksum != after.Snapshot.Checksum || after.Changelog != "original" {
 		t.Fatalf("immutable snapshot changed: %+v %v", after, e)
+	}
+}
+
+func TestPostgresDeleteReleasesNameAndPreservesPinnedVersion(t *testing.T) {
+	ctx := context.Background()
+	service := app.New(newPostgresRepository(), uuid.NewString)
+	p := postgresPrincipal()
+	p.Capabilities = append(p.Capabilities, string(core.CapabilityDelete))
+	created, err := service.Create(ctx, p, "postgres-delete-create", core.Model{Name: "Reusable"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := core.ModelID(created.ModelID)
+	if _, err := service.Publish(ctx, p, "postgres-delete-publish", id, 1, "v1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Delete(ctx, p, "postgres-delete-stale", id, 2); !errors.Is(err, app.ErrConflict) {
+		t.Fatalf("stale delete = %v", err)
+	}
+	foreign := postgresPrincipal()
+	foreign.Capabilities = append(foreign.Capabilities, string(core.CapabilityDelete))
+	if _, err := service.Delete(ctx, foreign, "postgres-delete-foreign", id, 1); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("cross tenant = %v", err)
+	}
+	out, err := service.Delete(ctx, p, "postgres-delete-key", id, 1)
+	if err != nil || out.Status != "DELETED" {
+		t.Fatalf("delete = %+v,%v", out, err)
+	}
+	if _, err := service.Get(ctx, p, id); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("get = %v", err)
+	}
+	if _, err := service.Resources(ctx, p, id); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("resources = %v", err)
+	}
+	rows, total, err := service.List(ctx, p, 1, 20, "")
+	if err != nil || total != 0 || len(rows) != 0 {
+		t.Fatalf("list = %+v,%d,%v", rows, total, err)
+	}
+	if _, err := service.Version(ctx, p, id, 1); err != nil {
+		t.Fatalf("bound snapshot = %v", err)
+	}
+	if _, err := service.Version(ctx, foreign, id, 1); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("cross-tenant snapshot = %v", err)
+	}
+	replay, err := service.Delete(ctx, p, "postgres-delete-key", id, 1)
+	if err != nil || !replay.Replayed {
+		t.Fatalf("replay = %+v,%v", replay, err)
+	}
+	if _, err := service.Create(ctx, p, "postgres-delete-recreate", core.Model{Name: "Reusable"}); err != nil {
+		t.Fatalf("name reuse = %v", err)
 	}
 }

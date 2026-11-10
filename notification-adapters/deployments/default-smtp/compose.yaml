@@ -1,0 +1,40 @@
+services:
+  smtp-plugin:
+    build:
+      context: ../..
+      dockerfile: deployments/default-smtp/Dockerfile
+    env_file:
+      - ${SMTP_PLUGIN_ENV_FILE:?set SMTP_PLUGIN_ENV_FILE to an operator-owned mode-0600 file}
+    environment:
+      NOTIFICATION_PLUGIN_LISTEN: 0.0.0.0:5005
+    networks:
+      - notification
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    restart: unless-stopped
+
+  smtp-https:
+    image: caddy:2.10.0-alpine
+    environment:
+      PLUGIN_TLS_HOST: ${PLUGIN_TLS_HOST:?set an HTTPS hostname covered by the operator certificate}
+      PLUGIN_TLS_CERT_FILE: /run/tls/tls.crt
+      PLUGIN_TLS_KEY_FILE: /run/tls/tls.key
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${PLUGIN_TLS_CERT_FILE:?set the operator-owned TLS certificate path}:/run/tls/tls.crt:ro
+      - ${PLUGIN_TLS_KEY_FILE:?set the operator-owned TLS key path}:/run/tls/tls.key:ro
+    networks:
+      - notification
+    ports:
+      - "127.0.0.1:${PLUGIN_TLS_HOST_PORT:-5443}:443"
+    read_only: true
+    tmpfs:
+      - /data:size=16m,noexec,nosuid
+      - /config:size=16m,noexec,nosuid
+    restart: unless-stopped
+
+networks:
+  notification:
+    name: ${NOTIFICATION_PRIVATE_NETWORK:?set the private Core/plugin network name}
+    external: true

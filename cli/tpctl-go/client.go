@@ -55,10 +55,12 @@ type apiError struct {
 }
 
 type client struct {
-	baseURL string
-	token   string
-	tenant  string
-	http    *http.Client
+	baseURL      string
+	token        string
+	tenant       string
+	http         *http.Client
+	communityAPI bool
+	ifMatch      string
 }
 
 func newClient(baseURL, token, tenant string, timeout time.Duration) *client {
@@ -75,6 +77,7 @@ type response struct {
 	status    int
 	body      []byte
 	requestID string
+	etag      string
 }
 
 // call performs one HTTP request.
@@ -111,12 +114,18 @@ func (c *client) call(method, path string, query url.Values, body any,
 	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
+		if c.communityAPI {
+			req.Header.Set("x-token", c.token)
+		}
 	}
 	if c.tenant != "" {
 		req.Header.Set("X-Tenant-ID", c.tenant)
 	}
 	if idem != "" {
 		req.Header.Set("Idempotency-Key", idem)
+	}
+	if c.ifMatch != "" {
+		req.Header.Set("If-Match", c.ifMatch)
 	}
 	if requestID != "" {
 		req.Header.Set("X-Request-ID", requestID)
@@ -129,7 +138,7 @@ func (c *client) call(method, path string, query url.Values, body any,
 	defer res.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(res.Body, 8<<20))
 
-	out := &response{status: res.StatusCode, body: raw, requestID: res.Header.Get("X-Request-ID")}
+	out := &response{status: res.StatusCode, body: raw, requestID: res.Header.Get("X-Request-ID"), etag: res.Header.Get("ETag")}
 	if res.StatusCode >= 200 && res.StatusCode < 300 {
 		return out, nil
 	}
@@ -165,6 +174,7 @@ func decodeError(status int, raw []byte, idem string) *apiError {
 	var wire struct {
 		Code    string          `json:"code"`
 		Message string          `json:"message"`
+		Detail  string          `json:"detail"`
 		Details json.RawMessage `json:"details"`
 	}
 	out := &apiError{HTTPStatus: status}
@@ -179,6 +189,9 @@ func decodeError(status int, raw []byte, idem string) *apiError {
 	}
 	out.Code = wire.Code
 	out.Message = wire.Message
+	if out.Message == "" {
+		out.Message = wire.Detail
+	}
 	if len(wire.Details) > 0 {
 		var details struct {
 			Code   string          `json:"code"`

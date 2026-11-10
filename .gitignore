@@ -29,3 +29,8 @@ configs/.telemetry_state.json
 
 # Deployment helper test bytecode
 deploy/community-test/__pycache__/
+
+# Isolated worktrees and private notification runtime configuration
+.claude/worktrees/
+notification-adapters/**/.env
+notification-adapters/**/*.private.json
