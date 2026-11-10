@@ -993,15 +993,23 @@ func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectForm
 				"id":    param.DeviceID,
 			})
 		}
+		deviceType = deviceConfig.DeviceType
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
-			deviceType = deviceConfig.DeviceType
 		}
 	} else {
 		protocolType = "MQTT"
 		deviceType = "1"
 	}
 
+	// Child devices connect through their gateway, not the protocol listener.
+	if deviceType == strconv.Itoa(constant.GATEWAY_SON_DEVICE) {
+		message := global.ResponseHandler.ErrManager.GetMessage
+		return map[string]string{
+			message(500008, lang): message(500009, lang),
+			message(500010, lang): message(500011, lang),
+		}, nil
+	}
 	var rsp any
 	if protocolType == "MQTT" {
 		// 取配置的MQTT接入地址
@@ -1039,11 +1047,10 @@ func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectForm
 		if pp.ServiceType == int32(1) {
 			// pp.ServiceConfig转换为model.ProtocolAccessConfig
 			var protocolAccessConfig model.ProtocolAccessConfig
-			err = json.Unmarshal([]byte(*pp.ServiceConfig), &protocolAccessConfig)
-			if err != nil {
-				logrus.Error(ctx, "Error occurred during unmarshalling. Error: %s", err)
+			if pp.ServiceConfig == nil || json.Unmarshal([]byte(*pp.ServiceConfig), &protocolAccessConfig) != nil {
+				return nil, errcode.NewWithMessage(errcode.CodeSystemError, "invalid protocol access configuration")
 			}
-			info[global.ResponseHandler.ErrManager.GetMessage(500006, lang)] = protocolAccessConfig.AccessAddress
+			return protocolConnectionInfo(protocolAccessConfig.AccessAddress, lang), nil
 		}
 		rsp = info
 	}
