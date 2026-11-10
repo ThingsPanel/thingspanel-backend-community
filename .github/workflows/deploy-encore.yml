@@ -22,7 +22,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verify migration history guard
-        run: python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
+        run: |
+          python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_deployment_guard.py'
       - name: Install pinned Encore CLI
         run: |
