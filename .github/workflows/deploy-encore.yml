@@ -1,4 +1,4 @@
-name: Reclaim unused Encore build executables
+name: Read-only kernel runtime provenance audit
 on:
   workflow_dispatch:
 permissions:
@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Reclaim verified unused compilation outputs
+      - name: Read container images and build provenance
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
