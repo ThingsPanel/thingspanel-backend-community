@@ -1,0 +1,37 @@
+name: Notification adapter candidate image
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.9'
+          cache: false
+      - name: Verify adapter code
+        working-directory: notification-adapters
+        run: |
+          go test -race ./...
+          go vet ./...
+      - name: Build immutable Community UniPush image
+        run: |
+          set -euo pipefail
+          image="thingspanel-notification-unipush:community-$GITHUB_SHA"
+          docker build --build-arg "SOURCE_REVISION=$GITHUB_SHA" \
+            -f notification-adapters/deployments/unipush/Dockerfile \
+            -t "$image" notification-adapters
+          mkdir candidate
+          docker image inspect "$image" --format '{{json .}}' > candidate/image.json
+          docker save "$image" | gzip > candidate/unipush.tar.gz
+          cd candidate
+          sha256sum unipush.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notification-unipush-${{ github.sha }}
+          path: candidate/
+          retention-days: 14

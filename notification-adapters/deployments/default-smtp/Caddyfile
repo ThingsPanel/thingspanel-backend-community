@@ -1,0 +1,4 @@
+{$PLUGIN_TLS_HOST} {
+	tls {$PLUGIN_TLS_CERT_FILE} {$PLUGIN_TLS_KEY_FILE}
+	reverse_proxy smtp-plugin:5005
+}

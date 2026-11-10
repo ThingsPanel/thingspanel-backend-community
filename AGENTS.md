@@ -27,7 +27,7 @@
 - HTTP 问题沿 `router/` → `internal/api/` → `internal/service/` → 数据访问层追踪。
 - 启动与配置从 `main.go` → `internal/app/` 查起；支持 `-config` 指定配置，先确认实际加载文件。
 - 设备消息从 `mqtt/` 和 `internal/app/` 的服务装配追踪上行/下行，核对适配器、载荷和存储边界。
-- 原生物模型消费者与设备绑定在本仓库，原生模型服务在相邻 `iot-api-encore-kernel/`；跨服务问题需检查双方接口。
+- 原生物模型与通知核心在本仓库 `encore-api/`，独立通知适配器在 `notification-adapters/`。日常开发与构建不依赖相邻 Kernel 工作区；历史移植来源与未收口内容见 `docs/KERNEL-SOURCE-CONVERGENCE.md`。
 - 开发前读 `.ai/_项目开发规范.md`，背景见 `.ai/_项目全局信息.md`、`system_architecture.md`。
 
 ## 开发与验证

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "description": "Review manifest mirroring the explicit allowlist enforced by export-plugin.sh. The SDK is copied as source until a supported public SDK release exists.",
+  "shared": [
+    "go.mod (Go version only; generated module has no dependencies)",
+    "sdk/**/*.go",
+    "mock/provider.go (required by copied SDK handler tests)"
+  ],
+  "providers": {
+    "smtp": ["smtp/**/*.go", "cmd/smtp/*.go -> cmd/plugin/"],
+    "dingtalk": ["dingtalk/**/*.go", "cmd/dingtalk/*.go -> cmd/plugin/"],
+    "aliyunsms": ["aliyunsms/**/*.go", "cmd/aliyunsms/*.go -> cmd/plugin/"],
+    "legacywebhook": ["legacywebhook/**/*.go", "cmd/legacywebhook/*.go -> cmd/plugin/"]
+  },
+  "excluded": [
+    "Encore/Core source and modules",
+    "other providers",
+    "workspace go.work and go.sum",
+    "credentials, local config, runtime data, Git metadata"
+  ]
+}

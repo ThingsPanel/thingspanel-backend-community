@@ -1,0 +1,50 @@
+name: Notification adapter checks
+on:
+  pull_request:
+    paths:
+      - 'notification-adapters/**'
+      - 'encore-api/l3-core/notification/**'
+      - '.github/workflows/notification-adapters.yml'
+  push:
+    paths:
+      - 'notification-adapters/**'
+      - 'encore-api/l3-core/notification/**'
+      - '.github/workflows/notification-adapters.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  adapters:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: notification_test
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: notification_test
+        ports: ['25543:5432']
+        options: >-
+          --health-cmd "pg_isready -U notification_test -d notification_test"
+          --health-interval 2s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.9'
+          cache-dependency-path: encore-api/go.sum
+      - name: Test all adapters on Linux
+        working-directory: notification-adapters
+        run: |
+          go test -race ./...
+          go vet ./...
+          go build ./cmd/...
+          go build -trimpath -o "$RUNNER_TEMP/notification-unipush" ./cmd/unipush
+      - name: Test real worker and independent UniPush process
+        working-directory: encore-api
+        env:
+          NOTIFICATION_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
+        run: |
+          UNIPUSH_FIXTURE_BIN="$RUNNER_TEMP/notification-unipush" \
+            go test -tags notification_standalone ./l3-core/notification -run '^TestRealUniPushWorker$' -count=1 -v
