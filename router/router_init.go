@@ -119,7 +119,7 @@ func RouterInit() *gin.Engine {
 	router.GET("/api/v1/notification/source-tenants/:id", reader.GetTenantPresence)
 	router.GET("/api/v1/notification/source-policies/:id", reader.GetAutomationPolicy)
 
-	api.RegisterAutomationOwnerRoutes(router,global.DB)
+	api.RegisterAutomationOwnerRoutes(router, global.DB)
 
 	// 记录操作日志
 	router.Use(middleware.OperationLogs())
@@ -145,11 +145,11 @@ func RouterInit() *gin.Engine {
 		v1 := api.Group("v1")
 		{
 			// v1.GET("notice/test", controllers.NoticeTest)
-			v1.POST("plugin/heartbeat", middleware.RequireManagedPluginRuntime(), controllers.Heartbeat)
-			v1.POST("plugin/device/config", middleware.RequireManagedPluginRuntime(), controllers.HandleDeviceConfigForProtocolPlugin)
-			v1.POST("plugin/devices", middleware.RequireManagedPluginRuntime(), controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
-			v1.POST("plugin/service/access/list", middleware.RequireManagedPluginRuntime(), controllers.HandlePluginServiceAccessList)
-			v1.POST("plugin/service/access", middleware.RequireManagedPluginRuntime(), controllers.HandlePluginServiceAccess)
+			v1.POST("plugin/heartbeat", middleware.ManagedPluginRuntimeOrLegacy(), controllers.Heartbeat)
+			v1.POST("plugin/device/config", middleware.ManagedPluginRuntimeOrLegacy(), controllers.HandleDeviceConfigForProtocolPlugin)
+			v1.POST("plugin/devices", middleware.ManagedPluginRuntimeOrLegacy(), controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
+			v1.POST("plugin/service/access/list", middleware.ManagedPluginRuntimeOrLegacy(), controllers.HandlePluginServiceAccessList)
+			v1.POST("plugin/service/access", middleware.ManagedPluginRuntimeOrLegacy(), controllers.HandlePluginServiceAccess)
 			v1.POST("login", controllers.Login)
 			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password", controllers.ResetPassword)

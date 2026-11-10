@@ -12,11 +12,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// Managed plugin runtime identities replace the closed anonymous plugin entrypoints. A request is let through only
+// The strict managed guard lets a request through only
 // when it carries "Authorization: Bearer <instance_id>.<secret>" for a live identity (not revoked, not expired, the
 // highest generation of its plugin instance). Everything else - no header, a user JWT, an unknown or revoked token,
 // caller-supplied active/instance/tenant headers - gets the same 503 PLUGIN_RUNTIME_IDENTITY_REQUIRED the closed
-// entrypoints returned. There is no switch that reopens anonymous access.
+// entrypoints returned. Shared Community routes use the explicit legacy compatibility wrapper below.
 const PluginRuntimeIdentityKey = "plugin_runtime_identity"
 
 // PluginRuntimeIdentity is the authenticated identity stored on the request context.
@@ -51,6 +51,24 @@ func RequireManagedPluginRuntimeWith(store *pluginidentity.Store, now func() tim
 			return
 		}
 		c.Set(PluginRuntimeIdentityKey, identity)
+		c.Next()
+	}
+}
+
+// LegacyPluginRuntimeKey is set only by the compatibility router, never from request headers.
+const LegacyPluginRuntimeKey = "legacy_plugin_runtime"
+
+// ManagedPluginRuntimeOrLegacy preserves headerless legacy requests. Handlers
+// must resolve the target service and reject Home Assistant without an identity.
+// An invalid or revoked credential never falls back to legacy access.
+func ManagedPluginRuntimeOrLegacy() gin.HandlerFunc {
+	strict := RequireManagedPluginRuntime()
+	return func(c *gin.Context) {
+		if _, present := c.Request.Header["Authorization"]; present {
+			strict(c)
+			return
+		}
+		c.Set(LegacyPluginRuntimeKey, true)
 		c.Next()
 	}
 }
