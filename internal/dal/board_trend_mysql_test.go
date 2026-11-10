@@ -1,6 +1,7 @@
 package dal
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"reflect"
@@ -9,13 +10,12 @@ import (
 	"testing"
 	"time"
 
-	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
-	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	"project/internal/model"
 	global "project/pkg/global"
 	componentsql "project/sql"
@@ -37,21 +37,24 @@ func trendDialects(t *testing.T) (pg, my *gorm.DB) {
 	if err := pg.Exec("SET session_replication_role = replica").Error; err != nil { // skip the identity trigger and FK checks on the oracle
 		t.Fatal(err)
 	}
-	portNumber, _ := strconv.Atoi(port)
-	cfg := mysqldriver.NewConfig()
-	cfg.User, cfg.Passwd, cfg.Net, cfg.Addr = os.Getenv("TP_MYSQL_TEST_USER"), os.Getenv("TP_MYSQL_TEST_PASSWORD"), "tcp", host+":"+port
-	cfg.DBName, cfg.ParseTime, cfg.Loc, cfg.ClientFoundRows = os.Getenv("TP_MYSQL_TEST_DB"), true, time.UTC, true
-	my, err = gorm.Open(mysql.Open(cfg.FormatDSN()), &gorm.Config{Logger: logger.Discard, SkipDefaultTransaction: true})
+	portNumber, err := strconv.Atoi(port)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = portNumber
+	my, err = relational.Open(context.Background(), relational.Target{
+		Name: "board-trend-test", Dialect: relational.MySQL, Flavor: relational.Flavor(os.Getenv("TP_MYSQL_TEST_FLAVOR")),
+		Host: host, Port: portNumber, Database: os.Getenv("TP_MYSQL_TEST_DB"), Username: os.Getenv("TP_MYSQL_TEST_USER"),
+		Password: os.Getenv("TP_MYSQL_TEST_PASSWORD"), TimeZone: "UTC", Pool: relational.PoolOptions{MaxOpenConns: 5, MaxIdleConns: 2},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, table := range []string{"device_status_history", "devices", "users"} {
 		_ = my.Exec("DROP TABLE IF EXISTS " + table).Error
 	}
 	for _, names := range [][]string{{"001_core_users_devices.sql"}, componentsql.MySQLDeviceStatusMigrationNames()} {
 		for _, name := range names {
-			statements, err := componentsql.MySQLMigrationStatements(name)
+			statements, err := componentsql.MySQLFamilyMigrationStatements(os.Getenv("TP_MYSQL_TEST_FLAVOR"), name)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -68,9 +71,7 @@ func trendDialects(t *testing.T) (pg, my *gorm.DB) {
 		_ = my.Exec("DROP TABLE IF EXISTS device_status_history").Error
 		_ = my.Exec("DROP TABLE IF EXISTS devices").Error
 		_ = my.Exec("DROP TABLE IF EXISTS users").Error
-		if p, e := my.DB(); e == nil {
-			_ = p.Close()
-		}
+		_ = relational.CloseDB(my)
 		_ = pgPool.Close()
 	})
 	return pg, my

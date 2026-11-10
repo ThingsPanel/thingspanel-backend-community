@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	model "project/internal/model"
 	query "project/internal/query"
 	global "project/pkg/global"
@@ -273,15 +274,26 @@ FROM with_online w
 CROSS JOIN device_total t
 ORDER BY w.hour_ts ASC;
 `
-	if global.DB.Dialector.Name() == "mysql" {
+	dialect, err := relational.DialectOf(global.DB)
+	if err != nil {
+		return nil, err
+	}
+	if dialect == relational.MySQL {
+		flavor, err := relational.FlavorOf(global.DB)
+		if err != nil {
+			return nil, err
+		}
+		if flavor == relational.FlavorMariaDB {
+			return deviceTrendMariaDB(tenantID, startTimeUTC, endTimeUTC)
+		}
 		return deviceTrendMySQL(tenantID, startTimeUTC, endTimeUTC)
 	}
-	err := global.DB.Raw(sql, tenantID, startTimeUTC, endTimeUTC).Scan(&results).Error
+	err = global.DB.Raw(sql, tenantID, startTimeUTC, endTimeUTC).Scan(&results).Error
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{
-			"tenant_id":  tenantID,
-			"startTime":  startTimeUTC,
-			"endTime":    endTimeUTC,
+			"tenant_id": tenantID,
+			"startTime": startTimeUTC,
+			"endTime":   endTimeUTC,
 		}).Error("GetDeviceTrend query failed")
 		return nil, err
 	}
@@ -317,13 +329,31 @@ func (BoardQuery) CreateDefaultBoard(ctx context.Context, tenantid string) error
 //   - the hour series is a recursive CTE (PostgreSQL: generate_series); a start after the end yields
 //     no rows, as generate_series does, and the recursion limit is raised for long ranges;
 //   - DISTINCT ON becomes ROW_NUMBER() = 1, FILTER becomes COUNT(CASE ...), ::bigint becomes CAST;
+//   - the LAG default is expressed with COALESCE because MariaDB supports only the two-argument LAG form;
 //   - hours are truncated in UTC, which equals date_trunc('hour', ...) for whole-hour zone offsets.
 func deviceTrendMySQL(tenantID string, start, end time.Time) ([]model.DeviceTrendPoint, error) {
+	return deviceTrendWithStatement(deviceTrendMySQLStatement, tenantID, start, end)
+}
+
+// MariaDB exposes the recursion limit as a per-statement system variable instead of MySQL's SET_VAR hint.
+func deviceTrendMariaDB(tenantID string, start, end time.Time) ([]model.DeviceTrendPoint, error) {
+	return deviceTrendWithStatement(deviceTrendMariaDBStatement, tenantID, start, end)
+}
+
+func deviceTrendWithStatement(statement, tenantID string, start, end time.Time) ([]model.DeviceTrendPoint, error) {
 	startHour, endHour := start.Truncate(time.Hour), end.Truncate(time.Hour)
 	if endHour.Before(startHour) {
 		return []model.DeviceTrendPoint{}, nil
 	}
-	const statement = `
+	var results []model.DeviceTrendPoint
+	if err := global.DB.Raw(statement, startHour, endHour, tenantID, end, tenantID, start, tenantID, start, end).Scan(&results).Error; err != nil {
+		logrus.WithError(err).WithField("tenant_id", tenantID).Error("GetDeviceTrend (mysql-family) query failed")
+		return nil, err
+	}
+	return results, nil
+}
+
+const deviceTrendMySQLStatement = `
 WITH RECURSIVE
 hour_series AS (
     SELECT CAST(? AS DATETIME(6)) AS hour_ts
@@ -351,7 +381,7 @@ status_events AS (
 ),
 ordered_events AS (
     SELECT device_id, status, change_time, is_initial,
-           LAG(status, 1, 0) OVER (PARTITION BY device_id ORDER BY change_time, id) AS prev_status
+           COALESCE(LAG(status, 1) OVER (PARTITION BY device_id ORDER BY change_time, id), 0) AS prev_status
     FROM status_events
 ),
 hourly_delta AS (
@@ -373,10 +403,6 @@ SELECT /*+ SET_VAR(cte_max_recursion_depth=1000000) */
     w.hour_ts AS ` + "`timestamp`" + `, t.total_cnt AS device_total, w.cur_online AS device_online,
     CAST(t.total_cnt - w.cur_online AS SIGNED) AS device_offline
 FROM with_online w CROSS JOIN device_total t ORDER BY w.hour_ts ASC`
-	var results []model.DeviceTrendPoint
-	if err := global.DB.Raw(statement, startHour, endHour, tenantID, end, tenantID, start, tenantID, start, end).Scan(&results).Error; err != nil {
-		logrus.WithError(err).WithField("tenant_id", tenantID).Error("GetDeviceTrend (mysql) query failed")
-		return nil, err
-	}
-	return results, nil
-}
+
+const deviceTrendMariaDBStatement = `SET STATEMENT max_recursive_iterations = 1000000 FOR
+` + deviceTrendMySQLStatement

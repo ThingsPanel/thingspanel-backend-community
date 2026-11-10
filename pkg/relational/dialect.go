@@ -24,8 +24,18 @@ const (
 	MySQL Dialect = "mysql"
 )
 
-// ParseDialect reads the value of relational.driver. Empty means Postgres. Anything else that is not a known name
-// is an error, so a typo never silently selects a database. "postgresql", "pg" and "mariadb" are not accepted.
+// Flavor identifies the concrete server family selected behind the MySQL
+// wire protocol. MariaDB uses GORM's MySQL dialector, so Dialect remains MySQL
+// while Flavor carries the migration and capability differences.
+type Flavor string
+
+const (
+	FlavorMySQL   Flavor = "mysql"
+	FlavorMariaDB Flavor = "mariadb"
+)
+
+// ParseDialect reads the value of relational.driver. Empty means Postgres. MariaDB is
+// selected as a flavor of the mysql driver, not as a separate ORM dialect.
 func ParseDialect(raw string) (Dialect, error) {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "", string(Postgres):
@@ -37,8 +47,23 @@ func ParseDialect(raw string) (Dialect, error) {
 	}
 }
 
+// ParseFlavor reads relational.mysql.flavor. Empty means MySQL for backwards
+// compatibility. MariaDB is deliberately an explicit opt-in.
+func ParseFlavor(raw string) (Flavor, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", string(FlavorMySQL):
+		return FlavorMySQL, nil
+	case string(FlavorMariaDB):
+		return FlavorMariaDB, nil
+	default:
+		return "", fmt.Errorf("unsupported relational.mysql.flavor %q (want %q or %q)", raw, FlavorMySQL, FlavorMariaDB)
+	}
+}
+
 // Valid reports whether d is one of the two engines.
 func (d Dialect) Valid() bool { return d == Postgres || d == MySQL }
+
+func (f Flavor) Valid() bool { return f == FlavorMySQL || f == FlavorMariaDB }
 
 func (d Dialect) String() string { return string(d) }
 
@@ -56,6 +81,21 @@ func DialectOf(db *gorm.DB) (Dialect, error) {
 	default:
 		return "", fmt.Errorf("relational: unsupported gorm dialector %q", name)
 	}
+}
+
+// FlavorOf reports the explicitly configured MySQL-family server flavor.
+// Handles opened through legacy Adopt calls are MySQL by default.
+func FlavorOf(db *gorm.DB) (Flavor, error) {
+	if db == nil || db.Dialector == nil {
+		return "", fmt.Errorf("relational: nil database handle")
+	}
+	if db.Dialector.Name() != "mysql" {
+		return "", fmt.Errorf("relational: flavor is only defined for mysql-family dialectors")
+	}
+	if d, ok := db.Dialector.(interface{ RelationalFlavor() Flavor }); ok {
+		return d.RelationalFlavor(), nil
+	}
+	return FlavorMySQL, nil
 }
 
 // MustDialectOf is DialectOf for constructors that cannot proceed on an unknown engine; it panics, which is a

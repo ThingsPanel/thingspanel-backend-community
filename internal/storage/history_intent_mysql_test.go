@@ -38,7 +38,7 @@ func openMySQLIngest(t *testing.T) *gorm.DB {
 	}
 	drop()
 	for _, name := range componentsql.MySQLHistoryIntentMigrationNames() {
-		statements, err := componentsql.MySQLMigrationStatements(name)
+		statements, err := componentsql.MySQLFamilyMigrationStatements(os.Getenv("TP_MYSQL_TEST_FLAVOR"), name)
 		if err != nil {
 			t.Fatal(err)
 		}

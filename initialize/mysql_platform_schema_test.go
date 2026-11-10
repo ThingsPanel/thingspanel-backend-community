@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"os"
 	"strings"
 	"testing"
 
@@ -56,7 +57,7 @@ func TestPlatformMySQLMigrationOwnershipExcludesAutomationServiceSchema(t *testi
 	}
 	var platformBase string
 	for _, name := range componentsql.MySQLPlatformBaseMigrationNames() {
-		contents, err := componentsql.MySQLMigrationContents(name)
+		contents, err := componentsql.MySQLFamilyMigrationContents(os.Getenv("TP_MYSQL_TEST_FLAVOR"), name)
 		if err != nil {
 			t.Fatal(err)
 		}

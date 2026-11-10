@@ -2,7 +2,7 @@ package initialize
 
 import "github.com/robfig/cron"
 
-//定义任务初始化
+// 定义任务初始化
 func CronInit() {
 	c := cron.New()
 

@@ -43,7 +43,7 @@ func openBackends(t *testing.T) map[string]*gorm.DB {
 			t.Fatal(err)
 		}
 		for _, name := range sql.MySQLPluginRuntimeIdentityMigrationNames() {
-			statements, err := sql.MySQLMigrationStatements(name)
+			statements, err := sql.MySQLFamilyMigrationStatements(os.Getenv("TP_MYSQL_TEST_FLAVOR"), name)
 			if err != nil {
 				t.Fatal(err)
 			}

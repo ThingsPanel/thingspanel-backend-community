@@ -129,6 +129,12 @@ func normalise(v any, dbType string) any {
 				return doc
 			}
 		}
+		if strings.HasPrefix(strings.TrimSpace(x), "{") || strings.HasPrefix(strings.TrimSpace(x), "[") {
+			var doc any
+			if json.Unmarshal([]byte(x), &doc) == nil {
+				return doc
+			}
+		}
 		return x
 	}
 	return v

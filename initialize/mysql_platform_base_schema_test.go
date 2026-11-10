@@ -28,6 +28,7 @@ func platformBaseOrder() []string {
 	names = append(names, componentsql.MySQLPlatformConfigMigrationNames()...)
 	names = append(names, componentsql.MySQLAutomationMigrationNames()...)
 	names = append(names, componentsql.MySQLPlatformBaseMigrationNames()...)
+	names = append(names, componentsql.MySQLPluginRuntimeIdentityMigrationNames()...)
 	return names
 }
 
@@ -180,7 +181,7 @@ func openPlatformDialects(t *testing.T) (pg, my *sql.DB) {
 	dropAll()
 	t.Cleanup(dropAll)
 	for _, file := range platformBaseOrder() {
-		statements, err := componentsql.MySQLMigrationStatements(file)
+		statements, err := componentsql.MySQLFamilyMigrationStatements(os.Getenv("TP_MYSQL_TEST_FLAVOR"), file)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -198,7 +199,7 @@ func TestMySQLPlatformSchemaCoversEveryPostgresPlatformTable(t *testing.T) {
 
 	// Platform tables that have no MySQL counterpart by design.
 	ignored := map[string]string{
-		"casbin_rule":     "created by the casbin adapter at start-up",
+		"casbin_rule": "created by the casbin adapter at start-up",
 	}
 	pgCols := readColumns(t, pg, `SELECT table_name, column_name, data_type, data_type, is_nullable, character_maximum_length
         FROM information_schema.columns c WHERE table_schema='public'
@@ -235,7 +236,7 @@ func TestMySQLPlatformSchemaCoversEveryPostgresPlatformTable(t *testing.T) {
 			switch {
 			case !ok:
 				problems = append(problems, fmt.Sprintf("%s.%s: missing column", table, column))
-			case got.class != want.class:
+			case got.class != want.class && !(os.Getenv("TP_MYSQL_TEST_FLAVOR") == "mariadb" && want.class == "json" && got.class == "string"):
 				problems = append(problems, fmt.Sprintf("%s.%s: type %s, MySQL %s", table, column, want.class, got.class))
 			case got.nullable != want.nullable:
 				problems = append(problems, fmt.Sprintf("%s.%s: nullable=%v, MySQL nullable=%v", table, column, want.nullable, got.nullable))
@@ -263,7 +264,7 @@ func TestMySQLPlatformSchemaCoversEveryPostgresPlatformTable(t *testing.T) {
          GROUP BY table_name, index_name`)
 	// An over-long unique key is emulated by a unique key on a stored hash column (name ends in __uk).
 	hashed := map[string][]string{}
-	hashRows, err := my.Query(`SELECT table_name, generation_expression FROM information_schema.columns
+	hashRows, err := my.Query(`SELECT table_name, COALESCE(generation_expression, '') FROM information_schema.columns
         WHERE table_schema=DATABASE() AND column_name LIKE '%\_\_uk'`)
 	if err != nil {
 		t.Fatal(err)
@@ -277,6 +278,12 @@ func TestMySQLPlatformSchemaCoversEveryPostgresPlatformTable(t *testing.T) {
 	}
 	hashRows.Close()
 	emulated := func(key string) bool {
+		if os.Getenv("TP_MYSQL_TEST_FLAVOR") == "mariadb" && key == "device_topic_mappings|unique|device_config_id,direction,source_topic,target_topic" && myKeys["device_topic_mappings|unique|ux_device_topic_mapping_unique__uk"] {
+			// MariaDB cannot index the MySQL generated SHA2 expression used for this
+			// overlong composite key, so the migration stores the same digest in a
+			// regular column maintained by the owning repository.
+			return true
+		}
 		parts := strings.SplitN(key, "|", 3)
 		if parts[1] != "unique" {
 			return false

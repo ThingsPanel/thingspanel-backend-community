@@ -98,7 +98,7 @@ func TestMySQLRunnerRejectsLegacyChecksumDriftAndMissingSchema(t *testing.T) {
 	if err := ApplyMySQLCoreSchema(context.Background(), db); err == nil || !strings.Contains(err.Error(), "checksum") {
 		t.Fatalf("legacy checksum drift must fail closed, got %v", err)
 	}
-	contents, err := componentsql.MySQLMigrationContents("002_device_identity.sql")
+	contents, err := componentsql.MySQLFamilyMigrationContents(os.Getenv("TP_MYSQL_TEST_FLAVOR"), "002_device_identity.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

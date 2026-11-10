@@ -46,7 +46,7 @@ func TestDeviceIDReservationsBehaveTheSameOnMySQLAsOnPostgres(t *testing.T) {
 		_ = my.Exec("DROP TABLE IF EXISTS " + table).Error
 	}
 	for _, name := range componentsql.MySQLMigrationNames() {
-		statements, err := componentsql.MySQLMigrationStatements(name)
+		statements, err := componentsql.MySQLFamilyMigrationStatements(os.Getenv("TP_MYSQL_TEST_FLAVOR"), name)
 		if err != nil {
 			t.Fatal(err)
 		}

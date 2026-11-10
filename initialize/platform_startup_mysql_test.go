@@ -34,6 +34,7 @@ func TestRelationalInitMySQLImportsOldReceiptsAndDoesNotReplayAppliedDDL(t *test
 	}
 	setViper(t, map[string]interface{}{
 		"relational.driver":                     "mysql",
+		"relational.mysql.flavor":               os.Getenv("TP_MYSQL_TEST_FLAVOR"),
 		"relational.mysql.platform.host":        host,
 		"relational.mysql.platform.port":        portNumber,
 		"relational.mysql.platform.database":    database,
@@ -62,8 +63,9 @@ func TestRelationalInitMySQLImportsOldReceiptsAndDoesNotReplayAppliedDDL(t *test
 		t.Fatalf("dialector=%s, want mysql", db.Dialector.Name())
 	}
 	var modules int
-	if err := db.Raw("SELECT COUNT(DISTINCT module_name) FROM " + mysqlLedgerTable).Scan(&modules).Error; err != nil || modules != 8 {
-		t.Fatalf("legacy module receipts=%d err=%v", modules, err)
+	wantModules := len(mysqlOwnerModules()) + 2 // the core and auth owners are registered separately
+	if err := db.Raw("SELECT COUNT(DISTINCT module_name) FROM " + mysqlLedgerTable).Scan(&modules).Error; err != nil || modules != wantModules {
+		t.Fatalf("legacy module receipts=%d want=%d err=%v", modules, wantModules, err)
 	}
 	if err := CloseRelationalResources(); err != nil {
 		t.Fatal(err)

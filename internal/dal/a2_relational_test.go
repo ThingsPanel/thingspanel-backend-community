@@ -1,6 +1,7 @@
 package dal
 
 import (
+	"os"
 	"context"
 	"errors"
 	"fmt"
@@ -395,7 +396,7 @@ func TestServiceAccessOperationTenantIsolationPostgresMySQL(t *testing.T) {
 		s.Step("create isolated service access schema", func(ctx context.Context, db *gorm.DB) (any, error) {
 			if relational.MustDialectOf(db) == relational.MySQL {
 				for _, name := range componentsql.MySQLServiceAccessMigrationNames() {
-					statements, err := componentsql.MySQLMigrationStatements(name)
+					statements, err := componentsql.MySQLFamilyMigrationStatements(os.Getenv("TP_MYSQL_TEST_FLAVOR"), name)
 					if err != nil {
 						return nil, err
 					}

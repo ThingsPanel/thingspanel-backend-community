@@ -37,7 +37,7 @@ func openIdentityDialects(t *testing.T) (pg, my *gorm.DB) {
 		t.Fatal(err)
 	}
 	for _, name := range componentsql.MySQLMigrationNames() {
-		statements, err := componentsql.MySQLMigrationStatements(name)
+		statements, err := componentsql.MySQLFamilyMigrationStatements(os.Getenv("TP_MYSQL_TEST_FLAVOR"), name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -49,7 +49,7 @@ func openIdentityDialects(t *testing.T) (pg, my *gorm.DB) {
 	}
 	// Applying the migration again must be harmless (backfill is INSERT IGNORE, triggers are dropped first).
 	for _, name := range componentsql.MySQLMigrationNames() {
-		statements, _ := componentsql.MySQLMigrationStatements(name)
+		statements, _ := componentsql.MySQLFamilyMigrationStatements(os.Getenv("TP_MYSQL_TEST_FLAVOR"), name)
 		for _, statement := range statements {
 			if err := my.Exec(statement).Error; err != nil {
 				t.Fatalf("re-apply %s: %v", name, err)
@@ -133,12 +133,11 @@ func TestMysqlDeviceIdentityFenceMatchesPostgres(t *testing.T) {
 		*out = append(*out, name+": "+verdict)
 	}
 	for _, s := range steps {
-		record(&pgOutcome, s.name, s.do(pg, tenant, other, id))
-		record(&myOutcome, s.name, s.do(my, tenant, other, id))
-	}
-	for i := range pgOutcome {
-		if pgOutcome[i] != myOutcome[i] {
-			t.Errorf("step differs\n  pg: %s\n  my: %s", pgOutcome[i], myOutcome[i])
+		pgErr, myErr := s.do(pg, tenant, other, id), s.do(my, tenant, other, id)
+		record(&pgOutcome, s.name, pgErr)
+		record(&myOutcome, s.name, myErr)
+		if (pgErr == nil) != (myErr == nil) {
+			t.Errorf("step %q differs: PostgreSQL error=%v; MySQL error=%v", s.name, pgErr, myErr)
 		}
 	}
 	// The scenario must actually exercise both outcomes.

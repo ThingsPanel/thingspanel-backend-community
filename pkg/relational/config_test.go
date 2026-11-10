@@ -45,7 +45,21 @@ func TestResolveTargetResourceKeyWinsOverShared(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.Dialect != MySQL || got.Username != "own" || got.Port != 3306 || got.Pool.MaxOpenConns != 7 ||
-		got.Pool.ConnMaxLifetime != 30*time.Minute || got.Pool.SlowThreshold != 250*time.Millisecond {
+		got.Flavor != FlavorMySQL || got.Pool.ConnMaxLifetime != 30*time.Minute || got.Pool.SlowThreshold != 250*time.Millisecond {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestResolveTargetMariaDBFlavor(t *testing.T) {
+	src := MapSource(map[string]string{
+		"relational.driver": "mysql", "relational.mysql.flavor": "mariadb",
+		"relational.mysql.platform.database": "tp", "relational.mysql.platform.username": "app",
+	})
+	got, err := ResolveTarget(src, "platform")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Dialect != MySQL || got.Flavor != FlavorMariaDB || got.Port != 3306 {
 		t.Fatalf("%+v", got)
 	}
 }
@@ -56,6 +70,7 @@ func TestResolveTargetErrors(t *testing.T) {
 		"no dsn, no db":  {"relational.driver": "mysql"},
 		"bad number":     {"relational.driver": "mysql", "relational.mysql.dsn": "x", "relational.mysql.port": "abc"},
 		"bad duration":   {"relational.driver": "mysql", "relational.mysql.database": "d", "relational.mysql.username": "u", "relational.mysql.conn_max_lifetime": "soon"},
+		"bad flavor":     {"relational.driver": "mysql", "relational.mysql.flavor": "mysql8", "relational.mysql.database": "d", "relational.mysql.username": "u"},
 	}
 	for name, m := range cases {
 		if _, err := ResolveTarget(MapSource(m), "r"); err == nil {

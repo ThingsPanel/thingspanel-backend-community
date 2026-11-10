@@ -64,7 +64,7 @@ func RelationalInit() (*gorm.DB, error) {
 	platformRegistryMu.Unlock()
 
 	globalDB := db
-	if err := initializePlatformSchema(context.Background(), globalDB, target.Dialect); err != nil {
+	if err := initializePlatformSchema(context.Background(), globalDB, target.Dialect, target.Flavor); err != nil {
 		_ = CloseRelationalResources()
 		return nil, err
 	}
@@ -96,12 +96,12 @@ func CloseRelationalResources() error {
 	return platformRegistry.Close()
 }
 
-func initializePlatformSchema(ctx context.Context, db *gorm.DB, dialect relational.Dialect) error {
+func initializePlatformSchema(ctx context.Context, db *gorm.DB, dialect relational.Dialect, flavor relational.Flavor) error {
 	if dialect == relational.MySQL {
 		if err := RequireNoTemporaryTablePrivilege(db); err != nil {
 			return err
 		}
-		if err := ApplyMySQLPlatformSchema(ctx, db); err != nil {
+		if err := ApplyMySQLFamilyPlatformSchema(ctx, db, flavor); err != nil {
 			return wrapMySQLSchemaError(err)
 		}
 		global.DB = db

@@ -16,6 +16,7 @@ import (
 // variables) share one definition of what the keys mean.
 //
 //	relational.driver                     postgres (default) | mysql          one value for the whole deployment
+//	relational.mysql.flavor               mysql (default) | mariadb             MySQL-family server flavor
 //	relational.<engine>.<resource>.dsn    a complete DSN for one logical resource
 //	relational.<engine>.<field>           structured settings shared by every resource of that engine:
 //	                                      host, port, username, password, time_zone, open_conns, idle_conns,
@@ -83,6 +84,7 @@ type Target struct {
 	// the configuration keys and the migration history; it is never derived from the database name.
 	Name    string
 	Dialect Dialect
+	Flavor  Flavor
 
 	// DSN, when set, is used as is (pgx URL or key/value string for Postgres; go-sql-driver DSN for MySQL). The
 	// structured fields below are ignored.
@@ -106,6 +108,12 @@ func (t Target) Validate() error {
 	}
 	if !t.Dialect.Valid() {
 		return fmt.Errorf("relational: target %q has no valid dialect", t.Name)
+	}
+	if t.Dialect == Postgres && t.Flavor != "" {
+		return fmt.Errorf("relational: target %q cannot set a MySQL flavor for PostgreSQL", t.Name)
+	}
+	if t.Dialect == MySQL && t.Flavor != "" && !t.Flavor.Valid() {
+		return fmt.Errorf("relational: target %q has no valid MySQL flavor", t.Name)
 	}
 	if t.DSN == "" && (t.Database == "" || t.Username == "") {
 		return fmt.Errorf("relational: target %q needs a DSN or both database and username", t.Name)
@@ -146,6 +154,12 @@ func resolveTarget(src Source, resource string, d Dialect) (Target, error) {
 	}
 	var err error
 	t := Target{Name: resource, Dialect: d, DSN: strings.TrimSpace(src("relational." + string(d) + "." + resource + ".dsn"))}
+	if d == MySQL {
+		t.Flavor, err = ParseFlavor(src("relational.mysql.flavor"))
+		if err != nil {
+			return Target{}, err
+		}
+	}
 	t.Host, t.Database, t.Username, t.Password, t.TimeZone = get("host"), get("database"), get("username"), get("password"), get("time_zone")
 	for field, dst := range map[string]*int{
 		"port": &t.Port, "open_conns": &t.Pool.MaxOpenConns, "idle_conns": &t.Pool.MaxIdleConns, "log_level": &t.Pool.LogLevel,
