@@ -1,14 +1,3 @@
-import subprocess,json,pathlib
-
-def run(args):
- p=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=120)
- return p.stdout.decode(errors='replace')
-root=pathlib.Path('/opt/tp-community-actions')
-print(json.dumps({
- 'disk':run(['df','-h','/']),
- 'sizes':run(['du','-x','-h','--max-depth=2','/root','/opt/tp-community-actions','/var/lib/docker','/var/log']),
- 'docker':run(['docker','system','df']),
- 'incoming':[{ 'name':p.name,'bytes':p.stat().st_size} for p in (root/'incoming').iterdir() if p.is_file() and p.name.endswith('.tar.gz')],
- 'backend_receipts':[str(p.parent.name) for p in (root/'backend-releases').glob('*/deployment.json')],
- 'containers':run(['docker','ps','--format','{{.Names}} {{.Image}} {{.Status}}']),
-},ensure_ascii=False))
+import pathlib,json,subprocess
+p=pathlib.Path('/root/.cache/encore-build')
+print(json.dumps({'path':str(p.resolve()),'symlink':p.is_symlink(),'entries':[x.name for x in p.iterdir()][:30],'readme':(p/'README').read_text() if (p/'README').exists() else None,'build_processes':subprocess.run(['pgrep','-x','go|compile|link|encore'],stdout=subprocess.PIPE).stdout.decode()}))
