@@ -57,7 +57,12 @@ jobs:
             ./l1-access/authn ./internal/authz ./internal/communityclient ./internal/luasandbox \
             ./l3-core/connectorcatalog/... ./l3-core/notification/... ./automation/...
       - name: Verify existing migration safeguards
-        run: python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
+        env:
+          KERNEL_MIGRATION_FIXTURE_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_kernel_metadata_upgrade.py' -v
+          python3 -m unittest discover -s deploy/community-test -p 'test_deployment_guard.py' -v
       - name: Build current production service selection
         working-directory: encore-api
         run: encore build docker tp-community-convergence --services=authn,thingmodel,automation,notification --skip-config

@@ -1,6 +1,11 @@
 name: Notification adapter candidate image
 on:
   workflow_dispatch:
+  push:
+    branches: [codex/kernel-source-convergence-20261110]
+    paths:
+      - 'notification-adapters/**'
+      - '.github/workflows/notification-adapter-images.yml'
 permissions:
   contents: read
 jobs:
