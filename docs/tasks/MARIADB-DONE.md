@@ -38,3 +38,7 @@ MariaDB 对照运行还发现并修复了 `LAG(status, 1, 0)` 不兼容，以及
 证据目录：`/Volumes/KIOXIA/archive/evidence/2026-11-10-MARIADB/phase2/`。目录内含验收摘要、三引擎双库 JSON 报告、两次 smoke 输出和 PostgreSQL fixture 启动记录；初始化与目标包通过结果汇总在 `acceptance-summary.txt`，未保留完整控制台日志。不含测试账号密码。MariaDB smoke 测试账号密码只重置在本轮自建临时数据库中，未写入仓库。
 
 工作分支：`wp/mariadb-driver-flavor`；worktree：`.claude/worktrees/wp-mariadb-driver-flavor`。没有推送或合并。容器与匿名数据卷仍保留，等待负责人查看清单后决定是否清理。
+
+## 审查后修正（2026-11-10）
+
+审查发现 `CreateDeviceTopicMapping` / `UpdateDeviceTopicMappingByID` 未先判断方言就调用 `relational.FlavorOf`，后者对非 MySQL 库返回错误，会让默认 PostgreSQL 上创建、修改主题转换规则失败。已改为 `isMariaDBHandle`（先判方言，非 MySQL 直接返回 false），并加 `TestIsMariaDBHandlePostgresIsFalse` 防回归。复测：该测试与 `TestMariaDBTopicMappingUniqueKeyRepository`（MariaDB 10.11 临时库）PASS，`go build ./...` PASS。未在真实 PostgreSQL 上端到端跑过主题转换接口；完整三库回归未重跑。

@@ -17,12 +17,29 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// isMariaDBHandle reports whether db is a MariaDB-flavored MySQL handle. FlavorOf is only defined for
+// MySQL-family dialectors, so PostgreSQL (the default) must be ruled out first.
+func isMariaDBHandle(db *gorm.DB) (bool, error) {
+	dialect, err := relational.DialectOf(db)
+	if err != nil {
+		return false, err
+	}
+	if dialect != relational.MySQL {
+		return false, nil
+	}
+	flavor, err := relational.FlavorOf(db)
+	if err != nil {
+		return false, err
+	}
+	return flavor == relational.FlavorMariaDB, nil
+}
+
 func CreateDeviceTopicMapping(mapping *model.DeviceTopicMapping) error {
-	flavor, err := relational.FlavorOf(global.DB)
+	mariadb, err := isMariaDBHandle(global.DB)
 	if err != nil {
 		return err
 	}
-	if flavor == relational.FlavorMariaDB {
+	if mariadb {
 		mapping.UniqueKeyDigest = topicMappingUniqueDigest(mapping.DeviceConfigID, mapping.Direction, mapping.SourceTopic, mapping.TargetTopic)
 		return global.DB.Create(mapping).Error
 	}
@@ -126,11 +143,11 @@ func ListDeviceTopicMappings(ctx context.Context, req *model.ListDeviceTopicMapp
 }
 
 func UpdateDeviceTopicMappingByID(ctx context.Context, id int64, updateMap map[string]interface{}) error {
-	flavor, err := relational.FlavorOf(global.DB)
+	mariadb, err := isMariaDBHandle(global.DB)
 	if err != nil {
 		return err
 	}
-	if flavor == relational.FlavorMariaDB {
+	if mariadb {
 		return global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			var current model.DeviceTopicMapping
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Take(&current, "id = ?", id).Error; err != nil {
