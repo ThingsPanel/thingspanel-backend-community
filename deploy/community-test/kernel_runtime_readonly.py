@@ -35,8 +35,8 @@ SELECT json_build_object(
 ); ROLLBACK;
 """
 result=subprocess.run(['docker','exec','-i','timescaledb','psql','-X','-q','-At','-v','ON_ERROR_STOP=1','-U','postgres','-d',database],input=query,universal_newlines=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=25)
-if result.returncode:raise RuntimeError('Read-only database preflight failed')
-out['metadata_preflight']=json.loads(result.stdout)
+if result.returncode:out['metadata_preflight_error']=result.stderr[:1600]
+else:out['metadata_preflight']=json.loads(result.stdout)
 def command(args):
  p=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=30)
  if p.returncode: return None
