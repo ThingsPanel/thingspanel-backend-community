@@ -310,7 +310,7 @@ out['native_tenants']=inspect('native_main_20261028',"""SELECT json_build_object
  'models',(SELECT json_agg(t) FROM (SELECT tenant_id,count(*) count FROM thing_models GROUP BY tenant_id)t),
  'snapshots',(SELECT json_agg(t) FROM (SELECT tenant_id,count(*) count FROM thing_model_snapshots GROUP BY tenant_id)t)
 )""")
-disk=subprocess.run(['df','-B1','/opt'],stdout=subprocess.PIPE,check=True,text=True).stdout
+disk=subprocess.run(['df','-B1','/opt'],stdout=subprocess.PIPE,check=True,universal_newlines=True).stdout
 out['disk']=disk
 
 print(json.dumps(out,ensure_ascii=False))
