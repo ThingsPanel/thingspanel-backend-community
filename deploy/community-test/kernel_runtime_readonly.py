@@ -74,7 +74,11 @@ out['community_tables']=community("SELECT json_agg(table_name) FROM information_
 out['community_device_counts']=community("SELECT json_agg(t) FROM (SELECT tenant_id,device_type, count(*) FROM (SELECT tenant_id, coalesce(protocol,'')||':'||coalesce(access_way,'') AS device_type FROM devices) d GROUP BY tenant_id,device_type)t")
 out['community_device_config_schema']=community("SELECT json_agg(t) FROM (SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public' AND (table_name ILIKE '%config%' OR table_name ILIKE '%group%') ORDER BY table_name,ordinal_position)t")
 out['community_config_root_keys']=command(['python3','-c',"import yaml,json; d=yaml.safe_load(open('/home/thingspanel/thingspanel-backend-community/configs/conf.yml')); print(json.dumps({'keys':list(d),'relational_keys':list(d.get('relational',{}))}))"])
-out['migration_inventory']=community("""BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+def community_snapshot(q):
+ p=subprocess.run(['docker','exec','-i','timescaledb','psql','-X','-q','-At','-v','ON_ERROR_STOP=1','-U','postgres','-d','ThingsPanel'],input=q,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=30)
+ if p.returncode:return {'error':'inventory_query_failed'}
+ return json.loads(p.stdout)
+out['migration_inventory']=community_snapshot("""BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT json_build_object(
 'devices',(SELECT count(*) FROM devices),
 'templates',(SELECT count(*) FROM device_configs),
