@@ -55,4 +55,9 @@ for t in s['templates']:
 out['template_field_shapes']={k:dict(v) for k,v in profiles.items() if k.startswith('template_')}
 out['location_review']=[{k:d[k] for k in ('id','name','location')} for d in s['devices'] if d['id'] in issues['unparsed_location']]
 out['hierarchy_review']=[{k:d[k] for k in ('id','name','tenant_id','parent_id','device_type','device_config_id','sub_device_addr')} for d in s['devices'] if d['id'] in issues['gateway_invalid_child_kind']]
+import re
+log=pathlib.Path('/opt/tp-community-actions/upgrade-rehearsal/native-20261111165830/group-conversion-failure.private.log').read_text()
+allowed=('invalid source group row','missing source timestamp','verified native schema v40 required','target database does not match verified rehearsal','post-insert full group reconciliation failed','invalid private conversion input','unexpected trailing conversion input','PGDATABASE must match isolated target','group parent is absent or quarantined','zero group or tenant identity','reviewed source group name changed','invalid group name resolution','group hierarchy contains a cycle','target groups differ','conversion provenance differs','conversion audit identity differs','missing conversion provenance','invalid duplicate group exclusion')
+out['group_failure']={'categories':[v for v in allowed if v in log],'sqlstate':re.findall(r'SQLSTATE ([0-9A-Z]+)',log),'error_words': [w for w in ('permission denied','relation','does not exist','column','constraint','too long','connection','timeout','cannot assign','unsupported Scan','cannot scan','invalid input syntax') if w in log]}
+out['target_group_count']=subprocess.check_output(['docker','exec','timescaledb','psql','-X','-q','-At','-U','postgres','-d','tp_upgrade_rehearsal_20261111165830','-c','SELECT count(*) FROM device_groups']).decode().strip()
 print(json.dumps(out,ensure_ascii=False))
