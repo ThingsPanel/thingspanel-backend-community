@@ -30,6 +30,16 @@ func resolveNativeConnectorRelease(ctx context.Context, tenantID string, req *co
 }
 
 func validateNativeDeviceConfigurationWithProvider(ctx context.Context, tenantID, deviceKind string, rawAccess, deviceParameters json.RawMessage, resolve nativeProviderResolver) error {
+	return validateNativeAccessConfiguration(ctx, tenantID, deviceKind, rawAccess, deviceParameters, resolve, true)
+}
+
+// A template has access-point parameters but no per-device parameter values.
+// Required device parameters are checked when a device is created or rebound.
+func validateNativeTemplateAccessConfiguration(ctx context.Context, tenantID, deviceKind string, rawAccess, deviceParameters json.RawMessage) error {
+	return validateNativeAccessConfiguration(ctx, tenantID, deviceKind, rawAccess, deviceParameters, resolveNativeConnectorRelease, false)
+}
+
+func validateNativeAccessConfiguration(ctx context.Context, tenantID, deviceKind string, rawAccess, deviceParameters json.RawMessage, resolve nativeProviderResolver, validateDeviceParameters bool) error {
 	canonicalTenant, err := nativeReadUUID(tenantID)
 	if err != nil || canonicalTenant != tenantID {
 		return invalid("tenantId", "must be a canonical non-zero UUID")
@@ -121,8 +131,10 @@ func validateNativeDeviceConfigurationWithProvider(ctx context.Context, tenantID
 	if err := schemas.ValidateConfiguration(access.Parameters); err != nil {
 		return invalid("access.parameters", "does not match the pinned provider schema")
 	}
-	if err := schemas.ValidateDeviceParameters(deviceParameters); err != nil {
-		return invalid("deviceParameters", "does not match the pinned provider schema")
+	if validateDeviceParameters {
+		if err := schemas.ValidateDeviceParameters(deviceParameters); err != nil {
+			return invalid("deviceParameters", "does not match the pinned provider schema")
+		}
 	}
 	return nil
 }

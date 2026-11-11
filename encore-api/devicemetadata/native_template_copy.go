@@ -112,7 +112,7 @@ func (s *Service) CopyNativeDeviceAccessTemplate(w http.ResponseWriter, r *http.
 		writeGroupCreateProblem(w, requestID, r.URL.Path, &errs.Error{Code: errs.InvalidArgument, Message: "copy request body is too large or unreadable"}, http.StatusBadRequest)
 		return
 	}
-	result, err := copyNativeTemplate(r.Context(), identity, id, key, body, requestID, validateNativeDeviceConfiguration, validateNativeTemplateAsset)
+	result, err := copyNativeTemplate(r.Context(), identity, id, key, body, requestID, validateNativeTemplateAccessConfiguration, validateNativeTemplateAsset)
 	if err != nil {
 		writeNativeTemplateMutationError(w, r, requestID, err, false)
 		return

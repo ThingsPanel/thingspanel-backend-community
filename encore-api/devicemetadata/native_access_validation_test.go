@@ -63,6 +63,8 @@ func TestNativeConnectorUsesPinnedReleaseAndSeparateSchemas(t *testing.T) {
 		wantError                        bool
 	}{
 		{"valid", access, `{"unit":1}`, "", false},
+		{"template", access, `{}`, "", false},
+		{"device required parameters", access, `{}`, "", true},
 		{"access schema", strings.Replace(access, `"port":502`, `"port":0`, 1), `{"unit":1}`, "", true},
 		{"device schema", access, `{"unit":248}`, "", true},
 		{"different release", access, `{"unit":1}`, "release", true},
@@ -93,7 +95,7 @@ func TestNativeConnectorUsesPinnedReleaseAndSeparateSchemas(t *testing.T) {
 				}
 				return r, nil
 			}
-			err := validateNativeDeviceConfigurationWithProvider(context.Background(), nativeAccessTenant, "standalone", json.RawMessage(tc.access), json.RawMessage(tc.parameters), resolver)
+			err := validateNativeAccessConfiguration(context.Background(), nativeAccessTenant, "standalone", json.RawMessage(tc.access), json.RawMessage(tc.parameters), resolver, tc.name != "template")
 			if (err != nil) != tc.wantError {
 				t.Fatalf("error=%v", err)
 			}
