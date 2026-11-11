@@ -84,7 +84,7 @@ func (r *Runtime) Tick(ctx context.Context) (TickResult, error) {
 	}
 	out.RunTimers = len(timers)
 	for _, t := range timers {
-		if _, err := r.executeRunFromPC(ctx, t.RunID, t.PC+1); err != nil {
+		if _, err := r.executeRun(ctx, t.RunID); err != nil {
 			// A run that cannot resume is finished with a readable reason by
 			// executeRun; keep draining the rest.
 			continue
