@@ -1,4 +1,4 @@
-name: Community approved quarantine preservation
+name: Native group conversion rehearsal
 on:
   workflow_dispatch:
 permissions:
@@ -7,25 +7,44 @@ concurrency:
   group: community-main-encore-deploy
   cancel-in-progress: false
 jobs:
-  preserve:
+  rehearsal:
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Test preservation and inventory boundaries
-        run: python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_quarantine.py'
-      - name: Preserve approved rows from the verified isolated restore
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.9'
+          cache-dependency-path: encore-api/go.sum
+      - name: Start disposable PostgreSQL fixture
+        run: |
+          docker run -d --name groups-fixture --tmpfs /var/lib/postgresql/data -p 127.0.0.1:25544:5432 -e POSTGRES_PASSWORD=fixture-only -e POSTGRES_DB=tp_upgrade_rehearsal_20000101000001 postgres:16-alpine
+          for attempt in $(seq 1 30); do
+            if docker exec groups-fixture pg_isready -U postgres; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Verify actual native schema, atomicity, retries, source and target drift
+        working-directory: encore-api
+        env:
+          UPGRADE_TEST_DSN: postgres://postgres:fixture-only@127.0.0.1:25544/tp_upgrade_rehearsal_20000101000001?sslmode=disable
+        run: |
+          go test -count=1 -v ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-groups
+          CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/metadata-upgrade-groups" ./cmd/metadata-upgrade-groups
+      - name: Convert and reconcile groups only in verified isolated native restore
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
           umask 077
-          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-inventory-key"
-          ssh -i "$RUNNER_TEMP/community-inventory-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'python3 -' < deploy/community-test/isolated_quarantine_run.py > approved-quarantine.json
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-groups-key"
+          scp -i "$RUNNER_TEMP/community-groups-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts "$RUNNER_TEMP/metadata-upgrade-groups" root@47.92.253.145:/opt/tp-community-actions/upgrade-rehearsal/native-20261111165830/metadata-upgrade-groups
+          ssh -i "$RUNNER_TEMP/community-groups-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'chmod 700 /opt/tp-community-actions/upgrade-rehearsal/native-20261111165830/metadata-upgrade-groups && python3 -' < deploy/community-test/run_groups_rehearsal.py > group-conversion-summary.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: approved-quarantine
-          path: approved-quarantine.json
+          name: group-conversion-summary
+          path: group-conversion-summary.json
       - name: Remove runner temporary SSH key
         if: always()
-        run: rm -f "$RUNNER_TEMP/community-inventory-key"
+        run: rm -f "$RUNNER_TEMP/community-groups-key"
