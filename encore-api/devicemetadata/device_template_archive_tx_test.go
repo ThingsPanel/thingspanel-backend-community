@@ -146,7 +146,7 @@ func waitForDeviceTemplateArchiveLockWaiters(t *testing.T, want int) error {
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		var count int
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, cancel := context.WithDeadline(context.Background(), deadline)
 		err := db.QueryRow(ctx, `
 			SELECT COUNT(*) FROM pg_stat_activity
 			WHERE datname = current_database()

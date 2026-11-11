@@ -13,7 +13,9 @@ import time
 import urllib.request
 import urllib.error
 from encore_migrations import source_migrations, pending_migrations
-from encore_artifacts import prune_source_artifacts
+from deployment_guard import restore_services_on_failure
+from encore_artifacts import prune_source_artifacts, reclaim_build_cache
+from notification_identity import prepare_notification_identity, retire_notification_renewal
 
 ROOT = pathlib.Path('/opt/tp-community-actions')
 RUNTIME = pathlib.Path('/opt/tp-community-main-20261028')
@@ -33,7 +35,11 @@ def artifact_command(args):
     return result.stdout.decode().strip()
 
 pruned_artifacts=prune_source_artifacts(ROOT,SHA,artifact_command)
+if reclaim_build_cache(ROOT,artifact_command):
+    print(json.dumps({'reclaimed':'encore-build-cache','free_bytes':shutil.disk_usage(str(ROOT)).free}),flush=True)
 if shutil.disk_usage(str(ROOT)).free < 1024 ** 3:
+    print(artifact_command(['df','-h',str(ROOT)]),flush=True)
+    print(artifact_command(['du','-x','-h','--max-depth=1',str(ROOT)]),flush=True)
     raise RuntimeError('At least 1 GiB free disk required for build')
 mem = int(next(line.split()[1] for line in pathlib.Path('/proc/meminfo').read_text().splitlines()
                if line.startswith('MemAvailable:')))
@@ -96,6 +102,7 @@ with (release / 'build.private.log').open('wb') as log:
         raise RuntimeError('Encore build failed; old services remain running')
 image_id = json.loads(run(['docker', 'image', 'inspect', image]))[0]['Id']
 
+prepare_notification_identity(RUNTIME)
 compose = RUNTIME / 'compose.encore.private.json'
 before = compose.read_bytes()
 config = json.loads(before.decode())
@@ -177,105 +184,70 @@ def verify_tenant():
             json.load(response)
 
 
-if any(pending for _, _, pending in plans):
-    run(compose_args + ['stop'] + services)
-for database, role, pending in plans:
-    if not pending:
-        continue
-    script = 'BEGIN; SET LOCAL ROLE "' + role + '";\n'
-    for migration in pending:
-        script += migration['sql'] + '\n'
-        script += "INSERT INTO deployment_schema_ledger VALUES ({},'{}','{}');\n".format(
-            migration['version'], migration['filename'], migration['checksum'])
-    script += 'UPDATE schema_migrations SET version={}, dirty=false; COMMIT;'.format(pending[-1]['version'])
-    sql(database, script)
-for name in services:
-    config['services'][name]['image'] = image
-temp = compose.with_name('compose.encore.next.private.json')
-temp.write_text(json.dumps(config, indent=2))
-run(['docker', 'compose', '-f', str(temp), 'config', '--quiet'])
-os.replace(str(temp), str(compose))
-run(compose_args + ['up', '-d', '--no-deps'] + services)
-wait_healthy({name: image_id for name in services})
-verify_tenant()
+with restore_services_on_failure(compose, services, run):
+    if any(pending for _, _, pending in plans):
+        run(compose_args + ['stop'] + services)
+    for database, role, pending in plans:
+        if not pending:
+            continue
+        script = 'BEGIN; SET LOCAL ROLE "' + role + '";\n'
+        for migration in pending:
+            script += migration['sql'] + '\n'
+            script += "INSERT INTO deployment_schema_ledger VALUES ({},'{}','{}');\n".format(
+                migration['version'], migration['filename'], migration['checksum'])
+        script += 'UPDATE schema_migrations SET version={}, dirty=false; COMMIT;'.format(pending[-1]['version'])
+        sql(database, script)
+    for name in services:
+        config['services'][name]['image'] = image
+    temp = compose.with_name('compose.encore.next.private.json')
+    temp.write_text(json.dumps(config, indent=2))
+    run(['docker', 'compose', '-f', str(temp), 'config', '--quiet'])
+    os.replace(str(temp), str(compose))
+    run(compose_args + ['up', '-d', '--no-deps'] + services)
+    wait_healthy({name: image_id for name in services})
+    verify_tenant()
 
-# Deployment-scoped worker credentials live only in the existing private config.
-# A single systemd oneshot cannot overlap itself, even if one pass is slow.
-scheduler = ROOT / 'automation-scheduler'
-scheduler.mkdir(mode=0o700, exist_ok=True)
-shutil.copyfile(str(ROOT / 'incoming/automation_tick.py'), str(scheduler / 'automation_tick.next.py'))
-os.replace(str(scheduler / 'automation_tick.next.py'), str(scheduler / 'automation_tick.py'))
-pathlib.Path('/etc/systemd/system/tp-automation-tick.service').write_text('''[Unit]
-Description=ThingsPanel native automation scheduler pass
-After=network-online.target docker.service
+    # Deployment-scoped worker credentials live only in the existing private config.
+    # A single systemd oneshot cannot overlap itself, even if one pass is slow.
+    scheduler = ROOT / 'automation-scheduler'
+    scheduler.mkdir(mode=0o700, exist_ok=True)
+    shutil.copyfile(str(ROOT / 'incoming/automation_tick.py'), str(scheduler / 'automation_tick.next.py'))
+    os.replace(str(scheduler / 'automation_tick.next.py'), str(scheduler / 'automation_tick.py'))
+    pathlib.Path('/etc/systemd/system/tp-automation-tick.service').write_text('''[Unit]
+    Description=ThingsPanel native automation scheduler pass
+    After=network-online.target docker.service
 
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/python3 /opt/tp-community-actions/automation-scheduler/automation_tick.py
-TimeoutStartSec=40
-UMask=0077
-''')
-pathlib.Path('/etc/systemd/system/tp-automation-tick.timer').write_text('''[Unit]
-Description=Wake ThingsPanel native automation every five seconds
+    [Service]
+    Type=oneshot
+    ExecStart=/usr/bin/python3 /opt/tp-community-actions/automation-scheduler/automation_tick.py
+    TimeoutStartSec=40
+    UMask=0077
+    ''')
+    pathlib.Path('/etc/systemd/system/tp-automation-tick.timer').write_text('''[Unit]
+    Description=Wake ThingsPanel native automation every five seconds
 
-[Timer]
-OnBootSec=10s
-OnUnitInactiveSec=5s
-AccuracySec=1s
-Unit=tp-automation-tick.service
+    [Timer]
+    OnBootSec=10s
+    OnUnitInactiveSec=5s
+    AccuracySec=1s
+    Unit=tp-automation-tick.service
 
-[Install]
-WantedBy=timers.target
-''')
-run(['systemctl', 'daemon-reload'])
-run(['systemctl', 'start', 'tp-automation-tick.service'])
-run(['systemctl', 'enable', '--now', 'tp-automation-tick.timer'])
-receipt = json.loads((scheduler / 'last-tick.json').read_text())
-if receipt.get('status') != 'passed':
-    raise RuntimeError('Native scheduler acceptance failed')
-
-renew_policy = RUNTIME / 'notification-renew-policy.private.json'
-if renew_policy.exists():
-    identity_dir = ROOT / 'notification-identity'
-    identity_dir.mkdir(mode=0o700, exist_ok=True)
-    for origin, name in [(release / 'tools/notification-source-provision', 'notification-source-provision'),
-                         (ROOT / 'incoming/notification_renew.py', 'notification_renew.py')]:
-        temporary = identity_dir / (name + '.next')
-        shutil.copyfile(str(origin), str(temporary))
-        temporary.chmod(0o700 if name == 'notification-source-provision' else 0o600)
-        os.replace(str(temporary), str(identity_dir / name))
-    pathlib.Path('/etc/systemd/system/tp-notification-renew.service').write_text('''[Unit]
-Description=Renew the existing scoped ThingsPanel notification identity
-After=network-online.target docker.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/python3 /opt/tp-community-actions/notification-identity/notification_renew.py
-TimeoutStartSec=40
-UMask=0077
-''')
-    pathlib.Path('/etc/systemd/system/tp-notification-renew.timer').write_text('''[Unit]
-Description=Maintain the existing ThingsPanel notification grant hourly
-
-[Timer]
-OnBootSec=20s
-OnUnitInactiveSec=1h
-AccuracySec=1min
-Unit=tp-notification-renew.service
-
-[Install]
-WantedBy=timers.target
-''')
+    [Install]
+    WantedBy=timers.target
+    ''')
     run(['systemctl', 'daemon-reload'])
-    run(['systemctl', 'start', 'tp-notification-renew.service'])
-    run(['systemctl', 'enable', '--now', 'tp-notification-renew.timer'])
-    if json.loads((RUNTIME / 'notification-renew-result.json').read_text()).get('status') != 'passed':
-        raise RuntimeError('Notification source renewal verification failed')
+    run(['systemctl', 'start', 'tp-automation-tick.service'])
+    run(['systemctl', 'enable', '--now', 'tp-automation-tick.timer'])
+    receipt = json.loads((scheduler / 'last-tick.json').read_text())
+    if receipt.get('status') != 'passed':
+        raise RuntimeError('Native scheduler acceptance failed')
 
-(release / 'deployment.json').write_text(json.dumps({'commit': SHA, 'image': image, 'image_id': image_id,
-    'scheduler': 'tp-automation-tick.timer',
-    'notification_renewal': 'tp-notification-renew.timer' if renew_policy.exists() else None,
-    'pruned_artifacts':pruned_artifacts,
-    'previous_images': old_images, 'migrations_applied': {database: [m['version'] for m in pending]
-                                                       for database, _, pending in plans}}, indent=2))
-print('Encore and notification deployed and verified: ' + SHA)
+    retire_notification_renewal(RUNTIME, ROOT, run)
+
+    (release / 'deployment.json').write_text(json.dumps({'commit': SHA, 'image': image, 'image_id': image_id,
+        'scheduler': 'tp-automation-tick.timer',
+        'notification_identity': 'automatic-scoped-leases',
+        'pruned_artifacts':pruned_artifacts,
+        'previous_images': old_images, 'migrations_applied': {database: [m['version'] for m in pending]
+                                                           for database, _, pending in plans}}, indent=2))
+    print('Encore and notification deployed and verified: ' + SHA)

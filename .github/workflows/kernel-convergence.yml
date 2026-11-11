@@ -1,0 +1,69 @@
+name: Kernel convergence verification
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/kernel-source-convergence-20261110, wp/full-develop-integration-20261111]
+  pull_request:
+    paths:
+      - 'encore-api/**'
+      - 'notification-adapters/**'
+      - 'cli/tpctl-go/**'
+      - '.github/workflows/kernel-convergence.yml'
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-p=2'
+      NOTIFICATION_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: notification_test
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: notification_test
+        ports: ['25543:5432']
+        options: >-
+          --health-cmd "pg_isready -U notification_test -d notification_test"
+          --health-interval 2s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.9'
+          cache-dependency-path: encore-api/go.sum
+      - name: Install pinned Encore CLI
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 https://d2f391esomvqpi.cloudfront.net/encore-1.58.6-linux_amd64.tar.gz -o "$RUNNER_TEMP/encore.tar.gz"
+          echo "46add1a88eb02349e4ce51269fdade91c52e8fc044c972cc0ae40129a1eb91b2  $RUNNER_TEMP/encore.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/encore"
+          tar -xzf "$RUNNER_TEMP/encore.tar.gz" -C "$RUNNER_TEMP/encore"
+          echo "ENCORE_INSTALL=$RUNNER_TEMP/encore" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/encore/bin" >> "$GITHUB_PATH"
+      - name: Test CLI and build independent plugin
+        run: |
+          (cd cli/tpctl-go && go test ./... && go vet ./...)
+          (cd notification-adapters && go test -race ./... && go build -o "$RUNNER_TEMP/notification-unipush" ./cmd/unipush)
+      - name: Verify all affected native services
+        working-directory: encore-api
+        run: |
+          UNIPUSH_FIXTURE_BIN="$RUNNER_TEMP/notification-unipush" encore test -p=2 \
+            ./thingmodel/... ./devicemetadata/... ./fileassets/... \
+            ./l1-access/authn ./internal/authz ./internal/communityclient ./internal/luasandbox \
+            ./l3-core/connectorcatalog/... ./l3-core/notification/... ./automation/... \
+            ./marketinstall/... ./platformconfig/...
+      - name: Verify existing migration safeguards
+        env:
+          KERNEL_MIGRATION_FIXTURE_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_kernel_metadata_upgrade.py' -v
+          python3 -m unittest discover -s deploy/community-test -p 'test_deployment_guard.py' -v
+      - name: Build integrated native service selection
+        working-directory: encore-api
+        run: encore build docker tp-community-convergence --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,platformconfig --skip-config

@@ -1,3 +1,5 @@
+> 历史迁移记录。当前来源、自动身份和验证边界以 docs/KERNEL-SOURCE-CONVERGENCE.md 为准；不要据此恢复旧手工凭据流程。
+
 # UniPush 插件源码与 Encore 集成
 
 `thingspanel.unipush` 是通知系统的 App 推送通道。Community Encore 通知核心负责策略、成员展开和投递记录；本目录的独立 HTTP v1 插件负责投递至 UniCloud，并在发送前经 Community 私有目录重新验证手机绑定。该插件不另建通知核心，也不是 Encore 应用内注册的服务。

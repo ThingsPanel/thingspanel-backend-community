@@ -153,7 +153,7 @@ func (*ServiceAccessApi) HandlePluginServiceAccessList(c *gin.Context) {
 		return
 	}
 	// Platform-installed service instances consume each tenant's access points; tenant-issued identities stay local.
-	if list, isList := resp.([]map[string]interface{}); isList {
+	if list, isList := resp.([]map[string]interface{}); isList && identity != nil {
 		own := make([]map[string]interface{}, 0, len(list))
 		for _, item := range list {
 			if tenant, _ := item["tenant_id"].(string); pluginIdentityCanAccessTenant(identity, tenant) {
@@ -171,13 +171,27 @@ func (*ServiceAccessApi) HandlePluginServiceAccess(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	identity, ok := pluginRuntimeIdentity(c)
+	accessRow, err := dal.GetServiceAccessByID(req.ServiceAccessID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	plugin, err := dal.GetServicePluginByID(accessRow.ServicePluginID)
+	if err != nil || plugin == nil {
+		scopeDenied(c)
+		return
+	}
+	identity, ok := requirePluginService(c, plugin.ServiceIdentifier)
 	if !ok {
 		return
 	}
 	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccess(&req)
 	if err != nil {
 		c.Error(err)
+		return
+	}
+	if identity == nil {
+		c.Set("data", resp)
 		return
 	}
 	// The access point must belong to the identity's scope and to the identity's own service plugin.

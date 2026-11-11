@@ -533,3 +533,53 @@ func TestPostgresPublishedSnapshotCannotBeModified(t *testing.T) {
 		t.Fatalf("immutable snapshot changed: %+v %v", after, e)
 	}
 }
+
+func TestPostgresDeleteReleasesNameAndPreservesPinnedVersion(t *testing.T) {
+	ctx := context.Background()
+	service := app.New(newPostgresRepository(), uuid.NewString)
+	p := postgresPrincipal()
+	p.Capabilities = append(p.Capabilities, string(core.CapabilityDelete))
+	created, err := service.Create(ctx, p, "postgres-delete-create", core.Model{Name: "Reusable"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := core.ModelID(created.ModelID)
+	if _, err := service.Publish(ctx, p, "postgres-delete-publish", id, 1, "v1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Delete(ctx, p, "postgres-delete-stale", id, 2); !errors.Is(err, app.ErrConflict) {
+		t.Fatalf("stale delete = %v", err)
+	}
+	foreign := postgresPrincipal()
+	foreign.Capabilities = append(foreign.Capabilities, string(core.CapabilityDelete))
+	if _, err := service.Delete(ctx, foreign, "postgres-delete-foreign", id, 1); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("cross tenant = %v", err)
+	}
+	out, err := service.Delete(ctx, p, "postgres-delete-key", id, 1)
+	if err != nil || out.Status != "DELETED" {
+		t.Fatalf("delete = %+v,%v", out, err)
+	}
+	if _, err := service.Get(ctx, p, id); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("get = %v", err)
+	}
+	if _, err := service.Resources(ctx, p, id); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("resources = %v", err)
+	}
+	rows, total, err := service.List(ctx, p, 1, 20, "")
+	if err != nil || total != 0 || len(rows) != 0 {
+		t.Fatalf("list = %+v,%d,%v", rows, total, err)
+	}
+	if _, err := service.Version(ctx, p, id, 1); err != nil {
+		t.Fatalf("bound snapshot = %v", err)
+	}
+	if _, err := service.Version(ctx, foreign, id, 1); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("cross-tenant snapshot = %v", err)
+	}
+	replay, err := service.Delete(ctx, p, "postgres-delete-key", id, 1)
+	if err != nil || !replay.Replayed {
+		t.Fatalf("replay = %+v,%v", replay, err)
+	}
+	if _, err := service.Create(ctx, p, "postgres-delete-recreate", core.Model{Name: "Reusable"}); err != nil {
+		t.Fatalf("name reuse = %v", err)
+	}
+}

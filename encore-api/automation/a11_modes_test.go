@@ -139,11 +139,21 @@ func TestQueuedModeRunsInArrivalOrder(t *testing.T) {
 		t.Fatalf("the queue must keep arrival order, next was %q", triggerOf[next])
 	}
 
-	// The waiting run finishes; the queue drains in order.
-	e.advance(2 * time.Minute)
-	e.tick()
-	e.advance(2 * time.Minute)
-	e.tick()
+	// Each promoted run starts a new wait; three runs require three advances.
+	for completed := 1; completed <= 3; completed++ {
+		e.advance(2 * time.Minute)
+		e.tick()
+		states := map[string]string{}
+		for _, run := range e.runs(rule.ID) {
+			states[run.TriggerEventID] = run.Status
+		}
+		triggers := []string{"ev-a11-queue-1", "ev-a11-queue-2", "ev-a11-queue-3"}
+		for _, trigger := range triggers[:completed] {
+			if states[trigger] != runtime.StatusSucceeded {
+				t.Fatalf("after %d waits, %s must have finished, got %q", completed, trigger, states[trigger])
+			}
+		}
+	}
 
 	states := map[string]string{}
 	for _, r := range e.runs(rule.ID) {

@@ -45,7 +45,7 @@ func pluginInstallEngine() *plugininstall.Engine {
 			IDs:      plugininstall.NewStoreIdentities(pluginidentity.NewStore(db)),
 			Services: plugininstall.NewGormServices(db),
 			Health:   plugininstall.HTTPHealth{},
-			Owner:    "plugininstall@" + host, // stable per process host: a restarted process takes its own unfinished leases back at once
+			Owner:    host + "-" + time.Now().UTC().Format("150405.000"),
 			Timing:   plugininstall.DefaultTiming(),
 		}
 	})

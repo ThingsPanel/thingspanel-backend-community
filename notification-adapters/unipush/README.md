@@ -16,9 +16,8 @@ queues and per-device attempts; this plugin owns UniPush transport.
    Core's plugin allowlist. Never expose the community directory reader publicly
    without its dedicated credential and configured deployment/tenant allowlists.
 3. `NOTIFICATION_UNIPUSH_DIRECTORY_TOKEN` must match the community member-reader
-   token. The deployment ID must match its allowlist. Verify the App ID actually
-   used by the deployed App and configure the same value in Community, the
-   plugin and the cloud function; do not rely on an example or a historical default.
+   token. The deployment ID must match its allowlist. `APP_PUSH_APP_ID` on the
+   community backend defaults to `__UNI__71E31D5`; all three components must agree.
    Deploy one plugin process per App/deployment. Tenant config stays empty and
    cannot override endpoints, credentials or App identity.
 4. Register version `2.0.0`, grant it to the tenant, create and enable an `im`
@@ -49,6 +48,10 @@ proxies, 12-second timeout, bounded responses, no internal send retries.
   are deduplicated. A user with no active phones is skipped; if everyone has none,
   the event is recorded as blocked (`app_no_active_devices`). Directory outages
   fail closed. Failure of one submitted device does not undo another delivery.
+- The transport shortens displayed titles to 19 UTF-16 units and content to 49,
+  adding an ellipsis for truncated previews. This satisfies UniPush's strict
+  title/content limits without splitting supplementary Unicode characters.
+  Original Core records and routing/alarm/idempotency identifiers stay unchanged.
 - The cloud function checks the plugin credential and uses a stable hashed
   `request_id`. Only explicit provider `errCode:0` is accepted. Provider acceptance
   is not proof of phone display; receipt capability remains false.
@@ -67,7 +70,7 @@ The App suppresses received/clicked messages for a different user, tenant or ser
 Already accepted vendor messages cannot be recalled after logout. For confidential
 alerts, keep lock-screen text appropriately brief.
 
-Check whether the current App manifest enables UniPush offline support; a release/custom base must be
+The manifest enables UniPush offline support, but a release/custom base must be
 rebuilt after native manifest changes. Configure the real package signing identity,
 Android vendor channels and iOS APNs credentials in DCloud. Standard HBuilder bases
 and an online Android test do not establish killed-App delivery on every vendor.

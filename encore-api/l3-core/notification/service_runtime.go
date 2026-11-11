@@ -46,6 +46,13 @@ func initService() (*Service, error) {
 			return nil, errors.New("notification legacy directory configuration is unavailable")
 		}
 	}
+	serviceToken := os.Getenv("NOTIFICATION_SERVICE_TOKEN")
+	if directory == nil || !validateManagedServiceConfig(serviceToken, readerDeployment) {
+		return nil, errors.New("notification service identity is unavailable")
+	}
+	store.managedSourceFingerprint = serviceFingerprint(serviceToken)
+	store.managedSourceDeployment = readerDeployment
+	managedSources := &managedSourceHandler{store: store, token: serviceToken, deployment: readerDeployment, directory: directory, ready: privacy.Check}
 	var origins []string
 	if raw := os.Getenv("NOTIFICATION_PLUGIN_ALLOWED_ORIGINS"); raw != "" {
 		if len(raw) > 64<<10 || json.Unmarshal([]byte(raw), &origins) != nil || len(origins) > 128 {
@@ -99,5 +106,5 @@ func initService() (*Service, error) {
 	if err := worker.Start(context.Background()); err != nil {
 		return nil, errors.New("notification worker could not start")
 	}
-	return &Service{api: api, store: store, worker: worker}, nil
+	return &Service{api: api, store: store, worker: worker, managedSources: managedSources}, nil
 }

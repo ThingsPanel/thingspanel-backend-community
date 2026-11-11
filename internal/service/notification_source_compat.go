@@ -37,21 +37,21 @@ type EmailSourceCompatibilityChecker struct {
 	legacyConfig  func(context.Context) (model.EmailConfig, bool, error)
 }
 
-func NewEmailSourceCompatibilityChecker(baseURL, projectionBearerToken string) (*EmailSourceCompatibilityChecker, error) {
-	return newEmailSourceCompatibilityChecker(baseURL, projectionBearerToken, nil)
+func NewEmailSourceCompatibilityChecker(config SourceBridgeConfig) (*EmailSourceCompatibilityChecker, error) {
+	return newEmailSourceCompatibilityChecker(config, nil)
 }
 
 // NewEmailSourceCompatibilityCheckerWithRoots keeps production certificate
 // verification enabled while allowing an operator-managed private CA.
-func NewEmailSourceCompatibilityCheckerWithRoots(baseURL, projectionBearerToken string, roots *x509.CertPool) (*EmailSourceCompatibilityChecker, error) {
-	return newEmailSourceCompatibilityChecker(baseURL, projectionBearerToken, roots)
+func NewEmailSourceCompatibilityCheckerWithRoots(config SourceBridgeConfig, roots *x509.CertPool) (*EmailSourceCompatibilityChecker, error) {
+	return newEmailSourceCompatibilityChecker(config, roots)
 }
 
 // newEmailSourceCompatibilityChecker accepts test-only roots for an ephemeral
 // TLS proxy while keeping all production constructors on system roots.
-func newEmailSourceCompatibilityChecker(baseURL, projectionBearerToken string, roots *x509.CertPool) (*EmailSourceCompatibilityChecker, error) {
-	parsed, err := url.Parse(baseURL)
-	if err != nil || parsed == nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" || !validSourceProjectionToken(projectionBearerToken) {
+func newEmailSourceCompatibilityChecker(config SourceBridgeConfig, roots *x509.CertPool) (*EmailSourceCompatibilityChecker, error) {
+	parsed, err := notificationServiceOrigin(config.BaseURL)
+	if err != nil || parsed == nil || parsed.Host == "" || parsed.User != nil || (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, errors.New("source compatibility configuration invalid")
 	}
 	client := &http.Client{
@@ -67,10 +67,17 @@ func newEmailSourceCompatibilityChecker(baseURL, projectionBearerToken string, r
 		},
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
+	credentials := config.Credentials
+	if credentials == nil {
+		credentials, err = newSourceCredentialClient(config.BaseURL, config.DeploymentID, config.ServiceIdentity, client)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &EmailSourceCompatibilityChecker{
 		client: client,
 		fetchSnapshot: func(ctx context.Context, request SourceGroupProjectionRequest) (sourceGroupSnapshot, error) {
-			return fetchSourceGroupSnapshot(ctx, client, parsed, projectionBearerToken, request)
+			return fetchManagedGroupSnapshot(ctx, client, parsed, credentials, request)
 		},
 		legacyConfig: loadLegacyEmailConfig,
 	}, nil
@@ -165,6 +172,27 @@ type sourceSnapshotPlugin struct {
 	Enabled       bool   `json:"enabled"`
 }
 
+var errSourceCredentialRejected = errors.New("source credential rejected")
+
+func fetchManagedGroupSnapshot(ctx context.Context, client *http.Client, base *url.URL, credentials SourceCredentialProvider, request SourceGroupProjectionRequest) (sourceGroupSnapshot, error) {
+	var empty sourceGroupSnapshot
+	if credentials == nil {
+		return empty, errors.New("source credentials unavailable")
+	}
+	for attempt := 0; attempt < 2; attempt++ {
+		token, err := credentials.Credential(ctx, request.TenantID, "projection")
+		if err != nil {
+			return empty, err
+		}
+		result, err := fetchSourceGroupSnapshot(ctx, client, base, token, request)
+		if !errors.Is(err, errSourceCredentialRejected) || attempt == 1 {
+			return result, err
+		}
+		credentials.Invalidate(request.TenantID, "projection", token)
+	}
+	return empty, errSourceCredentialRejected
+}
+
 func fetchSourceGroupSnapshot(ctx context.Context, client *http.Client, base *url.URL, token string, request SourceGroupProjectionRequest) (sourceGroupSnapshot, error) {
 	var empty sourceGroupSnapshot
 	if client == nil || base == nil || request.TenantID == "" || request.NotificationGroupID == "" || request.GroupRevision < 1 {
@@ -187,6 +215,9 @@ func fetchSourceGroupSnapshot(ctx context.Context, client *http.Client, base *ur
 		return empty, errors.New("source snapshot unavailable")
 	}
 	defer response.Body.Close()
+	if response.StatusCode == http.StatusUnauthorized {
+		return empty, errSourceCredentialRejected
+	}
 	if response.StatusCode != http.StatusOK || !isJSONResponse(response) {
 		return empty, errors.New("source snapshot unavailable")
 	}

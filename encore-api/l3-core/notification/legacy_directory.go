@@ -15,7 +15,7 @@ import (
 var ErrLegacyDirectoryUnavailable = errors.New("notification legacy directory is unavailable")
 var errLegacyDirectoryScopeForbidden = errors.New("notification legacy directory scope is forbidden")
 
-// LegacyDirectoryReader holds a read-only operator credential. It never uses
+// LegacyDirectoryReader holds a read-only installation credential. It never uses
 // a user's session, source-ingress credential, or projection credential.
 type LegacyDirectoryReader struct {
 	base       string

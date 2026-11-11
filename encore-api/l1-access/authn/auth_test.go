@@ -58,9 +58,11 @@ func TestParseLegacyJwtTokenRequiresCommunityAuthorityAndTenant(t *testing.T) {
 		tenantID  string
 	}{
 		{name: "missing authority", tenantID: "tenant-1"},
-		{name: "unknown authority", authority: "TENANT_USER", tenantID: "tenant-1"},
+		{name: "unknown authority", authority: "UNKNOWN", tenantID: "tenant-1"},
 		{name: "lowercase authority", authority: "tenant_admin", tenantID: "tenant-1"},
 		{name: "tenant admin without tenant", authority: "TENANT_ADMIN"},
+		{name: "tenant user without tenant", authority: "TENANT_USER"},
+		{name: "tenant viewer without tenant", authority: "TENANT_VIEWER"},
 		{name: "whitespace tenant", authority: "TENANT_ADMIN", tenantID: " "},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -270,4 +272,30 @@ func signedTestJWT(t *testing.T, alg string, claims map[string]any) string {
 	mac := hmac.New(sha256.New, []byte(testJWTKey))
 	_, _ = mac.Write([]byte(unsigned))
 	return unsigned + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func TestCommunityReadOnlyIdentitiesSurviveKernelMigration(t *testing.T) {
+	for _, role := range []string{"TENANT_USER", "TENANT_VIEWER"} {
+		t.Run(role, func(t *testing.T) {
+			claims := map[string]any{"id": "reader", "tenant_id": "tenant-a", "authority": role, "exp": time.Now().Add(time.Minute).Unix()}
+			uid, data, err := parseLegacyJwtToken(signedTestJWT(t, "HS256", claims), testJWTKey)
+			if err != nil || string(uid) != "reader" || data.TenantID != "tenant-a" || len(data.Roles) != 1 || data.Roles[0] != role || len(data.Scopes) != 0 {
+				t.Fatalf("read-only identity changed: data=%+v err=%v", data, err)
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("x-token") != "session-token" {
+					t.Error("session validation token missing")
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "data": map[string]any{"id": "reader", "tenant_id": "tenant-a", "authority": role, "status": "N"}})
+			}))
+			defer server.Close()
+			if err := checkCommunitySession(context.Background(), server.URL, "session-token", data); err != nil {
+				t.Fatal(err)
+			}
+			data.TenantID = "tenant-b"
+			if err := checkCommunitySession(context.Background(), server.URL, "session-token", data); err == nil {
+				t.Fatal("cross-tenant identity accepted")
+			}
+		})
+	}
 }

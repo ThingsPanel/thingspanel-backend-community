@@ -31,6 +31,9 @@ func TestAutomationNotificationMatchesActualCoreWireSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if serveLeaseFixture(t, w, r, "deployment-a") {
+			return
+		}
 		var body any
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Error(err)
@@ -47,8 +50,8 @@ func TestAutomationNotificationMatchesActualCoreWireSchema(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":0,"data":{"accepted":true,"notificationId":"notice-1","deliveryIds":["delivery-1"],"intakeStatus":"ready"}}`))
 	}))
 	defer server.Close()
-	owner := NewHTTPNotificationOwner(Config{NotificationURL: server.URL, NotificationToken: "service-token", DeploymentID: "deployment-a"})
-	result, err := owner.Submit(context.Background(), NotificationRequest{TenantID: "tenant-a", PolicyID: "group-a", GroupRevision: 1, Subject: "acceptance", Text: "body", SourceEventID: "event-a", ActionID: "action-a", IdempotencyKey: "notification-key", OccurredAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour)})
+	owner := NewHTTPNotificationOwner(Config{NotificationURL: server.URL, NotificationServiceIdentity: fixtureIdentity, DeploymentID: "deployment-a"})
+	result, err := owner.Submit(context.Background(), NotificationRequest{TenantID: "tenant-a", PolicyID: "group-a", GroupRevision: 1, Subject: "acceptance", Text: "body", Variables: map[string]any{"sourceType": "automation"}, SourceEventID: "event-a", ActionID: "action-a", IdempotencyKey: "notification-key", OccurredAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour)})
 	if err != nil || result.State != NotificationAccepted {
 		t.Fatalf("valid notification not accepted: %+v %v", result, err)
 	}

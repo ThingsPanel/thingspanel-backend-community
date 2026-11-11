@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -408,4 +409,27 @@ func TestClaimDecryptsOnlyWorkerPayloadAndRuntimeUsesPinnedRegistration(t *testi
 		t.Fatalf("claim request missing protected payload: (%+v)", claims[0].Request)
 	}
 	_ = accepted
+}
+
+func TestSourceOriginPreservesAutomationAndAlarm(t *testing.T) {
+	s, db := newMigratedTestStore(t)
+	for i, origin := range []string{"", "automation"} {
+		event := contract.SourceEventV1{SchemaVersion: "1.0", SourceDeploymentID: "origin-test", SourceEventID: fmt.Sprintf("origin-%d", i), ActionID: "notify", TenantID: "tenant-origin", NotificationGroupID: "unavailable", GroupRevision: 1, OccurredAt: time.Now().UTC().Format(time.RFC3339), ExpiresAt: time.Now().UTC().Add(time.Hour).Format(time.RFC3339)}
+		event.Payload.Variables = map[string]json.RawMessage{"sourceType": json.RawMessage(`"` + origin + `"`)}
+		accepted, err := s.AcceptSourcePlan(context.Background(), event.TenantID, fmt.Sprintf("origin-key-%d", i), strings.Repeat("a", 64), SourceAcceptancePlan{Event: event, BlockedReason: "blocked_group_unavailable"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var actual string
+		if err = db.QueryRowContext(context.Background(), "SELECT source_type FROM notification_requests WHERE id=$1", accepted.NotificationID).Scan(&actual); err != nil {
+			t.Fatal(err)
+		}
+		expected := origin
+		if expected == "" {
+			expected = "alarm"
+		}
+		if actual != expected {
+			t.Fatalf("origin=%q got=%q", origin, actual)
+		}
+	}
 }

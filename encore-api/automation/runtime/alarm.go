@@ -617,19 +617,22 @@ func (r *Runtime) enqueueAlarmNotification(ctx context.Context, tx *sql.Tx, rule
 	}
 	now := r.Now()
 	text := "告警触发：" + rule.Name
+	subject := "设备告警触发"
 	if kind == TransitionClear {
 		text = "告警恢复：" + rule.Name
+		subject = "设备告警恢复"
 	}
 	body, _ := json.Marshal(map[string]any{
 		"policy_id":        policyID,
 		"group_revision":   revision,
 		"resolution_error": resolutionError,
-		"subject":          ep.SubjectID,
+		"subject":          subject,
 		"text":             text,
 		"occurred_at":      now.UTC().Format(time.RFC3339Nano),
 		"expires_at":       now.Add(24 * time.Hour).UTC().Format(time.RFC3339Nano),
 		"variables": map[string]any{
 			"episode_id": ep.ID, "policy_key": rule.PolicyKey(), "level": ep.Level,
+			"alarmId": ep.ID, "alarmKind": "history",
 			"subject_id": ep.SubjectID, "dimension": ep.Dimension,
 			"transition_id": transitionID, "kind": kind,
 		},
@@ -672,26 +675,7 @@ func (r *Runtime) Ack(ctx context.Context, tenantID, episodeID, actor string) (b
 	if err != nil {
 		return false, err
 	}
-	ep, err := r.store.GetActiveEpisodeByID(ctx, tenantID, episodeID)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-	ok, err := r.store.AckEpisode(ctx, tenantID, episodeID, actor, seq)
-	if err != nil || !ok {
-		return ok, err
-	}
-	err = r.store.WithTx(ctx, func(tx *sql.Tx) error {
-		_, aerr := r.store.AddTransition(ctx, tx, &store.Transition{
-			ID: NewID(), EpisodeID: ep.ID, TenantID: tenantID, Kind: TransitionAck,
-			Seq: seq, Revision: ep.Revision, Epoch: ep.Epoch,
-			Evidence: map[string]any{"actor": actor, "state": "active"},
-		})
-		return aerr
-	})
-	return true, err
+	return r.store.AckEpisode(ctx, tenantID, episodeID, actor, seq, NewID())
 }
 
 // startRecoveryPending opens the "recovery condition has held since" record. It is

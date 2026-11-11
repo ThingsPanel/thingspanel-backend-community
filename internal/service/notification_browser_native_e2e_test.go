@@ -56,7 +56,7 @@ func TestNativeBrowserAlarmClosesSourceToCoreLoop(t *testing.T) {
 	t.Cleanup(proxyServer.Close)
 	roots := x509.NewCertPool()
 	roots.AddCert(proxyServer.Certificate())
-	checker, err := newEmailSourceCompatibilityChecker(proxyServer.URL, nativeE2EProjToken, roots)
+	checker, err := newEmailSourceCompatibilityChecker(SourceBridgeConfig{BaseURL: proxyServer.URL, Credentials: fixtureSourceCredentials{nativeE2ESourceToken, nativeE2EProjToken}}, roots)
 	if err != nil {
 		t.Fatal("construct TLS-pinned compatibility checker")
 	}
@@ -92,7 +92,7 @@ func TestNativeBrowserAlarmClosesSourceToCoreLoop(t *testing.T) {
 	}
 	bridge, err := newSourceBridge(SourceBridgeConfig{
 		Enabled: true, BaseURL: proxyServer.URL, DeploymentID: fixture.SourceDeploymentID,
-		SourceBearerToken: nativeE2ESourceToken, ProjectionBearerToken: nativeE2EProjToken,
+		Credentials:    fixtureSourceCredentials{nativeE2ESourceToken, nativeE2EProjToken},
 		RequestTimeout: 5 * time.Second,
 	}, checker, roots)
 	if err != nil {

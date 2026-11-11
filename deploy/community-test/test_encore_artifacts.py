@@ -1,8 +1,20 @@
 import importlib.util,json,pathlib,tempfile,unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 spec=importlib.util.spec_from_file_location('encore_artifacts',pathlib.Path(__file__).with_name('encore_artifacts.py'))
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 
 class ArtifactBoundaryTest(unittest.TestCase):
+    def test_low_disk_only_reclaims_named_go_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory);cache=root/'encore-build-cache';cache.mkdir()
+            commands=[]
+            with patch.object(module.shutil,'disk_usage',return_value=SimpleNamespace(free=512*1024**2)):
+                self.assertTrue(module.reclaim_build_cache(root,commands.append))
+            self.assertEqual(commands,[['env','GOCACHE='+str(cache),'/usr/local/go/bin/go','clean','-cache']])
+            with patch.object(module.shutil,'disk_usage',return_value=SimpleNamespace(free=2*1024**3)):
+                self.assertFalse(module.reclaim_build_cache(root,commands.append))
+            self.assertEqual(len(commands),1)
     def test_keeps_running_images_and_uncompleted_or_unrelated_inputs(self):
         old,active,current,pending='a'*40,'b'*40,'c'*40,'d'*40
         with tempfile.TemporaryDirectory() as directory:

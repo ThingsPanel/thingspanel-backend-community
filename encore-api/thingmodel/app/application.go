@@ -314,6 +314,47 @@ func (s *Service) PublishWithResources(ctx context.Context, principal core.Princ
 	})
 }
 
+// Delete removes the mutable catalog entry. Published snapshots remain addressable
+// by their exact tenant/model/revision so existing device bindings keep working.
+func (s *Service) Delete(ctx context.Context, principal core.Principal, key string, modelID core.ModelID, expected uint64) (Result, error) {
+	if err := authorize(principal, principal.TenantID, core.CapabilityDelete); err != nil {
+		return Result{}, err
+	}
+	if err := validateKey(key); err != nil {
+		return Result{}, err
+	}
+	if modelID == "" || expected == 0 {
+		return Result{}, ErrInvalid
+	}
+	payloadHash, err := hashPayload(struct {
+		ModelID  core.ModelID `json:"modelID"`
+		Expected uint64       `json:"expectedDraftRevision"`
+	}{modelID, expected})
+	if err != nil {
+		return Result{}, err
+	}
+	scope := ReceiptScope{TenantID: principal.TenantID, SubjectID: principal.SubjectID, Operation: "delete", Key: key, PayloadHash: payloadHash}
+	return s.repo.Execute(ctx, scope, func(tx Transaction) (Result, error) {
+		record, err := tx.Get(ctx, principal.TenantID, modelID)
+		if err != nil {
+			return Result{}, err
+		}
+		if record.Model.DraftRevision != expected {
+			return Result{}, ErrConflict
+		}
+		if err := tx.Audit(ctx, Audit{ID: s.ids(), SubjectID: principal.SubjectID, Operation: "deleted", Before: ptrRecord(record), After: cloneRecord(record)}); err != nil {
+			return Result{}, err
+		}
+		if err := tx.Emit(ctx, Event{ID: s.ids(), Operation: "deleted", ModelID: modelID, TenantID: principal.TenantID, DraftRevision: record.Model.DraftRevision}); err != nil {
+			return Result{}, err
+		}
+		if err := tx.Delete(ctx, principal.TenantID, modelID); err != nil {
+			return Result{}, err
+		}
+		return result("DELETED", record), nil
+	})
+}
+
 func (s *Service) Get(ctx context.Context, principal core.Principal, modelID core.ModelID) (Record, error) {
 	if err := authorize(principal, principal.TenantID, core.CapabilityRead); err != nil {
 		return Record{}, err
@@ -423,9 +464,6 @@ func (s *Service) Versions(ctx context.Context, principal core.Principal, modelI
 
 func (s *Service) Version(ctx context.Context, principal core.Principal, modelID core.ModelID, revision uint64) (Publication, error) {
 	if err := authorize(principal, principal.TenantID, core.CapabilityRead); err != nil {
-		return Publication{}, err
-	}
-	if _, err := s.repo.Get(ctx, principal.TenantID, modelID); err != nil {
 		return Publication{}, err
 	}
 	publication, err := s.repo.Version(ctx, principal.TenantID, modelID, revision)

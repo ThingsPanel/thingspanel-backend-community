@@ -2,6 +2,15 @@ package notification
 
 import "net/http"
 
+//encore:api public raw method=POST path=/internal/notification/source-credentials
+func (s *Service) ManagedSourceCredentials(w http.ResponseWriter, r *http.Request) {
+	if s.managedSources == nil {
+		http.Error(w, "notification unavailable", 503)
+		return
+	}
+	s.managedSources.ServeHTTP(w, r)
+}
+
 // Auth is checked by the notification principal verifier on each raw route.
 // User sessions, source identities and receipt identities have separate scopes.
 

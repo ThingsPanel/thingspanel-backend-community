@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"project/internal/dal"
@@ -126,8 +127,25 @@ func pluginRuntimeIdentity(c *gin.Context) (*middleware.PluginRuntimeIdentity, b
 	return identity, true
 }
 
+// legacyPluginRequest is trusted routing state, not a caller-supplied switch.
+func legacyPluginRequest(c *gin.Context) bool {
+	legacy, _ := c.Get(middleware.LegacyPluginRuntimeKey)
+	return legacy == true
+}
+
+func allowLegacyPluginService(c *gin.Context, service string) bool {
+	if service == "" || strings.EqualFold(strings.TrimSpace(service), "homeassistant") {
+		_, _ = pluginRuntimeIdentity(c)
+		return false
+	}
+	return true
+}
+
 // requirePluginService: the request's service_identifier must be the identity's own service.
 func requirePluginService(c *gin.Context, serviceIdentifier string) (*middleware.PluginRuntimeIdentity, bool) {
+	if legacyPluginRequest(c) {
+		return nil, allowLegacyPluginService(c, serviceIdentifier)
+	}
 	identity, ok := pluginRuntimeIdentity(c)
 	if !ok {
 		return nil, false
@@ -142,9 +160,13 @@ func requirePluginService(c *gin.Context, serviceIdentifier string) (*middleware
 // pluginMayReadDevice: the device must belong to the identity's tenant and use the identity's protocol. A device
 // that does not exist falls through to the normal not-found path.
 func pluginMayReadDevice(c *gin.Context, req model.GetDeviceConfigReq) bool {
-	identity, ok := pluginRuntimeIdentity(c)
-	if !ok {
-		return false
+	var identity *middleware.PluginRuntimeIdentity
+	if !legacyPluginRequest(c) {
+		var ok bool
+		identity, ok = pluginRuntimeIdentity(c)
+		if !ok {
+			return false
+		}
 	}
 	var device *model.Device
 	var err error
@@ -157,6 +179,32 @@ func pluginMayReadDevice(c *gin.Context, req model.GetDeviceConfigReq) bool {
 		device, err = dal.GetDeviceByDeviceNumber(req.DeviceNumber)
 	}
 	if err != nil || device == nil {
+		return true
+	}
+	if identity == nil {
+		if device.ServiceAccessID != nil && *device.ServiceAccessID != "" {
+			access, err := dal.GetServiceAccessByID(*device.ServiceAccessID)
+			if err != nil || access == nil {
+				scopeDenied(c)
+				return false
+			}
+			plugin, err := dal.GetServicePluginByID(access.ServicePluginID)
+			if err != nil || plugin == nil {
+				scopeDenied(c)
+				return false
+			}
+			return allowLegacyPluginService(c, plugin.ServiceIdentifier)
+		}
+		if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
+			config, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
+			if err != nil || config == nil {
+				scopeDenied(c)
+				return false
+			}
+			if config.ProtocolType != nil {
+				return allowLegacyPluginService(c, *config.ProtocolType)
+			}
+		}
 		return true
 	}
 	allowed := device.TenantID == identity.TenantID

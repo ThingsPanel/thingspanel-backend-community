@@ -29,10 +29,6 @@ func (reader *NotificationMemberReaderApi) GetAutomationPolicy(c *gin.Context) {
 		readerStatus(c, http.StatusBadRequest)
 		return
 	}
-	if _, allowed := reader.allowedTenants[tenant]; !allowed {
-		readerStatus(c, http.StatusForbidden)
-		return
-	}
 	query, err := url.ParseQuery(c.Request.URL.RawQuery)
 	if err != nil || len(query) > 1 || len(query["alias"]) > 1 || (len(query) == 1 && query["alias"] == nil) || c.Request.ContentLength != 0 || len(c.Request.TransferEncoding) > 0 {
 		readerStatus(c, http.StatusBadRequest)

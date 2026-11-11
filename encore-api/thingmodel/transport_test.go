@@ -141,14 +141,14 @@ func TestIdentityDoesNotCollapseDistinctLegacyIDsOrTrustScopes(t *testing.T) {
 	}
 }
 
-func TestPlatformAdminRequiresAuditedTenantDelegation(t *testing.T) {
-	for _, tenantID := range []string{"", "tenant-target"} {
-		_, err := principalForData(&authn.Data{
-			UserID: "sys-admin", TenantID: tenantID, Roles: []string{"SYS_ADMIN"},
-		})
-		if err == nil {
-			t.Fatalf("platform admin with tenant_id %q but no delegation entered a tenant-scoped model API", tenantID)
-		}
+func TestExistingPlatformModelRoleStillRequiresVerifiedTenantContext(t *testing.T) {
+	if _, err := principalForData(&authn.Data{UserID: "sys-admin", Roles: []string{"SYS_ADMIN"}}); err == nil {
+		t.Fatal("platform identity without a tenant entered the model API")
+	}
+	p, err := principalForData(&authn.Data{UserID: "sys-admin", TenantID: "verified-session-tenant", Roles: []string{"SYS_ADMIN"}})
+	want := []string{string(core.CapabilityRead), string(core.CapabilityWrite), string(core.CapabilityPublish), string(core.CapabilityDelete)}
+	if err != nil || !reflect.DeepEqual(p.Capabilities, want) || p.TenantID != core.TenantID(canonicalIdentity("tenant", "verified-session-tenant")) {
+		t.Fatalf("existing model role changed during migration: %+v, %v", p, err)
 	}
 }
 
@@ -158,5 +158,14 @@ func TestVersionPaginationRejectsOverflow(t *testing.T) {
 	}
 	if start, e := paginationStart(2, 20); e != nil || start != 20 {
 		t.Fatalf("ordinary second page: %d %v", start, e)
+	}
+}
+
+func TestCommunityReadersKeepOnlyModelReadCapability(t *testing.T) {
+	for _, role := range []string{"TENANT_USER", "TENANT_VIEWER"} {
+		p, err := principalForData(&authn.Data{UserID: "reader", TenantID: "tenant-a", Roles: []string{role}, Scopes: []string{"*", "thingmodel.delete"}})
+		if err != nil || !reflect.DeepEqual(p.Capabilities, []string{string(core.CapabilityRead)}) {
+			t.Fatalf("role %s: principal=%+v err=%v", role, p, err)
+		}
 	}
 }

@@ -274,7 +274,7 @@ GOTP_AUTOMATION_MODE=legacy
 | `TP_COMMUNITY_SESSION_BASE_URL` | 是 | 社区后端地址，用于会话校验 |
 | `TP_COMMUNITY_BASE_URL` | 是 | 社区后端地址，用于读设备目录 |
 | `TP_COMMUNITY_TOKEN` | 是 | 服务间调用令牌 |
-| `TP_NOTIFICATION_URL` / `TP_NOTIFICATION_TOKEN` | 否 | 通知服务；不配则通知记为"未知"，不会假装成功 |
+| `TP_NOTIFICATION_URL` / `NOTIFICATION_SERVICE_TOKEN` | 否 | 通知服务；不配则通知记为"未知"，不会假装成功 |
 | `TP_SOURCE_DEPLOYMENT_ID` | 否 | 默认 `automation-rewrite` |
 
 **已知坑**：社区版 `/api/v1/user/detail` 不返回 `tenant_id`，会话校验会失败。

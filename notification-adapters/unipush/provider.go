@@ -44,6 +44,35 @@ func (*Provider) Health(context.Context) error { return nil }
 func result(id, outcome, code string) sdk.SendResult {
 	return sdk.SendResult{DeliveryID: id, Outcome: outcome, ReceiptExpected: false, Error: &sdk.DeliveryError{Code: code, Message: "App push was not confirmed accepted.", Retryable: false}}
 }
+
+// UniPush requires title <20 and content <50 characters. Count UTF-16 units
+// conservatively so supplementary characters also fit JavaScript/provider limits.
+// Only the displayed preview is shortened; routing and alarm IDs stay intact.
+func pushPreview(s string, limit int) string {
+	s = strings.TrimSpace(s)
+	units := 0
+	for _, r := range s {
+		units++
+		if r > 0xffff {
+			units++
+		}
+	}
+	if units <= limit {
+		return s
+	}
+	units = 0
+	for i, r := range s {
+		width := 1
+		if r > 0xffff {
+			width = 2
+		}
+		if units+width > limit-1 {
+			return s[:i] + "…"
+		}
+		units += width
+	}
+	return s
+}
 func (p *Provider) Send(ctx context.Context, r sdk.SendRequest) (sdk.SendResult, error) {
 
 	cid := r.Recipient.Address
@@ -83,6 +112,11 @@ func (p *Provider) Send(ctx context.Context, r sdk.SendRequest) (sdk.SendResult,
 	} else if r.Recipient.Kind != "chat_id" {
 		return result(r.DeliveryID, "rejected", "invalid_request"), nil
 	}
+	title = pushPreview(title, 19)
+	if title == "" {
+		title = "设备告警"
+	}
+	text = pushPreview(text, 49)
 	body, _ := json.Marshal(map[string]string{"push_clientid": cid, "title": title, "content": text, "alarm_id": alarmID, "alarm_kind": alarmKind, "tenant_id": tenant, "user_id": user, "message_id": r.DeliveryID})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint, bytes.NewReader(body))
 	if err != nil {

@@ -118,3 +118,9 @@
 ## 数据库第一阶段清理（2026-11-10）
 已删除：T1-A2/A3/A4、T3 的 worktree 与本地分支（均已合入 origin/develop `82ad259e`）、`dbp1-smoke-*` 与 `dbp1-tdengine` 已退出容器。
 仍保留待负责人确认删除：运行中的 `dbp1-tdengine-*` 验收栈及其 6 个数据卷、网络、`/Volumes/KIOXIA/tmp/dbp1-tdengine-stack`（含本地凭据配置）、两个匿名 Mosquitto 卷。证据目录不删。
+
+## 2026-11-11 前后端 develop 合入主线
+
+- 后端：F:/coding/thingspanel-backend-community/.claude/worktrees/full-develop-integration，分支 wp/full-develop-integration-20261111；负责人 Codex；本轮前后端配套合并，保留主线通知、角色兼容及发布保护。验收和用户确认清理前保留。
+- 前端：F:/coding/thingspanel-frontend-community/.claude/worktrees/full-develop-integration，分支 wp/full-develop-integration-20261111；同一合并任务，验收和用户确认清理前保留。
+- 外置证据：F:/coding/artifacts/20261111-full-develop-integration/。

@@ -215,6 +215,13 @@ func newMigratedTestStore(t *testing.T) (*Store, *sql.DB) {
 	if err := runTestMigrationOnce(context.Background(), db, "0003", readNotificationAlarmSourceMigration(t)); err != nil {
 		t.Fatalf("apply notification alarm source migration: %v", err)
 	}
+	data, err := os.ReadFile("migrations/0004_managed_source_credentials.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runTestMigrationOnce(context.Background(), db, "0004", string(data)); err != nil {
+		t.Fatal(err)
+	}
 	store, err := NewStore(StoreOptions{DB: db, Protector: newTestSnapshotProtector()})
 	if err != nil {
 		t.Fatalf("construct notification store: %v", err)

@@ -73,16 +73,32 @@ func (s *Store) MarkRunRunning(ctx context.Context, runID string) error {
 // waited most of its TTL would have almost no time left to execute the steps it
 // was admitted for.
 func (s *Store) StartQueuedRun(ctx context.Context, runID string, deadline time.Time) error {
-	res, err := s.DB.ExecContext(ctx, `
+	return s.WithTx(ctx, func(tx *sql.Tx) error {
+		var scope string
+		if err := tx.QueryRowContext(ctx, `SELECT scope_key FROM auto_runs WHERE id=$1`, runID).Scan(&scope); err != nil {
+			return err
+		}
+		if err := lockRunScope(ctx, tx, scope); err != nil {
+			return err
+		}
+		var active int
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM auto_runs WHERE scope_key=$1 AND status IN ('accepted','running')`, scope).Scan(&active); err != nil {
+			return err
+		}
+		if active > 0 {
+			return ErrConflict
+		}
+		res, err := tx.ExecContext(ctx, `
         UPDATE auto_runs SET status='running', deadline=$2
          WHERE id=$1 AND status='queued'`, runID, deadline)
-	if err != nil {
-		return err
-	}
-	if n, err := res.RowsAffected(); err == nil && n == 0 {
-		return ErrNotFound
-	}
-	return nil
+		if err != nil {
+			return err
+		}
+		if n, err := res.RowsAffected(); err == nil && n == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
 }
 
 // NextQueuedRun returns the oldest queued run of a scope.

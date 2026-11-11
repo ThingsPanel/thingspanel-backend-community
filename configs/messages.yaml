@@ -355,6 +355,27 @@ messages:
   500007:
     zh_CN: "消息发送失败：${error_message}"
     en_US: "Message sending failed: ${error_message}"
+  500008:
+    zh_CN: "连接方式"
+    en_US: "Connection method"
+  500009:
+    zh_CN: "通过网关接入"
+    en_US: "Connect through a gateway"
+  500010:
+    zh_CN: "操作提示"
+    en_US: "Next step"
+  500011:
+    zh_CN: "请在网关设备详情的子设备列表中添加此设备，并设置子设备地址。"
+    en_US: "Add this device in the gateway's child device list and set its child device address."
+  500012:
+    zh_CN: "接入端口"
+    en_US: "Access port"
+  500013:
+    zh_CN: "未配置"
+    en_US: "Not configured"
+  500014:
+    zh_CN: "请联系管理员在协议插件中配置设备可访问的接入地址。"
+    en_US: "Ask an administrator to configure a device-reachable access address in the protocol plugin."
 
 # 配置元信息
 metadata:

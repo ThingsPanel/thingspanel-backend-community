@@ -76,7 +76,9 @@ func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPluginByProtocolType(c *g
 	if !ok {
 		return
 	}
-	req.TenantID = identity.TenantID
+	if identity != nil {
+		req.TenantID = identity.TenantID
+	}
 	data, err := service.GroupApp.ProtocolPlugin.GetDevicesByProtocolPlugin(req)
 	if err != nil {
 		c.Error(err)

@@ -257,9 +257,6 @@ func (postgresRepository) Version(ctx context.Context, tenantID core.TenantID, m
 	if !validUUID(string(tenantID)) || !validUUID(string(modelID)) {
 		return app.Publication{}, app.ErrInvalid
 	}
-	if _, err := (postgresRepository{}).Get(ctx, tenantID, modelID); err != nil {
-		return app.Publication{}, err
-	}
 	if revision == 0 || revision > math.MaxInt32 {
 		return app.Publication{}, app.ErrNotFound
 	}
@@ -494,6 +491,18 @@ func (t *postgresTransaction) Update(ctx context.Context, record app.Record) err
 		WHERE tenant_id=$6 AND id=$7 AND deleted_at IS NULL AND canonical_model IS NOT NULL`,
 		record.Model.Name, statusFor(record), string(raw), int64(record.Model.DraftRevision),
 		int64(record.Model.PublishedRevision), string(record.Model.TenantID), string(record.Model.ID))
+	if err != nil {
+		return persistenceError(err)
+	}
+	if result.RowsAffected() != 1 {
+		return app.ErrNotFound
+	}
+	return nil
+}
+
+func (t *postgresTransaction) Delete(ctx context.Context, tenantID core.TenantID, modelID core.ModelID) error {
+	result, err := t.tx.Exec(ctx, `UPDATE thing_models SET deleted_at=NOW(), updated_at=NOW()
+ WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL AND canonical_model IS NOT NULL`, string(tenantID), string(modelID))
 	if err != nil {
 		return persistenceError(err)
 	}

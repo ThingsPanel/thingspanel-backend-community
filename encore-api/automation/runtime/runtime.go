@@ -41,6 +41,8 @@ type cause struct {
 	// detail view can say "手动执行" instead of inferring it from an empty
 	// trigger_event_id — an empty id is also what a timer-driven run looks like.
 	Manual bool
+	// ScenePath is frozen into a child run to stop cycles across async resumes.
+	ScenePath []string
 }
 
 // causeOf reads the causal context off an inbox event.

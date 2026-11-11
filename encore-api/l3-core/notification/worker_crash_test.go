@@ -81,7 +81,7 @@ func TestWorkerProcessKillAfterProviderSideEffectRecoversUnknownWithoutResend(t 
 	accepted := submitWorkerFixtures(t, store, "worker-process-crash", instanceID, 1)
 
 	command := exec.Command(os.Args[0], "-test.run=^TestWorkerCrashChild$")
-	command.Env = append(os.Environ(), "NOTIFICATION_WORKER_CHILD=1", "NOTIFICATION_WORKER_SCHEMA="+schema)
+	command.Env = append(workerChildEnvironment(), "NOTIFICATION_WORKER_CHILD=1", "NOTIFICATION_WORKER_SCHEMA="+schema)
 	var childOutput bytes.Buffer
 	command.Stdout = &childOutput
 	command.Stderr = &childOutput

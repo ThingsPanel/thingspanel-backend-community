@@ -1,4 +1,5 @@
 """Deploy a verified backend bundle to the community test server (Python 3.6+)."""
+from notification_identity import prepare_notification_identity, backend_process_spec, private_json
 import fcntl,hashlib,json,os,pathlib,re,shutil,subprocess,sys,tarfile,time,urllib.request
 
 ROOT=pathlib.Path('/opt/tp-community-actions')
@@ -9,7 +10,19 @@ if not re.fullmatch('[0-9a-f]{40}',SHA):raise SystemExit('Invalid source revisio
 os.umask(0o077);ROOT.mkdir(mode=0o700,exist_ok=True)
 lock=(ROOT/'deployment.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX)
 release=ROOT/'backend-releases'/SHA
-if release.exists():raise SystemExit('This release already exists; inspect before redeployment')
+if release.exists():
+ receipt=release/'result.json'
+ manifest_path=release/'manifest.json'
+ if receipt.is_file() and manifest_path.is_file():
+  result=json.loads(receipt.read_text())
+  checksums=json.loads(manifest_path.read_text()).get('sha256',{})
+  target=APP/'thingspanel-backend-community'
+  running=json.load(urllib.request.urlopen('http://127.0.0.1:9999/api/v1/sys_version',timeout=5))
+  if (result.get('commit')==SHA and result.get('status')=='deployed'
+      and running.get('data',{}).get('version')=='dev-'+SHA
+      and hashlib.sha256(target.read_bytes()).hexdigest()==checksums.get('ThingsPanel-Go')):
+   print(json.dumps({'status':'already-deployed','commit':SHA}));raise SystemExit(0)
+ raise SystemExit('Incomplete or changed prior backend release; inspect private failure log')
 release.mkdir(parents=True,mode=0o700)
 
 def run(args):
@@ -70,11 +83,17 @@ def wait_version(expected):
   time.sleep(1)
  raise RuntimeError('Running version did not match deployed source')
 old_version=run([str(target),'--version'])
+notification_env=prepare_notification_identity(pathlib.Path('/opt/tp-community-main-20261028'))
+processes=json.loads(run([PM,'jlist']))
+process=next(p for p in processes if p['name']=='thingspanel-backend-community')
+ecosystem=release/'backend.ecosystem.private.json'
+private_json(ecosystem,{'apps':[backend_process_spec(process,notification_env)]})
 try:
  install_resources(release)
  run([PM,'stop','thingspanel-backend-community'])
  install_file(binary,target)
- run([PM,'restart','thingspanel-backend-community'])
+ run([PM,'delete','thingspanel-backend-community'])
+ run([PM,'start',str(ecosystem),'--only','thingspanel-backend-community'])
  wait_version(version)
  if hashlib.sha256(config.read_bytes()).hexdigest()!=config_sha:raise RuntimeError('Private configuration changed')
  run([PM,'save'])

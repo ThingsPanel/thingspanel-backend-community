@@ -402,7 +402,8 @@ func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, deviceCo
              EXISTS (
                SELECT 1 FROM jsonb_array_elements(r.definition->'trigger'->'groups') g,
                              jsonb_array_elements(g->'conditions') c
-                WHERE (c->>'source' = 'self' OR c->>'source' IS NULL)
+                WHERE (c->>'source' = 'self' OR c->>'source' IS NULL
+                       OR (c->>'source' = 'device' AND c->>'device_id' = $2))
                   AND c->>'signal' = $4
                   AND c->>'key' = $5
              )

@@ -1,19 +1,21 @@
 # CLI 与 UniPush 合并交接
 
+> 本文保留 2026-11-01 的历史交接状态，不代表当前验收。当前归并范围见 [Kernel 成果归并](KERNEL-SOURCE-CONVERGENCE.md)。
+
 ## 基线和范围
 
 - Community `main` 基线：`7f694779`；CLI 和 UniPush 的提交位于 `codex/community-cli-completion-20261101`。
 - 原生元数据命令以 Community 候选 `codex/metadata-menus-on-v1.3.0` 的 `d4e0540b` 已注册接口为准。该候选不在上述 `main` 基线里；单独合并 CLI 不会部署这些接口。
 - CLI 原生命令使用服务端身份、显式幂等键、强 ETag、原生 JSON 响应及正式 HTTP 接口；不会回退到旧接口。已有复数设备命令仍使用当前主线的社区接口，单数 `device`、`template`、`group` 使用原生接口。
 - CLI 覆盖设备、接入模板、分组、关联、凭据、调试、模拟器、读数导出、资产和连接器目录中已注册的主要操作；规划但未注册的操作没有冒充完成。更详细的命令见 `cli/tpctl-go/README.md` 和 `tpctl help <命令组>`。
-- UniPush 是独立通知插件，使用 Encore 通知插件协议；源码和构建文件已迁入 `notification-adapters`，不另建通知核心。现有 App 云函数和部署配置需独立确认，详见 `notification-adapters/UNIPUSH-MIGRATION.md`。
+- UniPush 是独立通知插件，使用 Encore 通知插件协议；源码和构建文件已迁入 `notification-adapters`，不另建通知核心。现有 App 云函数和部署配置需独立确认，当前来源见 `docs/KERNEL-SOURCE-CONVERGENCE.md`。
 
 ## 验证与剩余工作
 
 | 项目 | 本次结果 |
 |---|---|
 | Luna 独立测试 | `tpctl-go` 50 项、`tpctl-mcp` 18 项通过；两个模块 `go vet` 和构建通过。测试未执行真实设备命令。 |
-| 原生 CLI 对真实候选 API | **部分通过**。隔离候选真实 Encore 上，合成身份完成设备列表读取及分组创建、幂等重放、ETag 更新/冲突、删除；详情见下。真实 Community、设备/模板完整 CRUD、跨租户及遥测运行时仍待验收。 |
+| 原生 CLI 对真实候选 API | **未完成**。隔离候选两次 Encore 镜像构建停在依赖下载；离线重试仍缺少其他 Go 依赖，并遇到 PostgreSQL 镜像拉取阻断。未生成镜像或发出 CRUD 请求。日志在本机 `/tmp/tpctl-native-e2e-20261101/build-attempt.log`，不可作为通过证据。 |
 | 现有网关匿名只读探测 | Luna 对 `127.0.0.1:8080` 不带凭据执行 CLI：`thingmodels list` 返回 401、退出 5；`native-devices list` 返回 404、退出 3。未进行写入。这证明错误处理和匿名路由响应，不代表已认证业务链路通过。 |
 | UniPush 联调 | 真实 notification PostgreSQL store、worker 与真实插件进程通过一次联调，目录与 UniCloud 使用本机替身；完整 Encore API 运行器、真实 App、厂商离线通道和 iOS APNs 未验证。 |
 | 镜像与生产 | 新增独立模块的 CI 检查；没有发布镜像或部署。历史记录不能替代当前环境验证。 |
@@ -27,9 +29,4 @@
 
 ## 2026-11-01 后续：原生读数默认查询
 
-`native-devices readings` 在无历史范围时自动请求 `latestOnly=true`，事件查询及显式参数保留原意；之前默认请求会被候选后端拒绝。`cli/tpctl-go` 全包测试通过。后续隔离认证联调结果见下；尚未使用真实遥测数据验收读数。
-
-
-## 2026-11-01：隔离 Encore 客户端联调
-
-候选 `d4e0540b` 在独立容器、隔离 PostgreSQL 和合成 HS256 JWT / 本地 session stub 下启动；notification 在临时副本中替身化。无认证设备请求 401；CLI `native-devices list` 与 MCP STDIO `encore_list_devices` 均返回 200。CLI 创建无成员测试分组、同键同请求重放、读取并保存 ETag、更新版本 1→2、旧 ETag 得到 412 / CLI 退出码 6，MCP `encore_group_get` 读到更新，CLI 删除后 GET 404。测试容器、数据卷、网络与凭据已清理。真实 Community、设备遥测/属性数据、跨租户和生产认证未验收；没有控制设备。
+`native-devices readings` 在无历史范围时自动请求 `latestOnly=true`，事件查询及显式参数保留原意；之前默认请求会被候选后端拒绝。`cli/tpctl-go` 全包测试通过。候选服务真实认证联调仍待完成，不能据此视为真实读数验收。
