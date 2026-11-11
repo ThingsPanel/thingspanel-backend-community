@@ -7,12 +7,6 @@ import (
 	"testing"
 )
 
-func init() {
-	initialize.ViperInit("../../configs/conf-localdev.yml")
-	initialize.RedisInit()
-	cache = initialize.NewAutomateCache()
-}
-
 var (
 	sceneAutomateId = "sceneAutomateId_test"
 	cache           *initialize.AutomateCache
@@ -77,6 +71,7 @@ func getActions(sceneAutomateId string) []model.ActionInfo {
 
 // conditions []model.DeviceTriggerCondition, actions []model.ActionInfo
 func TestSetCacheBySceneAutomationId(t *testing.T) {
+	resetPrivateCache(t)
 	fmt.Println("测试创建缓存...")
 	//cache := initialize.NewAutomateCache()
 	conditions := getConditions(sceneAutomateId)
@@ -87,6 +82,10 @@ func TestSetCacheBySceneAutomationId(t *testing.T) {
 }
 
 func TestGetCacheByDeviceId(t *testing.T) {
+	resetPrivateCache(t)
+	if err := cache.SetCacheBySceneAutomationId(sceneAutomateId, getConditions(sceneAutomateId), getActions(sceneAutomateId)); err != nil {
+		t.Fatal(err)
+	}
 	fmt.Println("测试查询缓存存在的情况...")
 	//cache := initialize.NewAutomateCache()
 	res, resultInt, err := cache.GetCacheByDeviceId("condition_deviceIds01", "")
@@ -100,6 +99,10 @@ func TestGetCacheByDeviceId(t *testing.T) {
 }
 
 func TestDeleteCacheBySceneAutomationId(t *testing.T) {
+	resetPrivateCache(t)
+	if err := cache.SetCacheBySceneAutomationId(sceneAutomateId, getConditions(sceneAutomateId), getActions(sceneAutomateId)); err != nil {
+		t.Fatal(err)
+	}
 	fmt.Println("测试删除场景缓存...")
 	//cache := initialize.NewAutomateCache()
 	err := cache.DeleteCacheBySceneAutomationId(sceneAutomateId)
@@ -109,6 +112,7 @@ func TestDeleteCacheBySceneAutomationId(t *testing.T) {
 }
 
 func TestGetCacheByDeviceIdNotExists(t *testing.T) {
+	resetPrivateCache(t)
 	fmt.Println("测试设备缓存中无数据...")
 	//cache := initialize.NewAutomateCache()
 	res, resultInt, err := cache.GetCacheByDeviceId("condition_deviceIds0004", "")
@@ -123,6 +127,7 @@ func TestGetCacheByDeviceIdNotExists(t *testing.T) {
 }
 
 func TestSetCacheByDeviceIdWithNoTask(t *testing.T) {
+	resetPrivateCache(t)
 	fmt.Println("测试缓存中保存无任务设备...")
 	err := cache.SetCacheByDeviceIdWithNoTask("condition_deviceIds00005", "")
 	if err != nil {
@@ -139,6 +144,7 @@ func TestSetCacheByDeviceIdWithNoTask(t *testing.T) {
 }
 
 func TestSetCacheByDeviceId(t *testing.T) {
+	resetPrivateCache(t)
 	fmt.Println("测试根据设备id自动化缓存信息...")
 	deviceId := "condition_deviceIds_with_device"
 	conditions := []model.DeviceTriggerCondition{
@@ -198,6 +204,7 @@ func TestSetCacheByDeviceId(t *testing.T) {
 }
 
 func TestSetCacheByDeviceConfidId(t *testing.T) {
+	resetPrivateCache(t)
 	fmt.Println("测试根据设备id自动化缓存信息...")
 	deviceId := "condition_deviceIds_with_device"
 	deviceConfigId := "condition_deviceIds_with_device_config_id"
