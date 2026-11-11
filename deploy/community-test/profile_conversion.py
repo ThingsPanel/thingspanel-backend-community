@@ -61,4 +61,18 @@ allowed=('invalid source group row','missing source timestamp','verified native 
 out['orphan_group_parents']=[{k:g[k] for k in ('id','name','tenant_id','parent_id','tier')} for g in s['groups'] if g['tenant_id'] and g['parent_id'] not in (None,'','0') and g['parent_id'] not in {x['id'] for x in s['groups']}]
 out['group_failure']={'categories':[v for v in allowed if v in log],'sqlstate':re.findall(r'SQLSTATE ([0-9A-Z]+)',log),'error_words': [w for w in ('permission denied','relation','does not exist','column','constraint','too long','connection','timeout','cannot assign','unsupported Scan','cannot scan','invalid input syntax') if w in log]}
 out['target_group_count']=subprocess.check_output(['docker','exec','timescaledb','psql','-X','-q','-At','-U','postgres','-d','tp_upgrade_rehearsal_20261111165830','-c','SELECT count(*) FROM device_groups']).decode().strip()
+orphans={g['id'] for g in out['orphan_group_parents']}
+proposed=collections.defaultdict(list)
+for g in s['groups']:
+ if not g['tenant_id']:continue
+ parent='' if g['id'] in orphans or g['parent_id'] in (None,'','0') else g['parent_id']
+ name='group11（f739ab04）' if g['id']=='f739ab04-fa41-9bec-e2e2-f18cef64e854' else g['name']
+ proposed[(g['tenant_id'],parent,name)].append(g['id'])
+out['additional_names_if_orphans_become_roots']=[]
+for key,ids in proposed.items():
+ if len(ids)<2:continue
+ ids.sort(key=lambda i:(i in orphans,i))
+ for identity in ids[1:]:out['additional_names_if_orphans_become_roots'].append({'id':identity,'original_name':key[2],'name':key[2]+'（'+identity[:8]+'）'})
+out['orphan_parent_count']=len(orphans)
+out['missing_parent_id_count']=len({g['parent_id'] for g in out['orphan_group_parents']})
 print(json.dumps(out,ensure_ascii=False))
