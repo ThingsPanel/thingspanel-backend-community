@@ -189,16 +189,31 @@ def build_archive(source, approval, receipt):
     groups = {row['id']: row for row in source['groups']}
     archived, seen = [], set()
     for decision in approval['entries']:
-        reason, identity = decision['reason'], decision['device_id']
+        reason = decision['reason']
+        identity = decision.get('device_id') or decision.get('template_id') or decision.get('group_id')
         key = (reason, identity, decision.get('group_id'))
         if key in seen:
             raise ValueError('duplicate approval')
         seen.add(key)
-        device = devices.get(identity)
-        if device is None:
-            raise ValueError('approved device is absent')
-        rows = {'device': device}
-        if reason == 'missing-device-tenant':
+        if reason in ('missing-template-tenant', 'missing-group-tenant'):
+            kind, resource = ('template', templates.get(identity)) if reason == 'missing-template-tenant' else ('group', groups.get(identity))
+            if resource is None or (resource.get('tenant_id') or '').strip():
+                raise ValueError('approved unowned resource changed')
+            if kind == 'template' and any(d.get('device_config_id') == identity for d in devices.values()):
+                raise ValueError('approved unreferenced template is now referenced')
+            if kind == 'group' and (any(r['group_id'] == identity for r in source['members'])
+                                    or any(g.get('parent_id') == identity for g in groups.values())):
+                raise ValueError('approved empty group is now referenced')
+            rows = {kind: resource}
+            excluded = {'entity': kind, 'id': identity}
+        else:
+            device = devices.get(identity)
+            if device is None:
+                raise ValueError('approved device is absent')
+            rows = {'device': device}
+        if reason in ('missing-template-tenant', 'missing-group-tenant'):
+            pass
+        elif reason == 'missing-device-tenant':
             if (device.get('tenant_id') or '').strip():
                 raise ValueError('device ownership changed')
             excluded = {'entity': 'device', 'id': identity}
@@ -224,6 +239,18 @@ def build_archive(source, approval, receipt):
                 raise ValueError('approved group relationship changed')
             rows.update(group=group, member=members[0])
             excluded = {'entity': 'group-membership', 'device_id': identity, 'group_id': group['id']}
+        elif reason in ('cross-tenant-gateway', 'self-referencing-gateway'):
+            parent = devices.get(decision['parent_id'])
+            if (parent is None or device.get('parent_id') != parent['id']
+                    or device.get('tenant_id') != decision['device_tenant']
+                    or parent.get('tenant_id') != decision['parent_tenant']):
+                raise ValueError('approved gateway relationship changed')
+            if reason == 'cross-tenant-gateway' and device.get('tenant_id') == parent.get('tenant_id'):
+                raise ValueError('gateway relationship no longer crosses tenants')
+            if reason == 'self-referencing-gateway' and device['id'] != parent['id']:
+                raise ValueError('gateway relationship is no longer self-referencing')
+            rows['parent_device'] = parent
+            excluded = {'entity': 'gateway-relationship', 'device_id': identity, 'parent_id': parent['id']}
         else:
             raise ValueError('unsupported approval reason')
         archived.append({'decision': decision, 'excluded_from_conversion': excluded,
@@ -253,7 +280,9 @@ def write_private_archive(directory, archive):
     # Return only counts and hashes. Full original rows can contain credentials.
     return {'state': archive['state'], 'approved_entries': len(archive['entries']),
             'excluded_devices': sum(e['excluded_from_conversion']['entity'] == 'device' for e in archive['entries']),
-            'excluded_relationships': sum(e['excluded_from_conversion']['entity'] != 'device' for e in archive['entries']),
+            'excluded_templates': sum(e['excluded_from_conversion']['entity'] == 'template' for e in archive['entries']),
+            'excluded_groups': sum(e['excluded_from_conversion']['entity'] == 'group' for e in archive['entries']),
+            'excluded_relationships': sum(e['excluded_from_conversion']['entity'] in ('device-template-relationship','group-membership','gateway-relationship') for e in archive['entries']),
             'approval_sha256': archive['approval_sha256'], 'archive_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
             'source_archive_sha256': archive['source_archive_sha256'],
             'source_mutated': False, 'migration_complete': False}
@@ -274,14 +303,14 @@ def preserve_approved(directory, approval):
         if any(not re.fullmatch(r'[a-zA-Z0-9_-]{1,128}', v) for v in values):
             raise ValueError('invalid selection identity')
         return ','.join("'" + v + "'" for v in values) or 'NULL'
-    device_ids, template_ids, group_ids = (literals(k) for k in ('device_id','template_id','group_id'))
+    device_ids, template_ids, group_ids, parent_ids = (literals(k) for k in ('device_id','template_id','group_id','parent_id'))
     query = f"""BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL statement_timeout='30s';
 SELECT json_build_object(
- 'devices',(SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT * FROM devices WHERE id IN ({device_ids}) ORDER BY id)t),
+ 'devices',(SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT * FROM devices WHERE id IN ({device_ids},{parent_ids}) OR device_config_id IN ({template_ids}) ORDER BY id)t),
  'templates',(SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT * FROM device_configs WHERE id IN ({template_ids}) ORDER BY id)t),
- 'groups',(SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT * FROM groups WHERE id IN ({group_ids}) ORDER BY id)t),
- 'members',(SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT * FROM r_group_device WHERE group_id IN ({group_ids}) AND device_id IN ({device_ids}) ORDER BY group_id,device_id)t)
+ 'groups',(SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT * FROM groups WHERE id IN ({group_ids}) OR parent_id IN ({group_ids}) ORDER BY id)t),
+ 'members',(SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT * FROM r_group_device WHERE group_id IN ({group_ids}) ORDER BY group_id,device_id)t)
 ); ROLLBACK;"""
     p = subprocess.run(['docker','exec','-i','timescaledb','psql','-X','-q','-At','-v','ON_ERROR_STOP=1',
                         '-U','postgres','-d',database],input=query.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=60)
@@ -290,7 +319,7 @@ SELECT json_build_object(
     return write_private_archive(directory, build_archive(json.loads(p.stdout), approval, receipt))
 
 root=pathlib.Path('/opt/tp-community-actions/upgrade-rehearsal/20261111160912')
-approval={'disposition': 'preserve-for-later-claim', 'source_archive_sha256': '85ff3b5ce1c505e99a18420f5e94f270995e3f1dc55ca96a873188bbd52c4cdc', 'entries': [{'reason': 'missing-device-tenant', 'device_id': '0cce2885-2c20-f6a2-29e6-397b654d16a2'}, {'reason': 'missing-device-tenant', 'device_id': '3c4c15db-e461-22ff-07a2-9ce9ceb678a7'}, {'reason': 'cross-tenant-template', 'device_id': 'be638374-bae1-a74d-624d-e20bc00f59b8', 'template_id': '302a09e1-ab15-3c39-ee45-dd342eccfd20', 'device_tenant': 'f6482861', 'template_tenant': 'd616bcbb'}, {'reason': 'cross-tenant-group-member', 'device_id': '912c290a-8c36-f67f-bffc-70bcfd81a411', 'group_id': '1900798e-e72b-5b3d-f1eb-c2221c7c95aa', 'device_tenant': '63a4b529', 'group_tenant': 'd616bcbb', 'member_tenant': '63a4b529'}]}
+approval={'disposition': 'preserve-for-later-claim', 'source_archive_sha256': '85ff3b5ce1c505e99a18420f5e94f270995e3f1dc55ca96a873188bbd52c4cdc', 'entries': [{'reason': 'missing-device-tenant', 'device_id': '0cce2885-2c20-f6a2-29e6-397b654d16a2'}, {'reason': 'missing-device-tenant', 'device_id': '3c4c15db-e461-22ff-07a2-9ce9ceb678a7'}, {'reason': 'cross-tenant-template', 'device_id': 'be638374-bae1-a74d-624d-e20bc00f59b8', 'template_id': '302a09e1-ab15-3c39-ee45-dd342eccfd20', 'device_tenant': 'f6482861', 'template_tenant': 'd616bcbb'}, {'reason': 'cross-tenant-group-member', 'device_id': '912c290a-8c36-f67f-bffc-70bcfd81a411', 'group_id': '1900798e-e72b-5b3d-f1eb-c2221c7c95aa', 'device_tenant': '63a4b529', 'group_tenant': 'd616bcbb', 'member_tenant': '63a4b529'}, {'reason': 'missing-template-tenant', 'template_id': '1ff8e532-5ead-b7cd-8aba-20223531c2cb'}, {'reason': 'missing-template-tenant', 'template_id': 'dd2188bf-f550-7b3c-ecbd-d3ec470bd000'}, {'reason': 'missing-template-tenant', 'template_id': '70adfe7d-8536-cc29-d34d-018cfa4a5bc8'}, {'reason': 'missing-template-tenant', 'template_id': '273160b0-aeb7-59bf-b3bd-22b87e13ed74'}, {'reason': 'missing-template-tenant', 'template_id': '462f7173-940e-95c2-f207-0d168d732b74'}, {'reason': 'missing-template-tenant', 'template_id': 'fe1738cb-6d58-0570-6be6-dc0c6b61d4d8'}, {'reason': 'missing-group-tenant', 'group_id': '82faecce-66c3-4a8f-1aae-220ed2536273'}, {'reason': 'cross-tenant-gateway', 'device_id': '681df01d-69f8-f4bd-6a83-0f7ccb9c2def', 'parent_id': '20fd11e8-0599-4df2-8574-04dd3c8b1c5b', 'device_tenant': 'test1', 'parent_tenant': '63a4b529'}, {'reason': 'self-referencing-gateway', 'device_id': '1b1c7008-16af-4305-de1a-985c9054d79f', 'parent_id': '1b1c7008-16af-4305-de1a-985c9054d79f', 'device_tenant': '63a4b529', 'parent_tenant': '63a4b529'}]}
 out={"quarantine":preserve_approved(root,approval),"inventory":read_verified_restore(root)}
 receipt=json.loads((root/'restore-verification.json').read_text())
 def inspect(database,query):

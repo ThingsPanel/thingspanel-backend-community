@@ -49,6 +49,36 @@ class ApprovedQuarantineTest(unittest.TestCase):
         self.approval['entries'].append(self.approval['entries'][0])
         with self.assertRaises(ValueError):build_archive(self.source,self.approval,self.receipt)
 
+    def test_additional_approval_preserves_only_invalid_gateway_edges(self):
+        self.source['devices'].extend([
+            {'id':'parent','tenant_id':'a','parent_id':'parent'},
+            {'id':'child','tenant_id':'a','parent_id':'parent'},
+            {'id':'foreign-child','tenant_id':'b','parent_id':'parent'}])
+        self.approval['entries'] = [
+            {'reason':'self-referencing-gateway','device_id':'parent','parent_id':'parent','device_tenant':'a','parent_tenant':'a'},
+            {'reason':'cross-tenant-gateway','device_id':'foreign-child','parent_id':'parent','device_tenant':'b','parent_tenant':'a'}]
+        archive = build_archive(self.source,self.approval,self.receipt)
+        self.assertEqual(2,len(archive['entries']))
+        self.assertTrue(all(e['excluded_from_conversion']['entity']=='gateway-relationship' for e in archive['entries']))
+        self.assertEqual('parent',self.source['devices'][-2]['parent_id'])
+        self.assertNotIn('"id": "child"',json.dumps(archive))
+
+    def test_unowned_empty_resources_require_separate_approval_and_no_dependents(self):
+        self.source['templates'].append({'id':'empty-template','tenant_id':''})
+        self.source['groups'].append({'id':'empty-group','tenant_id':None})
+        self.approval['entries'] = [
+            {'reason':'missing-template-tenant','template_id':'empty-template'},
+            {'reason':'missing-group-tenant','group_id':'empty-group'}]
+        archive = build_archive(self.source,self.approval,self.receipt)
+        self.assertEqual(['template','group'],[e['excluded_from_conversion']['entity'] for e in archive['entries']])
+        for kind in ('template','group','group-parent'):
+            with self.subTest(kind=kind):
+                source=copy.deepcopy(self.source)
+                if kind=='template':source['devices'][0]['device_config_id']='empty-template'
+                elif kind=='group':source['members'].append({'device_id':'device','group_id':'empty-group','tenant_id':'a'})
+                else:source['groups'][0]['parent_id']='empty-group'
+                with self.assertRaises(ValueError):build_archive(source,self.approval,self.receipt)
+
     def test_archive_is_idempotent_receipt_has_no_credentials_and_cannot_be_overwritten(self):
         archive = build_archive(self.source,self.approval,self.receipt)
         with tempfile.TemporaryDirectory() as directory:
