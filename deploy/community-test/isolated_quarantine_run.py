@@ -413,7 +413,8 @@ def stage_platform_config(source_path, output_directory):
     raw = source_path.read_bytes()
     original = yaml.safe_load(raw.decode('utf-8'))
     candidate = convert_platform_config(original)
-    candidate_bytes = yaml.safe_dump(candidate,allow_unicode=True,sort_keys=False).encode('utf-8')
+    # The deployment host has an older PyYAML without the sort_keys option.
+    candidate_bytes = yaml.safe_dump(candidate,allow_unicode=True,default_flow_style=False).encode('utf-8')
     # Verify serialization before writing; no secrets in reports or exception text.
     if yaml.safe_load(candidate_bytes.decode('utf-8')) != candidate:
         raise RuntimeError('candidate configuration serialization changed values')
