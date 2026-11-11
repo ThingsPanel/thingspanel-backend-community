@@ -26,6 +26,18 @@ DATABASES = {'native_main_20261028': ('device_metadata', 'devicemetadata'),
 DEVICE_SOURCE = 'a46f1dd8866b3c7d89328c0bc7b722e46c703581'
 
 
+def capability_route(source):
+    marker = 'location /api {'
+    if source.count(marker) != 1 or 'location = /api/v1/auth/login-options' in source:
+        raise ValueError('Authentication capability route needs explicit review')
+    route = ('# Staged capability discovery; password/session owner remains Community.\n'
+             '    location = /api/v1/auth/login-options {\n'
+             '        proxy_pass http://127.0.0.1:14000;\n'
+             '        add_header Cache-Control "no-store" always;\n'
+             '    }\n\n    ')
+    return source.replace(marker, route + marker)
+
+
 def validate_runtime(configs):
     for service, expected in SERVICES.items():
         value = configs[service]
@@ -131,6 +143,8 @@ def deploy(backend_sha, frontend_sha):
     compose = runtime / 'compose.encore.private.json'
     original = compose.read_bytes()
     config = json.loads(original)
+    if any(config['services'][name].get('environment', {}).get('TP_AUTH_MODE') != 'legacy-jwt' for name in SERVICES):
+        raise ValueError('This stage preserves the existing Community session owner')
     configs = {name: json.loads((runtime / filename).read_text()) for name, filename in
                [('encore-api', 'runtime.encore.private.json'), ('notification-core', 'runtime.notification.private.json')]}
     validate_runtime(configs)
@@ -170,6 +184,10 @@ def deploy(backend_sha, frontend_sha):
         config['services'][name]['image'] = image
     args = ['docker', 'compose', '-f', str(compose)]
     run(['nginx', '-t'])
+    nginx = pathlib.Path('/etc/nginx/conf.d/community.conf')
+    nginx_before = nginx.read_bytes()
+    nginx_next = capability_route(nginx_before.decode('utf-8')).encode('utf-8')
+    (release / 'nginx.before.private.conf').write_bytes(nginx_before)
     previous = os.readlink(str(target)) if target.is_symlink() else None
     backup = target.with_name('dist.before-control-plane-' + frontend_sha)
     link = target.with_name('dist.next-control-plane-' + frontend_sha)
@@ -220,6 +238,12 @@ def deploy(backend_sha, frontend_sha):
                 time.sleep(2)
         if json.loads(get('/api/v1/sys_version')) != original_version:
             raise RuntimeError('Existing device owner changed during staged deployment')
+        nginx.write_bytes(nginx_next)
+        run(['nginx', '-t'])
+        run(['nginx', '-s', 'reload'])
+        capabilities = json.loads(get('/api/v1/auth/login-options'))
+        if capabilities.get('data', {}).get('bindings', {}).get('enabled') is not False:
+            raise RuntimeError('Disabled identity binding capability was not advertised')
         # Make only public frontend files traversable, keeping backups/configuration private.
         root.chmod(0o755)
         release.parent.chmod(0o755)
@@ -247,6 +271,9 @@ def deploy(backend_sha, frontend_sha):
         (release / 'deployment.json').write_text(json.dumps(result, indent=2))
         print(json.dumps(result))
     except Exception:
+        nginx.write_bytes(nginx_before)
+        run(['nginx', '-t'])
+        run(['nginx', '-s', 'reload'])
         replace_config(original)
         run(args + ['up', '-d', '--no-deps'] + list(SERVICES))
         if switched or (previous is None and backup.exists()):

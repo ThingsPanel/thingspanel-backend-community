@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 if sys.platform == 'win32':
     sys.modules.setdefault('fcntl', MagicMock())
-from deploy_control_plane import DATABASES, DEVICE_SOURCE, SERVICES, validate_frontend, validate_runtime
+from deploy_control_plane import DATABASES, DEVICE_SOURCE, SERVICES, capability_route, validate_frontend, validate_runtime
 
 
 class ControlPlaneBoundaryTests(unittest.TestCase):
@@ -16,6 +16,17 @@ class ControlPlaneBoundaryTests(unittest.TestCase):
 
     def test_current_ownership_is_valid(self):
         validate_runtime(self.runtime())
+
+    def test_only_capability_route_is_switched(self):
+        original = 'server { location /api { proxy_pass http://127.0.0.1:9999; } }'
+        result = capability_route(original)
+        self.assertIn('location = /api/v1/auth/login-options', result)
+        self.assertIn('location /api { proxy_pass http://127.0.0.1:9999; }', result)
+        self.assertNotIn('location = /api/v1/login', result)
+        with self.assertRaises(ValueError):
+            capability_route(result)
+        with self.assertRaises(ValueError):
+            capability_route(original + original)
 
     def test_native_device_hosting_is_rejected(self):
         value = self.runtime()
