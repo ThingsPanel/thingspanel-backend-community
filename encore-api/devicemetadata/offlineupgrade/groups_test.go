@@ -116,3 +116,23 @@ func TestPlanGroupsOnlyAppliesExplicitMatchingNameResolution(t *testing.T) {
 		t.Fatal("stale resolution accepted")
 	}
 }
+
+func TestPlanGroupsReviewedMissingParentPreservesSubtree(t *testing.T) {
+	in := fixtureInput()
+	in.Groups = []json.RawMessage{fixtureGroup("orphan", "tenant", "missing", "root"), fixtureGroup("child", "tenant", "orphan", "child")}
+	if _, err := PlanGroups(in); err == nil {
+		t.Fatal("unreviewed missing parent accepted")
+	}
+	in.ParentResolutions = []GroupParentResolution{{SourceID: "orphan", OriginalParentID: "missing"}}
+	p, err := PlanGroups(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Groups[0].Row.ParentID != nil || !p.Groups[0].ParentResolved || p.Groups[1].Row.ParentID == nil || *p.Groups[1].Row.ParentID != p.Groups[0].Row.ID {
+		t.Fatal("valid child relationship changed")
+	}
+	in.Groups = append(in.Groups, fixtureGroup("missing", "tenant", "0", "restored parent"))
+	if _, err := PlanGroups(in); err == nil {
+		t.Fatal("reviewed resolution discarded an existing parent")
+	}
+}
