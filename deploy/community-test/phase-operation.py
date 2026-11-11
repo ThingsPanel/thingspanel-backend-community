@@ -53,6 +53,10 @@ def http(path,payload=None,token=None):
 status,login=http('/api/v1/login',{'email':qa['email'],'password':qa['password']})
 token=(login.get('data') or {}).get('token')
 if status!=200 or not token:raise RuntimeError('QA tenant login failed')
+import base64
+claims=json.loads(base64.urlsafe_b64decode(token.split('.')[1]+'==='))
+print(json.dumps({'qa_email_matches':qa['email']=='test@test.cn','claims_tenant':claims.get('tenant_id'), 'claim_keys':sorted(claims)}))
+raise SystemExit(0)
 results=[];received=[];seq=10
 sock=socket.create_connection(('127.0.0.1',1883),timeout=10)
 def consume(deadline):
