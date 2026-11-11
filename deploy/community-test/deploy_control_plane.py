@@ -98,7 +98,10 @@ def deploy(backend_sha, frontend_sha):
     fcntl.flock(lock, fcntl.LOCK_EX)
     release = root / 'control-plane-releases' / (backend_sha + '-' + frontend_sha)
     if release.exists():
-        raise RuntimeError('Release directory exists; inspect its recorded result before retrying')
+        rollback = release / 'rollback.json'
+        if not rollback.is_file() or json.loads(rollback.read_text()) != {'services_restored': True, 'frontend_restored': True}:
+            raise RuntimeError('Release directory exists without a completed rollback; inspect before retrying')
+        release = release.with_name(release.name + '-retry-' + str(time.time_ns() if hasattr(time, 'time_ns') else int(time.time() * 1000000000)))
     if shutil.disk_usage(str(root)).free < 1024 ** 3:
         raise RuntimeError('At least 1 GiB free disk is required; no files were removed')
     release.mkdir(parents=True, mode=0o700)
@@ -241,9 +244,14 @@ def deploy(backend_sha, frontend_sha):
         nginx.write_bytes(nginx_next)
         run(['nginx', '-t'])
         run(['nginx', '-s', 'reload'])
-        capabilities = json.loads(get('/api/v1/auth/login-options'))
-        if capabilities.get('data', {}).get('bindings', {}).get('enabled') is not False:
-            raise RuntimeError('Disabled identity binding capability was not advertised')
+        # nginx reload returns before replacement workers necessarily serve requests.
+        for attempt in range(20):
+            capabilities = json.loads(get('/api/v1/auth/login-options'))
+            if capabilities.get('data', {}).get('bindings', {}).get('enabled') is False:
+                break
+            if attempt == 19:
+                raise RuntimeError('Disabled identity binding capability was not advertised')
+            time.sleep(1)
         # Make only public frontend files traversable, keeping backups/configuration private.
         root.chmod(0o755)
         release.parent.chmod(0o755)
