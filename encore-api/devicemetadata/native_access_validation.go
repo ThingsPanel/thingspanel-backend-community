@@ -7,15 +7,29 @@ import (
 	"strings"
 
 	"encore.app/devicemetadata/accessconfig"
+	"encore.app/l3-core/connectorcatalog"
+	"encore.app/l3-core/connectorcatalog/providerschema"
 	"encore.dev/beta/errs"
 )
 
-// validateNativeDeviceConfiguration validates the locally supported built-in
-// MQTT configuration. Other connector modes require their owning provider
-// capability/schema service and fail closed until that integration is supplied.
+// validateNativeDeviceConfiguration validates built-in MQTT locally and resolves
+// immutable connector schemas through their authoritative catalog owner.
 // tenantID must come from the authenticated principal, never from request data.
 func validateNativeDeviceConfiguration(ctx context.Context, tenantID, deviceKind string, rawAccess, deviceParameters json.RawMessage) error {
-	_ = ctx // reserved for the future authoritative connector validator
+	return validateNativeDeviceConfigurationWithProvider(ctx, tenantID, deviceKind, rawAccess, deviceParameters, resolveNativeConnectorRelease)
+}
+
+type nativeProviderResolver func(context.Context, string, *connectorcatalog.ResolveNativeProviderReleaseRequest) (*connectorcatalog.ResolveNativeProviderReleaseResponse, error)
+
+func resolveNativeConnectorRelease(ctx context.Context, tenantID string, req *connectorcatalog.ResolveNativeProviderReleaseRequest) (*connectorcatalog.ResolveNativeProviderReleaseResponse, error) {
+	trustedTenant, err := mustTenantID()
+	if err != nil || trustedTenant != tenantID {
+		return nil, &errs.Error{Code: errs.PermissionDenied, Message: "invalid connector validation tenant scope"}
+	}
+	return connectorcatalog.ResolveNativeProviderRelease(ctx, req)
+}
+
+func validateNativeDeviceConfigurationWithProvider(ctx context.Context, tenantID, deviceKind string, rawAccess, deviceParameters json.RawMessage, resolve nativeProviderResolver) error {
 	canonicalTenant, err := nativeReadUUID(tenantID)
 	if err != nil || canonicalTenant != tenantID {
 		return invalid("tenantId", "must be a canonical non-zero UUID")
@@ -68,7 +82,49 @@ func validateNativeDeviceConfiguration(ctx context.Context, tenantID, deviceKind
 		}
 		return nil
 	}
-	return &errs.Error{Code: errs.Unavailable, Message: "connector configuration validation is unavailable"}
+	var providerID, version, digest string
+	if json.Unmarshal(access.ProviderID, &providerID) != nil || providerID == "" ||
+		json.Unmarshal(access.ProviderVersion, &version) != nil || strings.TrimSpace(version) == "" ||
+		json.Unmarshal(access.SchemaDigest, &digest) != nil || digest == "" {
+		return invalid("access", "connector requires a pinned provider, version and schema digest")
+	}
+	// Instance ownership and runtime readiness cannot be inferred from a global
+	// provider release. Do not accept service bindings until their owner confirms them.
+	if access.Mode == "service_connector" || !bytes.Equal(bytes.TrimSpace(access.ServiceInstanceID), []byte("null")) {
+		return &errs.Error{Code: errs.Unavailable, Message: "connector instance validation is unavailable"}
+	}
+	if resolve == nil {
+		return &errs.Error{Code: errs.Unavailable, Message: "connector catalog is unavailable"}
+	}
+	release, err := resolve(ctx, tenantID, &connectorcatalog.ResolveNativeProviderReleaseRequest{ProviderID: providerID, Version: version, SchemaDigest: digest})
+	if err != nil {
+		return err
+	}
+	if release == nil || release.ProviderID != providerID || release.Version != version || release.SchemaDigest != digest {
+		return &errs.Error{Code: errs.Unavailable, Message: "connector catalog returned a different release"}
+	}
+	contains := func(values []string, expected string) bool {
+		for _, value := range values {
+			if value == expected {
+				return true
+			}
+		}
+		return false
+	}
+	if !contains(release.Protocols, access.Protocol) || !contains(release.DeviceKinds, deviceKind) {
+		return invalid("access", "provider does not support this protocol or device kind")
+	}
+	schemas, err := providerschema.CompilePair(release.ConfigurationSchema, release.DeviceParameterSchema)
+	if err != nil {
+		return &errs.Error{Code: errs.Unavailable, Message: "connector catalog schema is invalid"}
+	}
+	if err := schemas.ValidateConfiguration(access.Parameters); err != nil {
+		return invalid("access.parameters", "does not match the pinned provider schema")
+	}
+	if err := schemas.ValidateDeviceParameters(deviceParameters); err != nil {
+		return invalid("deviceParameters", "does not match the pinned provider schema")
+	}
+	return nil
 }
 
 func emptyJSONObject(raw []byte) bool {
