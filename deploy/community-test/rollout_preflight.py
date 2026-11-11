@@ -8,6 +8,7 @@ import json
 import pathlib
 import subprocess
 import sys
+from upgrade_acceptance import SOURCE_TABLES, NATIVE_TABLES, fingerprint_query, acceptance_issues
 
 
 REQUIRED_DATABASES = {'device_metadata', 'automation', 'notification',
@@ -57,7 +58,7 @@ def metadata_issues(source, target):
 def sql_json(database, query):
     p = subprocess.run(['docker', 'exec', '-i', 'timescaledb', 'psql', '-X', '-q', '-At',
                         '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', database],
-                       input='BEGIN READ ONLY; SET LOCAL statement_timeout=\'15s\';' + query + '; ROLLBACK;',
+                       input='BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL timezone=\'UTC\'; SET LOCAL statement_timeout=\'15s\';' + query + '; ROLLBACK;',
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                        universal_newlines=True, timeout=25)
     if p.returncode:
@@ -95,7 +96,18 @@ def inspect_host():
       'incomplete_templates',(SELECT count(*) FROM device_access_templates WHERE deleted_at IS NULL AND (
         configuration IS NULL OR created_by IS NULL OR updated_by IS NULL)))""")
     issues.extend(metadata_issues(source, target))
-    return {'ready': not issues, 'scope': 'necessary-prerequisites-only',
+    acceptance_path = pathlib.Path('/opt/tp-community-actions/upgrade-acceptance.private.json')
+    if not acceptance_path.is_file():
+        issues.extend(acceptance_issues(None, None, None, matches[0]))
+    else:
+        if acceptance_path.stat().st_mode & 0o077:
+            issues.append('migration acceptance must be private')
+        else:
+            acceptance = json.loads(acceptance_path.read_text())
+            source_manifest = sql_json('ThingsPanel', fingerprint_query(SOURCE_TABLES))
+            native_manifest = sql_json(matches[0], fingerprint_query(NATIVE_TABLES))
+            issues.extend(acceptance_issues(acceptance, source_manifest, native_manifest, matches[0]))
+    return {'ready': not issues, 'scope': 'prerequisites-and-full-migration-content-acceptance',
             'source_counts': source, 'native_counts': target, 'issues': issues}
 
 
