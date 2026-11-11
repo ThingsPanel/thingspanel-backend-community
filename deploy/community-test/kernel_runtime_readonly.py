@@ -51,4 +51,21 @@ for path in pathlib.Path('/home/thingspanel/nginx').rglob('*.conf'):
  if path.is_file():
   lines=[line.strip() for line in path.read_text(errors='replace').splitlines() if re.match(r'^\s*(location|proxy_pass|root|server_name|listen)\s',line)]
   out['nginx_paths'].append({'path':str(path),'directives':lines})
+out['metadata_counts']=command(['docker','exec','timescaledb','psql','-X','-U','postgres','-d',database,'-At','-c',"SELECT json_build_object('devices',(SELECT count(*) FROM devices),'access_templates',(SELECT count(*) FROM device_access_templates),'models',(SELECT count(*) FROM thing_models),'groups',(SELECT count(*) FROM device_groups),'bindings',(SELECT count(*) FROM device_access_bindings));"])
+out['community_schema']=command(['docker','exec','timescaledb','psql','-X','-U','postgres','-d','ThingsPanel','-At','-c',"SELECT json_agg(t) FROM (SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('devices','device_config','device_groups','device_group_relations','users') ORDER BY table_name,ordinal_position)t"])
+out['community_counts']=command(['docker','exec','timescaledb','psql','-X','-U','postgres','-d','ThingsPanel','-At','-c',"SELECT json_build_object('devices',(SELECT count(*) FROM devices),'tenants',(SELECT count(distinct tenant_id) FROM devices),'native_models_bound',(SELECT count(*) FROM device_config WHERE thing_model_id IS NOT NULL));"])
+out['mounts']={}
+for cid in (command(['docker','ps','-q']) or '').splitlines():
+ info=json.loads(command(['docker','inspect',cid]))[0]
+ name=info['Name'].lstrip('/')
+ if 'encore-api' in name or 'notification-core' in name:
+  env=dict(x.split('=',1) for x in info['Config']['Env'] if '=' in x)
+  out['mounts'][name]={'environment_keys':sorted(env),'native_auth_enabled':env.get('TP_AUTH_MODE')=='native','mounts':[m['Source'] for m in info.get('Mounts',[])]}
+out['nginx_service']=command(['systemctl','show','nginx','--property=ExecStart'])
+for confroot in ['/etc/nginx','/opt/nginx']:
+ for path in pathlib.Path(confroot).rglob('*.conf'):
+  if path.is_file():
+   lines=[line.strip() for line in path.read_text(errors='replace').splitlines() if re.match(r'^\s*(location|proxy_pass|root|server_name|listen)\s',line)]
+   out['nginx_paths'].append({'path':str(path),'directives':lines})
+out['containers']=[{k:x[k] for k in ['Names','Image','State']} for x in out['containers']]
 print(json.dumps(out,ensure_ascii=False))
