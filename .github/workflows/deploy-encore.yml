@@ -1,4 +1,4 @@
-name: Native group conversion rehearsal
+name: Native relationship conversion rehearsal
 on:
   workflow_dispatch:
 permissions:
@@ -29,22 +29,22 @@ jobs:
         env:
           UPGRADE_TEST_DSN: postgres://postgres:fixture-only@127.0.0.1:25544/tp_upgrade_rehearsal_20000101000001?sslmode=disable
         run: |
-          go test -count=1 -v ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-groups
-          CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/metadata-upgrade-groups" ./cmd/metadata-upgrade-groups
-      - name: Convert and reconcile groups only in verified isolated native restore
+          go test -count=1 -v ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-relations
+          CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/metadata-upgrade-relations" ./cmd/metadata-upgrade-relations
+      - name: Convert and reconcile memberships and gateway relations in verified isolated native restore
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-groups-key"
-          scp -i "$RUNNER_TEMP/community-groups-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts "$RUNNER_TEMP/metadata-upgrade-groups" root@47.92.253.145:/opt/tp-community-actions/upgrade-rehearsal/native-20261111165830/metadata-upgrade-groups
-          ssh -i "$RUNNER_TEMP/community-groups-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'chmod 700 /opt/tp-community-actions/upgrade-rehearsal/native-20261111165830/metadata-upgrade-groups && python3 -' < deploy/community-test/run_groups_rehearsal.py > group-conversion-summary.json
+          scp -i "$RUNNER_TEMP/community-groups-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts "$RUNNER_TEMP/metadata-upgrade-relations" root@47.92.253.145:/opt/tp-community-actions/upgrade-rehearsal/native-20261111165830/metadata-upgrade-relations
+          ssh -i "$RUNNER_TEMP/community-groups-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'chmod 700 /opt/tp-community-actions/upgrade-rehearsal/native-20261111165830/metadata-upgrade-relations && python3 -' < deploy/community-test/run_relations_rehearsal.py > relationships-summary.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: group-conversion-summary
-          path: group-conversion-summary.json
+          name: relationships-summary
+          path: relationships-summary.json
       - name: Remove runner temporary SSH key
         if: always()
         run: rm -f "$RUNNER_TEMP/community-groups-key"
