@@ -389,10 +389,17 @@ def convert_platform_config(source):
     if not isinstance(legacy, dict) or not legacy.get('dbname') or not legacy.get('username'):
         raise ValueError('complete legacy PostgreSQL configuration required')
     allowed = {'host','port','dbname','username','password','time_zone','idle_conns',
-               'open_conns','log_level','slow_threshold_ms','conn_max_lifetime'}
+               'open_conns','log_level','slow_threshold','slow_threshold_ms','conn_max_lifetime'}
     if set(legacy) - allowed:
         raise ValueError('unmapped legacy PostgreSQL options require review')
-    relational = {k:v for k,v in legacy.items() if k != 'dbname'}
+    if 'slow_threshold' in legacy and 'slow_threshold_ms' in legacy and legacy['slow_threshold'] != legacy['slow_threshold_ms']:
+        raise ValueError('conflicting slow query threshold options')
+    relational = {k:v for k,v in legacy.items() if k not in ('dbname','slow_threshold')}
+    if 'slow_threshold' in legacy:
+        # The retired initialize/pg_init.go multiplies this by time.Millisecond.
+        relational['slow_threshold_ms'] = legacy['slow_threshold']
+    if not relational.get('log_level'):
+        relational['log_level'] = 1  # Preserve the retired platform logger default.
     relational['database'] = legacy['dbname']
     target['relational'] = {'driver':'postgres','postgres':{'platform':relational}}
     del target['db']['psql']
