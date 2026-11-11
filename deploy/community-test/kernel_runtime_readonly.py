@@ -74,4 +74,23 @@ out['community_tables']=community("SELECT json_agg(table_name) FROM information_
 out['community_device_counts']=community("SELECT json_agg(t) FROM (SELECT tenant_id,device_type, count(*) FROM (SELECT tenant_id, coalesce(protocol,'')||':'||coalesce(access_way,'') AS device_type FROM devices) d GROUP BY tenant_id,device_type)t")
 out['community_device_config_schema']=community("SELECT json_agg(t) FROM (SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public' AND (table_name ILIKE '%config%' OR table_name ILIKE '%group%') ORDER BY table_name,ordinal_position)t")
 out['community_config_root_keys']=command(['python3','-c',"import yaml,json; d=yaml.safe_load(open('/home/thingspanel/thingspanel-backend-community/configs/conf.yml')); print(json.dumps({'keys':list(d),'relational_keys':list(d.get('relational',{}))}))"])
+out['migration_inventory']=community("""BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SELECT json_build_object(
+'devices',(SELECT count(*) FROM devices),
+'templates',(SELECT count(*) FROM device_configs),
+'groups',(SELECT count(*) FROM groups),
+'group_members',(SELECT count(*) FROM r_group_device),
+'devices_without_tenant',(SELECT count(*) FROM devices WHERE coalesce(btrim(tenant_id),'')=''),
+'invalid_device_ids',(SELECT count(*) FROM devices WHERE id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),
+'missing_device_numbers',(SELECT count(*) FROM devices WHERE coalesce(btrim(device_number),'')=''),
+'duplicate_device_number_groups',(SELECT count(*) FROM (SELECT tenant_id,device_number FROM devices WHERE coalesce(btrim(device_number),'')<>'' GROUP BY tenant_id,device_number HAVING count(*)>1)x),
+'orphan_device_templates',(SELECT count(*) FROM devices d LEFT JOIN device_configs c ON c.id=d.device_config_id WHERE coalesce(d.device_config_id,'')<>'' AND c.id IS NULL),
+'cross_tenant_device_templates',(SELECT count(*) FROM devices d JOIN device_configs c ON c.id=d.device_config_id WHERE d.tenant_id<>c.tenant_id),
+'templates_without_native_model',(SELECT count(*) FROM device_configs WHERE coalesce(native_thing_model_id,'')=''),
+'invalid_group_ids',(SELECT count(*) FROM groups WHERE id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),
+'orphan_group_members',(SELECT count(*) FROM r_group_device r LEFT JOIN groups g ON g.id=r.group_id LEFT JOIN devices d ON d.id=r.device_id WHERE g.id IS NULL OR d.id IS NULL),
+'cross_tenant_group_members',(SELECT count(*) FROM r_group_device r JOIN groups g ON g.id=r.group_id JOIN devices d ON d.id=r.device_id WHERE g.tenant_id<>d.tenant_id OR r.tenant_id<>d.tenant_id),
+'enabled_values',(SELECT json_agg(x) FROM (SELECT is_enabled,count(*) FROM devices GROUP BY is_enabled)x),
+'template_types',(SELECT json_agg(x) FROM (SELECT device_type,protocol_type,voucher_type,device_conn_type,count(*) FROM device_configs GROUP BY device_type,protocol_type,voucher_type,device_conn_type)x)
+); COMMIT;""")
 print(json.dumps(out,ensure_ascii=False))
