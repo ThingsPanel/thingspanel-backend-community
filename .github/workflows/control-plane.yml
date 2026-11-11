@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [wp/full-develop-integration-20261111]
-    paths: ['.github/workflows/control-plane.yml', 'deploy/community-test/deploy_control_plane.py', 'deploy/community-test/test_control_plane.py']
+    paths: ['.github/workflows/control-plane.yml', 'deploy/community-test/deploy_control_plane.py', 'deploy/community-test/test_control_plane.py', 'encore-api/automation/**', 'encore-api/l1-access/authn/**', 'encore-api/internal/authcore/**', 'encore-api/l3-core/notification/**', 'encore-api/thingmodel/**']
 permissions:
   contents: read
 concurrency:
