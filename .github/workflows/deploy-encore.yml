@@ -88,7 +88,14 @@ jobs:
           python3 -m unittest discover -s deploy/community-test -p test_notification_identity.py
       - name: Build complete native image away from the live server
         working-directory: encore-api
-        run: encore build docker "tp-community-encore:source-$GITHUB_SHA" --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,platformconfig --skip-config
+        run: |
+          for attempt in 1 2 3; do
+            if encore build docker "tp-community-encore:source-$GITHUB_SHA" --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,platformconfig --skip-config; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 5
+          done
       - name: Package immutable tracked source and verified image
         run: |
           set -euo pipefail
