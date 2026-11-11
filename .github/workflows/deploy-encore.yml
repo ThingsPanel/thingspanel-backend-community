@@ -1,4 +1,4 @@
-name: Community isolated source inventory
+name: Community approved quarantine preservation
 on:
   workflow_dispatch:
 permissions:
@@ -7,23 +7,25 @@ concurrency:
   group: community-main-encore-deploy
   cancel-in-progress: false
 jobs:
-  inventory:
+  preserve:
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Read only from the verified isolated restore
+      - name: Test preservation and inventory boundaries
+        run: python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_quarantine.py'
+      - name: Preserve approved rows from the verified isolated restore
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-inventory-key"
-          ssh -i "$RUNNER_TEMP/community-inventory-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'python3 -' < deploy/community-test/isolated_inventory_run.py > isolated-inventory.json
+          ssh -i "$RUNNER_TEMP/community-inventory-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'python3 -' < deploy/community-test/isolated_quarantine_run.py > approved-quarantine.json
       - uses: actions/upload-artifact@v4
         with:
-          name: isolated-inventory
-          path: isolated-inventory.json
+          name: approved-quarantine
+          path: approved-quarantine.json
       - name: Remove runner temporary SSH key
         if: always()
         run: rm -f "$RUNNER_TEMP/community-inventory-key"
