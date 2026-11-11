@@ -1,6 +1,10 @@
 name: Approved phase operation
 on:
   workflow_dispatch:
+    inputs:
+      expected_head:
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -11,6 +15,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
+      - name: Require the reviewed operation revision
+        env:
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+          ACTUAL_HEAD: ${{ github.sha }}
+        run: test "$EXPECTED_HEAD" = "$ACTUAL_HEAD"
       - uses: actions/checkout@v4
       - name: Run approved phase operation
         env:

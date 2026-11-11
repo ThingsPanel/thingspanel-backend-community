@@ -22,7 +22,10 @@ def request(base,path,token=None,payload=None):
  req=urllib.request.Request(base+path,headers=headers,data=json.dumps(payload).encode() if payload is not None else None)
  try:
   with urllib.request.urlopen(req,timeout=15) as response:return response.status,json.load(response)
- except urllib.error.HTTPError as error:return error.code,None
+ except urllib.error.HTTPError as error:
+  try:body=json.load(error)
+  except (ValueError,OSError):body=None
+  return error.code,body
 def accounting():
  return json.loads(sql(db,"SELECT json_build_object('devices',(SELECT count(*) FROM devices),'groups',(SELECT count(*) FROM device_groups),'members',(SELECT count(*) FROM device_group_members),'access',(SELECT count(*) FROM device_access_bindings))"))
 if int(sql(db,'SELECT version FROM schema_migrations'))!=40:raise RuntimeError('Verified rehearsal schema changed')
@@ -79,8 +82,10 @@ try:
  if not token:raise RuntimeError('Acceptance tenant login failed')
  for path in ['/api/v2/device-groups','/api/v2/devices?page=1&pageSize=5','/api/v2/thing-models']:
   status,body=request('http://127.0.0.1:11400',path,token)
-  results.append({'path':path,'status':status,'data_type':type(body.get('data')).__name__ if isinstance(body,dict) else None})
-  if status!=200:raise RuntimeError('Read-only candidate request failed: '+path+' status='+str(status))
+  item={'path':path,'status':status,'data_type':type(body.get('data')).__name__ if isinstance(body,dict) else None}
+  if isinstance(body,dict) and any(body.get(k)=='device metadata offline conversion is incomplete' for k in ('detail','message')):
+   item['blocker']='offline_device_conversion_incomplete'
+  results.append(item)
  stats=run(['docker','stats','--no-stream','--format','{{.MemUsage}}',name])
 finally:
  logs=subprocess.run(['docker','logs',name],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=30)
@@ -88,6 +93,8 @@ finally:
  run(args+['stop','--timeout','10'])
 after=accounting()
 if before!=after or run(['docker','ps','--format','{{.ID}} {{.Names}}'])!=containers:raise RuntimeError('Read-only rehearsal changed original state')
-print(json.dumps({'commit':sha,'read_only_role':True,'database':db,'checks':results,'container_memory':stats,
+passed=all(item['status']==200 for item in results)
+print(json.dumps({'commit':sha,'read_only_role':True,'database':db,'checks':results,'container_memory':stats,'all_read_checks_passed':passed,
  'rehearsal_counts_unchanged':after,'original_running_containers_unchanged':True,'candidate_stopped_after_checks':True,
  'full_device_migration_complete':False}))
+if not passed:raise SystemExit(1)
