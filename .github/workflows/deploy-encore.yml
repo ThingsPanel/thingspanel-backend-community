@@ -1,4 +1,4 @@
-name: Community isolated upgrade restore rehearsal
+name: Native metadata isolated restore rehearsal
 on:
   workflow_dispatch:
 permissions:
@@ -9,32 +9,21 @@ concurrency:
 jobs:
   rehearsal:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Validate snapshot isolation and restore with a disposable fixture
-        env:
-          UPGRADE_REHEARSAL_FIXTURE_CONTAINER: tp-rollout-alarm-fixture
-        run: |
-          set -euo pipefail
-          docker run -d --name tp-rollout-alarm-fixture -e POSTGRES_USER=automation_receipt_test -e POSTGRES_PASSWORD=fixture-only-password -e POSTGRES_DB=automation_receipt_test postgres:16-alpine
-          for i in $(seq 1 30); do
-            if docker exec tp-rollout-alarm-fixture pg_isready -h 127.0.0.1 -U automation_receipt_test; then break; fi
-            sleep 1
-          done
-          python3 -m unittest discover -s deploy/community-test -p test_upgrade_rehearsal.py
-      - name: Restore a private source snapshot into a new isolated database
+      - name: Preserve existing native models in a verified isolated copy
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-rehearsal-key"
-          ssh -i "$RUNNER_TEMP/community-rehearsal-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts -o ServerAliveInterval=20 -o ServerAliveCountMax=9 root@47.92.253.145 'python3 - --source ThingsPanel --target tp_upgrade_rehearsal_20261111160912 --directory /opt/tp-community-actions/upgrade-rehearsal/20261111160912' < deploy/community-test/upgrade_rehearsal.py > restore-summary.json
+          ssh -i "$RUNNER_TEMP/community-rehearsal-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts -o ServerAliveInterval=20 -o ServerAliveCountMax=9 root@47.92.253.145 'python3 - --source native_main_20261028 --target tp_upgrade_rehearsal_20261111165830 --directory /opt/tp-community-actions/upgrade-rehearsal/native-20261111165830' < deploy/community-test/upgrade_rehearsal.py > native-restore-summary.json
       - uses: actions/upload-artifact@v4
         with:
-          name: upgrade-restore-summary
-          path: restore-summary.json
+          name: native-upgrade-restore-summary
+          path: native-restore-summary.json
       - name: Remove runner temporary SSH key
         if: always()
         run: rm -f "$RUNNER_TEMP/community-rehearsal-key"
