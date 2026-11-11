@@ -14,11 +14,13 @@ import (
 	model "project/internal/model"
 	"project/pkg/constant"
 	"project/pkg/errcode"
+	"project/pkg/global"
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"gorm.io/plugin/dbresolver"
 )
 
 type AttributeData struct {
@@ -62,9 +64,28 @@ func (*AttributeData) GetAttributeDataList(device_id string) (interface{}, error
 	return easyData, nil
 }
 
-func (*AttributeData) DeleteAttributeData(id string) error {
-	err := dal.DeleteAttributeData(id)
-	return err
+func (*AttributeData) DeleteAttributeDataAuthorized(ctx context.Context, id string, claims *utils.UserClaims) error {
+	if claims == nil || claims.ID == "" || id == "" || (claims.Authority != dal.SYS_ADMIN && claims.TenantID == "") {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	if global.DB == nil {
+		return errcode.New(errcode.CodeDBError)
+	}
+	// Scope the DELETE itself, so changing a row's device between an ownership
+	// lookup and mutation cannot turn this into a cross-tenant write.
+	db := global.DB.WithContext(ctx).Clauses(dbresolver.Write)
+	devices := db.Session(&gorm.Session{}).Model(&model.Device{}).Select("id")
+	if claims.Authority != dal.SYS_ADMIN {
+		devices = devices.Where("tenant_id = ?", claims.TenantID)
+	}
+	result := db.Where("id = ? AND device_id IN (?)", id, devices).Delete(&model.AttributeData{})
+	if result.Error != nil {
+		return errcode.New(errcode.CodeDBError)
+	}
+	if result.RowsAffected != 1 {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	return nil
 }
 
 func (*AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageReq) (interface{}, error) {

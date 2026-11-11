@@ -49,7 +49,9 @@ func (*AttributeDataApi) HandleAttributeDataByKey(c *gin.Context) {
 // @Router   /api/v1/attribute/datas/{id} [delete]
 func (*AttributeDataApi) DeleteData(c *gin.Context) {
 	id := c.Param("id")
-	err := service.GroupApp.AttributeData.DeleteAttributeData(id)
+	value, _ := c.Get("claims")
+	claims, _ := value.(*utils.UserClaims)
+	err := service.GroupApp.AttributeData.DeleteAttributeDataAuthorized(c.Request.Context(), id, claims)
 	if err != nil {
 		c.Error(err)
 		return
