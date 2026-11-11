@@ -9,6 +9,10 @@ on:
         description: 'Deploy the coordinated stack after data and runtime configuration acceptance'
         type: boolean
         default: false
+      build_device_safety:
+        description: 'Build and stage the interim device security profile without deploying'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -16,6 +20,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build_backend:
+    if: ${{ !inputs.build_device_safety }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -77,3 +82,60 @@ jobs:
       deploy_backend: true
       deploy_runtime: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_test }}
     secrets: inherit
+
+  device_safety:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_device_safety && !inputs.deploy_to_test }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Compose the reviewed security changes
+        run: python3 deploy/community-test/build_device_safety_profile.py "$RUNNER_TEMP/device-safety-source"
+      - name: Build isolated test Redis
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --max-time 120 https://codeload.github.com/redis/redis/tar.gz/refs/tags/7.2.6 -o "$RUNNER_TEMP/redis.tar.gz"
+          echo "86c8a1c315ce95df7771bcc37e6b3a5f41f4e23eb0d83cb0044609ac8f9d3875  $RUNNER_TEMP/redis.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/redis.tar.gz" -C "$RUNNER_TEMP"
+          make -C "$RUNNER_TEMP/redis-7.2.6" -j2 MALLOC=libc BUILD_TLS=no redis-server
+          echo "$RUNNER_TEMP/redis-7.2.6/src" >> "$GITHUB_PATH"
+      - name: Verify the actual composed source
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/device-safety-source"
+          go test ./... -run '^$'
+          go test ./internal/api ./internal/service ./internal/middleware ./internal/dal ./pkg/global
+      - name: Build immutable safety bundle
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/device-safety-source"
+          mkdir -p "$GITHUB_WORKSPACE/candidate"
+          go build -trimpath -ldflags "-s -w -X project/pkg/global.SYSTEM_VERSION=device-safety-$GITHUB_SHA" -o "$GITHUB_WORKSPACE/candidate/ThingsPanel-Go" .
+          cp RELEASE_PROFILE.json "$GITHUB_WORKSPACE/candidate/"
+          cd "$GITHUB_WORKSPACE/candidate"
+          test "$(./ThingsPanel-Go --version)" = "device-safety-$GITHUB_SHA"
+          sha256sum ThingsPanel-Go RELEASE_PROFILE.json > SHA256SUMS
+          tar -czf "../device-safety-$GITHUB_SHA.tar.gz" ThingsPanel-Go RELEASE_PROFILE.json SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: device-safety-${{ github.sha }}
+          path: device-safety-${{ github.sha }}.tar.gz
+          retention-days: 3
+      - name: Stage verified bundle without restarting services
+        env:
+          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key="$RUNNER_TEMP/device-safety-key"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$key"
+          scp -i "$key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts "device-safety-$GITHUB_SHA.tar.gz" root@47.92.253.145:/opt/tp-community-actions/incoming/
