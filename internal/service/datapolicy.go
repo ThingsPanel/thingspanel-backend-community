@@ -64,7 +64,7 @@ func (*DataPolicy) CleanSystemDataByCron() error {
 		if v.DataType == "1" {
 			daysAgeInt64 := utils.MillisecondsTimestampDaysAgo(int(v.RetentionDay))
 			daysAgeTime := utils.DaysAgo(int(v.RetentionDay))
-			err := dal.DeleteTelemetrDataByTime(daysAgeInt64)
+			err := dal.History.DeleteTelemetrDataByTime(daysAgeInt64)
 			if err != nil {
 				return err
 			}

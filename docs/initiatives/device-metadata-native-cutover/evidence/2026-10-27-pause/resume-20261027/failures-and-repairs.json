@@ -1,0 +1,26 @@
+[
+  {
+    "operation": "build attempt 1",
+    "status": "failed",
+    "reason": "incomplete infrastructure config required four other logical databases and template-image-assets",
+    "repair": "used four independent empty databases on the owned PG plus an unavailable local object-storage endpoint; no --skip-config"
+  },
+  {
+    "operation": "generated credential same-key replay",
+    "status": "first replay 503",
+    "reason": "row-lock SELECT FOR SHARE needed UPDATE privilege",
+    "repair": "granted UPDATE(id) only; original same key/body replay then returned 201, same credential ID and same secret verified in memory"
+  },
+  {
+    "operation": "device group create",
+    "status": "first HTTP attempt 500",
+    "reason": "missing INSERT permission on device_groups",
+    "repair": "granted INSERT on exact eight source-used columns; later actual group create returned 201"
+  },
+  {
+    "operation": "device group member remove",
+    "status": "first HTTP attempt 500",
+    "reason": "SELECT FOR UPDATE on device_group_members needed UPDATE privilege",
+    "repair": "added UPDATE(group_id); retry returned 200, but original generated Idempotency-Key was not retained; retry used a new key and recomputed unchanged group version"
+  }
+]

@@ -59,7 +59,7 @@ func (*OpenAPIKeyApi) UpdateOpenAPIKey(c *gin.Context) {
 
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 
-	err := service.GroupApp.OpenAPIKey.UpdateOpenAPIKey(&updateReq, userClaims)
+	err := service.GroupApp.OpenAPIKey.UpdateOpenAPIKey(c.Request.Context(), &updateReq, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -75,7 +75,7 @@ func (*OpenAPIKeyApi) DeleteOpenAPIKey(c *gin.Context) {
 
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 
-	err := service.GroupApp.OpenAPIKey.DeleteOpenAPIKey(id, userClaims)
+	err := service.GroupApp.OpenAPIKey.DeleteOpenAPIKey(c.Request.Context(), id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return

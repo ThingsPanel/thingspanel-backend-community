@@ -2,19 +2,23 @@ package pluginidentity
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	"project/sql"
+
 	"github.com/google/uuid"
+	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-// Community main uses PostgreSQL (sql/33.sql); MySQL integration remains on develop.
+// The same behaviour must hold on PostgreSQL (sql/33.sql) and MySQL (sql/mysql/015_plugin_runtime_identity.sql).
 func openBackends(t *testing.T) map[string]*gorm.DB {
 	backends := map[string]*gorm.DB{}
 	if dsn := os.Getenv("TEST_PG_SCHEMA_DSN"); dsn != "" {
@@ -31,8 +35,28 @@ func openBackends(t *testing.T) map[string]*gorm.DB {
 		}
 		backends["postgres"] = db
 	}
+	if host := os.Getenv("TP_MYSQL_TEST_HOST"); host != "" {
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=UTC&multiStatements=true", os.Getenv("TP_MYSQL_TEST_USER"), os.Getenv("TP_MYSQL_TEST_PASSWORD"),
+			host, os.Getenv("TP_MYSQL_TEST_PORT"), os.Getenv("TP_MYSQL_TEST_DB"))
+		db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{Logger: logger.Discard})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range sql.MySQLPluginRuntimeIdentityMigrationNames() {
+			statements, err := sql.MySQLMigrationStatements(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, statement := range statements {
+				if err := db.Exec(statement).Error; err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		backends["mysql"] = db
+	}
 	if len(backends) == 0 {
-		t.Skip("TEST_PG_SCHEMA_DSN is not configured")
+		t.Skip("neither TEST_PG_SCHEMA_DSN nor TP_MYSQL_TEST_HOST is configured (scripts/dev-databases.sh)")
 	}
 	return backends
 }

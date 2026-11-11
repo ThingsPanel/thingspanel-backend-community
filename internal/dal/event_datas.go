@@ -14,6 +14,31 @@ func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []ma
 
 	var count int64
 	q := query.EventData
+	config, err := getDeviceConfigForRawDataRead(req.DeviceId)
+	if err != nil {
+		return 0, nil, err
+	}
+	if hasNativeDeviceConfigBinding(config) {
+		queryBuilder := q.WithContext(context.Background()).Where(q.DeviceID.Eq(req.DeviceId))
+		if req.Identify != nil && *req.Identify != "" {
+			queryBuilder = queryBuilder.Where(q.Identify.Eq(*req.Identify))
+		}
+		count, err = queryBuilder.Count()
+		if err != nil {
+			logrus.Error(err)
+			return count, nil, err
+		}
+		if req.Page != 0 && req.PageSize != 0 {
+			queryBuilder = queryBuilder.Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize)
+		}
+		queryBuilder = queryBuilder.Order(q.T.Desc())
+		var list []map[string]interface{}
+		if err = queryBuilder.Select(q.ALL).Scan(&list); err != nil {
+			logrus.Error(err)
+			return count, list, err
+		}
+		return count, list, nil
+	}
 	d := query.Device
 	dc := query.DeviceConfig
 	dme := query.DeviceModelEvent
@@ -29,7 +54,7 @@ func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []ma
 		queryBuilder = queryBuilder.Where(q.Identify.Eq(*req.Identify))
 	}
 
-	count, err := queryBuilder.Count()
+	count, err = queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)
 		return count, nil, err

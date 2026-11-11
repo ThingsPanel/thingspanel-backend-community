@@ -414,10 +414,11 @@ func (s *Store) RulesByLegacyIDs(ctx context.Context, tenantID string, legacyIDs
 	if len(legacyIDs) == 0 {
 		return nil, nil
 	}
+	marks, args := placeholders([]any{tenantID}, legacyIDs)
 	rows, err := s.DB.QueryContext(ctx, `
         SELECT id FROM auto_rules
-         WHERE tenant_id=$1 AND deleted_at IS NULL AND legacy_id = ANY($2)
-         ORDER BY legacy_id, created_at`, tenantID, legacyIDs)
+         WHERE tenant_id=$1 AND deleted_at IS NULL AND legacy_id IN (`+marks+`)
+         ORDER BY legacy_id, created_at`, args...)
 	if err != nil {
 		return nil, err
 	}

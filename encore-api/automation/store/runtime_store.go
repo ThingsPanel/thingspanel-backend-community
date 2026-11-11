@@ -50,16 +50,18 @@ type Receipt struct {
 }
 
 // InsertEvent persists the event. A duplicate event_id returns Duplicate=true
-// and does not advance the sequence: this is the idempotency boundary that keeps
-// a replayed broker message from firing a second physical action.
+// with the original sequence. Allocated sequence values may have gaps.
 func (s *Store) InsertEvent(ctx context.Context, e *IngestEvent) (*Receipt, error) {
 	value, err := json.Marshal(e.Value)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("event payload encoding failed")
 	}
 	params := []byte(nil)
 	if e.Params != nil {
-		params, _ = json.Marshal(e.Params)
+		params, err = json.Marshal(e.Params)
+		if err != nil {
+			return nil, errors.New("event payload encoding failed")
+		}
 	}
 	source := e.Source
 	if source == "" {
@@ -72,10 +74,10 @@ func (s *Store) InsertEvent(ctx context.Context, e *IngestEvent) (*Receipt, erro
 
 	seq, err := s.NextSeq(ctx)
 	if err != nil {
-		return nil, err
+		return nil, eventSequenceUnavailable(ctx, err)
 	}
 
-	res, err := s.DB.ExecContext(ctx, `
+	res, err := s.execOnce(ctx, nil, `
         INSERT INTO auto_inbox (event_id, tenant_id, device_id, signal, key, value, unit,
                                 quality, observed_at, seq, source, params, input_class, gateway_id,
                                 causal_root, causal_hop)
@@ -86,16 +88,50 @@ func (s *Store) InsertEvent(ctx context.Context, e *IngestEvent) (*Receipt, erro
 		string(quality), e.ObservedAt, seq, source, params, e.InputClass, e.GatewayID,
 		e.CausalRoot, e.CausalHop)
 	if err != nil {
-		return nil, fmt.Errorf("insert event: %w", err)
+		return nil, receiptOutcomeUnavailable(ctx, err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, receiptOutcomeUnavailable(ctx, err)
+	}
+	if n != 0 && n != 1 {
+		return nil, receiptOutcomeUnavailable(ctx, nil)
+	}
+	if n == 0 {
 		var existing int64
-		_ = s.DB.QueryRowContext(ctx, `SELECT seq FROM auto_inbox WHERE event_id=$1`, e.EventID).Scan(&existing)
+		if err := s.DB.QueryRowContext(ctx, `SELECT seq FROM auto_inbox WHERE event_id=$1`, e.EventID).Scan(&existing); err != nil {
+			return nil, receiptOutcomeUnavailable(ctx, err)
+		}
+		if existing <= 0 {
+			return nil, receiptOutcomeUnavailable(ctx, nil)
+		}
 		e.Seq = existing
 		return &Receipt{EventID: e.EventID, Seq: existing, Duplicate: true}, nil
 	}
 	e.Seq = seq
 	return &Receipt{EventID: e.EventID, Seq: seq}, nil
+}
+
+// Sequence allocation precedes insertion and may leave gaps on error.
+func eventSequenceUnavailable(ctx context.Context, cause error) error {
+	if errors.Is(cause, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+		return fmt.Errorf("event sequence unavailable: %w", context.Canceled)
+	}
+	if errors.Is(cause, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("event sequence unavailable: %w", context.DeadlineExceeded)
+	}
+	return errors.New("event sequence unavailable")
+}
+
+// Avoid exposing driver details or SQL while preserving cancellation identity.
+func receiptOutcomeUnavailable(ctx context.Context, cause error) error {
+	if errors.Is(cause, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+		return fmt.Errorf("automation receipt outcome unavailable: %w", context.Canceled)
+	}
+	if errors.Is(cause, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("automation receipt outcome unavailable: %w", context.DeadlineExceeded)
+	}
+	return errors.New("automation receipt outcome unavailable")
 }
 
 // ApplyState projects the event into the latest-value table.
@@ -107,6 +143,25 @@ func (s *Store) ApplyState(ctx context.Context, e *IngestEvent) error {
 	quality := e.Quality
 	if quality == "" {
 		quality = domain.QualityGood
+	}
+	if s.MySQL {
+		// "Newer or equal wins": every column is replaced only while the stored observed_at is not newer.
+		// MySQL evaluates the assignments left to right, so observed_at is assigned last, after the other
+		// columns have read the old value.
+		_, err = s.DB.ExecContext(ctx, `
+        INSERT INTO auto_state (device_id, signal, key, tenant_id, value, unit, quality, observed_at, seq)
+        VALUES ($1,$2,$3,$4,$5,NULLIF($6,''),$7,$8,(SELECT seq FROM auto_inbox WHERE event_id=$9))
+        ON DUPLICATE KEY UPDATE
+           tenant_id=IF(observed_at <= VALUES(observed_at), VALUES(tenant_id), tenant_id),
+           value=IF(observed_at <= VALUES(observed_at), VALUES(value), value),
+           unit=IF(observed_at <= VALUES(observed_at), VALUES(unit), unit),
+           quality=IF(observed_at <= VALUES(observed_at), VALUES(quality), quality),
+           seq=IF(observed_at <= VALUES(observed_at), VALUES(seq), seq),
+           updated_at=IF(observed_at <= VALUES(observed_at), now(), updated_at),
+           observed_at=IF(observed_at <= VALUES(observed_at), VALUES(observed_at), observed_at)`,
+			e.DeviceID, string(e.Signal), e.Key, e.TenantID, value, e.Unit, string(quality),
+			e.ObservedAt, e.EventID)
+		return err
 	}
 	_, err = s.DB.ExecContext(ctx, `
         INSERT INTO auto_state (device_id, signal, key, tenant_id, value, unit, quality, observed_at, seq)
@@ -371,6 +426,27 @@ func (s *Store) FinishRun(ctx context.Context, runID, status, reasonCode, reason
 // CancelActiveRuns cancels every run still holding a scope and returns them, so
 // the caller can mark their un-dispatched steps as cancelled.
 func (s *Store) CancelActiveRuns(ctx context.Context, scopeKey, reasonCode, reason string) ([]string, error) {
+	if s.MySQL {
+		var ids []string
+		err := s.WithTx(ctx, func(tx *sql.Tx) error {
+			var err error
+			ids, err = lockIDs(ctx, tx, `
+                SELECT id FROM auto_runs
+                 WHERE scope_key=$1 AND status IN ('accepted','running') FOR UPDATE`, scopeKey)
+			if err != nil || len(ids) == 0 {
+				return err
+			}
+			marks, args := placeholders([]any{reasonCode, reason}, ids)
+			_, err = tx.ExecContext(ctx, `
+                UPDATE auto_runs SET status='cancelled', reason_code=$1, reason=$2, finished_at=now()
+                 WHERE id IN (`+marks+`)`, args...)
+			return err
+		})
+		if err != nil {
+			return nil, err
+		}
+		return ids, nil
+	}
 	rows, err := s.DB.QueryContext(ctx, `
         UPDATE auto_runs SET status='cancelled', reason_code=$2, reason=$3, finished_at=now()
          WHERE scope_key=$1 AND status IN ('accepted','running')
@@ -470,8 +546,9 @@ func (s *Store) ListRunsPaged(ctx context.Context, q RunQuery) ([]*Run, int, err
 		where += fmt.Sprintf(` AND device_id=$%d`, len(args))
 	}
 	if len(q.Statuses) > 0 {
-		args = append(args, q.Statuses)
-		where += fmt.Sprintf(` AND status = ANY($%d)`, len(args))
+		marks, withStatuses := placeholders(args, q.Statuses)
+		args = withStatuses
+		where += ` AND status IN (` + marks + `)`
 	}
 	if q.Before != nil {
 		args = append(args, *q.Before)
@@ -593,6 +670,25 @@ func (s *Store) UpsertStep(ctx context.Context, st *Step) (string, int, error) {
 		id      string
 		attempt int
 	)
+	if s.MySQL {
+		// No RETURNING: upsert and read the row back in one transaction (our own upsert holds the row lock).
+		err := s.WithTx(ctx, func(tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, `
+        INSERT INTO auto_steps (id, run_id, idx, kind, status, idempotency_key, attempt, detail)
+        VALUES ($1,$2,$3,$4,$5,$6,0,$7)
+        ON CONFLICT (run_id, idx) DO UPDATE
+           SET kind=EXCLUDED.kind,
+               status='pending',
+               attempt=auto_steps.attempt + 1,
+               updated_at=now()`,
+				st.ID, st.RunID, st.Idx, st.Kind, st.Status, st.IdempotencyKey, st.Detail); err != nil {
+				return err
+			}
+			return tx.QueryRowContext(ctx, `SELECT id, attempt FROM auto_steps WHERE run_id=$1 AND idx=$2`,
+				st.RunID, st.Idx).Scan(&id, &attempt)
+		})
+		return id, attempt, err
+	}
 	err := s.DB.QueryRowContext(ctx, `
         INSERT INTO auto_steps (id, run_id, idx, kind, status, idempotency_key, attempt, detail)
         VALUES ($1,$2,$3,$4,$5,$6,0,$7)
@@ -756,7 +852,7 @@ type OutboxItem struct {
 // second action, while a genuinely new execution (a different run) still gets its
 // own key and its own row.
 func (s *Store) EnqueueOutbox(ctx context.Context, tx *sql.Tx, o *OutboxItem) (bool, error) {
-	res, err := tx.ExecContext(ctx, `
+	res, err := s.execOnce(ctx, tx, `
         INSERT INTO auto_outbox (id, tenant_id, run_id, step_id, kind, scope_key, generation,
                                  idempotency_key, payload, state)
         VALUES ($1,$2,NULLIF($3,''),NULLIF($4,''),$5,$6,$7,$8,$9,'pending')
@@ -775,6 +871,9 @@ func (s *Store) EnqueueOutbox(ctx context.Context, tx *sql.Tx, o *OutboxItem) (b
 
 // ClaimOutbox leases up to limit due intents for dispatch.
 func (s *Store) ClaimOutbox(ctx context.Context, limit int) ([]*OutboxItem, error) {
+	if s.MySQL {
+		return s.claimOutboxMySQL(ctx, limit)
+	}
 	rows, err := s.DB.QueryContext(ctx, `
         WITH due AS (
             SELECT id FROM auto_outbox
@@ -912,7 +1011,65 @@ func (s *Store) MarkOutboxWithDetail(ctx context.Context, id, state, acceptedRef
         UPDATE auto_outbox
            SET state=$2, accepted_ref=NULLIF($3,''), last_error=NULLIF($4,''),
                next_attempt_at=$5, updated_at=now(),
-               payload = COALESCE(payload, '{}'::jsonb) || jsonb_build_object('outcome', $6::jsonb)
+               `+outcomeMerge(s.MySQL)+`
          WHERE id=$1`, id, state, acceptedRef, lastErr, retryAt, string(detail))
 	return err
+}
+
+// outcomeMerge sets payload.outcome to the owner's JSON answer, keeping the rest of the payload.
+func outcomeMerge(mysql bool) string {
+	if mysql {
+		return `payload = JSON_SET(COALESCE(payload, JSON_OBJECT()), '$.outcome', CAST($6 AS JSON))`
+	}
+	return `payload = COALESCE(payload, '{}'::jsonb) || jsonb_build_object('outcome', $6::jsonb)`
+}
+
+// claimOutboxMySQL is ClaimOutbox without UPDATE ... FROM / RETURNING.
+func (s *Store) claimOutboxMySQL(ctx context.Context, limit int) ([]*OutboxItem, error) {
+	var out []*OutboxItem
+	err := s.WithTx(ctx, func(tx *sql.Tx) error {
+		out = nil
+		ids, err := lockIDs(ctx, tx, `
+            SELECT id FROM auto_outbox
+             WHERE state IN ('pending','dispatched') AND next_attempt_at <= now()
+             ORDER BY next_attempt_at
+             LIMIT $1
+             FOR UPDATE SKIP LOCKED`, limit)
+		if err != nil || len(ids) == 0 {
+			return err
+		}
+		marks, args := placeholders(nil, ids)
+		if _, err := tx.ExecContext(ctx, `
+            UPDATE auto_outbox SET state='dispatched', attempt=attempt+1,
+                                   next_attempt_at=now() + interval '30 seconds',
+                                   updated_at=now()
+             WHERE id IN (`+marks+`)`, args...); err != nil {
+			return err
+		}
+		rows, err := tx.QueryContext(ctx, `
+            SELECT o.id, o.tenant_id, coalesce(o.run_id,''), coalesce(o.step_id,''), o.kind,
+                   o.scope_key, o.generation, o.idempotency_key, o.payload, o.state, o.attempt,
+                   coalesce(o.accepted_ref,''), coalesce(o.last_error,'')
+              FROM auto_outbox o WHERE o.id IN (`+marks+`) ORDER BY o.next_attempt_at, o.id`, args...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var o OutboxItem
+			var payload []byte
+			if err := rows.Scan(&o.ID, &o.TenantID, &o.RunID, &o.StepID, &o.Kind, &o.ScopeKey,
+				&o.Generation, &o.IdempotencyKey, &payload, &o.State, &o.Attempt,
+				&o.AcceptedRef, &o.LastError); err != nil {
+				return err
+			}
+			o.Payload = payload
+			out = append(out, &o)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }

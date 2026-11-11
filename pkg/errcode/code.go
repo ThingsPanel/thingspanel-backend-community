@@ -3,13 +3,14 @@ package errcode
 
 // 系统级错误码
 const (
-	CodeSuccess      = 200    // 成功
-	CodeSystemError  = 100000 // 系统内部错误
-	CodeParamError   = 100002 // 参数错误
-	CodeDecryptError = 100003 // 解密失败
-	CodeNotFound     = 100404 // 资源不存在
-	CodeDBError      = 101001 // 数据库错误
-	CodeCacheError   = 102001 // 缓存错误
+	CodeSuccess            = 200    // 成功
+	CodeSystemError        = 100000 // 系统内部错误
+	CodeServiceUnavailable = 100001 // 服务暂时不可用
+	CodeParamError         = 100002 // 参数错误
+	CodeDecryptError       = 100003 // 解密失败
+	CodeNotFound           = 100404 // 资源不存在
+	CodeDBError            = 101001 // 数据库错误
+	CodeCacheError         = 102001 // 缓存错误
 	// 系统错误 - Token相关 (103xxx)
 	CodeTokenGenerateError = 103001 // token生成失败
 	CodeTokenSaveError     = 103002 // token保存失败

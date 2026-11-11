@@ -3,6 +3,7 @@ package global
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"time"
 
@@ -37,23 +38,34 @@ type WSClient struct {
 	MsgType  int // websocket.TextMessage or websocket.BinaryMessage
 	Mu       *sync.Mutex
 	Keys     []string // 订阅的字段（为空表示订阅全部）
-	// Send 用于写入数据的缓冲管道，避免在多个goroutine中直接写Conn导致阻塞。
-	// 关闭 Send 的所有权只属于 WSManager（见 closeSend），调用方不要自己 close，
-	// 否则会出现重复 close 的 panic。
+	// Managed clients must enqueue via TrySend; only WSManager closes Send.
 	Send chan []byte
-	// closeOnce 保证 Send 只被关闭一次：连接断开时 handler 的 defer 和写 goroutine
-	// 的错误分支都会走到取消订阅，二者可能并发。
-	closeOnce sync.Once
+	sendMu sync.RWMutex
+	sendClosed bool
 }
 
-// closeSend 幂等地关闭写队列，结束对应的写入 goroutine。
+type WSSendResult uint8
+const (
+	WSSendQueued WSSendResult = iota
+	WSSendFull
+	WSSendClosed
+)
+
+// TrySend serializes enqueue with queue closure and never blocks.
+func (c *WSClient) TrySend(data []byte) WSSendResult {
+	if c == nil { return WSSendClosed }
+	c.sendMu.RLock(); defer c.sendMu.RUnlock()
+	if c.sendClosed || c.Send == nil { return WSSendClosed }
+	select { case c.Send <- data: return WSSendQueued; default: return WSSendFull }
+}
+
+// closeSend serializes closure with all managed producers.
 func (c *WSClient) closeSend() {
-	if c == nil || c.Send == nil {
-		return
-	}
-	c.closeOnce.Do(func() {
-		close(c.Send)
-	})
+	if c == nil { return }
+	c.sendMu.Lock(); defer c.sendMu.Unlock()
+	if c.sendClosed { return }
+	c.sendClosed = true
+	if c.Send != nil { close(c.Send) }
 }
 
 // WSEvent WebSocket 事件
@@ -76,24 +88,31 @@ func NewWSManager() *WSManager {
 func (m *WSManager) SubscribeDevice(deviceID, connID string, client *WSClient) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+	if client == nil { return errors.New("missing websocket client") }
 
-	// 注册到内存 map
-	if _, ok := m.deviceClients[deviceID]; !ok {
-		m.deviceClients[deviceID] = make(map[string]*WSClient)
+	if existing := m.deviceClients[deviceID][connID]; existing != nil {
+		if existing != client { client.closeSend() }
+		return errors.New("duplicate websocket connection")
 	}
-	m.deviceClients[deviceID][connID] = client
 
 	// 更新 Redis 订阅表
 	ctx := context.Background()
+	if m.redisClient == nil { client.closeSend(); return errors.New("websocket subscription store unavailable") }
 	if err := m.redisClient.Incr(ctx, "ws:sub:"+deviceID).Err(); err != nil {
 		logrus.WithError(err).Error("Failed to increment Redis subscription counter")
+		client.closeSend()
 		return err
 	}
 
 	// 设置过期时间（5 分钟）
-	if err := m.redisClient.Expire(ctx, "ws:sub:"+deviceID, 5*time.Minute).Err(); err != nil {
+	ok, err := m.redisClient.Expire(ctx, "ws:sub:"+deviceID, 5*time.Minute).Result()
+	if err != nil || !ok {
 		logrus.WithError(err).Error("Failed to set Redis expiration")
+		client.closeSend()
+		return errors.New("websocket subscription expiry not confirmed")
 	}
+	if _, ok := m.deviceClients[deviceID]; !ok { m.deviceClients[deviceID] = make(map[string]*WSClient) }
+	m.deviceClients[deviceID][connID] = client
 
 	logrus.WithFields(logrus.Fields{
 		"device_id": deviceID,
@@ -135,8 +154,11 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 		return nil
 	}
 
+	// Local exit never depends on Redis being reachable.
+	removedClient.closeSend()
 	// 更新 Redis 订阅表
 	ctx := context.Background()
+	if m.redisClient == nil { return errors.New("websocket subscription store unavailable") }
 	count, err := m.redisClient.Decr(ctx, "ws:sub:"+deviceID).Result()
 	if err != nil {
 		logrus.WithError(err).Error("Failed to decrement Redis subscription counter")
@@ -145,7 +167,7 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 
 	// 如果订阅数为 0，删除 key
 	if count <= 0 {
-		m.redisClient.Del(ctx, "ws:sub:"+deviceID)
+		if err := m.redisClient.Del(ctx, "ws:sub:"+deviceID).Err(); err != nil { return err }
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -153,20 +175,19 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 		"conn_id":   connID,
 	}).Info("WebSocket client unsubscribed from device")
 
-	// 关闭写队列（如果存在），以结束对应的写入 goroutine。
-	// 仍持有写锁，与 PushToDevice 的读锁互斥，保证不会出现"向已关闭 channel 发送"。
-	removedClient.closeSend()
-
 	return nil
 }
 
 // RefreshSubscription 续期订阅（心跳）
 func (m *WSManager) RefreshSubscription(deviceID string) error {
 	ctx := context.Background()
-	if err := m.redisClient.Expire(ctx, "ws:sub:"+deviceID, 5*time.Minute).Err(); err != nil {
+	if m.redisClient == nil { return errors.New("websocket subscription store unavailable") }
+	ok, err := m.redisClient.Expire(ctx, "ws:sub:"+deviceID, 5*time.Minute).Result()
+	if err != nil {
 		logrus.WithError(err).WithField("device_id", deviceID).Error("Failed to refresh subscription")
 		return err
 	}
+	if !ok { return errors.New("websocket subscription missing") }
 	return nil
 }
 
@@ -203,10 +224,7 @@ func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
 
 		// 推送到 WebSocket：优先通过 client.Send 非阻塞发送到写入 goroutine，
 		// 避免在此处直接写 Conn 导致阻塞整个管理器或读处理循环。
-		select {
-		case client.Send <- jsonData:
-			// queued successfully
-		default:
+		if client.TrySend(jsonData) == WSSendFull {
 			// send queue is full，记录并丢弃消息，避免阻塞
 			logrus.WithFields(logrus.Fields{
 				"device_id": deviceID,

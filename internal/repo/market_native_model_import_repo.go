@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	"project/pkg/global"
 
 	"gorm.io/gorm"
@@ -30,19 +31,31 @@ func ReserveMarketNativeModelImport(ctx context.Context, candidate MarketNativeM
 	var current MarketNativeModelImport
 	created := false
 	err := global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Exec(`
+		statement := `
 			INSERT INTO market_native_model_imports
 				(tenant_id, market_template_id, market_version, source_model_id, source_snapshot_id,
 				 source_revision, dependency_checksum, created_by, status)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'IMPORTING')
-			ON CONFLICT (tenant_id, market_template_id, market_version) DO NOTHING`,
+			ON CONFLICT (tenant_id, market_template_id, market_version) DO NOTHING`
+		if tx.Dialector.Name() == "mysql" {
+			statement = `INSERT INTO market_native_model_imports
+				(tenant_id, market_template_id, market_version, source_model_id, source_snapshot_id,
+				 source_revision, dependency_checksum, created_by, status)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'IMPORTING')`
+		}
+		result := tx.Exec(statement,
 			candidate.TenantID, candidate.MarketTemplateID, candidate.MarketVersion,
 			candidate.SourceModelID, candidate.SourceSnapshotID, candidate.SourceRevision,
 			candidate.DependencyChecksum, candidate.CreatedBy)
 		if result.Error != nil {
-			return fmt.Errorf("reserve native model import: %w", result.Error)
+			if tx.Dialector.Name() == "mysql" && relational.Is(result.Error, relational.KindUnique) {
+				created = false
+			} else {
+				return fmt.Errorf("reserve native model import: %w", result.Error)
+			}
+		} else {
+			created = result.RowsAffected == 1
 		}
-		created = result.RowsAffected == 1
 		if err := tx.Raw(`SELECT * FROM market_native_model_imports
 			WHERE tenant_id = ? AND market_template_id = ? AND market_version = ? FOR UPDATE`,
 			candidate.TenantID, candidate.MarketTemplateID, candidate.MarketVersion).Scan(&current).Error; err != nil {

@@ -2,14 +2,13 @@ package devicemetadata
 
 import (
 	"context"
+	"encore.app/pkg/dbx"
 	"errors"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
 	"testing"
 	"time"
-
-	"encore.dev/storage/sqldb"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestDeviceCredentialsSchemaConstraints(t *testing.T) {
@@ -169,7 +168,7 @@ type credentialSchemaRow struct {
 	expiresAt                          *time.Time
 }
 
-func insertCredentialSchemaDevice(t *testing.T, ctx context.Context, tx *sqldb.Tx, tenantID string) string {
+func insertCredentialSchemaDevice(t *testing.T, ctx context.Context, tx dbx.Tx, tenantID string) string {
 	t.Helper()
 	row := validDeviceIdentitySchemaRow(tenantID)
 	row.deviceNumber = deviceIdentityString("credential-device-" + uuid.NewString())
@@ -183,14 +182,14 @@ func insertCredentialSchemaDevice(t *testing.T, ctx context.Context, tx *sqldb.T
 	return row.id
 }
 
-func insertCredentialSchemaRow(t *testing.T, ctx context.Context, tx *sqldb.Tx, label string, row credentialSchemaRow) {
+func insertCredentialSchemaRow(t *testing.T, ctx context.Context, tx dbx.Tx, label string, row credentialSchemaRow) {
 	t.Helper()
 	if err := execCredentialSchemaRow(ctx, tx, row); err != nil {
 		t.Fatalf("insert %s: %v", label, err)
 	}
 }
 
-func execCredentialSchemaRow(ctx context.Context, tx *sqldb.Tx, row credentialSchemaRow) error {
+func execCredentialSchemaRow(ctx context.Context, tx dbx.Tx, row credentialSchemaRow) error {
 	if len(row.fingerprint) == 0 {
 		row.fingerprint = make([]byte, 32)
 	}
@@ -222,7 +221,7 @@ func execCredentialSchemaRow(ctx context.Context, tx *sqldb.Tx, row credentialSc
 	return err
 }
 
-func expectCredentialSchemaError(t *testing.T, ctx context.Context, tx *sqldb.Tx, name, wantSQLState string, operation func() error) {
+func expectCredentialSchemaError(t *testing.T, ctx context.Context, tx dbx.Tx, name, wantSQLState string, operation func() error) {
 	t.Helper()
 	savepoint := "credential_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	if _, err := tx.Exec(ctx, "SAVEPOINT "+savepoint); err != nil {

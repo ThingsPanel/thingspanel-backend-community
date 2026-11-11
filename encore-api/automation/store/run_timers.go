@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -27,6 +29,9 @@ func (s *Store) ScheduleRunTimer(ctx context.Context, tx *sql.Tx, runID string, 
 
 // DueRunTimers claims run continuations that are due.
 func (s *Store) DueRunTimers(ctx context.Context, now time.Time, limit int) ([]*RunTimer, error) {
+	if s.MySQL {
+		return s.dueRunTimersMySQL(ctx, now, limit)
+	}
 	rows, err := s.DB.QueryContext(ctx, `
         WITH due AS (
             SELECT run_id, pc FROM auto_run_timers
@@ -67,4 +72,47 @@ func (s *Store) RunStatus(ctx context.Context, runID string) (string, error) {
 		return "", ErrNotFound
 	}
 	return st, err
+}
+
+// dueRunTimersMySQL claims timers without UPDATE ... FROM / RETURNING: lock the due rows with SKIP LOCKED,
+// mark exactly those rows fired, and return them with the state they now have.
+func (s *Store) dueRunTimersMySQL(ctx context.Context, now time.Time, limit int) ([]*RunTimer, error) {
+	var out []*RunTimer
+	err := s.WithTx(ctx, func(tx *sql.Tx) error {
+		out = nil
+		rows, err := tx.QueryContext(ctx, `
+            SELECT run_id, pc, due_at FROM auto_run_timers
+             WHERE state='pending' AND due_at <= $1
+             ORDER BY due_at LIMIT $2
+             FOR UPDATE SKIP LOCKED`, now, limit)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			t := &RunTimer{State: "fired"}
+			if err := rows.Scan(&t.RunID, &t.PC, &t.DueAt); err != nil {
+				rows.Close()
+				return err
+			}
+			out = append(out, t)
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if err := rows.Err(); err != nil || len(out) == 0 {
+			return err
+		}
+		var args []any
+		marks := make([]string, len(out))
+		for i, t := range out {
+			args = append(args, t.RunID, t.PC)
+			marks[i] = fmt.Sprintf("($%d,$%d)", 2*i+1, 2*i+2)
+		}
+		_, err = tx.ExecContext(ctx, `UPDATE auto_run_timers SET state='fired' WHERE (run_id, pc) IN (`+strings.Join(marks, ",")+`)`, args...)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }

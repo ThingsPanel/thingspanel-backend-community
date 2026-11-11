@@ -12,8 +12,6 @@ import (
 	utils "project/pkg/utils"
 
 	"github.com/sirupsen/logrus"
-	"gorm.io/datatypes"
-	"gorm.io/gen"
 )
 
 func CreateUiElements(uielements *model.SysUIElement) error {
@@ -72,7 +70,7 @@ func ServeUiElementsListByAuthority(u *utils.UserClaims) (int64, interface{}, er
 		q := query.SysUIElement
 		var count int64
 		queryBuilder := q.WithContext(context.Background())
-		queryBuilder = queryBuilder.Where(gen.Cond(datatypes.JSONQuery("authority").HasKey(u.Authority))...)
+		queryBuilder = queryBuilder.Where(jsonContainsString("authority", u.Authority)...)
 		uielementsList, err := queryBuilder.Where(q.ParentID.Eq("0")).Order(q.Order_).Find()
 		if err != nil {
 			logrus.Error(err)
@@ -119,7 +117,7 @@ func ServeUiElementsListByAuthority(u *utils.UserClaims) (int64, interface{}, er
 func GetTenantUiElementsList() (interface{}, error) {
 	q := query.SysUIElement
 	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(gen.Cond(datatypes.JSONQuery("authority").HasKey("TENANT_ADMIN"))...)
+	queryBuilder = queryBuilder.Where(jsonContainsString("authority", "TENANT_ADMIN")...)
 	uielementsList, err := queryBuilder.Where(q.ParentID.Eq("0"), q.ElementType.In(1, 2, 3)).Order(q.Order_).Find()
 	if err != nil {
 		logrus.Error(err)
@@ -153,7 +151,7 @@ func queryChildrenByAuthority(parent *model.UiElementsListRsp, authority string)
 	var children []*model.SysUIElement
 	children, err := query.SysUIElement.Where(
 		query.SysUIElement.ParentID.Eq(parent.ID),
-		query.SysUIElement.Where(gen.Cond(datatypes.JSONQuery("authority").HasKey(authority))...),
+		query.SysUIElement.Where(jsonContainsString("authority", authority)...),
 	).Order(query.SysUIElement.Order_).Find()
 	if err != nil {
 		logrus.Error(err)
@@ -171,7 +169,7 @@ func queryChildrenByAuthority1(parent *model.UiElementsListRsp1, authority strin
 	children, err := query.SysUIElement.Where(
 		query.SysUIElement.ParentID.Eq(parent.ID),
 		query.SysUIElement.ElementType.In(1, 2, 3),
-		query.SysUIElement.Where(gen.Cond(datatypes.JSONQuery("authority").HasKey(authority))...),
+		query.SysUIElement.Where(jsonContainsString("authority", authority)...),
 	).Order(query.SysUIElement.Order_).Find()
 	if err != nil {
 		logrus.Error(err)

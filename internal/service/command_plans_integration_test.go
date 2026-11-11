@@ -25,6 +25,7 @@ import (
 
 func TestCommandPlanServicePreviewAuthorizeSubmitLifecycle(t *testing.T) {
 	db := brokerEvidenceTestDB(t)
+	installServiceCommandIdentityFixture(t, db)
 	if err := db.AutoMigrate(&model.User{}, &model.DeviceModelCommand{}, &model.DataScript{}, &model.CommandSetLog{}, &model.DeviceTopicMapping{}); err != nil {
 		t.Fatal("migrate isolated command plan tables")
 	}

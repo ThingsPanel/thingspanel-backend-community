@@ -3,13 +3,13 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"fmt"
 	"strings"
 
 	"encore.app/thingmodel/core"
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 )
 
 const maxSnapshotSizeBytes = 5 * 1024 * 1024
@@ -251,7 +251,7 @@ func itemFromSnapshotContent(tenantID, thingModelID string, item snapshotContent
 	}
 }
 
-func restoreThingModelItemsFromSnapshot(ctx context.Context, tx *sqldb.Tx, tenantID, thingModelID string, content *snapshotContent) error {
+func restoreThingModelItemsFromSnapshot(ctx context.Context, tx dbx.Tx, tenantID, thingModelID string, content *snapshotContent) error {
 	if _, err := tx.Exec(ctx, `DELETE FROM thing_model_items WHERE tenant_id = $1 AND thing_model_id = $2`, tenantID, thingModelID); err != nil {
 		return err
 	}

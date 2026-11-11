@@ -116,6 +116,8 @@ func TestRequireSuccessfulHorizonPublish(t *testing.T) {
 			Version:     "1.0.0",
 			ContentHash: "sha256:market-authoritative",
 			Status:      "pending_review",
+			VersionID:   "original-version",
+			TargetState: "pending_review",
 		},
 	})
 	if err != nil {

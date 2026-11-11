@@ -69,6 +69,8 @@ func RouterInit() *gin.Engine {
 	router.Use(middleware.Cors())
 	// Credential routes precede full-body operation logging and ordinary JWT auth.
 	api.RegisterBrokerAIToolRoutes(router)
+	api.RegisterMarketInstallProviderRoutes(router)
+	api.RegisterDictionaryAuthorizationRoutes(router)
 	router.Use(api.BrokerCommandPlanBodyLimits())
 	// 初始化响应处理器
 	handler, err := response.NewHandler("configs/messages.yaml", "configs/messages_str.yaml")
@@ -196,7 +198,12 @@ func RouterInit() *gin.Engine {
 		v1.Use(middleware.CasbinRBAC())
 		v1.GET("/automation/runtime", func(c *gin.Context) {
 			c.Header("Cache-Control", "no-store")
-			c.JSON(200, gin.H{"code": 200, "message": "success", "data": gin.H{"mode": uplink.CurrentAutomationMode()}})
+			mode, err := uplink.CurrentAutomationMode()
+			if err != nil {
+				c.JSON(503, gin.H{"code": 503, "message": "automation configuration invalid"})
+				return
+			}
+			c.JSON(200, gin.H{"code": 200, "message": "success", "data": gin.H{"mode": mode}})
 		})
 		// SSE服务
 		SSERouter(v1)

@@ -1,0 +1,2125 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/v1/device",
+    "handler": "DeviceApi.CreateDevice",
+    "source": "router/apps/device.go:16",
+    "inventory": "B-D04",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-003",
+    "primary_task": "DM-DEV-003",
+    "supporting_tasks": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device/:id",
+    "handler": "DeviceApi.DeleteDevice",
+    "source": "router/apps/device.go:19",
+    "inventory": "B-D07",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-005",
+    "primary_task": "DM-DEV-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device",
+    "handler": "DeviceApi.UpdateDevice",
+    "source": "router/apps/device.go:22",
+    "inventory": "B-D05/B-D06",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-004；附加 DM-DEV-021、DM-DEV-025",
+    "primary_task": "DM-DEV-004",
+    "supporting_tasks": [
+      "DM-DEV-021",
+      "DM-DEV-025"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/active",
+    "handler": "DeviceApi.ActiveDevice",
+    "source": "router/apps/device.go:25",
+    "inventory": "B-D09",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-007",
+    "primary_task": "DM-DEV-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/detail/:id",
+    "handler": "DeviceApi.HandleDeviceByID",
+    "source": "router/apps/device.go:28",
+    "inventory": "B-D03",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-002",
+    "primary_task": "DM-DEV-002",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/telemetry/evidence/:id",
+    "handler": "DeviceApi.BrokerTelemetryEvidence",
+    "source": "router/apps/device.go:29",
+    "inventory": "B-D24",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device",
+    "handler": "DeviceApi.HandleDeviceListByPage",
+    "source": "router/apps/device.go:31",
+    "inventory": "B-D01/B-D02",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-001",
+    "primary_task": "DM-DEV-001",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/check/:deviceNumber",
+    "handler": "DeviceApi.CheckDeviceNumber",
+    "source": "router/apps/device.go:34",
+    "inventory": "B-D10",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-022；附加 DM-DEV-008",
+    "primary_task": "DM-DEV-022",
+    "supporting_tasks": [
+      "DM-DEV-008"
+    ],
+    "mapping_note": "旧入口判断已存在且尚未激活；新增编号可用性是另一个正式用例，禁止合并语义。"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/tenant/list",
+    "handler": "DeviceApi.HandleTenantDeviceList",
+    "source": "router/apps/device.go:37",
+    "inventory": "B-D11",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-001",
+    "primary_task": "DM-DEV-001",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/list",
+    "handler": "DeviceApi.HandleDeviceList",
+    "source": "router/apps/device.go:40",
+    "inventory": "B-D12",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-019",
+    "primary_task": "DM-DEV-019",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/son/add",
+    "handler": "DeviceApi.CreateSonDevice",
+    "source": "router/apps/device.go:43",
+    "inventory": "B-D13",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-027；附加 DM-DEV-018、DM-DEV-019",
+    "primary_task": "DM-DEV-027",
+    "supporting_tasks": [
+      "DM-DEV-018",
+      "DM-DEV-019"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/connect/form",
+    "handler": "DeviceApi.DeviceConnectForm",
+    "source": "router/apps/device.go:46",
+    "inventory": "B-D16",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-015；附加 DM-DEV-009、DM-RT-003",
+    "primary_task": "DM-TPL-015",
+    "supporting_tasks": [
+      "DM-DEV-009",
+      "DM-RT-003"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/connect/info",
+    "handler": "DeviceApi.DeviceConnect",
+    "source": "router/apps/device.go:49",
+    "inventory": "B-D16",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-003",
+    "primary_task": "DM-RT-003",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/update/voucher",
+    "handler": "DeviceApi.UpdateDeviceVoucher",
+    "source": "router/apps/device.go:52",
+    "inventory": "B-D17",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-010",
+    "primary_task": "DM-DEV-010",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/sub-list/:id",
+    "handler": "DeviceApi.HandleSubList",
+    "source": "router/apps/device.go:55",
+    "inventory": "B-D15",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-019",
+    "primary_task": "DM-DEV-019",
+    "supporting_tasks": []
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/sub-remove",
+    "handler": "DeviceApi.RemoveSubDevice",
+    "source": "router/apps/device.go:58",
+    "inventory": "B-D14",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-018",
+    "primary_task": "DM-DEV-018",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/metrics/:id",
+    "handler": "DeviceApi.HandleMetrics",
+    "source": "router/apps/device.go:61",
+    "inventory": "B-D22",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/metrics/menu",
+    "handler": "DeviceApi.HandleActionByDeviceID",
+    "source": "router/apps/device.go:64",
+    "inventory": "B-D22",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007；附加 DM-RT-008",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": [
+      "DM-RT-008"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/metrics/condition/menu",
+    "handler": "DeviceApi.HandleConditionByDeviceID",
+    "source": "router/apps/device.go:67",
+    "inventory": "B-D22",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007；附加 DM-RT-008",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": [
+      "DM-RT-008"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/map/telemetry/:id",
+    "handler": "DeviceApi.HandleMapTelemetry",
+    "source": "router/apps/device.go:70",
+    "inventory": "B-D23",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/update/config",
+    "handler": "DeviceApi.UpdateDeviceConfig",
+    "source": "router/apps/device.go:73",
+    "inventory": "B-D18",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-017",
+    "primary_task": "DM-DEV-017",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/online/status/:id",
+    "handler": "DeviceApi.HandleDeviceOnlineStatus",
+    "source": "router/apps/device.go:76",
+    "inventory": "B-D24",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-002",
+    "primary_task": "DM-RT-002",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/status/evidence/:id",
+    "handler": "DeviceApi.BrokerStatusEvidence",
+    "source": "router/apps/device.go:77",
+    "inventory": "B-D24",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-002",
+    "primary_task": "DM-RT-002",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/semantic/evidence/:id",
+    "handler": "DeviceApi.BrokerSemanticEvidence",
+    "source": "router/apps/device.go:78",
+    "inventory": "B-D24",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-006",
+    "primary_task": "DM-RT-006",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/:device_id/debug",
+    "handler": "DeviceDebugApi.SetDeviceDebug",
+    "source": "router/apps/device.go:81",
+    "inventory": "B-D26",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-004",
+    "primary_task": "DM-RT-004",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/:device_id/debug/status",
+    "handler": "DeviceDebugApi.GetDeviceDebugStatus",
+    "source": "router/apps/device.go:82",
+    "inventory": "B-D26",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-004",
+    "primary_task": "DM-RT-004",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/:device_id/debug/logs",
+    "handler": "DeviceDebugApi.GetDeviceDebugLogs",
+    "source": "router/apps/device.go:83",
+    "inventory": "B-D26",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-004",
+    "primary_task": "DM-RT-004",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/service/access/batch",
+    "handler": "DeviceApi.CreateDeviceBatch",
+    "source": "router/apps/device.go:86",
+    "inventory": "B-D19",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-012；附加 DM-DEV-024、DM-RT-001",
+    "primary_task": "DM-DEV-012",
+    "supporting_tasks": [
+      "DM-DEV-024",
+      "DM-RT-001"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/metrics/chart",
+    "handler": "DeviceApi.HandleDeviceMetricsChart",
+    "source": "router/apps/device.go:89",
+    "inventory": "B-D23",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/selector",
+    "handler": "DeviceApi.HandleDeviceSelector",
+    "source": "router/apps/device.go:92",
+    "inventory": "B-D21",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-001",
+    "primary_task": "DM-DEV-001",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/telemetry/latest",
+    "handler": "DeviceApi.HandleTenantTelemetryData",
+    "source": "router/apps/device.go:95",
+    "inventory": "B-D23",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/status/history",
+    "handler": "DeviceApi.GetDeviceStatusHistory",
+    "source": "router/apps/device.go:98",
+    "inventory": "B-D25",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-015；附加 DM-RT-002",
+    "primary_task": "DM-RT-015",
+    "supporting_tasks": [
+      "DM-RT-002"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/topic-mappings",
+    "handler": "DeviceTopicMappingApi.CreateDeviceTopicMapping",
+    "source": "router/apps/device.go:103",
+    "inventory": "B-T13",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-017；附加 DM-TPL-004、DM-TPL-005、DM-RT-007",
+    "primary_task": "DM-TPL-017",
+    "supporting_tasks": [
+      "DM-TPL-004",
+      "DM-TPL-005",
+      "DM-RT-007"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/topic-mappings",
+    "handler": "DeviceTopicMappingApi.GetDeviceTopicMappings",
+    "source": "router/apps/device.go:104",
+    "inventory": "B-T13",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-017；附加 DM-TPL-004、DM-TPL-005、DM-RT-007",
+    "primary_task": "DM-TPL-017",
+    "supporting_tasks": [
+      "DM-TPL-004",
+      "DM-TPL-005",
+      "DM-RT-007"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/topic-mappings/:id",
+    "handler": "DeviceTopicMappingApi.UpdateDeviceTopicMapping",
+    "source": "router/apps/device.go:105",
+    "inventory": "B-T13",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-017；附加 DM-TPL-004、DM-TPL-005、DM-RT-007",
+    "primary_task": "DM-TPL-017",
+    "supporting_tasks": [
+      "DM-TPL-004",
+      "DM-TPL-005",
+      "DM-RT-007"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device/topic-mappings/:id",
+    "handler": "DeviceTopicMappingApi.DeleteDeviceTopicMapping",
+    "source": "router/apps/device.go:106",
+    "inventory": "B-T13",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-017；附加 DM-TPL-004、DM-TPL-005、DM-RT-007",
+    "primary_task": "DM-TPL-017",
+    "supporting_tasks": [
+      "DM-TPL-004",
+      "DM-TPL-005",
+      "DM-RT-007"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/template",
+    "handler": "DeviceApi.CreateDeviceTemplate",
+    "source": "router/apps/device.go:114",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device/template/:id",
+    "handler": "DeviceApi.DeleteDeviceTemplate",
+    "source": "router/apps/device.go:117",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/template",
+    "handler": "DeviceApi.UpdateDeviceTemplate",
+    "source": "router/apps/device.go:120",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/template/detail/:id",
+    "handler": "DeviceApi.HandleDeviceTemplateById",
+    "source": "router/apps/device.go:123",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/template",
+    "handler": "DeviceApi.HandleDeviceTemplateListByPage",
+    "source": "router/apps/device.go:126",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/template/menu",
+    "handler": "DeviceApi.HandleDeviceTemplateMenu",
+    "source": "router/apps/device.go:129",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/template/stats",
+    "handler": "DeviceApi.HandleDeviceTemplateStats",
+    "source": "router/apps/device.go:132",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/template/selector",
+    "handler": "DeviceApi.HandleDeviceTemplateSelector",
+    "source": "router/apps/device.go:135",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/template/chart",
+    "handler": "DeviceApi.HandleDeviceTemplateByDeviceId",
+    "source": "router/apps/device.go:138",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007；附加 DM-TPL-016、DM-RT-011",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": [
+      "DM-TPL-016",
+      "DM-RT-011"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/template/chart/select",
+    "handler": "DeviceApi.HandleDeviceTemplateChartSelect",
+    "source": "router/apps/device.go:141",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007；附加 DM-TPL-016、DM-RT-011",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": [
+      "DM-TPL-016",
+      "DM-RT-011"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/template/market/login",
+    "handler": "DeviceApi.MarketLogin",
+    "source": "router/apps/device.go:147",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-002",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-002"
+    ],
+    "mapping_note": "保留市场owner的认证能力并调整正式消费关系；不在devicemetadata重建市场账号或认证模块。"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/template/market/refresh",
+    "handler": "DeviceApi.MarketRefresh",
+    "source": "router/apps/device.go:148",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-002",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-002"
+    ],
+    "mapping_note": "保留市场owner的认证能力并调整正式消费关系；不在devicemetadata重建市场账号或认证模块。"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/template/market/publish",
+    "handler": "DeviceApi.PublishToMarket",
+    "source": "router/apps/device.go:150",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/template/market/list",
+    "handler": "DeviceApi.ListMarketTemplates",
+    "source": "router/apps/device.go:152",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/template/market/detail/:market_id",
+    "handler": "DeviceApi.GetMarketTemplateDetail",
+    "source": "router/apps/device.go:154",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/template/market/install",
+    "handler": "DeviceApi.InstallFromMarket",
+    "source": "router/apps/device.go:156",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/market/dashboard-bundles/analyze",
+    "handler": "DeviceApi.AnalyzeDashboardBundle",
+    "source": "router/apps/device.go:164",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/market/dashboard-bundles",
+    "handler": "DeviceApi.PublishDashboardBundle",
+    "source": "router/apps/device.go:166",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/market/bundles/publish-draft",
+    "handler": "DeviceApi.PublishBundleDraft",
+    "source": "router/apps/device.go:168",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/market/bundles",
+    "handler": "DeviceApi.ListMarketBundles",
+    "source": "router/apps/device.go:170",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/market/bundles/:bundleKey",
+    "handler": "DeviceApi.GetMarketBundleDetail",
+    "source": "router/apps/device.go:171",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/market/bundles/:bundleKey/precheck",
+    "handler": "DeviceApi.GetMarketBundlePrecheck",
+    "source": "router/apps/device.go:172",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/market/bundles/download",
+    "handler": "DeviceApi.DownloadDashboardTemplateFromMarket",
+    "source": "router/apps/device.go:174",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/market/bundles/install",
+    "handler": "DeviceApi.InstallBundleFromMarket",
+    "source": "router/apps/device.go:176",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/market/bundles/install/:id",
+    "handler": "DeviceApi.GetBundleInstallStatus",
+    "source": "router/apps/device.go:178",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/market/bundles/install/:id/bindings",
+    "handler": "DeviceApi.UpdateBundleBinding",
+    "source": "router/apps/device.go:180",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/market/bundles/install/:id/retry",
+    "handler": "DeviceApi.RetryBundleInstall",
+    "source": "router/apps/device.go:182",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/market/bundles/install/:id/compensate",
+    "handler": "DeviceApi.CompensateBundleInstall",
+    "source": "router/apps/device.go:184",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/market/bundles/installations",
+    "handler": "DeviceApi.ListBundleInstallations",
+    "source": "router/apps/device.go:186",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-010；附加 DM-API-007、DM-TPL-012、DM-TPL-013、DM-API-011",
+    "primary_task": "DM-RT-010",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-012",
+      "DM-TPL-013",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/dashboard-templates",
+    "handler": "DeviceApi.ListLocalDashboardTemplates",
+    "source": "router/apps/device.go:191",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-011；附加 DM-API-007、DM-API-011",
+    "primary_task": "DM-RT-011",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/dashboard-templates/:id/compatible-devices",
+    "handler": "DeviceApi.ListDashboardTemplateCompatibleDevices",
+    "source": "router/apps/device.go:192",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-011；附加 DM-API-007、DM-API-011",
+    "primary_task": "DM-RT-011",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/dashboard-templates/:id/instances",
+    "handler": "DeviceApi.CreateDashboardFromLocalTemplate",
+    "source": "router/apps/device.go:193",
+    "inventory": "§5 市场/看板消费者",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-011；附加 DM-API-007、DM-API-011",
+    "primary_task": "DM-RT-011",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-API-011"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/group",
+    "handler": "DeviceApi.CreateDeviceGroup",
+    "source": "router/apps/device.go:200",
+    "inventory": "B-G01",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-GRP-003",
+    "primary_task": "DM-GRP-003",
+    "supporting_tasks": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device/group/:id",
+    "handler": "DeviceApi.DeleteDeviceGroup",
+    "source": "router/apps/device.go:203",
+    "inventory": "B-G03",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-GRP-006",
+    "primary_task": "DM-GRP-006",
+    "supporting_tasks": []
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/group",
+    "handler": "DeviceApi.UpdateDeviceGroup",
+    "source": "router/apps/device.go:206",
+    "inventory": "B-G02",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-GRP-004；附加 DM-GRP-005",
+    "primary_task": "DM-GRP-004",
+    "supporting_tasks": [
+      "DM-GRP-005"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/group",
+    "handler": "DeviceApi.HandleDeviceGroupByPage",
+    "source": "router/apps/device.go:209",
+    "inventory": "B-G04",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-GRP-001",
+    "primary_task": "DM-GRP-001",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/group/tree",
+    "handler": "DeviceApi.HandleDeviceGroupByTree",
+    "source": "router/apps/device.go:212",
+    "inventory": "B-G05",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-GRP-002",
+    "primary_task": "DM-GRP-002",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/group/counts",
+    "handler": "DeviceApi.HandleDeviceGroupCounts",
+    "source": "router/apps/device.go:215",
+    "inventory": "B-G06",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-020",
+    "primary_task": "DM-DEV-020",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/group/detail/:id",
+    "handler": "DeviceApi.HandleDeviceGroupByDetail",
+    "source": "router/apps/device.go:218",
+    "inventory": "B-G07",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-GRP-001",
+    "primary_task": "DM-GRP-001",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/group/relation",
+    "handler": "DeviceApi.CreateDeviceGroupRelation",
+    "source": "router/apps/device.go:225",
+    "inventory": "B-G08",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-GRP-008",
+    "primary_task": "DM-GRP-008",
+    "supporting_tasks": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device/group/relation",
+    "handler": "DeviceApi.DeleteDeviceGroupRelation",
+    "source": "router/apps/device.go:227",
+    "inventory": "B-G09",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-GRP-009",
+    "primary_task": "DM-GRP-009",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/group/relation/list",
+    "handler": "DeviceApi.HandleDeviceGroupRelation",
+    "source": "router/apps/device.go:229",
+    "inventory": "B-G10",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-GRP-007",
+    "primary_task": "DM-GRP-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/group/relation",
+    "handler": "DeviceApi.HandleDeviceGroupListByDeviceId",
+    "source": "router/apps/device.go:231",
+    "inventory": "B-G11",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-GRP-010",
+    "primary_task": "DM-GRP-010",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/model/source/at/list",
+    "handler": "DeviceModelApi.HandleModelSourceAT",
+    "source": "router/apps/device.go:238",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/model/telemetry",
+    "handler": "DeviceModelApi.CreateDeviceModelTelemetry",
+    "source": "router/apps/device.go:241",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device/model/telemetry/:id",
+    "handler": "DeviceModelApi.DeleteDeviceModelGeneral",
+    "source": "router/apps/device.go:242",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/model/telemetry",
+    "handler": "DeviceModelApi.UpdateDeviceModelGeneral",
+    "source": "router/apps/device.go:243",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/model/telemetry",
+    "handler": "DeviceModelApi.HandleDeviceModelGeneral",
+    "source": "router/apps/device.go:244",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/model/attributes",
+    "handler": "DeviceModelApi.CreateDeviceModelAttributes",
+    "source": "router/apps/device.go:249",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device/model/attributes/:id",
+    "handler": "DeviceModelApi.DeleteDeviceModelGeneral",
+    "source": "router/apps/device.go:250",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/model/attributes",
+    "handler": "DeviceModelApi.UpdateDeviceModelGeneral",
+    "source": "router/apps/device.go:251",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/model/attributes",
+    "handler": "DeviceModelApi.HandleDeviceModelGeneral",
+    "source": "router/apps/device.go:252",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/model/events",
+    "handler": "DeviceModelApi.CreateDeviceModelEvents",
+    "source": "router/apps/device.go:257",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device/model/events/:id",
+    "handler": "DeviceModelApi.DeleteDeviceModelGeneral",
+    "source": "router/apps/device.go:258",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/model/events",
+    "handler": "DeviceModelApi.UpdateDeviceModelGeneralV2",
+    "source": "router/apps/device.go:259",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/model/events",
+    "handler": "DeviceModelApi.HandleDeviceModelGeneral",
+    "source": "router/apps/device.go:260",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/model/commands",
+    "handler": "DeviceModelApi.CreateDeviceModelCommands",
+    "source": "router/apps/device.go:265",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device/model/commands/:id",
+    "handler": "DeviceModelApi.DeleteDeviceModelGeneral",
+    "source": "router/apps/device.go:266",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/model/commands",
+    "handler": "DeviceModelApi.UpdateDeviceModelGeneralV2",
+    "source": "router/apps/device.go:267",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/model/commands",
+    "handler": "DeviceModelApi.HandleDeviceModelGeneral",
+    "source": "router/apps/device.go:268",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/model/custom/commands",
+    "handler": "DeviceModelApi.CreateDeviceModelCustomCommands",
+    "source": "router/apps/device.go:274",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-DEC-001；附加 DM-API-007、DM-TPL-016、DM-MIG-005",
+    "primary_task": "DM-DEC-001",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-016",
+      "DM-MIG-005"
+    ],
+    "mapping_note": "该路由有旧实现，但custom控制/指令能否无损转换仍受DEC-001发布阻断；不得把普通ThingModel核心复用等同于本项已可迁。"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device/model/custom/commands/:id",
+    "handler": "DeviceModelApi.DeleteDeviceModelCustomCommands",
+    "source": "router/apps/device.go:275",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-DEC-001；附加 DM-API-007、DM-TPL-016、DM-MIG-005",
+    "primary_task": "DM-DEC-001",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-016",
+      "DM-MIG-005"
+    ],
+    "mapping_note": "该路由有旧实现，但custom控制/指令能否无损转换仍受DEC-001发布阻断；不得把普通ThingModel核心复用等同于本项已可迁。"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/model/custom/commands",
+    "handler": "DeviceModelApi.UpdateDeviceModelCustomCommands",
+    "source": "router/apps/device.go:276",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-DEC-001；附加 DM-API-007、DM-TPL-016、DM-MIG-005",
+    "primary_task": "DM-DEC-001",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-016",
+      "DM-MIG-005"
+    ],
+    "mapping_note": "该路由有旧实现，但custom控制/指令能否无损转换仍受DEC-001发布阻断；不得把普通ThingModel核心复用等同于本项已可迁。"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/model/custom/commands",
+    "handler": "DeviceModelApi.HandleDeviceModelCustomCommandsByPage",
+    "source": "router/apps/device.go:277",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-DEC-001；附加 DM-API-007、DM-TPL-016、DM-MIG-005",
+    "primary_task": "DM-DEC-001",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-016",
+      "DM-MIG-005"
+    ],
+    "mapping_note": "该路由有旧实现，但custom控制/指令能否无损转换仍受DEC-001发布阻断；不得把普通ThingModel核心复用等同于本项已可迁。"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/model/custom/commands/:deviceId",
+    "handler": "DeviceModelApi.HandleDeviceModelCustomCommandsByDeviceId",
+    "source": "router/apps/device.go:278",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-DEC-001；附加 DM-API-007、DM-TPL-016、DM-MIG-005",
+    "primary_task": "DM-DEC-001",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-016",
+      "DM-MIG-005"
+    ],
+    "mapping_note": "该路由有旧实现，但custom控制/指令能否无损转换仍受DEC-001发布阻断；不得把普通ThingModel核心复用等同于本项已可迁。"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/model/custom/control",
+    "handler": "DeviceModelApi.CreateDeviceModelCustomControl",
+    "source": "router/apps/device.go:284",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-DEC-001；附加 DM-API-007、DM-TPL-016、DM-MIG-005",
+    "primary_task": "DM-DEC-001",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-016",
+      "DM-MIG-005"
+    ],
+    "mapping_note": "该路由有旧实现，但custom控制/指令能否无损转换仍受DEC-001发布阻断；不得把普通ThingModel核心复用等同于本项已可迁。"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device/model/custom/control/:id",
+    "handler": "DeviceModelApi.DeleteDeviceModelCustomControl",
+    "source": "router/apps/device.go:285",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-DEC-001；附加 DM-API-007、DM-TPL-016、DM-MIG-005",
+    "primary_task": "DM-DEC-001",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-016",
+      "DM-MIG-005"
+    ],
+    "mapping_note": "该路由有旧实现，但custom控制/指令能否无损转换仍受DEC-001发布阻断；不得把普通ThingModel核心复用等同于本项已可迁。"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device/model/custom/control",
+    "handler": "DeviceModelApi.UpdateDeviceModelCustomControl",
+    "source": "router/apps/device.go:286",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-DEC-001；附加 DM-API-007、DM-TPL-016、DM-MIG-005",
+    "primary_task": "DM-DEC-001",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-016",
+      "DM-MIG-005"
+    ],
+    "mapping_note": "该路由有旧实现，但custom控制/指令能否无损转换仍受DEC-001发布阻断；不得把普通ThingModel核心复用等同于本项已可迁。"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/model/custom/control",
+    "handler": "DeviceModelApi.HandleDeviceModelCustomControl",
+    "source": "router/apps/device.go:287",
+    "inventory": "B-T14/B-T15/B-T16",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-DEC-001；附加 DM-API-007、DM-TPL-016、DM-MIG-005",
+    "primary_task": "DM-DEC-001",
+    "supporting_tasks": [
+      "DM-API-007",
+      "DM-TPL-016",
+      "DM-MIG-005"
+    ],
+    "mapping_note": "该路由有旧实现，但custom控制/指令能否无损转换仍受DEC-001发布阻断；不得把普通ThingModel核心复用等同于本项已可迁。"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device_config",
+    "handler": "DeviceConfigApi.CreateDeviceConfig",
+    "source": "router/apps/device_config.go:16",
+    "inventory": "B-T04",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-003",
+    "primary_task": "DM-TPL-003",
+    "supporting_tasks": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/device_config/:id",
+    "handler": "DeviceConfigApi.DeleteDeviceConfig",
+    "source": "router/apps/device_config.go:19",
+    "inventory": "B-T08",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-009",
+    "primary_task": "DM-TPL-009",
+    "supporting_tasks": []
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device_config",
+    "handler": "DeviceConfigApi.UpdateDeviceConfig",
+    "source": "router/apps/device_config.go:22",
+    "inventory": "B-T05/B-T06/B-T07",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-004；附加 DM-TPL-007",
+    "primary_task": "DM-TPL-004",
+    "supporting_tasks": [
+      "DM-TPL-007"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device_config",
+    "handler": "DeviceConfigApi.HandleDeviceConfigListByPage",
+    "source": "router/apps/device_config.go:25",
+    "inventory": "B-T01",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-001",
+    "primary_task": "DM-TPL-001",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device_config/menu",
+    "handler": "DeviceConfigApi.HandleDeviceConfigListMenu",
+    "source": "router/apps/device_config.go:28",
+    "inventory": "B-T02",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-001",
+    "primary_task": "DM-TPL-001",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device_config/:id",
+    "handler": "DeviceConfigApi.HandleDeviceConfigById",
+    "source": "router/apps/device_config.go:31",
+    "inventory": "B-T03",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-002",
+    "primary_task": "DM-TPL-002",
+    "supporting_tasks": []
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/device_config/batch",
+    "handler": "DeviceConfigApi.BatchUpdateDeviceConfig",
+    "source": "router/apps/device_config.go:34",
+    "inventory": "B-T09",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-DEV-023；附加 DM-DEV-016、DM-DEV-017、DM-API-008",
+    "primary_task": "DM-DEV-023",
+    "supporting_tasks": [
+      "DM-DEV-016",
+      "DM-DEV-017",
+      "DM-API-008"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device_config/connect",
+    "handler": "DeviceConfigApi.HandleDeviceConfigConnect",
+    "source": "router/apps/device_config.go:37",
+    "inventory": "B-D16",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-015",
+    "primary_task": "DM-TPL-015",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device_config/voucher_type",
+    "handler": "DeviceConfigApi.HandleVoucherType",
+    "source": "router/apps/device_config.go:40",
+    "inventory": "B-D16",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-015",
+    "primary_task": "DM-TPL-015",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device_config/metrics/menu",
+    "handler": "DeviceConfigApi.HandleActionByDeviceConfigID",
+    "source": "router/apps/device_config.go:43",
+    "inventory": "B-T11",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007；附加 DM-RT-008",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": [
+      "DM-RT-008"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device_config/metrics/condition/menu",
+    "handler": "DeviceConfigApi.HandleConditionByDeviceConfigID",
+    "source": "router/apps/device_config.go:46",
+    "inventory": "B-T11",
+    "classification": "已有 Encore 代码可复用，但未完成验收",
+    "task": "主任务 DM-API-007；附加 DM-RT-008",
+    "primary_task": "DM-API-007",
+    "supporting_tasks": [
+      "DM-RT-008"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/data_script",
+    "handler": "DataScriptApi.CreateDataScript",
+    "source": "router/apps/data_script.go:16",
+    "inventory": "B-T12",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-018；附加 DM-TPL-004、DM-TPL-005、DM-RT-007",
+    "primary_task": "DM-TPL-018",
+    "supporting_tasks": [
+      "DM-TPL-004",
+      "DM-TPL-005",
+      "DM-RT-007"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/data_script/:id",
+    "handler": "DataScriptApi.DeleteDataScript",
+    "source": "router/apps/data_script.go:19",
+    "inventory": "B-T12",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-018；附加 DM-TPL-004、DM-TPL-005、DM-RT-007",
+    "primary_task": "DM-TPL-018",
+    "supporting_tasks": [
+      "DM-TPL-004",
+      "DM-TPL-005",
+      "DM-RT-007"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/data_script",
+    "handler": "DataScriptApi.UpdateDataScript",
+    "source": "router/apps/data_script.go:22",
+    "inventory": "B-T12",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-018；附加 DM-TPL-004、DM-TPL-005、DM-RT-007",
+    "primary_task": "DM-TPL-018",
+    "supporting_tasks": [
+      "DM-TPL-004",
+      "DM-TPL-005",
+      "DM-RT-007"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data_script",
+    "handler": "DataScriptApi.HandleDataScriptListByPage",
+    "source": "router/apps/data_script.go:25",
+    "inventory": "B-T12",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-018；附加 DM-TPL-004、DM-TPL-005、DM-RT-007",
+    "primary_task": "DM-TPL-018",
+    "supporting_tasks": [
+      "DM-TPL-004",
+      "DM-TPL-005",
+      "DM-RT-007"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/data_script/quiz",
+    "handler": "DataScriptApi.QuizDataScript",
+    "source": "router/apps/data_script.go:28",
+    "inventory": "B-T12",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-TPL-018；附加 DM-TPL-004、DM-TPL-005、DM-RT-007",
+    "primary_task": "DM-TPL-018",
+    "supporting_tasks": [
+      "DM-TPL-004",
+      "DM-TPL-005",
+      "DM-RT-007"
+    ],
+    "mapping_note": "测试执行归connector-runtime；配置仍由同模板草稿/版本保存，不新建脚本引擎。"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/data_script/enable",
+    "handler": "DataScriptApi.EnableDataScript",
+    "source": "router/apps/data_script.go:31",
+    "inventory": "B-T12",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-TPL-018；附加 DM-TPL-004、DM-TPL-005、DM-RT-007",
+    "primary_task": "DM-TPL-018",
+    "supporting_tasks": [
+      "DM-TPL-004",
+      "DM-TPL-005",
+      "DM-RT-007"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/current/:id",
+    "handler": "TelemetryDataApi.HandleCurrentData",
+    "source": "router/apps/telemetry_data.go:16",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/current/keys",
+    "handler": "TelemetryDataApi.HandleCurrentDataKeys",
+    "source": "router/apps/telemetry_data.go:19",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/current/detail/:id",
+    "handler": "TelemetryDataApi.ServeCurrentDetailData",
+    "source": "router/apps/telemetry_data.go:22",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/history",
+    "handler": "TelemetryDataApi.ServeHistoryData",
+    "source": "router/apps/telemetry_data.go:25",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/history/pagination",
+    "handler": "TelemetryDataApi.ServeHistoryDataByPage",
+    "source": "router/apps/telemetry_data.go:28",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/history/page",
+    "handler": "TelemetryDataApi.ServeHistoryDataByPage",
+    "source": "router/apps/telemetry_data.go:30",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/telemetry/datas",
+    "handler": "TelemetryDataApi.DeleteData",
+    "source": "router/apps/telemetry_data.go:33",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-016；附加 DM-RT-005、DM-API-005",
+    "primary_task": "DM-RT-016",
+    "supporting_tasks": [
+      "DM-RT-005",
+      "DM-API-005"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/statistic",
+    "handler": "TelemetryDataApi.ServeStatisticData",
+    "source": "router/apps/telemetry_data.go:36",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/statistic/batch",
+    "handler": "TelemetryDataApi.ServeStatisticDataByDeviceId",
+    "source": "router/apps/telemetry_data.go:39",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/set/logs",
+    "handler": "TelemetryDataApi.ServeSetLogsDataListByPage",
+    "source": "router/apps/telemetry_data.go:42",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-014；附加 DM-RT-006",
+    "primary_task": "DM-RT-014",
+    "supporting_tasks": [
+      "DM-RT-006"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/telemetry/datas/pub",
+    "handler": "TelemetryDataApi.TelemetryPutMessage",
+    "source": "router/apps/telemetry_data.go:45",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-006；附加 DM-RT-014、DM-DEC-001",
+    "primary_task": "DM-RT-006",
+    "supporting_tasks": [
+      "DM-RT-014",
+      "DM-DEC-001"
+    ],
+    "mapping_note": "目标只能执行已声明COMMAND；无法无损表达的旧telemetry/attribute控制先由DEC-001处置，不保留通用旧下发入口。"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/simulation",
+    "handler": "TelemetryDataApi.ServeEchoData",
+    "source": "router/apps/telemetry_data.go:48",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-019；附加 DM-RT-015、DM-RT-005",
+    "primary_task": "DM-RT-019",
+    "supporting_tasks": [
+      "DM-RT-015",
+      "DM-RT-005"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/telemetry/datas/simulation",
+    "handler": "TelemetryDataApi.SimulationTelemetryData",
+    "source": "router/apps/telemetry_data.go:51",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-019；附加 DM-RT-015、DM-RT-005",
+    "primary_task": "DM-RT-019",
+    "supporting_tasks": [
+      "DM-RT-015",
+      "DM-RT-005"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/simulation/init",
+    "handler": "TelemetryDataApi.GetSimulationInit",
+    "source": "router/apps/telemetry_data.go:54",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-019；附加 DM-RT-015、DM-RT-005",
+    "primary_task": "DM-RT-019",
+    "supporting_tasks": [
+      "DM-RT-015",
+      "DM-RT-005"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/telemetry/datas/simulation/send",
+    "handler": "TelemetryDataApi.SimulationSend",
+    "source": "router/apps/telemetry_data.go:57",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-019；附加 DM-RT-015、DM-RT-005",
+    "primary_task": "DM-RT-019",
+    "supporting_tasks": [
+      "DM-RT-015",
+      "DM-RT-005"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/msg/count",
+    "handler": "TelemetryDataApi.ServeMsgCountByTenant",
+    "source": "router/apps/telemetry_data.go:60",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-015；附加 DM-RT-005",
+    "primary_task": "DM-RT-015",
+    "supporting_tasks": [
+      "DM-RT-005"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/attribute/datas/:id",
+    "handler": "AttributeDataApi.HandleDataList",
+    "source": "router/apps/attribute_data.go:15",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/attribute/datas/set/logs",
+    "handler": "AttributeDataApi.HandleAttributeSetLogsDataListByPage",
+    "source": "router/apps/attribute_data.go:18",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-014；附加 DM-RT-006",
+    "primary_task": "DM-RT-014",
+    "supporting_tasks": [
+      "DM-RT-006"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/attribute/datas/:id",
+    "handler": "AttributeDataApi.DeleteData",
+    "source": "router/apps/attribute_data.go:21",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-016；附加 DM-RT-005、DM-API-005",
+    "primary_task": "DM-RT-016",
+    "supporting_tasks": [
+      "DM-RT-005",
+      "DM-API-005"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/attribute/datas/pub",
+    "handler": "AttributeDataApi.AttributePutMessage",
+    "source": "router/apps/attribute_data.go:24",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-006；附加 DM-RT-014、DM-DEC-001",
+    "primary_task": "DM-RT-006",
+    "supporting_tasks": [
+      "DM-RT-014",
+      "DM-DEC-001"
+    ],
+    "mapping_note": "目标只能执行已声明COMMAND；无法无损表达的旧telemetry/attribute控制先由DEC-001处置，不保留通用旧下发入口。"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/attribute/datas/get",
+    "handler": "AttributeDataApi.AttributeGetMessage",
+    "source": "router/apps/attribute_data.go:27",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/attribute/datas/key",
+    "handler": "AttributeDataApi.HandleAttributeDataByKey",
+    "source": "router/apps/attribute_data.go:30",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/command/datas/plans/preview",
+    "handler": "CommandPlanApi.Preview",
+    "source": "router/apps/command_data.go:15",
+    "inventory": "§5 命令执行/计划/回执",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-006",
+    "primary_task": "DM-RT-006",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/command/datas/plans/:plan_id/authorize",
+    "handler": "CommandPlanApi.Authorize",
+    "source": "router/apps/command_data.go:16",
+    "inventory": "§5 命令执行/计划/回执",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-006",
+    "primary_task": "DM-RT-006",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/command/datas/plans/:plan_id/submit",
+    "handler": "CommandPlanApi.Submit",
+    "source": "router/apps/command_data.go:17",
+    "inventory": "§5 命令执行/计划/回执",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-006",
+    "primary_task": "DM-RT-006",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/command/datas/set/logs",
+    "handler": "CommandSetLogApi.ServeSetLogsDataListByPage",
+    "source": "router/apps/command_data.go:20",
+    "inventory": "§5 命令执行/计划/回执",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-014；附加 DM-RT-006",
+    "primary_task": "DM-RT-014",
+    "supporting_tasks": [
+      "DM-RT-006"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/command/datas/pub",
+    "handler": "CommandSetLogApi.CommandPutMessage",
+    "source": "router/apps/command_data.go:23",
+    "inventory": "§5 命令执行/计划/回执",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-006",
+    "primary_task": "DM-RT-006",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/command/datas/status/:message_id",
+    "handler": "CommandSetLogApi.GetCommandStatus",
+    "source": "router/apps/command_data.go:26",
+    "inventory": "§5 命令执行/计划/回执",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-006",
+    "primary_task": "DM-RT-006",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/command/datas/:id",
+    "handler": "CommandSetLogApi.HandleCommandList",
+    "source": "router/apps/command_data.go:29",
+    "inventory": "§5 命令执行/计划/回执",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-006",
+    "primary_task": "DM-RT-006",
+    "supporting_tasks": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/event/datas",
+    "handler": "EventDataApi.HandleEventDatasListByPage",
+    "source": "router/apps/event_data.go:14",
+    "inventory": "§5 遥测/属性/事件/模拟",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-005",
+    "primary_task": "DM-RT-005",
+    "supporting_tasks": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/auth",
+    "handler": "DeviceAuthApi.DeviceAuth",
+    "source": "router/router_init.go:137",
+    "inventory": "B-D28",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-013；附加 DM-TPL-020、DM-DEV-003、DM-API-002",
+    "primary_task": "DM-RT-013",
+    "supporting_tasks": [
+      "DM-TPL-020",
+      "DM-DEV-003",
+      "DM-API-002"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/gateway-register",
+    "handler": "DeviceApi.GatewayRegister",
+    "source": "router/router_init.go:131",
+    "inventory": "B-D29",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-013；附加 DM-TPL-020、DM-DEV-003、DM-API-002",
+    "primary_task": "DM-RT-013",
+    "supporting_tasks": [
+      "DM-TPL-020",
+      "DM-DEV-003",
+      "DM-API-002"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/device/gateway-sub-register",
+    "handler": "DeviceApi.GatewaySubRegister",
+    "source": "router/router_init.go:133",
+    "inventory": "B-D29",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-013；附加 DM-TPL-020、DM-DEV-003、DM-API-002",
+    "primary_task": "DM-RT-013",
+    "supporting_tasks": [
+      "DM-TPL-020",
+      "DM-DEV-003",
+      "DM-API-002"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/devices/:device_id/diagnostics",
+    "handler": "DeviceApi.GetDeviceDiagnostics",
+    "source": "router/router_init.go:139",
+    "inventory": "B-D27",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-015；附加 DM-API-003",
+    "primary_task": "DM-RT-015",
+    "supporting_tasks": [
+      "DM-API-003"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/current/ws",
+    "handler": "TelemetryDataApi.ServeCurrentDataByWS",
+    "source": "router/router_init.go:108",
+    "inventory": "B-D25",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-017；附加 DM-RT-002、DM-RT-005、DM-API-003",
+    "primary_task": "DM-RT-017",
+    "supporting_tasks": [
+      "DM-RT-002",
+      "DM-RT-005",
+      "DM-API-003"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/online/status/ws",
+    "handler": "TelemetryDataApi.ServeDeviceStatusByWS",
+    "source": "router/router_init.go:110",
+    "inventory": "B-D25",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-017；附加 DM-RT-002、DM-RT-005、DM-API-003",
+    "primary_task": "DM-RT-017",
+    "supporting_tasks": [
+      "DM-RT-002",
+      "DM-RT-005",
+      "DM-API-003"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/device/online/status/ws/batch",
+    "handler": "TelemetryDataApi.ServeDeviceOnlineStatusWS",
+    "source": "router/router_init.go:112",
+    "inventory": "B-D25",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-017；附加 DM-RT-002、DM-RT-005、DM-API-003",
+    "primary_task": "DM-RT-017",
+    "supporting_tasks": [
+      "DM-RT-002",
+      "DM-RT-005",
+      "DM-API-003"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/telemetry/datas/current/keys/ws",
+    "handler": "TelemetryDataApi.ServeCurrentDataByKey",
+    "source": "router/router_init.go:114",
+    "inventory": "B-D25",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-017；附加 DM-RT-002、DM-RT-005、DM-API-003",
+    "primary_task": "DM-RT-017",
+    "supporting_tasks": [
+      "DM-RT-002",
+      "DM-RT-005",
+      "DM-API-003"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/plugin/device/config",
+    "handler": "HandleDeviceConfigForProtocolPlugin",
+    "source": "router/router_init.go:99",
+    "inventory": "§5 协议插件取配置",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-001；附加 DM-RT-007、DM-RT-012",
+    "primary_task": "DM-RT-001",
+    "supporting_tasks": [
+      "DM-RT-007",
+      "DM-RT-012"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/plugin/devices",
+    "handler": "HandleDeviceConfigForProtocolPluginByProtocolType",
+    "source": "router/router_init.go:100",
+    "inventory": "§5 协议插件取配置",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-001；附加 DM-RT-007、DM-RT-012",
+    "primary_task": "DM-RT-001",
+    "supporting_tasks": [
+      "DM-RT-007",
+      "DM-RT-012"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/plugin/service/access/list",
+    "handler": "HandlePluginServiceAccessList",
+    "source": "router/router_init.go:101",
+    "inventory": "§5 服务插件发现/导入",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-001；附加 DM-TPL-015、DM-DEV-024、DM-DEV-012",
+    "primary_task": "DM-RT-001",
+    "supporting_tasks": [
+      "DM-TPL-015",
+      "DM-DEV-024",
+      "DM-DEV-012"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/plugin/service/access",
+    "handler": "HandlePluginServiceAccess",
+    "source": "router/router_init.go:102",
+    "inventory": "§5 服务插件发现/导入",
+    "classification": "新系统计划完整实现",
+    "task": "主任务 DM-RT-001；附加 DM-TPL-015、DM-DEV-024、DM-DEV-012",
+    "primary_task": "DM-RT-001",
+    "supporting_tasks": [
+      "DM-TPL-015",
+      "DM-DEV-024",
+      "DM-DEV-012"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/service/access/device/list",
+    "handler": "ServiceAccessApi.HandleDeviceList",
+    "source": "internal/api/service_access.go:84-96; internal/service/service_access.go:159-193",
+    "inventory": "B-X-DISCOVERY",
+    "classification": "属于其他明确负责的运行时服务",
+    "task": "主任务 DM-RT-001；附加 DM-DEV-024、DM-TPL-015、DM-CLI-017",
+    "primary_task": "DM-RT-001",
+    "supporting_tasks": [
+      "DM-DEV-024",
+      "DM-TPL-015",
+      "DM-CLI-017"
+    ],
+    "mapping_note": "2026-10-25新增盘点；F plugin.ts:52-56确认真实GET。候选externalId与已绑定状态归connector-runtime，正式listServiceDiscoveredDevices；只读发现不自动登记设备、不返回voucher。"
+  }
+]

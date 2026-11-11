@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
+	"project/internal/dal"
 )
 
 var (
@@ -62,75 +62,26 @@ func NewAPIKeyValidator(db *gorm.DB, redisClient *redis.Client) *APIKeyValidator
 
 // 验证APIKey
 func (v *APIKeyValidator) ValidateAPIKey(apiKey string) (*APIKeyInfo, error) {
-	// 1. 从Redis缓存中获取
-	info, err := v.getFromCache(apiKey)
-	if err == nil {
-		// 检查状态
-		if info.Status != 1 {
-			return nil, ErrAPIKeyDisabled
-		}
-		return info, nil
-	}
-
-	// 2. 缓存未命中,从数据库查询
-	var key OpenAPIKey
-	err = v.db.Where("api_key = ?", apiKey).First(&key).Error
+	key, err := dal.LookupActiveOpenAPIKey(v.ctx, v.db, apiKey)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, dal.ErrAPIKeyNotFound) {
 			return nil, ErrAPIKeyNotFound
 		}
-		return nil, fmt.Errorf("query database error: %w", err)
+		if errors.Is(err, dal.ErrAPIKeyDisabled) {
+			return nil, ErrAPIKeyDisabled
+		}
+		if errors.Is(err, dal.ErrAPIKeyIdentity) {
+			return nil, ErrInvalidAPIKey
+		}
+		return nil, ErrInternalServer
 	}
-
-	// 3. 检查APIKey状态
-	if key.Status != 1 {
-		return nil, ErrAPIKeyDisabled
-	}
-
-	// 4. 构造缓存信息
-	info = &APIKeyInfo{
+	return &APIKeyInfo{
 		ID:        key.ID,
 		TenantID:  key.TenantID,
-		Status:    key.Status,
+		Status:    int(*key.Status),
 		Name:      key.Name,
-		CreatedID: key.CreatedID,
-	}
-
-	// 5. 更新缓存
-	if err := v.setCache(apiKey, info); err != nil {
-		// 缓存更新失败仅记录日志,不影响验证结果
-		fmt.Printf("update cache error: %v\n", err)
-	}
-
-	return info, nil
-}
-
-// 从缓存获取APIKey信息
-func (v *APIKeyValidator) getFromCache(apiKey string) (*APIKeyInfo, error) {
-	key := fmt.Sprintf("apikey:info:%s", apiKey)
-	data, err := v.redisClient.Get(v.ctx, key).Result()
-	if err != nil {
-		return nil, err
-	}
-
-	var info APIKeyInfo
-	if err := json.Unmarshal([]byte(data), &info); err != nil {
-		return nil, err
-	}
-
-	return &info, nil
-}
-
-// 设置APIKey缓存
-func (v *APIKeyValidator) setCache(apiKey string, info *APIKeyInfo) error {
-	key := fmt.Sprintf("apikey:info:%s", apiKey)
-	data, err := json.Marshal(info)
-	if err != nil {
-		return err
-	}
-
-	// 设置5分钟过期
-	return v.redisClient.Set(v.ctx, key, data, 5*time.Minute).Err()
+		CreatedID: *key.CreatedID,
+	}, nil
 }
 
 // 删除APIKey缓存

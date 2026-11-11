@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"fmt"
 
@@ -65,7 +66,7 @@ func nativeDeviceETag(device *NativeDevice) (string, error) {
 	return fmt.Sprintf(`"sha256-%x"`, sha256.Sum256(encoded)), nil
 }
 
-func loadNativeDeviceEncoreTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) (*NativeDevice, error) {
+func loadNativeDeviceEncoreTx(ctx context.Context, tx dbx.Tx, tenantID, id string) (*NativeDevice, error) {
 	return scanNativeDeviceRow(tx.QueryRow(ctx, "SELECT "+nativeDeviceSelectFields+nativeDeviceFromSQL+` WHERE d.tenant_id=$1 AND d.id=$2 AND d.deleted_at IS NULL`, tenantID, id))
 }
 
@@ -91,7 +92,7 @@ func nativeOptionalJSON(field NativeDeviceField[json.RawMessage]) any {
 	return []byte(field.Value)
 }
 
-func validateNativeProductTx(ctx context.Context, tx *sqldb.Tx, tenantID string, field NativeDeviceField[string]) (*string, error) {
+func validateNativeProductTx(ctx context.Context, tx dbx.Tx, tenantID string, field NativeDeviceField[string]) (*string, error) {
 	if !field.Present || field.Null {
 		return nil, nil
 	}
@@ -123,7 +124,7 @@ func createNativeDevice(ctx context.Context, identity nativeDeviceWriteIdentity,
 		return nil, invalid("name", "must not contain surrounding whitespace or control characters")
 	}
 	command := metadataWriteCommand{TenantID: identity.tenantID, SubjectID: identity.subjectID, Operation: "createDevice", Method: "POST", Path: "/api/v2/devices", Key: key, RequestID: requestID, CanonicalBody: canonical}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		groupIDs, err := resolveNativeInitialGroupsTx(ctx, tx, identity.tenantID, input.InitialGroupIDs, identity.canWriteGroups)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
@@ -271,7 +272,7 @@ func updateNativeDevice(ctx context.Context, identity nativeDeviceWriteIdentity,
 		return nil, err
 	}
 	command := metadataWriteCommand{TenantID: identity.tenantID, SubjectID: identity.subjectID, Operation: "updateDevice", Method: "PATCH", Path: "/api/v2/devices/" + id, Key: key, RequestID: requestID, IfMatch: ifMatch, CanonicalBody: canonical}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		var lockedID string
 		if err := tx.QueryRow(ctx, `SELECT id::text FROM devices WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE`, identity.tenantID, id).Scan(&lockedID); err != nil {
 			if errors.Is(err, sqldb.ErrNoRows) {
@@ -374,7 +375,7 @@ func nativeLocationStorage(location json.RawMessage) any {
 	return []byte(location)
 }
 
-func validateNativeCustomFieldsTx(ctx context.Context, tx *sqldb.Tx, values, previous, definitions json.RawMessage, hasTemplate bool) error {
+func validateNativeCustomFieldsTx(ctx context.Context, tx dbx.Tx, values, previous, definitions json.RawMessage, hasTemplate bool) error {
 	var incoming, old map[string]json.RawMessage
 	_ = json.Unmarshal(values, &incoming)
 	_ = json.Unmarshal(previous, &old)

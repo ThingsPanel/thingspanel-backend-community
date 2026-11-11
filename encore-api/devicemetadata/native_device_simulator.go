@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"fmt"
 	"io"
@@ -113,7 +114,7 @@ func simulatorBody(data any, requestID string) (json.RawMessage, error) {
 }
 
 type simulatorQuerier interface {
-	QueryRow(ctx context.Context, query string, args ...any) *sqldb.Row
+	QueryRow(ctx context.Context, query string, args ...any) dbx.Row
 }
 
 func loadSimulatorProfile(ctx context.Context, q simulatorQuerier, tenantID, deviceID string) (*SimulatorProfile, error) {
@@ -186,7 +187,7 @@ func updateSimulatorProfile(ctx context.Context, identity nativeDeviceWriteIdent
 		IfMatch: ifMatch, CanonicalBody: canonical,
 	}
 	payload, _ := json.Marshal(input.Payload)
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		var device string
 		if err := tx.QueryRow(ctx, `SELECT id::text FROM devices WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE`,
 			identity.tenantID, deviceID).Scan(&device); err != nil {
@@ -261,7 +262,7 @@ func createSimulationSession(ctx context.Context, identity nativeDeviceWriteIden
 		Method: http.MethodPost, Path: "/api/v2/devices/" + deviceID + "/simulator-sessions", Key: key, RequestID: requestID,
 		CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		profile, err := loadSimulatorProfile(ctx, tx, identity.tenantID, deviceID)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
@@ -360,7 +361,7 @@ func runDeviceSimulation(ctx context.Context, identity nativeDeviceWriteIdentity
 		Method: http.MethodPost, Path: "/api/v2/devices/" + deviceID + "/simulation-runs", Key: key, RequestID: requestID,
 		CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		var state string
 		var expires time.Time
 		var version int64

@@ -61,9 +61,13 @@ func decodeDeviceNumberCheck(body []byte) (deviceNumberCheckInput, error) {
 
 func checkNativeDeviceNumber(ctx context.Context, tenantID string, in deviceNumberCheckInput) (DeviceNumberAvailability, error) {
 	var taken bool
-	err := db.QueryRow(ctx, `SELECT EXISTS(
-			SELECT 1 FROM devices WHERE tenant_id=$1 AND device_number=$2 AND ($3::uuid IS NULL OR id <> $3::uuid))`,
-		tenantID, in.DeviceNumber, in.ExcludeDeviceID).Scan(&taken)
+	query := `SELECT EXISTS(
+			SELECT 1 FROM devices WHERE tenant_id=$1 AND device_number=$2 AND ($3::uuid IS NULL OR id <> $3::uuid))`
+	if db.Dialect() == "mysql" {
+		query = `SELECT EXISTS(
+			SELECT 1 FROM devices WHERE tenant_id=$1 AND device_number=$2 AND ($3 IS NULL OR id <> $3))`
+	}
+	err := db.QueryRow(ctx, query, tenantID, in.DeviceNumber, in.ExcludeDeviceID).Scan(&taken)
 	if err != nil {
 		return DeviceNumberAvailability{}, wrapDBErr(err, "check device number failed")
 	}

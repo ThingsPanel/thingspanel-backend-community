@@ -153,16 +153,24 @@ func (s *Store) Backlog(ctx context.Context) (*BacklogStats, error) {
 // that lists only bindings would tell the customer "nothing runs on this
 // device" while three legacy scene automations quietly do.
 func (s *Store) RulesMatchingDevice(ctx context.Context, tenantID, deviceID string) ([]*Rule, error) {
+	condition := `
+             SELECT 1 FROM jsonb_array_elements(r.definition->'trigger'->'groups') g,
+                           jsonb_array_elements(g->'conditions') c
+              WHERE (c->>'source' = 'self' OR c->>'source' IS NULL)`
+	if s.MySQL {
+		condition = `
+             SELECT 1
+               FROM JSON_TABLE(COALESCE(JSON_EXTRACT(r.definition, '$.trigger.groups'), JSON_ARRAY()), '$[*]' COLUMNS (conds JSON PATH '$.conditions')) g,
+                    JSON_TABLE(COALESCE(g.conds, JSON_ARRAY()), '$[*]' COLUMNS (source VARCHAR(32) PATH '$.source')) c
+              WHERE (c.source = 'self' OR c.source IS NULL)`
+	}
 	rows, err := s.DB.QueryContext(ctx, `
         SELECT DISTINCT `+ruleColumns+`
           FROM auto_rules r
          WHERE r.tenant_id = $1
            AND r.deleted_at IS NULL
            AND r.enabled
-           AND EXISTS (
-             SELECT 1 FROM jsonb_array_elements(r.definition->'trigger'->'groups') g,
-                           jsonb_array_elements(g->'conditions') c
-              WHERE (c->>'source' = 'self' OR c->>'source' IS NULL)
+           AND EXISTS (`+condition+`
            )
          ORDER BY r.name
          LIMIT 200`, tenantID)

@@ -3,7 +3,8 @@ package store
 import (
 	"context"
 	"database/sql"
-	"errors"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -24,24 +25,27 @@ const RunLeaseDuration = 2 * time.Minute
 // doing nothing is the only safe answer, because walking the program again would
 // repeat side effects.
 func (s *Store) ClaimRun(ctx context.Context, runID, owner string, now, until time.Time) (bool, error) {
-	var id string
-	err := s.DB.QueryRowContext(ctx, `
+	// resume_count is assigned first: MySQL evaluates SET left to right, so it must read the lease owner
+	// before this statement overwrites it. PostgreSQL reads the old row either way. Success is the one
+	// matched row, which works without RETURNING (the MySQL pool is opened with clientFoundRows).
+	res, err := s.DB.ExecContext(ctx, `
         UPDATE auto_runs
-           SET status='running',
+           SET resume_count = resume_count + CASE WHEN lease_owner IS NOT NULL THEN 1 ELSE 0 END,
+               status='running',
                lease_owner=$2,
-               lease_until=$3,
-               resume_count = resume_count + CASE WHEN lease_owner IS NOT NULL THEN 1 ELSE 0 END
+               lease_until=$3
          WHERE id=$1
            AND status IN ('accepted','running')
-           AND (lease_owner IS NULL OR lease_owner=$2 OR lease_until IS NULL OR lease_until < $4)
-        RETURNING id`, runID, owner, until, now).Scan(&id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
+           AND (lease_owner IS NULL OR lease_owner=$2 OR lease_until IS NULL OR lease_until < $4)`,
+		runID, owner, until, now)
 	if err != nil {
 		return false, err
 	}
-	return true, nil
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n == 1, nil
 }
 
 // ReleaseRun drops the lease. It is scoped to the owner so a worker that already
@@ -104,6 +108,9 @@ func (s *Store) ResumableRuns(ctx context.Context, now time.Time, limit int) ([]
 // actually dead. The status is `expired`, not `failed`: nothing went wrong with
 // the rule, the clock ran out.
 func (s *Store) ExpireOverdueRuns(ctx context.Context, now time.Time, limit int) ([]string, error) {
+	if s.MySQL {
+		return s.expireOverdueRunsMySQL(ctx, now, limit)
+	}
 	rows, err := s.DB.QueryContext(ctx, `
         WITH overdue AS (
             SELECT id FROM auto_runs
@@ -140,4 +147,61 @@ func (s *Store) ExpireOverdueRuns(ctx context.Context, now time.Time, limit int)
 		out = append(out, id)
 	}
 	return out, rows.Err()
+}
+
+// expireOverdueRunsMySQL is the MySQL form of ExpireOverdueRuns: no UPDATE ... FROM and no RETURNING, so the
+// rows are locked with SKIP LOCKED inside one transaction and then updated by id.
+func (s *Store) expireOverdueRunsMySQL(ctx context.Context, now time.Time, limit int) ([]string, error) {
+	var out []string
+	err := s.WithTx(ctx, func(tx *sql.Tx) error {
+		out = nil
+		rows, err := tx.QueryContext(ctx, `
+            SELECT id FROM auto_runs
+             WHERE status IN ('accepted','queued','running')
+               AND deadline IS NOT NULL AND deadline < $1
+             ORDER BY deadline
+             LIMIT $2
+             FOR UPDATE SKIP LOCKED`, now, limit)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return err
+			}
+			out = append(out, id)
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if err := rows.Err(); err != nil || len(out) == 0 {
+			return err
+		}
+		args := []any{now}
+		marks := make([]string, len(out))
+		for i, id := range out {
+			args = append(args, id)
+			marks[i] = fmt.Sprintf("$%d", i+2)
+		}
+		_, err = tx.ExecContext(ctx, `
+            UPDATE auto_runs r
+               SET status='expired',
+                   reason_code=coalesce(nullif(r.snapshot->>'deadline_reason',''), 'run_budget_exceeded'),
+                   reason=CASE coalesce(nullif(r.snapshot->>'deadline_reason',''), 'run_budget_exceeded')
+                            WHEN 'parallel_ttl_exceeded' THEN '并行模式超过最长占用时限，已终止'
+                            WHEN 'queue_ttl_exceeded'    THEN '排队超过最长等待时限，已终止'
+                            ELSE '运行超过最长时限'
+                          END,
+                   finished_at=$1,
+                   lease_owner=NULL,
+                   lease_until=NULL
+             WHERE r.id IN (`+strings.Join(marks, ",")+`)`, args...)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }

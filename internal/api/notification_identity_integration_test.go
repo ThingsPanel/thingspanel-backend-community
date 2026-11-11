@@ -266,6 +266,9 @@ func TestNotificationSessionContextChecksLiveJWTRedisAndUserState(t *testing.T) 
 	}
 
 	// The middleware recognizes a cached API key, but this endpoint must still require x-token.
+	if err := db.Exec(`INSERT INTO open_api_keys (id, tenant_id, api_key, status, name, created_id) VALUES (?, ?, ?, ?, ?, ?)`, "identity-key", "tenant-identity", "identity-fixture-key", 1, "fixture", "identity-user").Error; err != nil {
+		t.Fatal("seed isolated API key")
+	}
 	if err := redisClient.Set(context.Background(), "apikey:identity-fixture-key", "tenant-identity", time.Hour).Err(); err != nil {
 		t.Fatal("seed isolated API key tenant cache")
 	}
@@ -376,6 +379,12 @@ func openNotificationIdentityPGFixture(t *testing.T) *gorm.DB {
 	if err := db.Exec(`CREATE TABLE users (
 		id text PRIMARY KEY, tenant_id text, status text, authority text)`).Error; err != nil {
 		t.Fatal("create isolated identity users table")
+	}
+	if err := db.Exec(`CREATE TABLE open_api_keys (
+		id text PRIMARY KEY, tenant_id text NOT NULL, api_key text NOT NULL UNIQUE,
+		status smallint, name text NOT NULL, created_at timestamptz,
+		updated_at timestamptz, created_id text)`).Error; err != nil {
+		t.Fatal("create isolated API key table")
 	}
 	return db
 }

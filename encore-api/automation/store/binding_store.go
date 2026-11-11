@@ -328,7 +328,7 @@ type BindingSummary struct {
 // SummarizeBindings joins bindings with rule names for the reconciliation view.
 func (s *Store) SummarizeBindings(ctx context.Context, tenantID, deviceConfigID string) ([]BindingSummary, error) {
 	rows, err := s.DB.QueryContext(ctx, `
-        SELECT b.rule_id, coalesce(r.name,''), b.source, b.enabled, coalesce(jsonb_object_length(b.params),0)
+        SELECT b.rule_id, coalesce(r.name,''), b.source, b.enabled, `+paramCount(s.MySQL)+`
           FROM auto_bindings b
           LEFT JOIN auto_rules r ON r.id=b.rule_id
          WHERE b.tenant_id=$1 AND b.device_config_id=$2
@@ -346,4 +346,13 @@ func (s *Store) SummarizeBindings(ctx context.Context, tenantID, deviceConfigID 
 		out = append(out, x)
 	}
 	return out, rows.Err()
+}
+
+// paramCount is the SQL expression that counts the keys of b.params. PostgreSQL has no jsonb_object_length();
+// the key set function does the same job.
+func paramCount(mysql bool) string {
+	if mysql {
+		return "coalesce(JSON_LENGTH(b.params),0)"
+	}
+	return "(SELECT count(*) FROM jsonb_object_keys(coalesce(b.params,'{}'::jsonb)))"
 }

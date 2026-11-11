@@ -2,9 +2,12 @@
 package croninit
 
 import (
+	"errors"
 	"time"
 
+	"project/internal/automationbridge"
 	"project/internal/service"
+	"project/pkg/errcode"
 
 	"github.com/robfig/cron"
 	"github.com/sirupsen/logrus"
@@ -12,22 +15,41 @@ import (
 
 var c = cron.New()
 
-// 定义任务初始化
-func CronInit() {
-	// 初始化设备统计定时任务
-	InitDeviceStatsCron(c)
+func reportAutomationTaskError(task string, err error) {
+	if err == nil {
+		return
+	}
+	var code *errcode.Error
+	if errors.As(err, &code) && code.Code == 100001 {
+		return
+	}
+	logrus.WithError(err).Error("legacy automation " + task + " task failed")
+}
 
+func registerAutomationJobs(c *cron.Cron) {
 	// 单次定义成任务 - 每5秒执行一次
 	c.AddFunc("*/5 * * * * *", func() {
 		logrus.Debug("【定时任务】自动化单次任务开始：")
-		service.GroupApp.OnceTaskExecute()
+		reportAutomationTaskError("once", service.GroupApp.OnceTaskExecute())
 	})
 
 	// 重复定义成任务 - 每5秒执行一次
 	c.AddFunc("*/5 * * * * *", func() {
 		logrus.Debug("【定时任务】自动化重复时间任务开始：")
-		service.GroupApp.PeriodicTaskExecute()
+		reportAutomationTaskError("periodic", service.GroupApp.PeriodicTaskExecute())
 	})
+}
+
+// 定义任务初始化
+func CronInit() {
+	// 初始化设备统计定时任务
+	InitDeviceStatsCron(c)
+	config, modeErr := automationbridge.ReadConfig()
+	if modeErr != nil {
+		logrus.WithError(modeErr).Error("automation scheduler configuration invalid")
+	} else if config.Mode == "legacy" {
+		registerAutomationJobs(c)
+	}
 
 	// 每天凌晨2点执行数据清理
 	c.AddFunc("0 2 * * *", func() {

@@ -86,10 +86,16 @@ cli = str(TOOLS / 'bin/encore')
 if not run([cli, 'version'], env=env).startswith('encore version v1.58.6'):
     raise RuntimeError('Unexpected Encore CLI version')
 run(['git', 'init', '-q', str(source)])
+marketinstall = os.environ.get('TP_DEPLOY_MARKETINSTALL', 'false')
+if marketinstall not in ('true', 'false'):
+    raise RuntimeError('Invalid TP_DEPLOY_MARKETINSTALL')
+native_services = 'authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification'
+if marketinstall == 'true':
+    native_services += ',marketinstall'
 image = 'tp-community-encore:source-' + SHA
 with (release / 'build.private.log').open('wb') as log:
     result = subprocess.run([cli, 'build', 'docker', image,
-                             '--services=authn,thingmodel,automation,notification', '--skip-config'],
+                             '--services=' + native_services, '--skip-config'],
                             cwd=str(source), env=env, stdout=log, stderr=subprocess.STDOUT,
                             timeout=1800)
     if result.returncode:
@@ -105,7 +111,10 @@ old_images = {name: config['services'][name]['image'] for name in services}
 runtime = json.loads((RUNTIME / 'runtime.encore.private.json').read_text())
 databases = runtime['sql_servers'][0]['databases']
 resources = {'device_metadata': 'devicemetadata/migrations', 'automation': 'automation/migrations',
-             'notification': 'l3-core/notification/migrations'}
+             'notification': 'l3-core/notification/migrations', 'file_storage': 'fileassets/migrations',
+             'connector_runtime': 'l3-core/connectorcatalog/migrations'}
+if marketinstall == 'true':
+    resources['market_install'] = 'marketinstall/migrations'
 plans = []
 
 
@@ -116,6 +125,9 @@ def sql(database, script):
 
 for logical, directory in resources.items():
     matches = [(name, db) for name, db in databases.items() if db['name'] == logical]
+    if not matches:
+        # Checked before any service is stopped, so the running services are untouched.
+        raise RuntimeError('Database ' + logical + ' is not provisioned in runtime.encore.private.json; see ENCORE.md')
     if len(matches) != 1:
         raise RuntimeError('Resource database mapping is ambiguous')
     database, db = matches[0]

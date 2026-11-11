@@ -40,14 +40,18 @@ func (s *testIngressStore) ProcessOne(ctx context.Context, _ func(context.Contex
 
 func TestBrokerIngressLegacyDoesNotRequireDBOrStartWorker(t *testing.T) {
 	previous := viper.GetString("mqtt.input_profile")
-	viper.Set("mqtt.input_profile", "legacy")
 	t.Cleanup(func() { viper.Set("mqtt.input_profile", previous) })
-	service := &MQTTService{app: &Application{Logger: logrus.New()}}
-	if err := service.configureBrokerIngress(context.Background(), nil); err != nil {
-		t.Fatal(err)
-	}
-	if service.brokerWorker != nil {
-		t.Fatal("legacy started a durable ingress worker")
+	for _, profile := range []string{"", "legacy"} {
+		t.Run(map[string]string{"": "default", "legacy": "legacy"}[profile], func(t *testing.T) {
+			viper.Set("mqtt.input_profile", profile)
+			service := &MQTTService{app: &Application{Logger: logrus.New()}}
+			if err := service.configureBrokerIngress(context.Background(), nil); err != nil {
+				t.Fatal(err)
+			}
+			if service.brokerWorker != nil {
+				t.Fatal("legacy started a durable ingress worker")
+			}
+		})
 	}
 }
 

@@ -166,6 +166,11 @@ func prepareExpectedDownlink(ctx context.Context, ed *model.ExpectedData) (broke
 		}
 		deviceType := snapshot.Devices[0].DeviceType
 		if snapshot.Plugin != nil {
+			prepared.LegacyTelemetryID = snapshot.Plugin.ServiceType == 1 && typ == downlink.MessageTypeTelemetry
+			prepared.TransportRoute, err = brokercommands.CapturePluginRoute(tx, ed.TenantID, target)
+			if err != nil {
+				return err
+			}
 			deviceType = snapshotWireDeviceType(snapshot)
 		}
 		nested, err := transformDurableDownlinkData(data, snapshot, deviceType)
@@ -286,6 +291,16 @@ func validateExpectedDownlinkSnapshot(ctx context.Context, tx *gorm.DB, row brok
 	fingerprint, _, snapshot, err := readDownlinkFingerprint(ctx, tx, row.TenantID, row.DeviceID, row.TargetDeviceID, p.Message.DeviceConfigID, scriptType)
 	if err != nil {
 		return err
+	}
+	if snapshot.Plugin != nil && p.TransportRoute == nil && len(snapshot.Devices) > 0 {
+		last := snapshot.Devices[len(snapshot.Devices)-1]
+		if last.ParentID != nil && *last.ParentID != "" {
+			return brokercommands.ErrFenced
+		}
+	}
+	legacy := snapshot.Plugin != nil && snapshot.Plugin.ServiceType == 1 && typ == downlink.MessageTypeTelemetry
+	if p.LegacyTelemetryID != legacy {
+		return brokercommands.ErrFenced
 	}
 	if len(snapshot.Devices) == 0 || p.Message.DeviceNumber != snapshot.Devices[len(snapshot.Devices)-1].DeviceNumber || p.Message.TopicPrefix != snapshotTopicPrefix(snapshot) || p.Message.DeviceType != snapshotWireDeviceType(snapshot) || effectiveMappingVersion(p.MappingVersion) != effectiveMappingVersion(snapshot.MappingVersion) || fingerprint != p.ConfigurationSHA256 {
 		return brokercommands.ErrFenced

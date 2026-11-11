@@ -15,12 +15,15 @@ const commandMarker = "\x00TP-COMMAND/1\n"
 const MaxCommandPayload = 512 << 10
 
 type CommandFrame struct {
-	CommandID          string `json:"command_id"`
-	TenantID           string `json:"tenant_id"`
-	TargetDeviceID     string `json:"target_device_id"`
-	TargetDeviceNumber string `json:"target_device_number,omitempty"`
-	RouteEpoch         uint64 `json:"route_epoch"`
-	MappingVersion     string `json:"mapping_version"`
+	LegacyTelemetryID   bool   `json:"legacy_telemetry_id,omitempty"`
+	CommandID           string `json:"command_id"`
+	TenantID            string `json:"tenant_id"`
+	TargetDeviceID      string `json:"target_device_id"`
+	TargetDeviceNumber  string `json:"target_device_number,omitempty"`
+	RouteEpoch          uint64 `json:"route_epoch"`
+	TransportDeviceID   string `json:"transport_device_id,omitempty"`
+	TransportRouteEpoch uint64 `json:"transport_route_epoch,omitempty"`
+	MappingVersion      string `json:"mapping_version"`
 	// CanonicalTopic is populated for custom wire mappings. Empty preserves the
 	// original standard/plugin frame encoding, where WireTopic is canonical.
 	CanonicalTopic string `json:"canonical_topic,omitempty"`
@@ -32,6 +35,10 @@ type CommandFrame struct {
 func IsCommandFrame(b []byte) bool { return bytes.HasPrefix(b, []byte(commandMarker)) }
 
 func (f CommandFrame) Validate(now time.Time) error {
+	if (f.TransportDeviceID != "" || f.TransportRouteEpoch != 0) && (!validIdentity(f.TransportDeviceID) || f.TransportRouteEpoch == 0 || (f.TransportDeviceID == f.TargetDeviceID && f.TransportRouteEpoch != f.RouteEpoch)) {
+		return errors.New("invalid command transport route snapshot")
+	}
+
 	if f.CommandID == "" || f.TenantID == "" || f.TargetDeviceID == "" || f.RouteEpoch == 0 || f.MappingVersion == "" || f.WireTopic == "" || strings.ContainsAny(f.WireTopic, "+#\x00") || IsInternalResource(f.WireTopic) || ValidatePublishTopic(f.WireTopic) != nil || len(f.Payload) == 0 || len(f.Payload) > MaxCommandPayload {
 		return errors.New("invalid command storage frame")
 	}
@@ -59,6 +66,14 @@ func (f CommandFrame) Validate(now time.Time) error {
 	}
 	if (IsCommandTopic(canonical) && parts[3] != f.CommandID) || (len(parts) == 5 && parts[1] == "attributes" && parts[2] == "set" && parts[4] != f.CommandID) {
 		return errors.New("command topic message id does not match frame")
+	}
+	if f.LegacyTelemetryID {
+		wirePrefix, wireCanonical, ok := SplitControlledDownlinkTopic(f.WireTopic)
+		canonicalPrefix, canonical, canonicalOK := SplitControlledDownlinkTopic(f.CanonicalTopic)
+		canonicalParts := strings.Split(canonical, "/")
+		if !ok || !canonicalOK || wirePrefix == "" || canonicalPrefix != wirePrefix || len(canonicalParts) != 4 || canonicalParts[1] != "telemetry" || canonicalParts[2] != "control" || wireCanonical != "devices/telemetry/control/"+f.TargetDeviceID {
+			return errors.New("invalid legacy protocol telemetry alias")
+		}
 	}
 	if f.ExpiresAt <= now.UnixMilli() || f.ExpiresAt > now.Add(24*time.Hour).UnixMilli() {
 		return errors.New("command storage frame expired or exceeds maximum TTL")

@@ -37,7 +37,7 @@ type AlarmIntake struct {
 // caller that lost the race gets the winner's row back and must replay that
 // decision instead of computing a new one.
 func (s *Store) ReserveAlarmIntake(ctx context.Context, in *AlarmIntake) (*AlarmIntake, bool, error) {
-	res, err := s.exec(ctx, nil, `
+	res, err := s.execOnce(ctx, nil, `
         INSERT INTO alarm_event_intake (tenant_id, policy_key, action_id, source, subject_id,
                                         dimension, kind, payload_hash, outcome)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'in_flight')

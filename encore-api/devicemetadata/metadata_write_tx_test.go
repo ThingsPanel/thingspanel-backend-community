@@ -3,13 +3,13 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
 
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 )
 
 func metadataWriteTestScope(t *testing.T) (context.Context, metadataWriteCommand) {
@@ -32,8 +32,8 @@ func metadataWriteTestScope(t *testing.T) (context.Context, metadataWriteCommand
 	return ctx, command
 }
 
-func metadataWriteTestApply(ctx context.Context, command metadataWriteCommand, calls *atomic.Int32, reject bool) func(*sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
-	return func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+func metadataWriteTestApply(ctx context.Context, command metadataWriteCommand, calls *atomic.Int32, reject bool) func(dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	return func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		calls.Add(1)
 		row, err := insertAccessTemplateConfigurationTx(ctx, tx, command.TenantID, command.SubjectID, &accessTemplateConfigurationRecord{
 			Name: "receipt-" + testTenantID(), Tags: []string{}, AdministrativeState: "enabled", Configuration: json.RawMessage(accessTemplateStoreFixtureConfiguration),

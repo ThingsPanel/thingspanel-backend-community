@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"fmt"
 	"io"
@@ -34,7 +35,7 @@ var accessTemplateDigestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 // the caller's trusted tenant-local transaction. It does not authorize the
 // caller; template/model read authorization remains with the service owner.
 // A null selection is a valid unmodeled template and returns nil.
-func resolveAccessTemplateModelBindingTx(ctx context.Context, tx *sqldb.Tx, tenantID string, selection json.RawMessage) (*ThingModelBinding, error) {
+func resolveAccessTemplateModelBindingTx(ctx context.Context, tx dbx.Tx, tenantID string, selection json.RawMessage) (*ThingModelBinding, error) {
 	if tx == nil {
 		return nil, &errs.Error{Code: errs.Internal, Message: "template model resolution requires an existing transaction"}
 	}

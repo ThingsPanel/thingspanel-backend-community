@@ -1,0 +1,403 @@
+{
+  "purpose": "规划schema正反例；仅验证静态类型/必填/null/枚举/未知字段，不代表产品/API/授权测试执行通过。",
+  "cases": [
+    {
+      "id": "SC-DEV-01",
+      "schema": "CreateDevice",
+      "value": {
+        "name": "温度计",
+        "deviceNumber": "DEV-001",
+        "deviceKind": "standalone"
+      },
+      "valid": true,
+      "purpose": "无模板/产品/模型的合法预登记"
+    },
+    {
+      "id": "SC-DEV-02",
+      "schema": "CreateDevice",
+      "value": {
+        "name": "温度计",
+        "deviceNumber": "DEV-001",
+        "deviceKind": "standalone",
+        "tenantId": "11111111-1111-4111-8111-111111111111"
+      },
+      "valid": false,
+      "purpose": "拒绝客户端注入租户"
+    },
+    {
+      "id": "SC-DEV-03",
+      "schema": "UpdateDevice",
+      "value": {
+        "description": null,
+        "labels": {}
+      },
+      "valid": true,
+      "purpose": "允许空值清除与空对象，区别省略"
+    },
+    {
+      "id": "SC-DEV-04",
+      "schema": "UpdateDevice",
+      "value": {
+        "name": null
+      },
+      "valid": false,
+      "purpose": "非空字段不允许null"
+    },
+    {
+      "id": "SC-GRP-01",
+      "schema": "CreateDeviceGroup",
+      "value": {
+        "name": "车间一",
+        "parentId": null,
+        "sortOrder": 0
+      },
+      "valid": true,
+      "purpose": "合法根组与零排序"
+    },
+    {
+      "id": "SC-GRP-02",
+      "schema": "SetGroupMembers",
+      "value": {
+        "deviceIds": [
+          "11111111-1111-4111-8111-111111111111",
+          "22222222-2222-4222-8222-222222222222"
+        ],
+        "expectedGroupVersion": 1
+      },
+      "valid": true,
+      "purpose": "明确成员ID和版本"
+    },
+    {
+      "id": "SC-GRP-03",
+      "schema": "SetGroupMembers",
+      "value": {
+        "deviceIds": [
+          "11111111-1111-4111-8111-111111111111",
+          "11111111-1111-4111-8111-111111111111"
+        ],
+        "expectedGroupVersion": 1
+      },
+      "valid": false,
+      "purpose": "同批重复ID拒绝"
+    },
+    {
+      "id": "SC-GRP-04",
+      "schema": "SetGroupMembers",
+      "value": {
+        "deviceIds": [
+          "11111111-1111-4111-8111-111111111111"
+        ]
+      },
+      "valid": false,
+      "purpose": "缺并发版本拒绝"
+    },
+    {
+      "id": "SC-GRP-05",
+      "schema": "MoveDeviceGroup",
+      "value": {
+        "parentId": null,
+        "expectedResourceVersion": 1
+      },
+      "valid": true,
+      "purpose": "显式移动到根，null不视为省略"
+    },
+    {
+      "id": "SC-REF-01",
+      "schema": "ReserveMetadataReference",
+      "value": {
+        "target": {
+          "kind": "device",
+          "id": "11111111-1111-4111-8111-111111111111"
+        },
+        "source": {
+          "kind": "automation_rule",
+          "id": "rule-17",
+          "revision": "r2",
+          "relationKind": "condition_device"
+        }
+      },
+      "valid": true,
+      "purpose": "合法服务引用请求"
+    },
+    {
+      "id": "SC-REF-02",
+      "schema": "ReserveMetadataReference",
+      "value": {
+        "target": {
+          "kind": "device",
+          "id": "11111111-1111-4111-8111-111111111111"
+        },
+        "source": {
+          "kind": "automation_rule",
+          "id": "rule-17",
+          "revision": "r2",
+          "relationKind": "condition_device"
+        },
+        "tenantId": "22222222-2222-4222-8222-222222222222"
+      },
+      "valid": false,
+      "purpose": "拒绝客户端提供tenantId"
+    },
+    {
+      "id": "SC-REF-03",
+      "schema": "ReserveMetadataReference",
+      "value": {
+        "target": {
+          "kind": "device",
+          "id": "11111111-1111-4111-8111-111111111111"
+        },
+        "source": {
+          "kind": "automation_rule",
+          "id": "rule-17",
+          "revision": "r2",
+          "relationKind": "condition_device"
+        },
+        "sourceOwner": "automation"
+      },
+      "valid": false,
+      "purpose": "拒绝客户端提供sourceOwner"
+    },
+    {
+      "id": "SC-REF-04",
+      "schema": "ReserveMetadataReference",
+      "value": {
+        "target": {
+          "kind": "device",
+          "id": "11111111-1111-4111-8111-111111111111"
+        },
+        "source": {
+          "kind": "automation_rule",
+          "id": "rule-17",
+          "relationKind": "condition_device"
+        }
+      },
+      "valid": false,
+      "purpose": "来源版本必须显式存在"
+    },
+    {
+      "id": "SC-REF-05",
+      "schema": "ReserveMetadataReference",
+      "value": {
+        "target": {
+          "kind": "device_config",
+          "id": "11111111-1111-4111-8111-111111111111"
+        },
+        "source": {
+          "kind": "automation_rule",
+          "id": "rule-17",
+          "revision": "r2",
+          "relationKind": "condition_device"
+        }
+      },
+      "valid": false,
+      "purpose": "不能沿用歧义旧实体名"
+    },
+    {
+      "id": "SC-REF-06",
+      "schema": "MetadataReferenceCommand",
+      "value": {
+        "expectedReferenceVersion": 1,
+        "expectedSourceRevision": "r2",
+        "expectedTargetEpoch": 3
+      },
+      "valid": true,
+      "purpose": "确认和续期的完整前置条件"
+    },
+    {
+      "id": "SC-REF-07",
+      "schema": "MetadataReferenceCommand",
+      "value": {
+        "expectedReferenceVersion": 0,
+        "expectedSourceRevision": "r2",
+        "expectedTargetEpoch": 3
+      },
+      "valid": false,
+      "purpose": "资源版本从1起"
+    },
+    {
+      "id": "SC-REF-08",
+      "schema": "ReleaseMetadataReference",
+      "value": {
+        "expectedReferenceVersion": 2,
+        "expectedSourceRevision": "r1"
+      },
+      "valid": true,
+      "purpose": "只释放指定来源版本"
+    },
+    {
+      "id": "SC-REF-09",
+      "schema": "MetadataReferenceResponse",
+      "value": {
+        "data": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "tenantId": "11111111-1111-4111-8111-111111111111",
+          "target": {
+            "kind": "device",
+            "id": "11111111-1111-4111-8111-111111111111"
+          },
+          "source": {
+            "kind": "automation_rule",
+            "id": "rule-17",
+            "revision": "r2",
+            "relationKind": "condition_device"
+          },
+          "sourceOwner": "automation",
+          "targetEpoch": 3,
+          "resourceVersion": 1,
+          "state": "reserved",
+          "reservedUntil": "2026-10-25T04:10:00.000Z",
+          "createdAt": "2026-10-25T04:00:00.000Z",
+          "updatedAt": "2026-10-25T04:00:00.000Z",
+          "confirmedAt": null,
+          "releasedAt": null
+        },
+        "meta": {
+          "requestId": "schema-fixture-1"
+        }
+      },
+      "valid": true,
+      "purpose": "统一data/meta引用响应"
+    },
+    {
+      "id": "SC-ERR-01",
+      "schema": "Problem",
+      "value": {
+        "type": "urn:thingspanel:problem:permission-denied",
+        "title": "Permission denied",
+        "status": 403,
+        "detail": "The operation is not permitted.",
+        "instance": "urn:request:fixture-1",
+        "code": "PERMISSION_DENIED",
+        "requestId": "fixture-1"
+      },
+      "valid": true,
+      "purpose": "统一RFC9457扩展结构"
+    },
+    {
+      "id": "SC-ERR-02",
+      "schema": "Problem",
+      "value": {
+        "type": "urn:thingspanel:problem:permission-denied",
+        "title": "Permission denied",
+        "status": 200,
+        "detail": "The operation is not permitted.",
+        "instance": "urn:request:fixture-1",
+        "code": "PERMISSION_DENIED",
+        "requestId": "fixture-1"
+      },
+      "valid": false,
+      "purpose": "业务错误不可包装成HTTP200问题"
+    },
+    {
+      "id": "SC-DISC-01",
+      "schema": "ServiceDiscoveredDevice",
+      "value": {
+        "externalId": "ext-001",
+        "displayName": "温度设备",
+        "suggestedDeviceNumber": null,
+        "deviceKind": null,
+        "importState": "available",
+        "registeredDeviceId": null,
+        "reasonCode": null
+      },
+      "valid": true,
+      "purpose": "合法外部未登记候选"
+    },
+    {
+      "id": "SC-DISC-02",
+      "schema": "ServiceDiscoveredDevice",
+      "value": {
+        "externalId": "ext-001",
+        "displayName": "温度设备",
+        "suggestedDeviceNumber": null,
+        "deviceKind": null,
+        "importState": "available",
+        "registeredDeviceId": null,
+        "reasonCode": null,
+        "secret": "forbidden"
+      },
+      "valid": false,
+      "purpose": "候选schema拒绝秘密字段"
+    },
+    {
+      "id": "SC-RECEIPT-01",
+      "schema": "RuntimeConfigurationReceipt",
+      "value": {
+        "schemaVersion": 1,
+        "receiptId": "11111111-1111-4111-8111-111111111111",
+        "eventId": "11111111-1111-4111-8111-111111111111",
+        "tenantId": "11111111-1111-4111-8111-111111111111",
+        "deviceId": "11111111-1111-4111-8111-111111111111",
+        "generation": 2,
+        "contentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "applied",
+        "observedAt": "2026-10-25T03:00:00Z",
+        "appliedGeneration": 2,
+        "failureCode": null,
+        "retryable": false
+      },
+      "valid": true,
+      "purpose": "合法应用回执"
+    },
+    {
+      "id": "SC-RECEIPT-02",
+      "schema": "RuntimeConfigurationReceipt",
+      "value": {
+        "schemaVersion": 1,
+        "receiptId": "11111111-1111-4111-8111-111111111111",
+        "eventId": "11111111-1111-4111-8111-111111111111",
+        "tenantId": "11111111-1111-4111-8111-111111111111",
+        "deviceId": "11111111-1111-4111-8111-111111111111",
+        "generation": 2,
+        "contentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "applied",
+        "observedAt": "2026-10-25T03:00:00Z",
+        "appliedGeneration": null,
+        "failureCode": null,
+        "retryable": false
+      },
+      "valid": false,
+      "purpose": "applied不能无已应用代"
+    },
+    {
+      "id": "SC-RECEIPT-03",
+      "schema": "RuntimeConfigurationReceipt",
+      "value": {
+        "schemaVersion": 1,
+        "receiptId": "11111111-1111-4111-8111-111111111111",
+        "eventId": "11111111-1111-4111-8111-111111111111",
+        "tenantId": "11111111-1111-4111-8111-111111111111",
+        "deviceId": "11111111-1111-4111-8111-111111111111",
+        "generation": 2,
+        "contentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "failed",
+        "observedAt": "2026-10-25T03:00:00Z",
+        "appliedGeneration": 1,
+        "failureCode": "APPLY_FAILED",
+        "retryable": true
+      },
+      "valid": true,
+      "purpose": "失败保留之前代"
+    },
+    {
+      "id": "SC-RECEIPT-04",
+      "schema": "RuntimeConfigurationReceipt",
+      "value": {
+        "schemaVersion": 1,
+        "receiptId": "11111111-1111-4111-8111-111111111111",
+        "eventId": "11111111-1111-4111-8111-111111111111",
+        "tenantId": "11111111-1111-4111-8111-111111111111",
+        "deviceId": "11111111-1111-4111-8111-111111111111",
+        "generation": 2,
+        "contentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "failed",
+        "observedAt": "2026-10-25T03:00:00Z",
+        "appliedGeneration": 2,
+        "failureCode": null,
+        "retryable": false
+      },
+      "valid": false,
+      "purpose": "失败必须有failureCode"
+    }
+  ]
+}

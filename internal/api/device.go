@@ -669,7 +669,7 @@ func (*DeviceApi) CreateSonDevice(c *gin.Context) {
 		return
 	}
 
-	err := service.GroupApp.Device.CreateSonDevice(c, &param)
+	err := service.GroupApp.Device.CreateSonDevice(c, &param, c.MustGet("claims").(*utils.UserClaims))
 	if err != nil {
 		c.Error(err)
 		return
@@ -812,6 +812,9 @@ func (*DeviceApi) HandleConditionByDeviceID(c *gin.Context) {
 // /api/v1/device/map/telemetry/{id}
 func (*DeviceApi) HandleMapTelemetry(c *gin.Context) {
 	id := c.Param("id")
+	if !authorizeHTTPDeviceReads(c, []string{id}) {
+		return
+	}
 	data, err := service.GroupApp.Device.GetMapTelemetry(id)
 	if err != nil {
 		c.Error(err)
@@ -839,7 +842,7 @@ func (*DeviceApi) UpdateDeviceConfig(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	err := service.GroupApp.Device.UpdateDeviceConfig(&param)
+	err := service.GroupApp.Device.UpdateDeviceConfig(&param, c.MustGet("claims").(*utils.UserClaims))
 	if err != nil {
 		c.Error(err)
 		return
@@ -898,6 +901,9 @@ func (*DeviceApi) HandleDeviceMetricsChart(c *gin.Context) {
 
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
+	if !authorizeHTTPDeviceReads(c, []string{param.DeviceID}) {
+		return
+	}
 	data, err := service.GroupApp.Device.GetDeviceMetricsChart(&param, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -926,7 +932,12 @@ func (*DeviceApi) HandleDeviceSelector(c *gin.Context) {
 // 获取租户下最近上报数据的三个设备的遥测数据
 // /api/v1/device/telemetry/latest [get]
 func (*DeviceApi) HandleTenantTelemetryData(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	value, exists := c.Get("claims")
+	userClaims, ok := value.(*utils.UserClaims)
+	if !exists || !ok || userClaims == nil {
+		c.Error(errcode.New(errcode.CodeNoPermission))
+		return
+	}
 
 	data, err := service.GroupApp.Device.GetTenantTelemetryData(userClaims.TenantID)
 	if err != nil {
@@ -1010,6 +1021,8 @@ func (*DeviceApi) PublishBundleDraft(c *gin.Context) {
 		"version":        response.Version,
 		"contentHash":    response.ContentHash,
 		"status":         response.Status,
+		"versionId":      response.VersionID,
+		"targetState":    response.TargetState,
 		"precheckReport": precheckReport,
 	})
 }
@@ -1021,6 +1034,11 @@ func (*DeviceApi) AnalyzeDashboardBundle(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	authorization, err := dashboardExportAuthorization(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	thingsVisBaseURL, err := thingsVisPublicAPIBaseURL(c)
 	if err != nil {
 		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
@@ -1030,7 +1048,7 @@ func (*DeviceApi) AnalyzeDashboardBundle(c *gin.Context) {
 	result, err := service.NewMarketDashboardBundleService(thingsVisBaseURL).Analyze(
 		c.Request.Context(),
 		req.DashboardID,
-		c.GetHeader("Authorization"),
+		authorization,
 		claims,
 	)
 	if err != nil {
@@ -1047,6 +1065,11 @@ func (*DeviceApi) PublishDashboardBundle(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	authorization, err := dashboardExportAuthorization(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	thingsVisBaseURL, err := thingsVisPublicAPIBaseURL(c)
 	if err != nil {
 		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
@@ -1056,7 +1079,7 @@ func (*DeviceApi) PublishDashboardBundle(c *gin.Context) {
 	result, err := service.NewMarketDashboardBundleService(thingsVisBaseURL).Publish(
 		c.Request.Context(),
 		&req,
-		c.GetHeader("Authorization"),
+		authorization,
 		claims,
 	)
 	if err != nil {
@@ -1075,8 +1098,7 @@ func (*DeviceApi) InstallBundleFromMarket(c *gin.Context) {
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	installService := service.NewMarketBundleInstallService()
-	response, err := installService.InstallBundle(c.Request.Context(), &req, userClaims)
+	response, err := service.InstallMarketBundleWithSelectedOwner(c.Request.Context(), &req, userClaims, c.GetHeader("x-token"))
 	if err != nil {
 		c.Error(err)
 		return
@@ -1231,8 +1253,7 @@ func (*DeviceApi) GetBundleInstallStatus(c *gin.Context) {
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	installService := service.NewMarketBundleInstallService()
-	response, err := installService.GetInstallationStatus(c.Request.Context(), installID, userClaims.TenantID)
+	response, err := service.GetSelectedMarketInstallation(c.Request.Context(), installID, userClaims, c.GetHeader("x-token"))
 	if err != nil {
 		c.Error(err)
 		return

@@ -1,0 +1,2 @@
+f0ef9aa1916d4121c3c333ee95b9247ff2e719e3b3aa214faae27edeb0c4365e  0030_device_credentials.up.sql
+3b7b6ddd3b4a9edd57e3136e9bcb7b6f1415f54ca1355d4603c16da21a73a4c8  0031_metadata_secret_receipts.up.sql

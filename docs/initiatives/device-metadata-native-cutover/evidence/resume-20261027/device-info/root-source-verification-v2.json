@@ -1,0 +1,11 @@
+{
+  "files": 90,
+  "mismatch": [],
+  "changedFromV1": [
+    "src/views/device/details/modules/device-info-state.test.ts",
+    "src/views/device/details/modules/device-info-state.ts",
+    "src/views/device/details/modules/native-device-info.vue"
+  ],
+  "manifestSha256": "00e15f2e287a25d8cc8809ef8ce26dfb7cb0371df47a6e2daec39e180e797a18",
+  "archiveSha256": "8ab37f479c36b5b7c6ae07c1bb468e7588df82c95030007e78b9acccd30247a2"
+}

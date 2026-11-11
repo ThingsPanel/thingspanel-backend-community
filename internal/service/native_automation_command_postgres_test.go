@@ -4,13 +4,30 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"os/exec"
 	"project/internal/brokercommands"
+	"strings"
 	"testing"
 )
 
 func TestPostgresNativeCommandRejectsSupersededAndForgedIdentity(t *testing.T) {
+	if os.Getenv("TP_TEST_NATIVE_COMMAND_CHILD") != "1" {
+		cmd := exec.Command(os.Args[0], "-test.v", "-test.run=^TestPostgresNativeCommandRejectsSupersededAndForgedIdentity$")
+		cmd.Env = append(os.Environ(), "TP_TEST_NATIVE_COMMAND_CHILD=1")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("child: %v: %s", err, out)
+		}
+		if strings.Contains(string(out), "--- SKIP:") {
+			t.Skip("isolated PostgreSQL DSN unavailable")
+		}
+		return
+	}
 	db := automationPG(t)
 	t.Setenv("GOTP_AUTOMATION_MODE", "native")
+	t.Setenv("GOTP_AUTOMATION_BASE_URL", "http://127.0.0.1:8000")
+	t.Setenv("GOTP_AUTOMATION_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("GOTP_AUTOMATION_DEPLOYMENT_ID", "deployment-a")
 	if err := db.Exec("CREATE TABLE automation_scope_generation(scope_key text PRIMARY KEY,generation bigint NOT NULL)").Error; err != nil {
 		t.Fatal(err)
@@ -48,7 +65,22 @@ func TestPostgresNativeCommandRejectsSupersededAndForgedIdentity(t *testing.T) {
 		}
 	}
 	t.Setenv("GOTP_AUTOMATION_MODE", "legacy")
-	if err := ValidateNativeAutomationCommand(context.Background(), db, makeRow(2)); !errors.Is(err, brokercommands.ErrFenced) {
-		t.Fatal("disabled native engine still admitted queued commands")
+	if err := ValidateNativeAutomationCommand(context.Background(), db, makeRow(2)); err != nil {
+		t.Fatalf("frozen native mode changed after environment mutation: %v", err)
+	}
+}
+
+func TestLegacyModeFencesNativeCommand(t *testing.T) {
+	if os.Getenv("TP_TEST_LEGACY_COMMAND_CHILD") != "1" {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestLegacyModeFencesNativeCommand$")
+		cmd.Env = append(os.Environ(), "TP_TEST_LEGACY_COMMAND_CHILD=1")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("child: %v: %s", err, out)
+		}
+		return
+	}
+	t.Setenv("GOTP_AUTOMATION_MODE", "legacy")
+	if err := ValidateNativeAutomationCommand(context.Background(), nil, brokercommands.Row{}); !errors.Is(err, brokercommands.ErrFenced) {
+		t.Fatalf("legacy mode error: %v", err)
 	}
 }

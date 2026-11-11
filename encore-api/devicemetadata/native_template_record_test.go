@@ -3,11 +3,11 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"strings"
 	"testing"
 
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -160,7 +160,7 @@ func TestNativeTemplateRecordKeepsAssetIdentityAndRejectsIncompleteRows(t *testi
 	}
 }
 
-func insertNativeTemplateRecordBoundDevice(t *testing.T, ctx context.Context, tx *sqldb.Tx, tenantID, templateID, number string, deleted bool) string {
+func insertNativeTemplateRecordBoundDevice(t *testing.T, ctx context.Context, tx dbx.Tx, tenantID, templateID, number string, deleted bool) string {
 	t.Helper()
 	row := validDeviceIdentitySchemaRow(tenantID)
 	row.deviceNumber = deviceIdentityString(number + "-" + uuid.NewString())

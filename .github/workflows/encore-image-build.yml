@@ -64,7 +64,7 @@ jobs:
           GOFLAGS: '-p=2'
         run: |
           set -euo pipefail
-          encore build docker "tp-encore:$VERSION-$TARGET_ARCH" --arch="$TARGET_ARCH" --services=authn,thingmodel,automation,notification --skip-config
+          encore build docker "tp-encore:$VERSION-$TARGET_ARCH" --arch="$TARGET_ARCH" --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,platformconfig --skip-config
       - name: Push architecture images
         env:
           TARGET_ARCH: ${{ matrix.arch }}

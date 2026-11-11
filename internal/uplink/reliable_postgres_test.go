@@ -65,6 +65,13 @@ func reliableFixture(t *testing.T) (*gorm.DB, *brokerledger.Store) {
 			t.Fatal(e)
 		}
 	}
+	body, err := os.ReadFile(filepath.Join("..", "brokercommands", "testdata", "identity-fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(string(body)).Error; err != nil {
+		t.Fatal(err)
+	}
 	return db, brokerledger.New(db)
 }
 

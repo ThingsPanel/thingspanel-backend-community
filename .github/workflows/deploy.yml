@@ -1,9 +1,14 @@
 name: Community integrated test deploy
 on:
   push:
-    branches: [main]
-    paths-ignore: [ 'docs/**', '.ai/**', '**/*.md', 'deploy/release/**', '.github/workflows/release.yml', '.github/workflows/build-release.yml', '.github/workflows/docker-image-build.yml', '.github/workflows/encore-image-build.yml', '.github/workflows/deploy.yml']
+    branches: [main, wp/full-develop-integration-20261111]
+    paths-ignore: [ 'docs/**', '.ai/**', '**/*.md', 'deploy/release/**', '.github/workflows/release.yml', '.github/workflows/build-release.yml', '.github/workflows/docker-image-build.yml', '.github/workflows/encore-image-build.yml']
   workflow_dispatch:
+    inputs:
+      deploy_to_test:
+        description: 'Deploy the coordinated stack after data and runtime configuration acceptance'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -21,8 +26,11 @@ jobs:
           cache: true
       - name: Verify backend boundaries
         run: |
-          go test ./internal/app ./internal/uplink ./internal/automationbridge ./internal/brokercontract ./internal/brokercontrol ./internal/brokermapper
-          go test ./internal/api ./internal/service -run 'Test(AutomationOwner|Notification|Source|NewSource|EmailSource|AutomationPolicy)'
+          sudo apt-get update -qq
+          sudo apt-get install -y redis-server
+          (cd pkg/relational && go test ./...)
+          go test ./... -run '^$'
+          go test ./internal/... ./pkg/... ./initialize/... ./router/... ./sql/... ./cmd/... ./mqtt/... ./third_party/...
           python3 -m unittest discover -s deploy/community-test -p test_notification_identity.py
       - name: Build immutable backend bundle
         env:
@@ -53,4 +61,5 @@ jobs:
     uses: ./.github/workflows/deploy-encore.yml
     with:
       deploy_backend: true
+      deploy_runtime: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_test }}
     secrets: inherit

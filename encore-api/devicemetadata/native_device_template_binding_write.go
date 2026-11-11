@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"net/http"
 	"strings"
@@ -59,7 +60,7 @@ func decodeNativeSetTemplateBinding(body []byte) (nativeSetTemplateBindingInput,
 // as loadNativeDeviceTemplateBindingTx, but inside an Encore write transaction.
 // Both readers feed nativeDeviceTemplateBindingETag, so the validator a client
 // obtained from GET /template-binding is exactly what If-Match is compared with.
-func loadNativeDeviceTemplateBindingEncoreTx(ctx context.Context, tx *sqldb.Tx, tenantID, deviceID, requestID string) (*NativeDeviceTemplateBindingResponse, error) {
+func loadNativeDeviceTemplateBindingEncoreTx(ctx context.Context, tx dbx.Tx, tenantID, deviceID, requestID string) (*NativeDeviceTemplateBindingResponse, error) {
 	device, err := loadNativeDeviceEncoreTx(ctx, tx, tenantID, deviceID)
 	if err != nil {
 		return nil, err
@@ -172,7 +173,7 @@ func setNativeDeviceTemplateBinding(
 		Method: http.MethodPut, Path: path, Key: key, RequestID: requestID, IfMatch: ifMatch,
 		CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		var lockedID string
 		if err := tx.QueryRow(ctx, `SELECT id::text FROM devices WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE`,
 			identity.tenantID, deviceID).Scan(&lockedID); err != nil {

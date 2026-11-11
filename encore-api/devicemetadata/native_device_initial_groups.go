@@ -3,18 +3,18 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"sort"
 	"strings"
 
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
 // resolveNativeInitialGroupsTx resolves only the requested/default group IDs.
 // The caller owns the transaction and remains responsible for membership
 // inserts, group-version changes, audit, and commit/rollback.
-func resolveNativeInitialGroupsTx(ctx context.Context, tx *sqldb.Tx, tenantID string, requested NativeDeviceField[[]string], canWriteGroups bool) ([]string, error) {
+func resolveNativeInitialGroupsTx(ctx context.Context, tx dbx.Tx, tenantID string, requested NativeDeviceField[[]string], canWriteGroups bool) ([]string, error) {
 	if requested.Null {
 		return nil, invalidGroupQuery("initialGroupIds must be an array when supplied")
 	}
@@ -122,7 +122,7 @@ func resolveNativeInitialGroupsTx(ctx context.Context, tx *sqldb.Tx, tenantID st
 	return canonical, nil
 }
 
-func validateNativeInitialGroupsSQLScope(tx *sqldb.Tx, tenantID string) error {
+func validateNativeInitialGroupsSQLScope(tx dbx.Tx, tenantID string) error {
 	parsed, err := uuid.Parse(tenantID)
 	if err != nil || parsed == uuid.Nil || parsed.String() != tenantID {
 		return &errs.Error{Code: errs.Unauthenticated, Message: "invalid authenticated tenant context"}

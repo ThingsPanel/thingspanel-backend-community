@@ -17,6 +17,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const statusWSWriteTimeout = 10 * time.Second
+const statusWSJoinTimeout = 2 * time.Second
+
+func waitStatusWSExit(done <-chan struct{}, worker string) {
+	select {
+	case <-done:
+	case <-time.After(statusWSJoinTimeout):
+		logrus.WithField("worker", worker).Warn("status WebSocket shutdown timed out")
+	}
+}
+
 // ServeDeviceOnlineStatusWS 通过 WebSocket 提供设备在线状态订阅（新实现）
 // @Router       /api/v1/device/online/status/ws [get]
 func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
@@ -27,6 +38,10 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
+	writeInitial := func(kind int, data []byte) error {
+		_ = conn.SetWriteDeadline(time.Now().Add(statusWSWriteTimeout))
+		return conn.WriteMessage(kind, data)
+	}
 
 	clientIP := conn.RemoteAddr().String()
 	logrus.Infof("收到新的 WebSocket 连接: %s", clientIP)
@@ -35,45 +50,21 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 	msgType, msg, err := conn.ReadMessage()
 	if err != nil {
 		logrus.Error("读取初始消息失败:", err)
-		conn.WriteMessage(websocket.TextMessage, []byte("Failed to read initial message"))
+		_ = writeInitial(websocket.TextMessage, []byte("Failed to read initial message"))
 		return
 	}
 
 	var initMap map[string]interface{}
 	if err := json.Unmarshal(msg, &initMap); err != nil {
 		logrus.Error("初始消息 JSON 格式无效:", err)
-		conn.WriteMessage(msgType, []byte("Invalid initial message format"))
+		_ = writeInitial(msgType, []byte("Invalid initial message format"))
 		return
 	}
 
-	// 提取 device_ids（支持数组或逗号分隔字符串或单个 device_id）
-	var deviceIDs []string
-	if v, ok := initMap["device_ids"]; ok {
-		switch t := v.(type) {
-		case []interface{}:
-			for _, it := range t {
-				if s, ok := it.(string); ok && s != "" {
-					deviceIDs = append(deviceIDs, strings.TrimSpace(s))
-				}
-			}
-		case string:
-			if strings.Contains(t, ",") {
-				for _, s := range strings.Split(t, ",") {
-					if s = strings.TrimSpace(s); s != "" {
-						deviceIDs = append(deviceIDs, s)
-					}
-				}
-			} else if t != "" {
-				deviceIDs = append(deviceIDs, strings.TrimSpace(t))
-			}
-		}
-	}
-	if len(deviceIDs) == 0 {
-		if v, ok := initMap["device_id"]; ok {
-			if s, ok := v.(string); ok && s != "" {
-				deviceIDs = append(deviceIDs, strings.TrimSpace(s))
-			}
-		}
+	deviceIDs, err := parseWSDeviceIDs(initMap)
+	if err != nil {
+		_ = writeInitial(msgType, []byte(err.Error()))
+		return
 	}
 
 	// 规范化并提取鉴权字段（支持多种命名与 Header）
@@ -124,12 +115,13 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 	claims, err := validateAuth(initMap)
 	if err != nil {
 		logrus.WithError(err).Error("鉴权失败")
-		conn.WriteMessage(msgType, []byte(err.Error()))
+		_ = writeInitial(msgType, []byte(err.Error()))
 		return
 	}
 
-	if len(deviceIDs) == 0 {
-		conn.WriteMessage(msgType, []byte("device_ids is required"))
+	deviceIDs, err = authorizeWSDeviceIDs(claims, deviceIDs)
+	if err != nil {
+		_ = writeInitial(msgType, []byte(err.Error()))
 		return
 	}
 
@@ -159,7 +151,7 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 		})
 	}
 	if b, err := json.Marshal(initialList); err == nil {
-		if err := conn.WriteMessage(msgType, b); err != nil {
+		if err := writeInitial(msgType, b); err != nil {
 			logrus.WithError(err).Error("发送初始状态失败")
 			return
 		}
@@ -167,7 +159,8 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 
 	// 订阅对应 Redis 通道并转发（支持多通道）
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	var stopOnce sync.Once
+	stop := func() { stopOnce.Do(func() { cancel(); _ = conn.Close() }) }
 
 	channels := make([]string, 0, len(deviceIDs))
 	for _, did := range deviceIDs {
@@ -175,12 +168,20 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 	}
 
 	pubsub := global.REDIS.Subscribe(ctx, channels...)
-	defer pubsub.Close()
+	forwardDone := make(chan struct{})
+	defer func() {
+		stop()
+		closed := make(chan struct{})
+		go func() { _ = pubsub.Close(); close(closed) }()
+		waitStatusWSExit(closed, "batch pubsub close")
+		waitStatusWSExit(forwardDone, "batch forward")
+	}()
 
 	var mu sync.Mutex
 
 	// 转发 goroutine
 	go func() {
+		defer close(forwardDone)
 		ch := pubsub.Channel()
 		for {
 			select {
@@ -189,6 +190,7 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 			case msg, ok := <-ch:
 				if !ok {
 					logrus.Warn("Redis 通道关闭")
+					stop()
 					return
 				}
 
@@ -218,11 +220,12 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 				}
 
 				mu.Lock()
+				_ = conn.SetWriteDeadline(time.Now().Add(statusWSWriteTimeout))
 				err := conn.WriteMessage(websocket.TextMessage, out)
 				mu.Unlock()
 				if err != nil {
 					logrus.WithError(err).Error("写入 WebSocket 失败，结束连接")
-					cancel()
+					stop()
 					return
 				}
 			}
@@ -237,13 +240,18 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 			_ = conn.WriteControl(websocket.CloseMessage,
 				websocket.FormatCloseMessage(websocket.CloseNormalClosure, "connection closed"),
 				time.Now().Add(time.Second))
-			cancel()
+			stop()
 			return
 		}
 		if string(wsMsg) == "ping" {
 			mu.Lock()
-			_ = conn.WriteMessage(msgType, []byte("pong"))
+			_ = conn.SetWriteDeadline(time.Now().Add(statusWSWriteTimeout))
+			err := conn.WriteMessage(msgType, []byte("pong"))
 			mu.Unlock()
+			if err != nil {
+				stop()
+				return
+			}
 		}
 	}
 }

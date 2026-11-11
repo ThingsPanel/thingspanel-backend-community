@@ -18,6 +18,7 @@ type StorageServiceWrapper struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	channelBufferSize int
+	prepare           func(context.Context) error
 }
 
 // Name 返回服务名称
@@ -27,6 +28,11 @@ func (s *StorageServiceWrapper) Name() string {
 
 // Start 启动存储服务
 func (s *StorageServiceWrapper) Start() error {
+	if s.prepare != nil {
+		if err := s.prepare(s.ctx); err != nil {
+			return err
+		}
+	}
 	if err := s.storage.Start(s.ctx, s.inputChan); err != nil {
 		return fmt.Errorf("failed to start storage service: %w", err)
 	}
@@ -75,6 +81,40 @@ func WithStorageService() Option {
 			config.EnableMetrics = viper.GetBool("storage.enable_metrics")
 		}
 
+		// History mode is opt-in; an unknown value is an error rather than a silent fallback.
+		if viper.IsSet("storage.history_mode") {
+			config.HistoryMode = viper.GetString("storage.history_mode")
+		}
+		switch config.HistoryMode {
+		case "", storage.HistoryModePostgres, storage.HistoryModeIntent:
+		default:
+			return fmt.Errorf("unsupported storage.history_mode %q", config.HistoryMode)
+		}
+		if viper.IsSet("storage.history_generation") {
+			config.HistoryGeneration = viper.GetInt64("storage.history_generation")
+		}
+		if viper.IsSet("storage.history_replay_interval_ms") {
+			config.HistoryReplayIntervalMillis = viper.GetInt("storage.history_replay_interval_ms")
+		}
+		if viper.IsSet("storage.history_replay_batch") {
+			config.HistoryReplayBatch = viper.GetInt("storage.history_replay_batch")
+		}
+		if viper.IsSet("storage.history_replay_lease_seconds") {
+			config.HistoryReplayLeaseSeconds = viper.GetInt("storage.history_replay_lease_seconds")
+		}
+
+		prepare, err := selectHistoryBackend(historyBackendSettings{
+			Backend:      viper.GetString("storage.history_backend"),
+			ModeExplicit: viper.GetString("storage.history_mode"),
+			URL:          viper.GetString("storage.tdengine.url"),
+			User:         viper.GetString("storage.tdengine.user"),
+			Password:     viper.GetString("storage.tdengine.password"),
+			Database:     viper.GetString("storage.tdengine.database"),
+		}, &config)
+		if err != nil {
+			return err
+		}
+
 		logrus.Infof("Storage config: buffer=%d, batch=%d, flush=%dms, metrics=%v",
 			config.ChannelBufferSize,
 			config.TelemetryBatchSize,
@@ -98,6 +138,7 @@ func WithStorageService() Option {
 			ctx:               ctx,
 			cancel:            cancel,
 			channelBufferSize: config.ChannelBufferSize,
+			prepare:           prepare,
 		}
 
 		// 注册到服务管理器

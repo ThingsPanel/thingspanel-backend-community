@@ -82,7 +82,7 @@ require (
 	github.com/glebarez/sqlite v1.7.0
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-sql-driver/mysql v1.7.0 // indirect
+	github.com/go-sql-driver/mysql v1.7.0
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
@@ -140,7 +140,7 @@ require (
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1
-	gorm.io/driver/mysql v1.5.2 // indirect
+	gorm.io/driver/mysql v1.5.2
 	gorm.io/driver/sqlserver v1.4.1 // indirect
 	gorm.io/hints v1.1.0 // indirect
 	modernc.org/libc v1.65.0 // indirect
@@ -148,3 +148,7 @@ require (
 	modernc.org/memory v1.10.0 // indirect
 	modernc.org/sqlite v1.37.0 // indirect
 )
+
+require github.com/ThingsPanel/thingspanel-backend-community/pkg/relational v0.0.0
+
+replace github.com/ThingsPanel/thingspanel-backend-community/pkg/relational => ./pkg/relational

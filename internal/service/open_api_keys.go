@@ -2,6 +2,9 @@
 package service
 
 import (
+	"context"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/go-basic/uuid"
@@ -10,6 +13,7 @@ import (
 	"project/internal/dal"
 	"project/internal/model"
 	"project/pkg/errcode"
+	"project/pkg/global"
 	"project/pkg/utils"
 )
 
@@ -56,10 +60,8 @@ func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *ut
 	key.UpdatedAt = &t
 
 	if err := dal.CreateOpenAPIKey(key); err != nil {
-		logrus.Errorf("创建OpenAPI密钥失败: %v", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		logrus.Error("创建OpenAPI密钥失败")
+		return errcode.New(errcode.CodeDBError)
 	}
 
 	return nil
@@ -84,30 +86,46 @@ func (o *OpenAPIKey) GetOpenAPIKeyList(req *model.OpenAPIKeyListReq, claims *uti
 	result := make(map[string]interface{})
 	result["total"] = total
 	result["list"] = list
-	logrus.Infof("result: %v", result)
 	return result, nil
 }
 
-// UpdateOpenAPIKey 更新OpenAPI密钥
-func (o *OpenAPIKey) UpdateOpenAPIKey(req *model.UpdateOpenAPIKeyReq, claims *utils.UserClaims) error {
-	// 获取现有记录
-	key, err := dal.GetOpenAPIKeyByID(req.ID)
-	if err != nil {
-		logrus.Errorf("获取OpenAPI密钥信息失败: %v", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-			"id":    req.ID,
-		})
+func apiKeyWriteScope(claims *utils.UserClaims) (string, bool, error) {
+	if claims == nil || strings.TrimSpace(claims.ID) == "" {
+		return "", false, errcode.New(errcode.CodeNoPermission)
 	}
+	if claims.Authority == "SYS_ADMIN" {
+		return "", true, nil
+	}
+	if claims.Authority == "TENANT_ADMIN" && strings.TrimSpace(claims.TenantID) != "" {
+		return claims.TenantID, false, nil
+	}
+	return "", false, errcode.New(errcode.CodeNoPermission)
+}
 
-	// 校验权限
-	if claims.Authority != "SYS_ADMIN" {
-		if claims.Authority != "TENANT_ADMIN" || key.TenantID != claims.TenantID {
-			return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
-				"required_role": "SYS_ADMIN or TENANT_ADMIN",
-				"current_role":  claims.Authority,
-			})
-		}
+func apiKeyWriteError(err error) error {
+	switch {
+	case errors.Is(err, dal.ErrAPIKeyWriteForbidden):
+		return errcode.New(errcode.CodeNoPermission)
+	case errors.Is(err, dal.ErrAPIKeyWriteUnknown):
+		return errcode.NewWithMessage(errcode.CodeDBError, "api key change outcome unknown; reconcile before retry")
+	case errors.Is(err, dal.ErrAPIKeyWriteNotExecuted):
+		return errcode.NewWithMessage(errcode.CodeDBError, "api key change not executed")
+	default:
+		return errcode.New(errcode.CodeDBError)
+	}
+}
+
+// UpdateOpenAPIKey 更新OpenAPI密钥
+func (o *OpenAPIKey) UpdateOpenAPIKey(ctx context.Context, req *model.UpdateOpenAPIKeyReq, claims *utils.UserClaims) error {
+	tenant, allTenants, err := apiKeyWriteScope(claims)
+	if err != nil {
+		return err
+	}
+	if req == nil || strings.TrimSpace(req.ID) == "" {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	if req.Status != nil && *req.Status != 0 && *req.Status != 1 {
+		return errcode.New(errcode.CodeParamError)
 	}
 
 	// 构建更新内容
@@ -120,47 +138,40 @@ func (o *OpenAPIKey) UpdateOpenAPIKey(req *model.UpdateOpenAPIKeyReq, claims *ut
 	}
 
 	// 执行更新
-	if err := dal.UpdateOpenAPIKey(req.ID, updates); err != nil {
-		logrus.Errorf("更新OpenAPI密钥失败: %v", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-			"id":    req.ID,
-		})
+	if ctx == nil {
+		return apiKeyWriteError(dal.ErrAPIKeyWriteNotExecuted)
 	}
-
+	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := dal.MutateOpenAPIKey(dbCtx, global.DB, req.ID, tenant, allTenants, false, updates); err != nil {
+		return apiKeyWriteError(err)
+	}
 	return nil
 }
 
 // DeleteOpenAPIKey 删除OpenAPI密钥
-func (o *OpenAPIKey) DeleteOpenAPIKey(id string, claims *utils.UserClaims) error {
-	// 获取现有记录
-	key, err := dal.GetOpenAPIKeyByID(id)
+func (o *OpenAPIKey) DeleteOpenAPIKey(ctx context.Context, id string, claims *utils.UserClaims) error {
+	tenant, allTenants, err := apiKeyWriteScope(claims)
 	if err != nil {
-		logrus.Errorf("获取OpenAPI密钥信息失败: %v", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-			"id":    id,
-		})
+		return err
 	}
-
-	// 校验权限
-	if claims.Authority != "SYS_ADMIN" {
-		if claims.Authority != "TENANT_ADMIN" || key.TenantID != claims.TenantID {
-			return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
-				"required_role": "SYS_ADMIN or TENANT_ADMIN",
-				"current_role":  claims.Authority,
-			})
+	if strings.TrimSpace(id) == "" {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	if ctx == nil {
+		return apiKeyWriteError(dal.ErrAPIKeyWriteNotExecuted)
+	}
+	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := dal.MutateOpenAPIKey(dbCtx, global.DB, id, tenant, allTenants, true, nil); err != nil {
+		return apiKeyWriteError(err)
+	}
+	if global.REDIS != nil {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), time.Second)
+		defer cleanupCancel()
+		if err := global.REDIS.Del(cleanupCtx, "openapi:key:"+id).Err(); err != nil {
+			logrus.Warn("API key cache cleanup failed")
 		}
 	}
-
-	// 执行删除
-	if err := dal.DeleteOpenAPIKey(id); err != nil {
-		logrus.Errorf("删除OpenAPI密钥失败: %v", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-			"id":    id,
-		})
-	}
-
 	return nil
 }

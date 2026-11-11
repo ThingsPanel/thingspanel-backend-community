@@ -1,0 +1,231 @@
+{
+  "validator": "jsonschema 4.26.0",
+  "schema": "https://spec.openapis.org/oas/3.2/schema-base/2026-08-30",
+  "specSHA256": "2f2c7635f53a811f76897fb29d6815f7c230fe8de117d09e5ce9fb2bd96eecf0",
+  "oasErrors": [],
+  "schemaExamples": [
+    {
+      "id": "SC-DEV-01",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-DEV-02",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "Additional properties are not allowed ('tenantId' was unexpected)"
+      ]
+    },
+    {
+      "id": "SC-DEV-03",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-DEV-04",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "None is not of type 'string'"
+      ]
+    },
+    {
+      "id": "SC-GRP-01",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-GRP-02",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-GRP-03",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "['11111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111'] has non-unique elements"
+      ]
+    },
+    {
+      "id": "SC-GRP-04",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "'expectedGroupVersion' is a required property"
+      ]
+    },
+    {
+      "id": "SC-GRP-05",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-REF-01",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-REF-02",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "Additional properties are not allowed ('tenantId' was unexpected)"
+      ]
+    },
+    {
+      "id": "SC-REF-03",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "Additional properties are not allowed ('sourceOwner' was unexpected)"
+      ]
+    },
+    {
+      "id": "SC-REF-04",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "'revision' is a required property"
+      ]
+    },
+    {
+      "id": "SC-REF-05",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "'device_config' is not one of ['device', 'access_template', 'access_revision', 'product', 'group']"
+      ]
+    },
+    {
+      "id": "SC-REF-06",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-REF-07",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "0 is less than the minimum of 1"
+      ]
+    },
+    {
+      "id": "SC-REF-08",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-REF-09",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-ERR-01",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-ERR-02",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "200 is less than the minimum of 400"
+      ]
+    },
+    {
+      "id": "SC-DISC-01",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-DISC-02",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "Additional properties are not allowed ('secret' was unexpected)"
+      ]
+    },
+    {
+      "id": "SC-RECEIPT-01",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-RECEIPT-02",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "None is not of type 'integer'"
+      ]
+    },
+    {
+      "id": "SC-RECEIPT-03",
+      "expectedValid": true,
+      "actualValid": true,
+      "passed": true,
+      "validationErrors": []
+    },
+    {
+      "id": "SC-RECEIPT-04",
+      "expectedValid": false,
+      "actualValid": false,
+      "passed": true,
+      "validationErrors": [
+        "None is not of type 'string'"
+      ]
+    }
+  ],
+  "allSchemaExamplesPassed": true,
+  "officialSources": [
+    "https://spec.openapis.org/oas/3.2/schema-base/2026-08-30",
+    "https://spec.openapis.org/oas/3.2/schema/2026-08-30",
+    "https://spec.openapis.org/oas/3.2/dialect/2026-02-26",
+    "https://spec.openapis.org/oas/3.2/meta/2026-02-26"
+  ],
+  "sourceHashes": {
+    "https://spec.openapis.org/oas/3.2/schema-base/2026-08-30": "e53e45230434f615fb51f2aa8cc967e4c8fdf2555b14b4fcf22d49294000eae8",
+    "https://spec.openapis.org/oas/3.2/schema/2026-08-30": "2a5bdce659451785fa08e42dc0847624f04ad7c38f330ca812e9348e3a20333a",
+    "https://spec.openapis.org/oas/3.2/dialect/2026-02-26": "5c389d2d639dea1a757ddf3d05bbddda416e3e749a5c27a87999febe05065f88",
+    "https://spec.openapis.org/oas/3.2/meta/2026-02-26": "10ee9114b82dea79a77884575b9c3ad1d8929a423f2932a7ed6801df71872c78"
+  },
+  "executedAt": "2026-10-25T04:11:30.683368+00:00",
+  "scope": "Planning OpenAPI schema and examples only; product tests, client compilation, browser, migration and deployment not executed."
+}

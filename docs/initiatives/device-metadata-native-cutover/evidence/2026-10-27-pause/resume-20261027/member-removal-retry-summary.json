@@ -1,0 +1,6 @@
+{
+  "repaired_member_removal_http": "passed",
+  "group_delete_after_removal": "passed",
+  "device_readable_before_after": "passed",
+  "request_count": 6
+}

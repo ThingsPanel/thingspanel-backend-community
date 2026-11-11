@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"encore.app/internal/nativehttp"
 	"encore.dev"
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -160,7 +160,7 @@ func createNativeDebugSession(ctx context.Context, identity nativeDeviceWriteIde
 		Method: http.MethodPost, Path: "/api/v2/devices/" + deviceID + "/debug-sessions", Key: key,
 		RequestID: requestID, CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		device, err := loadNativeDeviceEncoreTx(ctx, tx, identity.tenantID, deviceID)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
@@ -205,7 +205,7 @@ func stopNativeDebugSession(ctx context.Context, identity nativeDeviceWriteIdent
 		Method: http.MethodDelete, Path: debugSessionLocation(deviceID, sessionID), Key: key,
 		RequestID: requestID, CanonicalBody: []byte("null"),
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		device, err := loadNativeDeviceEncoreTx(ctx, tx, identity.tenantID, deviceID)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err

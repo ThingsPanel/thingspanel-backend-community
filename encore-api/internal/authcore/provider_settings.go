@@ -20,7 +20,9 @@ import (
 // ProviderSettings shares the existing account database and its migration owner.
 // Drafts never replace published configuration until explicitly tested/enabled.
 type ProviderSettings struct {
-	DB      *sql.DB
+	DB *sql.DB
+	// Dialect selects the SQL translation; the zero value is PostgreSQL.
+	Dialect Dialect
 	Key     []byte
 	Origin  string
 	Build   func(ProviderConfig) (*Provider, error)
@@ -44,8 +46,29 @@ type TenantOption struct {
 	Name string `json:"name"`
 }
 
+func (m *ProviderSettings) dx() dialectDB {
+	return dialectDB{inner: m.DB, db: m.DB, dialect: m.Dialect}
+}
+
+// jsonArg adapts a marshalled document for a JSON column: PostgreSQL's driver accepts bytes, MySQL
+// rejects a binary-charset value for a JSON column and needs text.
+func (m *ProviderSettings) jsonArg(raw []byte) any {
+	if m.Dialect == DialectMySQL {
+		return string(raw)
+	}
+	return raw
+}
+
+// tenantOptionsQuery returns the first tenant administrator (lowest id) per tenant.
+func (m *ProviderSettings) tenantOptionsQuery() string {
+	if m.Dialect == DialectMySQL {
+		return `SELECT tenant_id,COALESCE(NULLIF(name,''),NULLIF(email,''),tenant_id) FROM (SELECT tenant_id,name,email,ROW_NUMBER() OVER (PARTITION BY tenant_id ORDER BY id) AS rn FROM users WHERE authority='TENANT_ADMIN' AND COALESCE(tenant_id,'')<>'') u WHERE rn=1 ORDER BY tenant_id`
+	}
+	return `SELECT DISTINCT ON (tenant_id) tenant_id,COALESCE(NULLIF(to_jsonb(u)->>'name',''),NULLIF(to_jsonb(u)->>'email',''),tenant_id) FROM users u WHERE authority='TENANT_ADMIN' AND COALESCE(tenant_id,'')<>'' ORDER BY tenant_id,id`
+}
+
 func (m *ProviderSettings) TenantOptions(ctx context.Context) ([]TenantOption, error) {
-	rows, e := m.DB.QueryContext(ctx, `SELECT DISTINCT ON (tenant_id) tenant_id,COALESCE(NULLIF(to_jsonb(u)->>'name',''),NULLIF(to_jsonb(u)->>'email',''),tenant_id) FROM users u WHERE authority='TENANT_ADMIN' AND COALESCE(tenant_id,'')<>'' ORDER BY tenant_id,id`)
+	rows, e := m.dx().QueryContext(ctx, m.tenantOptionsQuery())
 	if e != nil {
 		return nil, ErrUnavailable
 	}
@@ -183,7 +206,7 @@ func (m *ProviderSettings) build(c ProviderConfig) (*Provider, error) {
 }
 
 func (m *ProviderSettings) List(ctx context.Context) ([]ProviderSetting, error) {
-	rows, e := m.DB.QueryContext(ctx, `SELECT draft,revision,validated_revision,tested_revision,tested_at,published_revision,enabled,draft_secret FROM auth_provider_settings ORDER BY id`)
+	rows, e := m.dx().QueryContext(ctx, `SELECT draft,revision,validated_revision,tested_revision,tested_at,published_revision,enabled,draft_secret FROM auth_provider_settings ORDER BY id`)
 	if e != nil {
 		return nil, ErrUnavailable
 	}
@@ -213,7 +236,7 @@ func (m *ProviderSettings) draft(ctx context.Context, id string) (ProviderConfig
 	var raw, secret []byte
 	var revision int64
 	var c ProviderConfig
-	if m.DB.QueryRowContext(ctx, `SELECT draft,draft_secret,revision FROM auth_provider_settings WHERE id=$1`, id).Scan(&raw, &secret, &revision) != nil || json.Unmarshal(raw, &c) != nil {
+	if m.dx().QueryRowContext(ctx, `SELECT draft,draft_secret,revision FROM auth_provider_settings WHERE id=$1`, id).Scan(&raw, &secret, &revision) != nil || json.Unmarshal(raw, &c) != nil {
 		return c, 0, ErrUnavailable
 	}
 	v, e := m.open(id, secret)
@@ -232,7 +255,7 @@ func (m *ProviderSettings) Resolve(ctx context.Context, base map[string]*Provide
 	for id, p := range base {
 		out[id] = p
 	}
-	rows, e := m.DB.QueryContext(ctx, `SELECT id,enabled,published,published_secret,published_revision,generation FROM auth_provider_settings ORDER BY id`)
+	rows, e := m.dx().QueryContext(ctx, `SELECT id,enabled,published,published_secret,published_revision,generation FROM auth_provider_settings ORDER BY id`)
 	if e != nil {
 		return nil, ErrUnavailable
 	}
@@ -296,7 +319,7 @@ func (m *ProviderSettings) Save(ctx context.Context, u User, in providerChange) 
 	c.ReviewID = ""
 	c.ClientSecret = strings.TrimSpace(c.ClientSecret)
 	c.AppSecret = strings.TrimSpace(c.AppSecret)
-	tx, e := m.DB.BeginTx(ctx, nil)
+	tx, e := m.dx().BeginTx(ctx, nil)
 	if e != nil {
 		return ErrUnavailable
 	}
@@ -334,7 +357,7 @@ func (m *ProviderSettings) Save(ctx context.Context, u User, in providerChange) 
 		return ErrForbidden
 	}
 	if rev == 0 {
-		_, e = tx.ExecContext(ctx, `INSERT INTO auth_provider_settings(id,draft,draft_secret) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, c.ID, raw, secret)
+		_, e = tx.ExecContext(ctx, `INSERT INTO auth_provider_settings(id,draft,draft_secret) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, c.ID, m.jsonArg(raw), secret)
 		if e == nil {
 			var stored []byte
 			e = tx.QueryRowContext(ctx, `SELECT draft_secret FROM auth_provider_settings WHERE id=$1`, c.ID).Scan(&stored)
@@ -343,7 +366,7 @@ func (m *ProviderSettings) Save(ctx context.Context, u User, in providerChange) 
 			}
 		}
 	} else {
-		_, e = tx.ExecContext(ctx, `UPDATE auth_provider_settings SET draft=$2,draft_secret=$3,revision=revision+1,validated_revision=0,tested_revision=0,tested_at=NULL,updated_at=now() WHERE id=$1`, c.ID, raw, secret)
+		_, e = tx.ExecContext(ctx, `UPDATE auth_provider_settings SET draft=$2,draft_secret=$3,revision=revision+1,validated_revision=0,tested_revision=0,tested_at=NULL,updated_at=now() WHERE id=$1`, c.ID, m.jsonArg(raw), secret)
 	}
 	if e != nil {
 		return ErrUnavailable
@@ -370,7 +393,7 @@ func (m *ProviderSettings) Validate(ctx context.Context, id string, revision int
 	}
 	for _, tenant := range c.TenantIDs {
 		var found bool
-		if m.DB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE tenant_id=$1 AND authority='TENANT_ADMIN')`, tenant).Scan(&found) != nil {
+		if m.dx().QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE tenant_id=$1 AND authority='TENANT_ADMIN')`, tenant).Scan(&found) != nil {
 			return nil, ErrUnavailable
 		}
 		if !found {
@@ -381,7 +404,7 @@ func (m *ProviderSettings) Validate(ctx context.Context, id string, revision int
 	if e != nil {
 		return nil, ErrForbidden
 	}
-	r, e := m.DB.ExecContext(ctx, `UPDATE auth_provider_settings SET validated_revision=revision WHERE id=$1 AND revision=$2`, id, revision)
+	r, e := m.dx().ExecContext(ctx, `UPDATE auth_provider_settings SET validated_revision=revision WHERE id=$1 AND revision=$2`, id, revision)
 	if e != nil {
 		return nil, ErrUnavailable
 	}
@@ -392,7 +415,7 @@ func (m *ProviderSettings) Validate(ctx context.Context, id string, revision int
 }
 
 func (m *ProviderSettings) markTested(ctx context.Context, u User, id string, revision int64) error {
-	tx, e := m.DB.BeginTx(ctx, nil)
+	tx, e := m.dx().BeginTx(ctx, nil)
 	if e != nil {
 		return ErrUnavailable
 	}
@@ -419,7 +442,7 @@ func (m *ProviderSettings) SetEnabled(ctx context.Context, u User, id string, re
 			return e
 		}
 	}
-	tx, e := m.DB.BeginTx(ctx, nil)
+	tx, e := m.dx().BeginTx(ctx, nil)
 	if e != nil {
 		return ErrUnavailable
 	}

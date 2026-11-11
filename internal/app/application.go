@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"project/initialize"
+	"project/internal/automationbridge"
 	"project/internal/downlink"
 	"project/internal/query"
 	"project/internal/storage"
@@ -37,6 +39,9 @@ type Application struct {
 
 // NewApplication 创建并初始化应用
 func NewApplication(options ...Option) (*Application, error) {
+	if err := automationbridge.Initialize(); err != nil {
+		return nil, err
+	}
 	app := &Application{
 		Logger:         logrus.New(),
 		ServiceManager: NewServiceManager(),
@@ -54,6 +59,9 @@ func NewApplication(options ...Option) (*Application, error) {
 		query.SetDefault(app.DB)
 	}
 
+	if err := registerNativeAutomationScheduler(app); err != nil {
+		return nil, err
+	}
 	return app, nil
 }
 
@@ -85,7 +93,9 @@ func (app *Application) Shutdown() {
 		app.Logger.Info("Redis connection closed")
 	}
 
-	// DB不需要显式关闭，gorm.DB没有Close方法
+	if err := initialize.CloseRelationalResources(); err != nil {
+		app.Logger.WithError(err).Error("relational database pools close failed")
+	}
 
 	app.Logger.Info("所有资源已成功清理")
 	logrus.Info("应用关闭完成")

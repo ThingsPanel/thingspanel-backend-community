@@ -245,8 +245,6 @@ func waitForDeviceTemplatePublishLockWaiters(t *testing.T, want int) error {
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		var count int
-		// The observer shares the overall deadline; a 100ms per-query cap
-		// rejects correct lock contention on a Windows Docker connection.
 		ctx, cancel := context.WithDeadline(context.Background(), deadline)
 		err := db.QueryRow(ctx, `
 			SELECT COUNT(*) FROM pg_stat_activity

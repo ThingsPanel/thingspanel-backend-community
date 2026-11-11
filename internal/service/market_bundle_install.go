@@ -6,9 +6,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"sort"
 	"time"
 
 	"project/internal/dal"
@@ -20,6 +23,7 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 // MarketBundleInstallService handles the orchestration of market bundle installations
@@ -44,24 +48,52 @@ func NewMarketBundleInstallService() *MarketBundleInstallService {
 
 // InstallBundle orchestrates the complete installation of a market bundle
 func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *model.InstallBundleRequest, claims *utils.UserClaims) (*model.InstallBundleResponse, error) {
+	if owner := os.Getenv("TP_MARKETINSTALL_OWNER"); owner != "" && owner != "legacy" {
+		return nil, errcode.WithData(errcode.CodeOpDenied, "legacy installation writer is retired or owner selection is invalid; use the selected owner")
+	}
 	tenantID := claims.TenantID
+	if err := supportedInstallPolicy(req.OverwritePolicy); err != nil {
+		return nil, err
+	}
+
+	// Reject duplicate binding keys before creating an installation or importing
+	// any resources. resolveDeviceBindings performs the same check defensively.
+	seenBindings := make(map[string]struct{}, len(req.DeviceBindings))
+	for _, binding := range req.DeviceBindings {
+		if _, exists := seenBindings[binding.BindingKey]; exists {
+			return nil, errcode.WithData(errcode.CodeParamError, "duplicate device binding: "+binding.BindingKey)
+		}
+		seenBindings[binding.BindingKey] = struct{}{}
+	}
 
 	// 1. Handle idempotency
 	idempotencyKey := req.IdempotencyKey
 	if idempotencyKey == "" {
-		idempotencyKey = s.generateIdempotencyKey(req.BundleKey, req.Version, tenantID)
+		// An omitted key denotes a new installation instance. Callers that
+		// need safe retries must retain and resend an explicit key.
+		idempotencyKey = uuid.New()
 	}
+
+	requestDigest := installationRequestDigest(req, tenantID, claims.ID)
 
 	// Check for existing installation with same idempotency key
 	existing, err := s.installRepo.GetByIdempotencyKey(ctx, idempotencyKey, tenantID)
 	if err == nil && existing != nil {
-		// Return existing installation
-		return s.buildIdempotentResponse(existing, tenantID)
+		if err := checkInstallationReplay(existing, requestDigest); err != nil {
+			return nil, err
+		}
+		return s.buildIdempotentResponse(ctx, existing, tenantID)
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		// An unavailable lookup is not evidence that no installation exists.
+		// Do not create a new record or start remote work on an unknown result.
+		return nil, errcode.WithData(errcode.CodeDBError, "Failed to look up installation")
 	}
 
 	// 2. Create installation record
 	inst := &model.MarketBundleInstallation{
 		IdempotencyKey: idempotencyKey,
+		RequestDigest:  requestDigest,
 		BundleKey:      req.BundleKey,
 		BundleVersion:  req.Version,
 		TenantID:       tenantID,
@@ -69,8 +101,18 @@ func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *mod
 	}
 	inst, err = s.installRepo.CreateInstallation(ctx, inst)
 	if err != nil {
+		// A concurrent request (or a committed insert whose reply was lost)
+		// may own this key. Re-read only; never start a second set of effects.
+		existing, lookupErr := s.installRepo.GetByIdempotencyKey(ctx, idempotencyKey, tenantID)
+		if lookupErr == nil {
+			if replayErr := checkInstallationReplay(existing, requestDigest); replayErr != nil {
+				return nil, replayErr
+			}
+			return s.buildIdempotentResponse(ctx, existing, tenantID)
+		}
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "Failed to create installation record: " + err.Error(),
+			"errorCode": "INSTALLATION_CREATE_RESULT_UNKNOWN", "idempotencyKey": idempotencyKey,
+			"error": "Installation record was not reliably acknowledged; retry only with the same key",
 		})
 	}
 
@@ -80,74 +122,74 @@ func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *mod
 	// 3. Download bundle from Horizon
 	bundle, err := s.downloadBundleFromHorizon(ctx, req.MarketToken, req.BundleKey, req.Version)
 	if err != nil {
-		s.failInstallation(ctx, inst.ID, tenantID, "DOWNLOAD_FAILED", err.Error())
-		return nil, err
+		return nil, s.failInstallationFrom(ctx, inst.ID, tenantID, inst.Status, "DOWNLOAD_FAILED", err)
 	}
 
 	// Update to DOWNLOADED state
-	if err := s.installRepo.UpdateStatus(ctx, inst.ID, model.InstallStateDownloaded, "", ""); err != nil {
-		logrus.Warnf("Failed to update status to DOWNLOADED: %v", err)
+	if err := s.installRepo.TransitionStatus(ctx, inst.ID, tenantID, model.InstallStateDownloading, model.InstallStateDownloaded, "", ""); err != nil {
+		return nil, installationPersistenceError(inst.ID, "state_downloaded", err)
 	}
+	inst.Status = model.InstallStateDownloaded
 	s.recordAudit(ctx, inst.ID, tenantID, "state_change", model.InstallStateDownloading, model.InstallStateDownloaded, nil)
 
 	// 4. Verify bundle (hash, signature, schema, compatibility)
 	if err := s.verifyBundle(ctx, inst.ID, tenantID, bundle, req.MarketToken); err != nil {
-		s.failInstallation(ctx, inst.ID, tenantID, "VERIFICATION_FAILED", err.Error())
-		return nil, err
+		return nil, s.failInstallationFrom(ctx, inst.ID, tenantID, inst.Status, "VERIFICATION_FAILED", err)
 	}
 
 	// Update to VERIFIED state
-	if err := s.installRepo.UpdateStatus(ctx, inst.ID, model.InstallStateVerified, "", ""); err != nil {
-		logrus.Warnf("Failed to update status to VERIFIED: %v", err)
+	if err := s.installRepo.TransitionStatus(ctx, inst.ID, tenantID, model.InstallStateDownloaded, model.InstallStateVerified, "", ""); err != nil {
+		return nil, installationPersistenceError(inst.ID, "state_verified", err)
 	}
+	inst.Status = model.InstallStateVerified
 	s.recordAudit(ctx, inst.ID, tenantID, "state_change", model.InstallStateDownloaded, model.InstallStateVerified, nil)
 
 	// 5. Install device templates
 	warnings := []string{}
 	deviceTemplateMappings, installWarnings, err := s.installDeviceTemplates(ctx, inst.ID, tenantID, bundle, req.OverwritePolicy)
 	if err != nil {
-		s.failInstallation(ctx, inst.ID, tenantID, "MODELS_INSTALL_FAILED", err.Error())
-		return nil, err
+		return nil, s.failInstallationFrom(ctx, inst.ID, tenantID, inst.Status, "MODELS_INSTALL_FAILED", err)
 	}
 	warnings = append(warnings, installWarnings...)
 
 	// Update to MODELS_INSTALLED state
-	if err := s.installRepo.UpdateStatus(ctx, inst.ID, model.InstallStateModelsInstalled, "", ""); err != nil {
-		logrus.Warnf("Failed to update status to MODELS_INSTALLED: %v", err)
+	if err := s.installRepo.TransitionStatus(ctx, inst.ID, tenantID, model.InstallStateVerified, model.InstallStateModelsInstalled, "", ""); err != nil {
+		return nil, installationPersistenceError(inst.ID, "state_modelsinstalled", err)
 	}
+	inst.Status = model.InstallStateModelsInstalled
 	s.recordAudit(ctx, inst.ID, tenantID, "state_change", model.InstallStateVerified, model.InstallStateModelsInstalled, nil)
 
 	// 6. Validate all runtime device bindings before creating any dashboard.
 	resolvedBindings, err := s.resolveDeviceBindings(ctx, tenantID, bundle, req.DeviceBindings, deviceTemplateMappings)
 	if err != nil {
-		s.failInstallation(ctx, inst.ID, tenantID, "BINDING_FAILED", err.Error())
-		return nil, err
+		return nil, s.failInstallationFrom(ctx, inst.ID, tenantID, inst.Status, "BINDING_FAILED", err)
 	}
 
 	// 7. Create dashboards via ThingsVis with real tenant device IDs.
 	dashboardMappings, err := s.createDashboards(ctx, inst.ID, tenantID, claims.ID, bundle, resolvedBindings)
 	if err != nil {
-		s.failInstallation(ctx, inst.ID, tenantID, "DASHBOARD_CREATE_FAILED", err.Error())
-		return nil, err
+		return nil, s.failInstallationFrom(ctx, inst.ID, tenantID, inst.Status, "DASHBOARD_CREATE_FAILED", err)
 	}
 
 	// Update to DASHBOARDS_CREATED state
-	if err := s.installRepo.UpdateStatus(ctx, inst.ID, model.InstallStateDashboardsCreated, "", ""); err != nil {
-		logrus.Warnf("Failed to update status to DASHBOARDS_CREATED: %v", err)
+	if err := s.installRepo.TransitionStatus(ctx, inst.ID, tenantID, model.InstallStateModelsInstalled, model.InstallStateDashboardsCreated, "", ""); err != nil {
+		return nil, installationPersistenceError(inst.ID, "state_dashboardscreated", err)
 	}
+	inst.Status = model.InstallStateDashboardsCreated
 	s.recordAudit(ctx, inst.ID, tenantID, "state_change", model.InstallStateModelsInstalled, model.InstallStateDashboardsCreated, nil)
 
 	// 8. Record device bindings
 	bindingStatuses, finalWarnings, err := s.processDeviceBindings(ctx, inst.ID, tenantID, bundle, req.DeviceBindings, deviceTemplateMappings)
 	if err != nil {
-		s.failInstallation(ctx, inst.ID, tenantID, "BINDING_FAILED", err.Error())
-		return nil, err
+		return nil, s.failInstallationFrom(ctx, inst.ID, tenantID, inst.Status, "BINDING_FAILED", err)
 	}
 	warnings = append(warnings, finalWarnings...)
 
 	// Update warnings
 	if len(warnings) > 0 {
-		s.installRepo.UpdateWarnings(ctx, inst.ID, warnings)
+		if err := s.installRepo.UpdateWarnings(ctx, inst.ID, warnings); err != nil {
+			return nil, installationPersistenceError(inst.ID, "warnings", err)
+		}
 	}
 
 	// 9. Determine final state
@@ -165,14 +207,16 @@ func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *mod
 	}
 
 	// Update to final state
-	if err := s.installRepo.UpdateStatus(ctx, inst.ID, finalState, "", ""); err != nil {
-		logrus.Warnf("Failed to update status to %s: %v", finalState, err)
+	if err := s.installRepo.TransitionStatus(ctx, inst.ID, tenantID, model.InstallStateDashboardsCreated, finalState, "", ""); err != nil {
+		return nil, installationPersistenceError(inst.ID, "final_state", err)
 	}
 	s.recordAudit(ctx, inst.ID, tenantID, "state_change", model.InstallStateDashboardsCreated, finalState, nil)
 	s.recordAudit(ctx, inst.ID, tenantID, "install_completed", "", finalState, nil)
 
 	// 10. Notify Horizon of installation (async)
-	go s.notifyHorizonInstallComplete(context.Background(), req.MarketToken, req.BundleKey, req.Version, tenantID, inst.ID)
+	if finalState == model.InstallStateCompleted {
+		go s.notifyHorizonInstallComplete(context.Background(), req.MarketToken, req.BundleKey, req.Version, tenantID, inst.ID)
+	}
 
 	// Build response
 	return s.buildInstallResponse(inst.ID, req.BundleKey, req.Version, finalState, deviceTemplateMappings, dashboardMappings, bindingStatuses, warnings, false, "")
@@ -308,7 +352,9 @@ func (s *MarketBundleInstallService) verifyBundle(ctx context.Context, installID
 	}
 
 	if len(warnings) > 0 {
-		s.installRepo.UpdateWarnings(ctx, installID, warnings)
+		if err := s.installRepo.UpdateWarnings(ctx, installID, warnings); err != nil {
+			return installationPersistenceError(installID, "verification_warnings", err)
+		}
 	}
 
 	s.recordAudit(ctx, installID, tenantID, "bundle_verified", "", "", nil)
@@ -317,6 +363,9 @@ func (s *MarketBundleInstallService) verifyBundle(ctx context.Context, installID
 
 // installDeviceTemplates installs device templates from the bundle
 func (s *MarketBundleInstallService) installDeviceTemplates(ctx context.Context, installID, tenantID string, bundle *model.HorizonBundleDownload, overwritePolicy string) ([]*model.ResourceMappingResponse, []string, error) {
+	if err := supportedInstallPolicy(overwritePolicy); err != nil {
+		return nil, nil, err
+	}
 	var resources struct {
 		DeviceTemplates []struct {
 			ResourceKey string `json:"resourceKey"`
@@ -351,21 +400,28 @@ func (s *MarketBundleInstallService) installDeviceTemplates(ctx context.Context,
 	for _, dt := range resources.DeviceTemplates {
 		existingTpl, err := dal.GetDeviceTemplateByNameAndTenant(dt.Name, tenantID)
 		if err == nil && existingTpl != nil {
-			if overwritePolicy != "upgrade" {
-				warnings = append(warnings, fmt.Sprintf("Template '%s' already exists locally, skipped", dt.Name))
-				mappings = append(mappings, &model.ResourceMappingResponse{
-					ResourceType:      model.ResourceTypeDeviceTemplate,
-					MarketResourceKey: dt.ResourceKey,
-					LocalID:           existingTpl.ID,
-					LocalName:         dt.Name,
-					Status:            "skipped_existing",
-				})
-				continue
+			// This is a reference to a pre-existing tenant resource, never an
+			// ownership claim authorizing compensation to delete it.
+			mapping := &model.MarketResourceMapping{
+				InstallationID: installID, TenantID: tenantID,
+				ResourceType:      model.ResourceTypeDeviceTemplate,
+				MarketResourceKey: dt.ResourceKey, MarketVersion: dt.Version,
+				LocalID: existingTpl.ID, LocalName: dt.Name, Status: "skipped_existing",
 			}
-			// With upgrade policy, we would update - but for now, just warn
-			warnings = append(warnings, fmt.Sprintf("Template '%s' exists locally, upgrade not implemented", dt.Name))
+			if _, err := s.installRepo.CreateResourceMapping(ctx, mapping); err != nil {
+				return nil, warnings, installationPersistenceError(installID, "reused_template_mapping", err)
+			}
+			warnings = append(warnings, fmt.Sprintf("Template '%s' already exists locally, skipped", dt.Name))
+			mappings = append(mappings, &model.ResourceMappingResponse{
+				ResourceType: model.ResourceTypeDeviceTemplate, MarketResourceKey: dt.ResourceKey,
+				LocalID: existingTpl.ID, LocalName: dt.Name, Status: "skipped_existing",
+			})
+			continue
 		}
 
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, warnings, installationPersistenceError(installID, "lookup_template", err)
+		}
 		// Create new template
 		templateID, err := s.createDeviceTemplate(ctx, tenantID, &dt)
 		if err != nil {
@@ -383,7 +439,9 @@ func (s *MarketBundleInstallService) installDeviceTemplates(ctx context.Context,
 			LocalName:         dt.Name,
 			Status:            "active",
 		}
-		s.installRepo.CreateResourceMapping(ctx, mapping)
+		if _, err := s.installRepo.CreateResourceMapping(ctx, mapping); err != nil {
+			return nil, warnings, installationPersistenceError(installID, "template_mapping", err)
+		}
 
 		mappings = append(mappings, &model.ResourceMappingResponse{
 			ResourceType:      model.ResourceTypeDeviceTemplate,
@@ -447,6 +505,9 @@ func (s *MarketBundleInstallService) createDeviceTemplate(ctx context.Context, t
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
+			// Let the request recovery boundary handle the panic. Returning
+			// normally here would fabricate an empty template ID and nil error.
+			panic(r)
 		}
 	}()
 
@@ -641,6 +702,39 @@ func (s *MarketBundleInstallService) createDashboards(ctx context.Context, insta
 		})
 	}
 
+	// A binding key is installation-scoped in the durable schema. Multiple
+	// dashboards may share it, provided they agree on its definition.
+	bindingDefinitions := make(map[string]*model.MarketBundleBindingStatus)
+	for _, dash := range resources.Dashboards {
+		for _, db := range dash.DeviceBindings {
+			if previous, ok := bindingDefinitions[db.BindingKey]; ok {
+				if previous.DeviceTemplateKey != db.DeviceTemplateKey || previous.Required != db.Required {
+					return nil, errcode.WithData(errcode.CodeParamError, "conflicting dashboard binding definition: "+db.BindingKey)
+				}
+				continue
+			}
+			status := model.BindingStatusPending
+			if resolvedBindings[db.BindingKey] != "" {
+				status = model.BindingStatusBound
+			}
+			bindingDefinitions[db.BindingKey] = &model.MarketBundleBindingStatus{
+				InstallationID: installID, BindingKey: db.BindingKey,
+				DeviceTemplateKey: db.DeviceTemplateKey, Required: db.Required,
+				LocalDeviceID: resolvedBindings[db.BindingKey], Status: status,
+			}
+		}
+	}
+	// Persist the full binding intent before any dashboard import.
+	keys := make([]string, 0, len(bindingDefinitions))
+	for key := range bindingDefinitions {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if _, err := s.installRepo.CreateBindingStatus(ctx, bindingDefinitions[key]); err != nil {
+			return nil, installationPersistenceError(installID, "create_binding", err)
+		}
+	}
 	var mappings []*model.ResourceMappingResponse
 
 	for _, dash := range resources.Dashboards {
@@ -661,7 +755,9 @@ func (s *MarketBundleInstallService) createDashboards(ctx context.Context, insta
 			LocalName:         dash.Name,
 			Status:            "active",
 		}
-		s.installRepo.CreateResourceMapping(ctx, mapping)
+		if _, err := s.installRepo.CreateResourceMapping(ctx, mapping); err != nil {
+			return nil, installationPersistenceError(installID, "dashboard_mapping", err)
+		}
 
 		mappings = append(mappings, &model.ResourceMappingResponse{
 			ResourceType:      model.ResourceTypeDashboard,
@@ -677,18 +773,6 @@ func (s *MarketBundleInstallService) createDashboards(ctx context.Context, insta
 			LocalID:           dashboardID,
 		})
 
-		// Create binding status records for each device binding
-		for _, db := range dash.DeviceBindings {
-			binding := &model.MarketBundleBindingStatus{
-				InstallationID:    installID,
-				BindingKey:        db.BindingKey,
-				DeviceTemplateKey: db.DeviceTemplateKey,
-				Required:          db.Required,
-				LocalDeviceID:     resolvedBindings[db.BindingKey],
-				Status:            model.BindingStatusBound,
-			}
-			s.installRepo.CreateBindingStatus(ctx, binding)
-		}
 	}
 
 	return mappings, nil
@@ -821,7 +905,9 @@ func (s *MarketBundleInstallService) processDeviceBindings(ctx context.Context, 
 				response.Status = model.BindingStatusFailed
 				response.ErrorMessage = "Device not found"
 				responses = append(responses, response)
-				s.updateBindingStatus(ctx, installID, expectedBinding.BindingKey, "", model.BindingStatusFailed, "Device not found")
+				if err := s.updateBindingStatus(ctx, installID, expectedBinding.BindingKey, "", model.BindingStatusFailed, "Device not found"); err != nil {
+					return nil, warnings, installationPersistenceError(installID, "update_binding", err)
+				}
 				continue
 			}
 
@@ -829,7 +915,9 @@ func (s *MarketBundleInstallService) processDeviceBindings(ctx context.Context, 
 				response.Status = model.BindingStatusFailed
 				response.ErrorMessage = "Device does not belong to current tenant"
 				responses = append(responses, response)
-				s.updateBindingStatus(ctx, installID, expectedBinding.BindingKey, "", model.BindingStatusFailed, "Device does not belong to current tenant")
+				if err := s.updateBindingStatus(ctx, installID, expectedBinding.BindingKey, "", model.BindingStatusFailed, "Device does not belong to current tenant"); err != nil {
+					return nil, warnings, installationPersistenceError(installID, "update_binding", err)
+				}
 				continue
 			}
 
@@ -845,7 +933,7 @@ func (s *MarketBundleInstallService) processDeviceBindings(ctx context.Context, 
 
 			// Update binding status
 			if err := s.updateBindingStatus(ctx, installID, expectedBinding.BindingKey, userBinding.LocalDeviceID, model.BindingStatusBound, ""); err != nil {
-				logrus.Warnf("Failed to update binding status: %v", err)
+				return nil, warnings, installationPersistenceError(installID, "update_binding", err)
 			}
 
 			response.LocalDeviceID = userBinding.LocalDeviceID
@@ -868,16 +956,40 @@ func (s *MarketBundleInstallService) updateBindingStatus(ctx context.Context, in
 }
 
 // failInstallation marks an installation as failed and triggers compensation if needed
-func (s *MarketBundleInstallService) failInstallation(ctx context.Context, installID, tenantID, errorCode, errorMessage string) {
-	logrus.Errorf("Installation %s failed: %s - %s", installID, errorCode, errorMessage)
-
-	if err := s.installRepo.UpdateStatus(ctx, installID, model.InstallStateFailed, errorCode, errorMessage); err != nil {
-		logrus.Warnf("Failed to update installation status: %v", err)
+func (s *MarketBundleInstallService) failInstallation(ctx context.Context, installID, tenantID, errorCode string, cause error) error {
+	inst, err := s.installRepo.GetByID(ctx, installID)
+	if err != nil {
+		return installationPersistenceError(installID, "failure_state_lookup", err)
 	}
-	s.recordAudit(ctx, installID, tenantID, "state_change", "", model.InstallStateFailed, nil)
+	if inst.TenantID != tenantID {
+		return errcode.WithData(errcode.CodeOpDenied, "installation tenant mismatch")
+	}
+	return s.failInstallationFrom(ctx, installID, tenantID, inst.Status, errorCode, cause)
+}
 
-	// Check if compensation is needed
-	s.checkCompensationNeeded(ctx, installID, tenantID)
+func (s *MarketBundleInstallService) failInstallationFrom(ctx context.Context, installID, tenantID, from, errorCode string, cause error) error {
+	// After resource creation begins, absence of mappings cannot prove absence
+	// of effects. Keep the review hold even when the mapping write failed.
+	target := model.InstallStateFailed
+	if from == model.InstallStateVerified || from == model.InstallStateModelsInstalled || from == model.InstallStateDashboardsCreated {
+		target = model.InstallStateCompensationRequired
+	}
+	message := cause.Error()
+	var structured *errcode.Error
+	if errors.As(cause, &structured) {
+		if data, ok := structured.Data.(map[string]interface{}); ok && data["errorCode"] == "PERSISTENCE_RESULT_UNKNOWN" {
+			errorCode = "PERSISTENCE_RESULT_UNKNOWN"
+			message = fmt.Sprintf("Persistence outcome at %v is unknown; reconcile using the original operation identity", data["phase"])
+		}
+	}
+	if err := s.installRepo.TransitionStatus(ctx, installID, tenantID, from, target, errorCode, message); err != nil {
+		return installationPersistenceError(installID, "failure_state", err)
+	}
+	s.recordAudit(ctx, installID, tenantID, "state_change", from, target, nil)
+	if target == model.InstallStateFailed {
+		s.checkCompensationNeeded(ctx, installID, tenantID)
+	}
+	return cause
 }
 
 // checkCompensationNeeded determines if compensation is required
@@ -897,19 +1009,26 @@ func (s *MarketBundleInstallService) checkCompensationNeeded(ctx context.Context
 	}
 
 	if hasCreatedResources {
-		if err := s.installRepo.UpdateStatus(ctx, installID, model.InstallStateCompensationRequired, "COMPENSATION_NEEDED", "Some resources were created before failure"); err != nil {
+		updated, err := s.installRepo.HoldFailedCompensationForReview(ctx, installID, tenantID)
+		if err != nil {
 			logrus.Warnf("Failed to update status to COMPENSATION_REQUIRED: %v", err)
+			return
 		}
-		s.recordAudit(ctx, installID, tenantID, "state_change", model.InstallStateFailed, model.InstallStateCompensationRequired, nil)
+		if updated {
+			s.recordAudit(ctx, installID, tenantID, "state_change", model.InstallStateFailed, model.InstallStateCompensationRequired, nil)
+		}
 	}
 }
 
-// CompensateInstallation removes resources created during a failed installation
+// CompensateInstallation holds unsafe automatic compensation for manual review.
 func (s *MarketBundleInstallService) CompensateInstallation(ctx context.Context, installID, tenantID string) error {
 	inst, err := s.installRepo.GetByID(ctx, installID)
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return errcode.WithData(errcode.CodeDBError, "Failed to query installation")
+	}
+	if err != nil || inst == nil || tenantID == "" || inst.TenantID != tenantID {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"error": "Installation not found: " + err.Error(),
+			"error": "Installation not found",
 		})
 	}
 
@@ -919,45 +1038,20 @@ func (s *MarketBundleInstallService) CompensateInstallation(ctx context.Context,
 		})
 	}
 
-	s.recordAudit(ctx, installID, tenantID, "compensation_started", inst.Status, "COMPENSATING", nil)
-
-	// Get all created resources
-	mappings, err := s.installRepo.GetResourceMappingsByInstallation(ctx, installID)
-	if err != nil {
-		return err
-	}
-
-	// Delete created resources
-	for _, m := range mappings {
-		if m.Status == "active" {
-			switch m.ResourceType {
-			case model.ResourceTypeDeviceTemplate:
-				// Delete device template (should cascade to models)
-				if err := dal.DeleteDeviceTemplateByID(m.LocalID); err != nil {
-					logrus.Warnf("Failed to delete device template %s: %v", m.LocalID, err)
-					continue
-				}
-			case model.ResourceTypeDashboard:
-				// Delete dashboard via ThingsVis
-				if err := s.thingsVis.DeleteDashboard(ctx, tenantID, m.LocalID); err != nil {
-					logrus.Warnf("Failed to delete dashboard %s: %v", m.LocalID, err)
-					continue
-				}
-			}
-
-			// Mark mapping as deleted
-			s.installRepo.UpdateResourceMappingStatus(ctx, m.ID, "deleted")
-			s.recordAudit(ctx, installID, tenantID, "resource_deleted", "", "", m)
+	// Existing mappings are not an authoritative inventory: a remote create
+	// may have succeeded before its mapping was saved. The current code also
+	// cannot verify ownership or reconcile an unknown remote delete. Stop
+	// before any deletion until the owner ports and recovery contract exist.
+	if inst.Status == model.InstallStateFailed {
+		updated, updateErr := s.installRepo.HoldFailedCompensationForReview(ctx, installID, tenantID)
+		if updateErr != nil {
+			return errcode.WithData(errcode.CodeDBError, "Failed to retain compensation state")
+		}
+		if !updated {
+			return errcode.WithData(errcode.CodeOpDenied, "Installation changed; query its current state")
 		}
 	}
-
-	// Update installation status
-	if err := s.installRepo.UpdateStatus(ctx, installID, model.InstallStateFailed, "COMPENSATED", "Resources cleaned up"); err != nil {
-		logrus.Warnf("Failed to update installation status after compensation: %v", err)
-	}
-	s.recordAudit(ctx, installID, tenantID, "compensation_completed", "", model.InstallStateFailed, nil)
-
-	return nil
+	return errcode.WithData(errcode.CodeOpDenied, "Automatic compensation is unavailable; reconcile resource ownership and outcomes before retry")
 }
 
 // GetInstallationStatus retrieves installation status with full details
@@ -1020,6 +1114,12 @@ func (s *MarketBundleInstallService) GetInstallationStatus(ctx context.Context, 
 
 // UpdateDeviceBinding updates a device binding for a WAITING_FOR_BINDINGS installation
 func (s *MarketBundleInstallService) UpdateDeviceBinding(ctx context.Context, installID, tenantID string, req *model.UpdateBindingRequest) error {
+	// Keep this path closed until dashboard updates, model compatibility, and
+	// binding revision/recovery are coordinated with their owning services.
+	// The existing implementation below is retained for review, not enabled.
+	if err := dashboardBindingUpdateReadiness(); err != nil {
+		return err
+	}
 	inst, err := s.installRepo.GetByID(ctx, installID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -1074,7 +1174,7 @@ func (s *MarketBundleInstallService) UpdateDeviceBinding(ctx context.Context, in
 
 	if allRequiredBound {
 		// Complete the installation
-		if err := s.installRepo.UpdateStatus(ctx, installID, model.InstallStateCompleted, "", ""); err != nil {
+		if err := s.installRepo.TransitionStatus(ctx, installID, tenantID, model.InstallStateWaitingForBindings, model.InstallStateCompleted, "", ""); err != nil {
 			return err
 		}
 		s.recordAudit(ctx, installID, tenantID, "state_change", model.InstallStateWaitingForBindings, model.InstallStateCompleted, nil)
@@ -1082,6 +1182,12 @@ func (s *MarketBundleInstallService) UpdateDeviceBinding(ctx context.Context, in
 	}
 
 	return nil
+}
+
+// dashboardBindingUpdateReadiness deliberately has no runtime override: the
+// old local-only update cannot prove that the dashboard binding was applied.
+func dashboardBindingUpdateReadiness() error {
+	return errcode.WithData(errcode.CodeOpDenied, "Automatic binding updates are unavailable; reconcile the existing installation first")
 }
 
 // RetryInstallation retries a failed installation
@@ -1105,21 +1211,9 @@ func (s *MarketBundleInstallService) RetryInstallation(ctx context.Context, inst
 		})
 	}
 
-	s.recordAudit(ctx, installID, tenantID, "retry_started", inst.Status, "", nil)
-
-	// Reset to DOWNLOADING state for retry
-	if err := s.installRepo.UpdateStatus(ctx, inst.ID, model.InstallStateDownloading, "", ""); err != nil {
-		return nil, err
-	}
-
-	// Return a placeholder response - in a real implementation, we'd need to re-download
-	return &model.InstallBundleResponse{
-		InstallationID: inst.ID,
-		BundleKey:      inst.BundleKey,
-		Version:        inst.BundleVersion,
-		Status:         model.InstallStateDownloading,
-		IsIdempotent:   false,
-	}, nil
+	// This endpoint previously returned DOWNLOADING without resuming any work.
+	// It cannot reconcile potentially applied side effects yet.
+	return nil, errcode.WithData(errcode.CodeOpDenied, "Automatic retry is unavailable; reconcile the existing installation first")
 }
 
 // ListInstallations lists all installations for a tenant
@@ -1146,15 +1240,18 @@ func (s *MarketBundleInstallService) ListInstallations(ctx context.Context, tena
 
 // --- Helper methods ---
 
-func (s *MarketBundleInstallService) generateIdempotencyKey(bundleKey, version, tenantID string) string {
-	data := fmt.Sprintf("%s:%s:%s", bundleKey, version, tenantID)
-	hash := sha256.Sum256([]byte(data))
-	return hex.EncodeToString(hash[:])
-}
-
-func (s *MarketBundleInstallService) buildIdempotentResponse(inst *model.MarketBundleInstallation, tenantID string) (*model.InstallBundleResponse, error) {
-	mappings, _ := s.installRepo.GetResourceMappingsByInstallation(context.Background(), inst.ID)
-	bindings, _ := s.installRepo.GetBindingStatusesByInstallation(context.Background(), inst.ID)
+func (s *MarketBundleInstallService) buildIdempotentResponse(ctx context.Context, inst *model.MarketBundleInstallation, tenantID string) (*model.InstallBundleResponse, error) {
+	if inst.TenantID != tenantID {
+		return nil, errcode.WithData(errcode.CodeOpDenied, "installation tenant mismatch")
+	}
+	mappings, err := s.installRepo.GetResourceMappingsByInstallation(ctx, inst.ID)
+	if err != nil {
+		return nil, installationPersistenceError(inst.ID, "read_mappings", err)
+	}
+	bindings, err := s.installRepo.GetBindingStatusesByInstallation(ctx, inst.ID)
+	if err != nil {
+		return nil, installationPersistenceError(inst.ID, "read_bindings", err)
+	}
 
 	var resourceMappings []*model.ResourceMappingResponse
 	for _, m := range mappings {
@@ -1270,4 +1367,64 @@ func getStringPtr(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// This versioned encoding describes only operation-affecting request fields.
+// Credentials and retry transport keys are intentionally excluded. It is a
+// local replay check, not an artifact signature or a remote owner receipt.
+func installationRequestDigest(req *model.InstallBundleRequest, tenantID, actorID string) string {
+	bindings := append([]model.DeviceBindingInput{}, req.DeviceBindings...)
+	sort.Slice(bindings, func(i, j int) bool { return bindings[i].BindingKey < bindings[j].BindingKey })
+	policy := req.OverwritePolicy
+	if policy == "" {
+		policy = "default"
+	}
+	payload, _ := json.Marshal(struct {
+		Version       int                        `json:"digestVersion"`
+		Tenant        string                     `json:"tenant"`
+		Actor         string                     `json:"actor"`
+		Bundle        string                     `json:"bundle"`
+		BundleVersion string                     `json:"version"`
+		Policy        string                     `json:"policy"`
+		Bindings      []model.DeviceBindingInput `json:"bindings"`
+	}{1, tenantID, actorID, req.BundleKey, req.Version, policy, bindings})
+	sum := sha256.Sum256(payload)
+	return "v1:" + hex.EncodeToString(sum[:])
+}
+
+func checkInstallationReplay(inst *model.MarketBundleInstallation, digest string) error {
+	code := "IDEMPOTENCY_PAYLOAD_CONFLICT"
+	if inst.RequestDigest == "" {
+		code = "IDEMPOTENCY_LEGACY_UNVERIFIABLE"
+	} else if inst.RequestDigest == digest {
+		return nil
+	}
+	return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+		"errorCode": code, "installationId": inst.ID,
+		"error": "The key cannot be replayed for this request; inspect the existing installation without starting new effects",
+	})
+}
+
+func installationPersistenceError(installID, phase string, cause error) error {
+	// A failed database operation may have committed. This response must never
+	// claim that the result or a review hold has been persisted.
+	logrus.Warnf("Installation %s persistence outcome at %s is unknown: %v", installID, phase, cause)
+	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+		"errorCode": "PERSISTENCE_RESULT_UNKNOWN", "installationId": installID, "phase": phase,
+		"error": "Installation progress was not reliably acknowledged; retain the same key and reconcile before retrying effects",
+	})
+}
+
+func supportedInstallPolicy(policy string) error {
+	if policy == "" || policy == "default" {
+		return nil
+	}
+	code := "OVERWRITE_POLICY_UNSUPPORTED"
+	if policy != "upgrade" {
+		code = "OVERWRITE_POLICY_INVALID"
+	}
+	return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+		"errorCode": code,
+		"error":     "Only the default no-overwrite installation policy is currently supported",
+	})
 }

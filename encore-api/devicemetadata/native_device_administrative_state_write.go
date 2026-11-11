@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"net/http"
 
@@ -57,7 +58,7 @@ func setNativeDeviceAdministrativeState(
 		Method: http.MethodPut, Path: path, Key: key, RequestID: requestID, IfMatch: ifMatch,
 		CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		var lockedID string
 		if err := tx.QueryRow(ctx, `SELECT id::text FROM devices WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE`,
 			identity.tenantID, deviceID).Scan(&lockedID); err != nil {

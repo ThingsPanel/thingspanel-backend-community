@@ -1,0 +1,95 @@
+{
+  "status": "passed",
+  "templateId": "f64aa1a5-d9ca-43b7-801f-ccc2aba828cf",
+  "deviceId": "2cd3eef4-54a1-44bc-9484-4e3f28011a3c",
+  "checkCount": 17,
+  "checks": [
+    {
+      "name": "reuse_existing_http_fixture",
+      "ok": true,
+      "status": "reused"
+    },
+    {
+      "name": "read_template_and_etag",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "full_configuration_delete_existing_false_value_409",
+      "ok": true,
+      "status": 409
+    },
+    {
+      "name": "full_configuration_conflict_preserves_etag",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "delete_existing_null_value_409",
+      "ok": true,
+      "status": 409
+    },
+    {
+      "name": "delete_existing_zero_value_409",
+      "ok": true,
+      "status": 409
+    },
+    {
+      "name": "narrow_enum_with_existing_legacy_value_409",
+      "ok": true,
+      "status": 409
+    },
+    {
+      "name": "upsert_and_remove_empty_field_200",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "same_key_same_body_replay",
+      "ok": true,
+      "status": 200,
+      "sameBody": true
+    },
+    {
+      "name": "same_key_different_body_409",
+      "ok": true,
+      "status": 409
+    },
+    {
+      "name": "new_definition_missing_enabled_422",
+      "ok": true,
+      "status": 422
+    },
+    {
+      "name": "unknown_enum_option_property_422",
+      "ok": true,
+      "status": 422
+    },
+    {
+      "name": "full_config_and_field_changes_422",
+      "ok": true,
+      "status": 422
+    },
+    {
+      "name": "stale_etag_412",
+      "ok": true,
+      "status": 412
+    },
+    {
+      "name": "raw_large_parameter_precision_preserved",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "untouched_numeric_default_precision_preserved",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "unmodified_configuration_sections_preserved",
+      "ok": true,
+      "status": 200
+    }
+  ],
+  "requestCount": 14
+}

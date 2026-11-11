@@ -10,12 +10,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
+
 	model "project/internal/model"
 	query "project/internal/query"
 	global "project/pkg/global"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"gorm.io/gen/field"
+	"gorm.io/gorm"
 
 	tptodb "project/third_party/grpc/tptodb_client"
 	pb "project/third_party/grpc/tptodb_client/grpc_tptodb"
@@ -206,26 +210,45 @@ func CreateTelemetrDataBatch(data []*model.TelemetryData) error {
 	}
 	// 发生冲突时，使用带冲突处理的SQL
 	logrus.Debugf("发生(device_id,key,timestamp)唯一约束冲突，使用冲突处理SQL: data: %+v, err: %+v", data, err)
-	sql := `INSERT INTO telemetry_datas (device_id, key, ts, number_v, string_v, bool_v, tenant_id) VALUES `
+	db := global.DB
+	if db == nil {
+		return fmt.Errorf("telemetry database is not initialized")
+	}
+	keyColumn := "key"
+	if db.Dialector.Name() == "mysql" {
+		keyColumn = "`key`"
+	}
+	sql := `INSERT INTO telemetry_datas (device_id, ` + keyColumn + `, ts, number_v, string_v, bool_v, tenant_id) VALUES `
 
 	values := make([]interface{}, 0, len(data)*7)
 	placeholders := make([]string, 0, len(data))
 
 	for i, d := range data {
-		placeholders = append(placeholders, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)",
-			i*7+1, i*7+2, i*7+3, i*7+4, i*7+5, i*7+6, i*7+7))
+		if db.Dialector.Name() == "mysql" {
+			placeholders = append(placeholders, "(?,?,?,?,?,?,?)")
+		} else {
+			placeholders = append(placeholders, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+				i*7+1, i*7+2, i*7+3, i*7+4, i*7+5, i*7+6, i*7+7))
+		}
 
 		values = append(values, d.DeviceID, d.Key, d.T, d.NumberV, d.StringV, d.BoolV, d.TenantID)
 	}
 
 	sql += strings.Join(placeholders, ", ")
-	// 由于约束是(device_id, key, ts)，冲突时ts必然相等，直接更新
-	sql += ` ON CONFLICT (device_id, key, ts) DO UPDATE SET
+	if db.Dialector.Name() == "mysql" {
+		sql += ` ON DUPLICATE KEY UPDATE
+			number_v = VALUES(number_v),
+			string_v = VALUES(string_v),
+			bool_v = VALUES(bool_v)`
+	} else {
+		// 由于约束是(device_id, key, ts)，冲突时ts必然相等，直接更新。
+		sql += ` ON CONFLICT (device_id, key, ts) DO UPDATE SET
 		number_v = EXCLUDED.number_v,
 		string_v = EXCLUDED.string_v,
 		bool_v = EXCLUDED.bool_v`
+	}
 
-	return global.DB.Exec(sql, values...).Error
+	return db.Exec(sql, values...).Error
 }
 
 // 检查是否为唯一约束冲突错误
@@ -233,10 +256,7 @@ func isUniqueConstraintError(err error) bool {
 	if err == nil {
 		return false
 	}
-	errStr := err.Error()
-	// PostgreSQL唯一约束错误标识
-	return strings.Contains(errStr, "SQLSTATE 23505") ||
-		strings.Contains(errStr, "duplicate key value violates unique constraint")
+	return relational.Classify(err) == relational.KindUnique
 }
 
 // 批量更新，如果没有则新增
@@ -285,11 +305,18 @@ func DeleteTelemetrDataByTime(t int64) error {
 		logrus.Error(err)
 		return err
 	} else {
-		if err := global.DB.Exec("VACUUM FULL telemetry_datas").Error; err != nil {
+		if err := vacuumTelemetryData(global.DB); err != nil {
 			logrus.Warnf("Error during VACUUM FULL: %v", err)
 		}
 		return err
 	}
+}
+
+func vacuumTelemetryData(db *gorm.DB) error {
+	if db == nil || db.Dialector.Name() != "postgres" {
+		return nil
+	}
+	return db.Exec("VACUUM FULL telemetry_datas").Error
 }
 
 // 非聚合查询(req.DeviceID, req.Key, req.StartTime, req.EndTime)
@@ -896,21 +923,25 @@ func getDiffData(deviceId, key string, startTime, endTime int64, timeType string
 // getDiffValueInTimeWindow 获取指定时间窗口内的差值
 func getDiffValueInTimeWindow(deviceId, key string, startTime, endTime int64) (*float64, error) {
 	q := query.TelemetryData
-	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(deviceId))
-	queryBuilder = queryBuilder.Where(q.Key.Eq(key))
-	queryBuilder = queryBuilder.Where(q.T.Between(startTime, endTime))
+	// gorm gen builders are mutable: reusing one for both queries makes the second
+	// inherit the first's ORDER BY, so "oldest" returned the newest row and every
+	// difference was 0. Each edge gets its own builder.
+	edge := func(order field.Expr) ([]map[string]interface{}, error) {
+		var rows []map[string]interface{}
+		err := q.WithContext(context.Background()).
+			Where(q.DeviceID.Eq(deviceId), q.Key.Eq(key), q.T.Between(startTime, endTime)).
+			Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(order).Limit(1).Scan(&rows)
+		return rows, err
+	}
 
 	// 查询最新的值 - 获取number_v和string_v字段
-	var latestData []map[string]interface{}
-	err := queryBuilder.Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(q.T.Desc()).Limit(1).Scan(&latestData)
+	latestData, err := edge(q.T.Desc())
 	if err != nil {
 		return nil, err
 	}
 
 	// 查询最旧的值 - 获取number_v和string_v字段
-	var oldestData []map[string]interface{}
-	err = queryBuilder.Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(q.T.Asc()).Limit(1).Scan(&oldestData)
+	oldestData, err := edge(q.T.Asc())
 	if err != nil {
 		return nil, err
 	}

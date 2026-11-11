@@ -273,6 +273,9 @@ FROM with_online w
 CROSS JOIN device_total t
 ORDER BY w.hour_ts ASC;
 `
+	if global.DB.Dialector.Name() == "mysql" {
+		return deviceTrendMySQL(tenantID, startTimeUTC, endTimeUTC)
+	}
 	err := global.DB.Raw(sql, tenantID, startTimeUTC, endTimeUTC).Scan(&results).Error
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{
@@ -308,4 +311,72 @@ func (BoardQuery) CreateDefaultBoard(ctx context.Context, tenantid string) error
 		logrus.Error(ctx, "[BoardQuery]CreateDefaultBoard failed:", err)
 	}
 	return err
+}
+
+// deviceTrendMySQL is the MySQL 8 form of the hourly online trend. Differences that matter:
+//   - the hour series is a recursive CTE (PostgreSQL: generate_series); a start after the end yields
+//     no rows, as generate_series does, and the recursion limit is raised for long ranges;
+//   - DISTINCT ON becomes ROW_NUMBER() = 1, FILTER becomes COUNT(CASE ...), ::bigint becomes CAST;
+//   - hours are truncated in UTC, which equals date_trunc('hour', ...) for whole-hour zone offsets.
+func deviceTrendMySQL(tenantID string, start, end time.Time) ([]model.DeviceTrendPoint, error) {
+	startHour, endHour := start.Truncate(time.Hour), end.Truncate(time.Hour)
+	if endHour.Before(startHour) {
+		return []model.DeviceTrendPoint{}, nil
+	}
+	const statement = `
+WITH RECURSIVE
+hour_series AS (
+    SELECT CAST(? AS DATETIME(6)) AS hour_ts
+    UNION ALL
+    SELECT hour_ts + INTERVAL 1 HOUR FROM hour_series WHERE hour_ts < ?
+),
+device_total AS (
+    SELECT CAST(COUNT(*) AS SIGNED) AS total_cnt FROM devices WHERE tenant_id = ? AND created_at <= ?
+),
+initial_status AS (
+    SELECT device_id, status, change_time, id FROM (
+        SELECT device_id, status, change_time, id,
+               ROW_NUMBER() OVER (PARTITION BY device_id ORDER BY change_time DESC, id DESC) AS rn
+        FROM device_status_history WHERE tenant_id = ? AND change_time <= ?
+    ) ranked WHERE rn = 1
+),
+initial_online AS (
+    SELECT CAST(COUNT(CASE WHEN status = 1 THEN 1 END) AS SIGNED) AS cnt FROM initial_status
+),
+status_events AS (
+    SELECT device_id, status, change_time, id, 1 AS is_initial FROM initial_status
+    UNION ALL
+    SELECT device_id, status, change_time, id, 0 AS is_initial FROM device_status_history
+    WHERE tenant_id = ? AND change_time > ? AND change_time <= ?
+),
+ordered_events AS (
+    SELECT device_id, status, change_time, is_initial,
+           LAG(status, 1, 0) OVER (PARTITION BY device_id ORDER BY change_time, id) AS prev_status
+    FROM status_events
+),
+hourly_delta AS (
+    SELECT TIMESTAMP(DATE_FORMAT(change_time, '%Y-%m-%d %H:00:00')) AS hour_ts,
+           CAST(SUM(CASE WHEN status = prev_status THEN 0 WHEN status = 1 THEN 1 ELSE -1 END) AS SIGNED) AS status_delta
+    FROM ordered_events WHERE is_initial = 0
+    GROUP BY TIMESTAMP(DATE_FORMAT(change_time, '%Y-%m-%d %H:00:00'))
+),
+merged AS (
+    SELECT s.hour_ts, (SELECT cnt FROM initial_online) AS init_online, COALESCE(h.status_delta, 0) AS status_delta
+    FROM hour_series s LEFT JOIN hourly_delta h ON h.hour_ts = s.hour_ts
+),
+with_online AS (
+    SELECT hour_ts,
+           CAST(GREATEST(init_online + SUM(status_delta) OVER (ORDER BY hour_ts ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 0) AS SIGNED) AS cur_online
+    FROM merged
+)
+SELECT /*+ SET_VAR(cte_max_recursion_depth=1000000) */
+    w.hour_ts AS ` + "`timestamp`" + `, t.total_cnt AS device_total, w.cur_online AS device_online,
+    CAST(t.total_cnt - w.cur_online AS SIGNED) AS device_offline
+FROM with_online w CROSS JOIN device_total t ORDER BY w.hour_ts ASC`
+	var results []model.DeviceTrendPoint
+	if err := global.DB.Raw(statement, startHour, endHour, tenantID, end, tenantID, start, tenantID, start, end).Scan(&results).Error; err != nil {
+		logrus.WithError(err).WithField("tenant_id", tenantID).Error("GetDeviceTrend (mysql) query failed")
+		return nil, err
+	}
+	return results, nil
 }

@@ -1,0 +1,20 @@
+{
+  "scope": "device-info-native new-client focused tests only",
+  "test_file": "frontend/src/service/api/device-info-native.test.ts",
+  "tests": {
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0
+  },
+  "eslint": {
+    "exit": 0,
+    "warnings": 0
+  },
+  "scoped_tsc": {
+    "exit": 0,
+    "temporaryLocalStorageShim": true,
+    "fullProjectTypecheckClaim": false
+  },
+  "production_source_changed": false,
+  "runtime_or_fixture_touched": false
+}

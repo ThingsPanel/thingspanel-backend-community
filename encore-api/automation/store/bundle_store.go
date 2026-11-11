@@ -115,6 +115,30 @@ func (s *Store) StageBundleImport(ctx context.Context, b *BundleImport) (stored 
 		report = b.Report
 	}
 
+	if s.MySQL {
+		// A plain INSERT and the duplicate-key error stand in for DO NOTHING + RETURNING: with clientFoundRows an
+		// ON DUPLICATE KEY no-op reports one affected row, so it could not tell "created" from "already there".
+		_, err := s.DB.ExecContext(ctx, `
+        INSERT INTO auto_bundle_imports
+            (id, tenant_id, bundle_key, version, content_hash, status, manifest,
+             role_mapping, notify_choices, created_rules, report)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+			b.ID, b.TenantID, b.BundleKey, b.Version, b.ContentHash, b.Status, b.Manifest,
+			roles, choices, rules, report)
+		switch {
+		case err == nil:
+			stored, err = scanBundleImport(s.DB.QueryRowContext(ctx,
+				`SELECT `+bundleImportColumns+` FROM auto_bundle_imports WHERE id=$1`, b.ID))
+			return stored, err == nil, err
+		case isDuplicateKey(err):
+			existing, gerr := s.GetBundleImportByIdentity(ctx, b.TenantID, b.BundleKey, b.Version, b.ContentHash)
+			if gerr != nil {
+				return nil, false, gerr
+			}
+			return existing, false, nil
+		}
+		return nil, false, err
+	}
 	row := s.DB.QueryRowContext(ctx, `
         INSERT INTO auto_bundle_imports
             (id, tenant_id, bundle_key, version, content_hash, status, manifest,
@@ -241,9 +265,10 @@ func (s *Store) RulesByResourceKeys(ctx context.Context, tenantID string, keys [
 	if len(keys) == 0 {
 		return out, nil
 	}
+	marks, args := placeholders([]any{tenantID}, keys)
 	rows, err := s.DB.QueryContext(ctx, `
         SELECT `+ruleColumns+` FROM auto_rules
-         WHERE tenant_id=$1 AND deleted_at IS NULL AND resource_key = ANY($2)`, tenantID, keys)
+         WHERE tenant_id=$1 AND deleted_at IS NULL AND resource_key IN (`+marks+`)`, args...)
 	if err != nil {
 		return nil, err
 	}

@@ -10,11 +10,15 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"project/internal/brokercontract"
+	"project/internal/brokerdelegate"
 	"project/internal/brokerledger"
+	"project/internal/brokerroute"
 	"project/internal/model"
 )
 
 type activityRow struct {
+	DelegatedRoute                                               json.RawMessage
 	TenantID, DeviceID, TransportDeviceID, BrokerCell, ReceiptID string
 	RouteEpoch                                                   uint64
 	ObservedAt                                                   time.Time
@@ -121,6 +125,7 @@ func evaluateCurrent(tx *gorm.DB, device model.Device, root string, route routeR
 	if e != nil && !errors.Is(e, gorm.ErrRecordNotFound) {
 		return Decision{}, e
 	}
+
 	now := time.Now().UTC()
 	next := now.Add(time.Minute)
 	if hasActivity && project {
@@ -128,11 +133,32 @@ func evaluateCurrent(tx *gorm.DB, device model.Device, root string, route routeR
 			return Decision{}, e
 		}
 	}
+	if hasActivity && len(activity.DelegatedRoute) > 0 && string(activity.DelegatedRoute) != "null" {
+		var proof brokercontract.Delegation
+		if json.Unmarshal(activity.DelegatedRoute, &proof) != nil || proof.TransportDeviceID != root || proof.TransportRouteEpoch != route.RouteEpoch || proof.BrokerCell != route.BrokerCell || proof.ObservedAt.UnixMilli() != activity.ObservedAt.UnixMilli() {
+			return Decision{Status: "unknown"}, nil
+		}
+		var err error
+		if project {
+			err = brokerdelegate.Lock(tx, device.TenantID, &proof, false)
+		} else {
+			err = brokerdelegate.Check(tx, device.TenantID, &proof, false)
+		}
+		if errors.Is(err, brokerroute.ErrFenced) || errors.Is(err, brokerroute.ErrConnecting) {
+			return Decision{Status: "unknown"}, nil
+		}
+		if err != nil {
+			return Decision{}, err
+		}
+	}
 	if cfg.Heartbeat == 0 && cfg.Timeout == 0 {
 		// A gateway socket proves transport reachability, not a child's liveness.
 		// Historical direct-device observations cannot establish that either.
 		if root != device.ID {
 			return Decision{Status: "unknown"}, nil
+		}
+		if !project {
+			tx = tx.Set("delegated_read_only", true)
 		}
 		return snapshotTx(tx, device.TenantID, device.ID, route.BrokerCell, route.RouteEpoch)
 	}
@@ -168,13 +194,31 @@ func recordStateAutomation(tx *gorm.DB, device model.Device, root string, route 
 	if e != nil {
 		return e
 	}
+	proof, e := stateDelegation(tx, device, root, route)
+	if e != nil {
+		return e
+	}
+	metadata := map[string]interface{}{}
+	if proof != nil {
+		root = proof.TransportDeviceID
+		route.RouteEpoch = proof.TransportRouteEpoch
+		metadata["delegated_route"] = proof
+	}
+	meta, e := json.Marshal(metadata)
+	if e != nil {
+		return e
+	}
 	digest := sha256.Sum256(payload)
 	receipt := uuid.NewString()
 	intent := uuid.NewSHA1(uuid.NameSpaceOID, []byte(receipt+"/"+device.ID+"/automation")).String()
-	if e := tx.Exec(`INSERT INTO broker_ingress_receipts(id,tenant_id,device_id,stream,broker_cell,route_epoch,payload,metadata,canonical_sha256,state,processed_at) VALUES(?,?,?,'state_transition',?,?,?,'{}',?,'processed',now())`, receipt, device.TenantID, root, route.BrokerCell, route.RouteEpoch, payload, digest[:]).Error; e != nil {
+	if e := tx.Exec(`INSERT INTO broker_ingress_receipts(id,tenant_id,device_id,stream,broker_cell,route_epoch,payload,metadata,canonical_sha256,state,processed_at) VALUES(?,?,?,'state_transition',?,?,?,?::jsonb,?,'processed',now())`, receipt, device.TenantID, root, route.BrokerCell, route.RouteEpoch, payload, string(meta), digest[:]).Error; e != nil {
 		return e
 	}
-	data, e := json.Marshal(map[string]interface{}{"trigger_param_type": model.TRIGGER_PARAM_TYPE_STATUS, "trigger_values": map[string]interface{}{"login": login}, "route_epoch": route.RouteEpoch, "broker_cell": route.BrokerCell})
+	trigger := map[string]interface{}{"trigger_param_type": model.TRIGGER_PARAM_TYPE_STATUS, "trigger_values": map[string]interface{}{"login": login}, "route_epoch": route.RouteEpoch, "broker_cell": route.BrokerCell}
+	if proof != nil {
+		trigger["delegated_route"] = proof
+	}
+	data, e := json.Marshal(trigger)
 	if e != nil {
 		return e
 	}
@@ -192,4 +236,50 @@ func (s *Store) DeferCurrentProjection(ctx context.Context, tenant, device strin
 		}
 		return tx.Exec(`UPDATE broker_state_projection_queue SET updated_at=now() WHERE tenant_id=? AND device_id=?`, tenant, device).Error
 	})
+}
+
+// stateDelegation retains the route proof used by a determinate plugin status
+// when creating a delayed automation intent. Native state remains unchanged.
+func stateDelegation(tx *gorm.DB, device model.Device, root string, route routeRow) (*brokercontract.Delegation, error) {
+	var candidates []struct{ Proof json.RawMessage }
+	// The existing heartbeat-only state owner does not depend on the socket
+	// observation table. Inspect its presence before querying, rather than
+	// causing a missing-relation error that would abort the whole transition.
+	var hasObservations bool
+	e := tx.Raw("SELECT to_regclass('broker_connection_observations') IS NOT NULL").Scan(&hasObservations).Error
+	if e != nil {
+		return nil, e
+	}
+	if hasObservations {
+		e = tx.Raw(`SELECT NULLIF(to_jsonb(o)->'delegated_route','null'::jsonb) AS proof FROM broker_connection_observations o WHERE tenant_id=? AND device_id=? AND broker_cell=? AND route_epoch=? AND observed_at>=now()-interval '60 seconds' AND observed_at<=now()+interval '5 seconds' AND received_at>=now()-interval '60 seconds' AND NULLIF(to_jsonb(o)->'delegated_route','null'::jsonb) IS NOT NULL ORDER BY observed_at DESC LIMIT 257`, device.TenantID, device.ID, route.BrokerCell, route.RouteEpoch).Scan(&candidates).Error
+		if e != nil {
+			return nil, e
+		}
+	}
+	if len(candidates) > 256 {
+		return nil, ErrFenced
+	}
+	var activity activityRow
+	e = tx.Where("tenant_id=? AND device_id=?", device.TenantID, device.ID).Take(&activity).Error
+	if e != nil && !errors.Is(e, gorm.ErrRecordNotFound) {
+		return nil, e
+	}
+	if e == nil && len(activity.DelegatedRoute) > 0 && string(activity.DelegatedRoute) != "null" {
+		candidates = append(candidates, struct{ Proof json.RawMessage }{activity.DelegatedRoute})
+	}
+	for _, candidate := range candidates {
+		var proof brokercontract.Delegation
+		if json.Unmarshal(candidate.Proof, &proof) != nil {
+			continue
+		}
+		e := brokerdelegate.Lock(tx, device.TenantID, &proof, false)
+		if errors.Is(e, brokerroute.ErrFenced) || errors.Is(e, brokerroute.ErrConnecting) {
+			continue
+		}
+		if e != nil {
+			return nil, e
+		}
+		return &proof, nil
+	}
+	return nil, nil
 }

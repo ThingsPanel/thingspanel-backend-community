@@ -15,7 +15,27 @@ type Config struct {
 
 	// 是否启用Prometheus监控
 	EnableMetrics bool
+
+	// HistoryMode selects how telemetry history reaches durable storage:
+	// "" or "postgres" writes it inside the relational transaction (default);
+	// "intent" records durable intents and replays them into HistorySink.
+	HistoryMode string
+	// HistoryGeneration is the idempotency generation stamped on new intents.
+	HistoryGeneration int64
+	// HistorySink receives replayed intents. Nil selects the PostgreSQL history table.
+	HistorySink HistorySink
+	// HistoryReplayIntervalMillis is the idle poll interval; 0 means 500.
+	HistoryReplayIntervalMillis int
+	// HistoryReplayBatch is the number of intents claimed per replay; 0 means 200.
+	HistoryReplayBatch int
+	// HistoryReplayLeaseSeconds is the claim lease; 0 means 60.
+	HistoryReplayLeaseSeconds int
 }
+
+const (
+	HistoryModePostgres = "postgres"
+	HistoryModeIntent   = "intent"
+)
 
 // DefaultConfig 返回默认配置
 func DefaultConfig() Config {

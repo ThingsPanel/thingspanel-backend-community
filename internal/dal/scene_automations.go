@@ -8,6 +8,7 @@ import (
 	"project/pkg/common"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm/clause"
 )
 
 func CreateSceneAutomation(d *model.SceneAutomation, tx *query.QueryTx) error {
@@ -24,6 +25,22 @@ func SaveSceneAutomation(d *model.SceneAutomation, tx *query.QueryTx) error {
 	} else {
 		return query.SceneAutomation.Save(d)
 	}
+}
+
+// LockTenantSceneAutomationForUpdate establishes tenant ownership and
+// serializes replacements of a scene's trigger references.
+func LockTenantSceneAutomationForUpdate(id, tenantID string, tx *query.QueryTx) (*model.SceneAutomation, error) {
+	scene := tx.SceneAutomation
+	return scene.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where(scene.ID.Eq(id), scene.TenantID.Eq(tenantID)).First()
+}
+
+// UpdateTenantSceneAutomation updates an existing tenant-owned scene without
+// GORM Save's insert-on-conflict behavior.
+func UpdateTenantSceneAutomation(id, tenantID string, values map[string]interface{}, tx *query.QueryTx) (int64, error) {
+	scene := tx.SceneAutomation
+	result, err := scene.Where(scene.ID.Eq(id), scene.TenantID.Eq(tenantID)).Updates(values)
+	return result.RowsAffected, err
 }
 
 func DeleteSceneAutomation(id string, tx *query.QueryTx) error {
