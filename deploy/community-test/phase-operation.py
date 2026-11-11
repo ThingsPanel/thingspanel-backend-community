@@ -47,14 +47,16 @@ try:
  sock.sendall(frame(0x10,body))
  kind,body=read_frame(sock)
  if kind!=0x20 or body!=b'\x00\x00':raise RuntimeError('Broker did not authorize the existing test device')
- payload={'qa_probe_20261111':23.11}
- sock.sendall(frame(0x32,encoded('devices/telemetry')+struct.pack('!H',1)+json.dumps(payload).encode()))
- kind,ack=read_frame(sock)
- if kind!=0x40 or ack!=struct.pack('!H',1):raise RuntimeError('MQTT publish was not acknowledged')
- events.append({'field':'qa_probe_20261111','value':23.11,'qos1_ack':True})
- time.sleep(4)
+ for i,value in enumerate([20,38.11,20],1):
+  payload={'qa_probe_20261111':value}
+  sock.sendall(frame(0x32,encoded('devices/telemetry')+struct.pack('!H',i)+json.dumps(payload).encode()))
+  kind,ack=read_frame(sock)
+  if kind!=0x40 or ack!=struct.pack('!H',i):raise RuntimeError('MQTT publish was not acknowledged')
+  events.append({'field':'qa_probe_20261111','value':value,'qos1_ack':True})
+  time.sleep(5)
+
 finally:
  try:sock.sendall(b'\xe0\x00')
  except Exception:pass
  sock.close()
-print(json.dumps({'device_id':device,'mqtt':events,'scope':'new-device MQTT first report; storage and UI verified separately'}))
+print(json.dumps({'device_id':device,'mqtt':events,'scope':'new-device alarm automation trigger and recovery; API verified separately'}))
