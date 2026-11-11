@@ -19,6 +19,7 @@ jobs:
       GOMAXPROCS: '2'
       GOFLAGS: '-p=2'
       NOTIFICATION_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
+      TP_AUTH_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
     services:
       postgres:
         image: postgres:16-alpine
@@ -54,7 +55,7 @@ jobs:
         run: |
           UNIPUSH_FIXTURE_BIN="$RUNNER_TEMP/notification-unipush" encore test -p=2 \
             ./thingmodel/... ./devicemetadata/... ./fileassets/... \
-            ./l1-access/authn ./internal/authz ./internal/communityclient ./internal/luasandbox \
+            ./l1-access/authn ./internal/authz ./internal/authcore/... ./pkg/... ./internal/communityclient ./internal/luasandbox \
             ./l3-core/connectorcatalog/... ./l3-core/notification/... ./automation/... \
             ./marketinstall/... ./platformconfig/...
       - name: Verify existing migration safeguards

@@ -2,7 +2,7 @@ name: Community integrated test deploy
 on:
   push:
     branches: [main, wp/full-develop-integration-20261111]
-    paths-ignore: [ 'docs/**', '.ai/**', '**/*.md', 'deploy/release/**', '.github/workflows/release.yml', '.github/workflows/build-release.yml', '.github/workflows/docker-image-build.yml', '.github/workflows/encore-image-build.yml', '.github/workflows/deploy.yml']
+    paths-ignore: [ 'docs/**', '.ai/**', '**/*.md', 'deploy/release/**', '.github/workflows/release.yml', '.github/workflows/build-release.yml', '.github/workflows/docker-image-build.yml', '.github/workflows/encore-image-build.yml']
   workflow_dispatch:
     inputs:
       deploy_to_test:
@@ -28,6 +28,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y redis-server
+          (cd pkg/relational && go test ./...)
           go test ./... -run '^$'
           go test ./internal/... ./pkg/... ./initialize/... ./router/... ./sql/... ./cmd/... ./mqtt/... ./third_party/...
           python3 -m unittest discover -s deploy/community-test -p test_notification_identity.py
