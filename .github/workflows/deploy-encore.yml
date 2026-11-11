@@ -1,25 +1,33 @@
-name: Approved phase operation
+name: Stage full native candidate
 on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: community-phase-acceptance
   cancel-in-progress: false
 jobs:
-  operation:
+  stage:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Run approved phase operation
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-candidate-03cff017df1c13436b484d576df5bead0ef81a46
+          run-id: 43021561294
+          github-token: ${{ github.token }}
+      - name: Stage verified image without switching services
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
           umask 077
-          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/phase-key"
-          ssh -i "$RUNNER_TEMP/phase-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'python3 -' < deploy/community-test/phase-operation.py > phase-result.json
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/stage-key"
+          args=(-i "$RUNNER_TEMP/stage-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          scp "${args[@]}" encore-03cff017df1c13436b484d576df5bead0ef81a46.tar.gz root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 'python3 -' < deploy/community-test/phase-operation.py > phase-result.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -27,4 +35,4 @@ jobs:
           path: phase-result.json
       - name: Remove runner key
         if: always()
-        run: rm -f "$RUNNER_TEMP/phase-key"
+        run: rm -f "$RUNNER_TEMP/stage-key"

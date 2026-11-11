@@ -1,41 +1,50 @@
-import fcntl,json,os,pathlib,re,shutil,subprocess,urllib.request
+import fcntl,hashlib,json,os,pathlib,shutil,subprocess,tarfile,urllib.request
 root=pathlib.Path('/opt/tp-community-actions')
-lock=(root/'deployment.lock').open('a')
-fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-approved=['/opt/tp-community-actions/encore-build-cache','/root/.cache/encore-build']
-def run(args,env=None):
- p=subprocess.run(args,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=90,cwd='/opt/tp-community-actions')
- if p.returncode:raise RuntimeError('Approved cache operation failed')
+sha='03cff017df1c13436b484d576df5bead0ef81a46'
+os.umask(0o077)
+lock=(root/'deployment.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+release=root/'native-rehearsal'/sha
+release.mkdir(parents=True,exist_ok=True)
+def run(args):
+ p=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=180)
+ if p.returncode:
+  (release/'failure.private.log').write_bytes(p.stderr)
+  raise RuntimeError('Candidate staging failed; private log retained')
  return p.stdout.decode().strip()
-def health():
- with urllib.request.urlopen('http://127.0.0.1:14000/v1/health',timeout=5) as response:
-  if json.load(response).get('status')!='ok':raise RuntimeError('Native health check failed')
-health()
 before=run(['docker','ps','--format','{{.ID}} {{.Names}}'])
-sizes={}
-for literal in approved:
- p=pathlib.Path(literal)
- if not p.is_dir() or p.is_symlink() or str(p.resolve())!=literal:
-  raise RuntimeError('Approved cache path does not resolve exactly')
- if any(x.is_symlink() for x in p.rglob('*')):raise RuntimeError('Symlink in approved cache')
- for entry in p.iterdir():
-  permitted_app_cache=literal=='/root/.cache/encore-build' and entry.name=='4sngw' and entry.is_dir()
-  if not permitted_app_cache and entry.name not in ('README','trim.txt') and not re.fullmatch('[0-9a-f]{2}',entry.name):
-   raise RuntimeError('Unexpected file in approved Go build cache')
- sizes[literal]={'before_bytes':int(run(['du','-s','-B1',literal]).split()[0])}
-for literal in approved:
- if literal=='/opt/tp-community-actions/encore-build-cache':
-  env=dict(os.environ,GOCACHE=literal,GOTOOLCHAIN='local')
-  run(['/usr/local/go/bin/go','clean','-cache'],env)
- else:
-  # The observed Encore cache contains one app directory, not Go's bucket layout.
-  child=pathlib.Path('/root/.cache/encore-build/4sngw')
-  if child.is_symlink() or str(child.resolve())!='/root/.cache/encore-build/4sngw':
-   raise RuntimeError('Approved app cache path changed')
-  if child.exists():shutil.rmtree(str(child))
- sizes[literal]['after_bytes']=int(run(['du','-s','-B1',literal]).split()[0])
-health()
-if run(['docker','ps','--format','{{.ID}} {{.Names}}'])!=before:
- raise RuntimeError('Running container set changed during cache operation')
-print(json.dumps({'cleaned_only_approved_caches':sizes,'running_containers_unchanged':True,'native_health':'ok',
- 'memory':run(['free','-b']),'disk':run(['df','-B1','/opt'])}))
+with tarfile.open(str(root/'incoming'/('encore-'+sha+'.tar.gz'))) as archive:
+ members=archive.getmembers()
+ if len({m.name for m in members})!=len(members):raise RuntimeError('Duplicate archive entries')
+ for member in members:
+  if (member.issym() or member.islnk() or not (member.isfile() or member.isdir())
+      or not str((release/member.name).resolve()).startswith(str(release.resolve())+'/')):
+   raise RuntimeError('Unsafe candidate archive')
+  member.uid,member.gid=os.getuid(),os.getgid();member.uname=member.gname=''
+ manifest=json.load(archive.extractfile('manifest.json'))
+ image=json.load(archive.extractfile('image.json'))
+ if manifest['commit']!=sha or image['commit']!=sha:raise RuntimeError('Candidate source mismatch')
+ need=sum(m.size for m in members)+2*image['uncompressed_bytes']+1024**3
+ if shutil.disk_usage(str(root)).free<need:raise RuntimeError('Insufficient verified image staging space')
+ archive.extractall(str(release),members=members)
+for name,digest in manifest['sha256'].items():
+ p=release/name
+ if not str(p.resolve()).startswith(str(release.resolve())+'/'):raise RuntimeError('Unsafe manifest entry')
+ h=hashlib.sha256()
+ with p.open('rb') as stream:
+  for block in iter(lambda:stream.read(1024*1024),b''):h.update(block)
+ if h.hexdigest()!=digest:raise RuntimeError('Candidate checksum mismatch')
+run(['docker','load','-i',str(release/'image.tar.gz')])
+tag='tp-community-encore:source-'+sha
+info=json.loads(run(['docker','image','inspect',tag]))[0]
+if info['Id']!=image['image_id']:raise RuntimeError('Candidate image identity mismatch')
+runtime=pathlib.Path('/opt/tp-community-main-20261028')
+config=json.loads((runtime/'runtime.encore.private.json').read_text())
+svc=json.loads((runtime/'compose.encore.private.json').read_text())['services']['encore-api']
+if run(['docker','ps','--format','{{.ID}} {{.Names}}'])!=before:raise RuntimeError('Running services changed')
+with urllib.request.urlopen('http://127.0.0.1:14000/v1/health',timeout=5) as response:
+ if json.load(response).get('status')!='ok':raise RuntimeError('Live service health failed')
+print(json.dumps({'source_commit':sha,'image_id':info['Id'],'uncompressed_bytes':image['uncompressed_bytes'],
+ 'services':image['services'],'staged_only':True,'running_containers_unchanged':True,
+ 'runtime_keys':sorted(config),'sql_servers_shape':[{'keys':sorted(s),'databases':{k:sorted(v) for k,v in s['databases'].items()}} for s in config['sql_servers']],
+ 'compose_keys':sorted(svc),'environment_names':sorted(svc.get('environment',{})), 'volumes':svc.get('volumes',[]),
+ 'disk_free_bytes':shutil.disk_usage(str(root)).free}))
