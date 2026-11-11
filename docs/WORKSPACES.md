@@ -124,3 +124,7 @@
 - 后端：F:/coding/thingspanel-backend-community/.claude/worktrees/full-develop-integration，分支 wp/full-develop-integration-20261111；负责人 Codex；本轮前后端配套合并，保留主线通知、角色兼容及发布保护。验收和用户确认清理前保留。
 - 前端：F:/coding/thingspanel-frontend-community/.claude/worktrees/full-develop-integration，分支 wp/full-develop-integration-20261111；同一合并任务，验收和用户确认清理前保留。
 - 外置证据：F:/coding/artifacts/20261111-full-develop-integration/。
+
+### 2026-11-11 测试服配套升级续办
+
+沿用上述两个 worktree，继续处理 c.thingspanel.cn 与已合并主线不一致的问题。用户明确要求保留全部现有租户和设备，先完成存量迁移再切换。范围包括告警分页、认证能力发现、发布前置检查、私密备份与隔离恢复验证、设备/模板/分组转换及全量对账；当前运行版本尚未切换。新证据放在 F:/coding/artifacts/20261111-coordinated-rollout/；服务器升级演练数据库和私密归档保留，不自动删除。

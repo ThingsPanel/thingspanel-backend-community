@@ -365,6 +365,33 @@ func TestTheDevicePageListsTemplateDeviceAndConditionRules(t *testing.T) {
 	}
 }
 
+func TestDeviceConditionRuleIsVisibleOnlyForItsTriggerDeviceAndTenant(t *testing.T) {
+	e := newEnv(t)
+	definition := paramRule(e, "30")
+	definition.Params = nil
+	condition := &definition.Trigger.Groups[0].Conditions[0]
+	condition.Source, condition.DeviceID, condition.Value = "device", e.dev1, "30"
+	rule := e.createRuleIn(serviceTestTenant, definition)
+	for _, tc := range []struct {
+		tenant, device string
+		want           bool
+	}{{serviceTestTenant, e.dev1, true}, {serviceTestTenant, e.dev2, false}, {"unrelated-tenant", e.dev1, false}} {
+		rows, err := e.st.RulesMatchingDevice(e.ctx(), tc.tenant, tc.device)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, row := range rows {
+			if row.ID == rule.ID {
+				found = true
+			}
+		}
+		if found != tc.want {
+			t.Fatalf("tenant=%s device=%s: explicit rule visible=%v want=%v", tc.tenant, tc.device, found, tc.want)
+		}
+	}
+}
+
 func TestTheTemplatePageCountsAttachedAndDetached(t *testing.T) {
 	e := newEnv(t)
 	rule := e.createRuleIn(serviceTestTenant, paramRule(e, "30"))

@@ -146,8 +146,8 @@ func (s *Store) Backlog(ctx context.Context) (*BacklogStats, error) {
 	return &st, nil
 }
 
-// RulesMatchingDevice returns the enabled rules whose trigger names "self" and
-// that are therefore evaluated for any device reporting the matching signal.
+// RulesMatchingDevice returns enabled rules triggered by this device, either
+// through "self" or an explicit device condition. Binding is not required.
 //
 // The device page needs them: they are not bound, but they do apply, and a page
 // that lists only bindings would tell the customer "nothing runs on this
@@ -156,13 +156,15 @@ func (s *Store) RulesMatchingDevice(ctx context.Context, tenantID, deviceID stri
 	condition := `
              SELECT 1 FROM jsonb_array_elements(r.definition->'trigger'->'groups') g,
                            jsonb_array_elements(g->'conditions') c
-              WHERE (c->>'source' = 'self' OR c->>'source' IS NULL)`
+              WHERE (c->>'source' = 'self' OR c->>'source' IS NULL
+                     OR (c->>'source' = 'device' AND c->>'device_id' = $2))`
 	if s.MySQL {
 		condition = `
              SELECT 1
                FROM JSON_TABLE(COALESCE(JSON_EXTRACT(r.definition, '$.trigger.groups'), JSON_ARRAY()), '$[*]' COLUMNS (conds JSON PATH '$.conditions')) g,
-                    JSON_TABLE(COALESCE(g.conds, JSON_ARRAY()), '$[*]' COLUMNS (source VARCHAR(32) PATH '$.source')) c
-              WHERE (c.source = 'self' OR c.source IS NULL)`
+                    JSON_TABLE(COALESCE(g.conds, JSON_ARRAY()), '$[*]' COLUMNS (source VARCHAR(32) PATH '$.source', device_id VARCHAR(128) PATH '$.device_id')) c
+              WHERE (c.source = 'self' OR c.source IS NULL
+                     OR (c.source = 'device' AND c.device_id = $2))`
 	}
 	rows, err := s.DB.QueryContext(ctx, `
         SELECT DISTINCT `+ruleColumns+`
@@ -173,7 +175,7 @@ func (s *Store) RulesMatchingDevice(ctx context.Context, tenantID, deviceID stri
            AND EXISTS (`+condition+`
            )
          ORDER BY r.name
-         LIMIT 200`, tenantID)
+         LIMIT 200`, tenantID, deviceID)
 	if err != nil {
 		return nil, err
 	}

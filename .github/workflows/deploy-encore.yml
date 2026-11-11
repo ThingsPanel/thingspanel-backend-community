@@ -37,8 +37,17 @@ jobs:
         run: test "$DEPLOY_REF" = refs/heads/main
       - name: Verify migration history guard
         run: |
+          python3 -m venv "$RUNNER_TEMP/upgrade-checks"
+          "$RUNNER_TEMP/upgrade-checks/bin/python" -m pip install --quiet PyYAML==6.0.3
+          "$RUNNER_TEMP/upgrade-checks/bin/python" -m unittest discover -s deploy/community-test -p 'test_upgrade_platform_config.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_deployment_guard.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_rollout_preflight.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_metadata_upgrade_inventory.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_quarantine.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_identity_plan.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_rehearsal.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_acceptance.py'
       - name: Install pinned Encore CLI
         run: |
           set -euo pipefail
@@ -59,7 +68,18 @@ jobs:
       - name: Compile and test native services
         working-directory: encore-api
         run: |
-          encore test -p=1 ./automation/... ./thingmodel/... ./devicemetadata/... ./fileassets/... ./l1-access/authn ./internal/authz ./internal/authcore/... ./pkg/... ./internal/communityclient ./internal/luasandbox ./l3-core/connectorcatalog/... ./l3-core/notification/... ./marketinstall/... ./platformconfig/...
+          encore test -p=1 ./automation/... ./thingmodel/... ./devicemetadata/... ./fileassets/... ./l1-access/authn ./internal/authz ./internal/authcore/... ./internal/tenantidentity ./pkg/... ./internal/communityclient ./internal/luasandbox ./l3-core/connectorcatalog/... ./l3-core/notification/... ./marketinstall/... ./platformconfig/...
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.9'
+          cache-dependency-path: encore-api/go.sum
+      - name: Verify offline conversion transaction against native schema
+        working-directory: encore-api
+        env:
+          UPGRADE_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/tp_upgrade_rehearsal_20000101000001?sslmode=disable
+        run: |
+          docker exec notification-test createdb -U notification_test tp_upgrade_rehearsal_20000101000001
+          go test -count=1 ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-groups ./cmd/metadata-upgrade-devices ./cmd/metadata-upgrade-relations
       - name: Verify scheduler transport
         run: |
           python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py
@@ -92,6 +112,14 @@ jobs:
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-deploy-key"
           ssh -i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'install -d -m 700 /opt/tp-community-actions/incoming'
+      - name: Check coordinated runtime before replacing any service
+        if: inputs.deploy_runtime
+        run: |
+          set -euo pipefail
+          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          scp "${args[@]}" deploy/community-test/rollout_preflight.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          scp "${args[@]}" deploy/community-test/upgrade_acceptance.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 'python3 /opt/tp-community-actions/incoming/rollout_preflight.py'
       - name: Deploy verified backend after all code checks pass
         if: inputs.deploy_runtime && inputs.deploy_backend
         run: |

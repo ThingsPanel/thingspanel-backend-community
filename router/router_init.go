@@ -94,7 +94,7 @@ func RouterInit() *gin.Engine {
 				c.JSON(503, gin.H{"code": 503, "message": "authentication routing is not configured"})
 				return
 			}
-			var data any = gin.H{"password": gin.H{"enabled": true}, "external": gin.H{"enabled": false, "providers": []any{}}}
+			var data any = gin.H{"password": gin.H{"enabled": true}, "external": gin.H{"enabled": false, "providers": []any{}}, "bindings": gin.H{"enabled": false}}
 			if c.Request.URL.Path == "/api/v1/auth/external/providers" {
 				data = []any{}
 			}

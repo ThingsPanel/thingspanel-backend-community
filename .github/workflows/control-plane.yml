@@ -1,0 +1,88 @@
+name: Build staged community control plane
+on:
+  workflow_dispatch:
+  push:
+    branches: [wp/full-develop-integration-20261111]
+    paths: ['.github/workflows/control-plane.yml', 'deploy/community-test/deploy_control_plane.py', 'deploy/community-test/test_control_plane.py', 'encore-api/automation/**', 'encore-api/l1-access/authn/**', 'encore-api/internal/authcore/**', 'encore-api/l3-core/notification/**', 'encore-api/thingmodel/**']
+permissions:
+  contents: read
+concurrency:
+  group: community-control-plane-backend-build
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-p=2'
+      NOTIFICATION_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
+      TP_AUTH_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: notification_test
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: notification_test
+        ports: ['25543:5432']
+        options: >-
+          --health-cmd "pg_isready -U notification_test -d notification_test"
+          --health-interval 2s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.9'
+          cache-dependency-path: encore-api/go.sum
+      - name: Verify deployment boundaries
+        run: python3 -m unittest discover -s deploy/community-test -p 'test_control_plane.py' -v
+      - name: Install pinned Encore CLI
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 https://d2f391esomvqpi.cloudfront.net/encore-1.58.6-linux_amd64.tar.gz -o "$RUNNER_TEMP/encore.tar.gz"
+          echo "46add1a88eb02349e4ce51269fdade91c52e8fc044c972cc0ae40129a1eb91b2  $RUNNER_TEMP/encore.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/encore"
+          tar -xzf "$RUNNER_TEMP/encore.tar.gz" -C "$RUNNER_TEMP/encore"
+          echo "ENCORE_INSTALL=$RUNNER_TEMP/encore" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/encore/bin" >> "$GITHUB_PATH"
+      - name: Test the services included in this release
+        working-directory: encore-api
+        run: encore test -p=2 ./thingmodel/... ./l1-access/authn ./internal/authz ./internal/authcore/... ./internal/tenantidentity ./l3-core/notification/... ./automation/...
+      - name: Build only the already hosted services
+        working-directory: encore-api
+        run: encore build docker "tp-community-control-plane:source-$GITHUB_SHA" --services=authn,thingmodel,automation,notification --skip-config
+      - name: Package immutable image and matching schema history
+        run: |
+          set -euo pipefail
+          mkdir -p phase
+          docker save "tp-community-control-plane:source-$GITHUB_SHA" | gzip -1 > phase/image.tar.gz
+          python3 - <<'PY'
+          import pathlib,os,json,hashlib,shutil,subprocess,tarfile
+          root=pathlib.Path('phase');sha=os.environ['GITHUB_SHA']
+          for folder in ['devicemetadata','automation','l3-core/notification']:
+              src=pathlib.Path('encore-api')/folder/'migrations'
+              shutil.copytree(src,root/src)
+          for name in ['deploy_control_plane.py','encore_migrations.py']:
+              shutil.copy2(pathlib.Path('deploy/community-test')/name,root/name)
+          image=json.loads(subprocess.check_output(['docker','image','inspect','tp-community-control-plane:source-'+sha]))[0]['Id']
+          manifest={'commit':sha,'profile':'control-plane','image_id':image,'sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()}}
+          (root/'manifest.json').write_text(json.dumps(manifest,indent=2))
+          with tarfile.open('control-plane-backend-'+sha+'.tar.gz','w:gz') as tf:
+              for p in root.iterdir():tf.add(str(p),arcname=p.name)
+          PY
+      - name: Upload immutable candidate only
+        env:
+          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/phase-key"
+          scp -i "$RUNNER_TEMP/phase-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts "control-plane-backend-$GITHUB_SHA.tar.gz" root@47.92.253.145:/opt/tp-community-actions/incoming/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: control-plane-backend-${{ github.sha }}
+          path: phase/manifest.json
+      - name: Remove runner SSH key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/phase-key"

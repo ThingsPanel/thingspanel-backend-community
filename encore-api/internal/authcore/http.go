@@ -149,7 +149,7 @@ func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		providers := h.publicProviders(channel)
-		reply(w, map[string]any{"password": map[string]bool{"enabled": true}, "external": map[string]any{"enabled": len(providers) > 0, "providers": providers}}, nil)
+		reply(w, map[string]any{"password": map[string]bool{"enabled": true}, "external": map[string]any{"enabled": len(providers) > 0, "providers": providers}, "bindings": map[string]bool{"enabled": true}}, nil)
 		return
 	}
 	if path == "/api/v1/auth/external/providers" && r.Method == "GET" {
