@@ -1,29 +1,34 @@
-name: Read-only conversion progress
+name: Deploy approved staged control plane
 on:
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: community-upgrade-readonly
+  group: community-main-encore-deploy
   cancel-in-progress: false
 jobs:
-  inspect:
+  deploy:
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect isolated source semantics only
+      - name: Verify staged deployment boundaries
+        run: python3 -m unittest discover -s deploy/community-test -p test_control_plane.py -v
+      - name: Switch approved services and composed frontend with rollback
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
           umask 077
-          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-profile-key"
-          ssh -i "$RUNNER_TEMP/community-profile-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'python3 -' < deploy/community-test/inspect_control_plane.py > control-plane-inspection.json
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/control-plane-key"
+          args=(-i "$RUNNER_TEMP/control-plane-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          scp "${args[@]}" deploy/community-test/deploy_control_plane.py deploy/community-test/encore_migrations.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 'python3 /opt/tp-community-actions/incoming/deploy_control_plane.py 54563749439c45bb340d32ba573cd42f059063b4 b0ee3fd6478dbf7d14fd6b9d332b8b31511a4227' > control-plane-result.json
       - uses: actions/upload-artifact@v4
-        with:
-          name: control-plane-inspection
-          path: control-plane-inspection.json
-      - name: Remove runner temporary SSH key
         if: always()
-        run: rm -f "$RUNNER_TEMP/community-profile-key"
+        with:
+          name: control-plane-result
+          path: control-plane-result.json
+      - name: Remove runner SSH key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/control-plane-key"
