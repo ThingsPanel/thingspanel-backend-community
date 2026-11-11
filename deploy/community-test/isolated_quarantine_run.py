@@ -540,5 +540,36 @@ try:
 except ValueError:
  import yaml
  out["platform_config"]={"state":"blocked-unmapped-options","legacy_option_names":sorted(yaml.safe_load(pathlib.Path("/home/thingspanel/thingspanel-backend-community/configs/conf.yml").read_text())["db"]["psql"])}
+if out['platform_config']['state']=='staged-only':
+ import yaml
+ processes=subprocess.run(['/root/.local/share/pnpm/pm2','jlist'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
+ if processes.returncode:raise RuntimeError('unable to inspect platform process environment')
+ matches=[p for p in json.loads(processes.stdout) if p.get('name')=='thingspanel-backend-community']
+ if len(matches)!=1:raise RuntimeError('platform process selection is ambiguous')
+ process_env=matches[0].get('pm2_env',{})
+ relevant={k:v for k,v in process_env.items() if k.startswith(('GOTP_DB_PSQL_','GOTP_RELATIONAL_'))}
+ out['platform_config']['database_environment_override_names']=sorted(relevant)
+ # Only verify the staged file if the actual process has no overriding values.
+ # A connection test with a different effective configuration would be misleading.
+ if relevant:
+  out['platform_config']['connectivity']='pending-environment-reconciliation'
+ else:
+  candidate=yaml.safe_load((root/'platform.next.private.yml').read_text())
+  settings=candidate['relational']['postgres']['platform']
+  image_id=subprocess.check_output(['docker','inspect','--format','{{.Image}}','timescaledb']).decode().strip()
+  image_info=json.loads(subprocess.check_output(['docker','image','inspect',image_id]))[0]
+  volumes=list((image_info.get('Config') or {}).get('Volumes') or {})
+  if any(not v.startswith('/var/lib/postgresql/') for v in volumes):raise RuntimeError('unexpected image volume declaration')
+  args=['docker','run','--rm','--network','host','--read-only']
+  for volume in volumes:args+=['--tmpfs',volume+':rw,size=16m']
+  args+=['--entrypoint','psql','-e','PGPASSWORD',image_id,'-X','-q','-At','-v','ON_ERROR_STOP=1',
+         '-h',str(settings.get('host') or 'localhost'),'-p',str(settings.get('port') or 5432),
+         '-U',str(settings['username']),'-d',str(settings['database']),'-c',
+         "BEGIN READ ONLY; SET LOCAL statement_timeout='5s'; SELECT 1; ROLLBACK;"]
+  environment=os.environ.copy();environment['PGPASSWORD']=str(settings.get('password') or '');environment['PGCONNECT_TIMEOUT']='8'
+  check=subprocess.run(args,env=environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
+  if check.returncode or check.stdout.strip()!=b'1':raise RuntimeError('staged database connectivity verification failed')
+  out['platform_config']['connectivity']='verified-read-only-from-host-network'
+  out['platform_config']['remaining_checks']=['full-data-reconciliation','native-resource-provisioning','route-and-runtime-cutover']
 
 print(json.dumps(out,ensure_ascii=False))
