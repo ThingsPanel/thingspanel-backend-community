@@ -4,7 +4,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: community-main-encore-deploy
+  group: community-phase-acceptance
   cancel-in-progress: false
 jobs:
   operation:
