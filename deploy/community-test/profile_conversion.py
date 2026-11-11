@@ -22,7 +22,7 @@ for field in ('label','location','additional_info','protocol_config','voucher'):
   value=d[field]
   if value in (None,'','{}','[]'):profiles[field]['empty']+=1;continue
   try:
-   v=json.loads(value)
+   v=json.loads(value) if isinstance(value,str) else value
    if isinstance(v,dict):
     # Credential values never leave the server. Report only known parser fields.
     if field=='voucher':keys=[k for k in sorted(v) if k in ('username','password','client_id','clientId','token','access_token')];kind='object:'+','.join(keys)
@@ -49,8 +49,10 @@ for t in s['templates']:
   v=t[field]
   if v in (None,'','{}','[]'):continue
   try:
-   value=json.loads(v);key=','.join(sorted(value)) if isinstance(value,dict) else type(value).__name__
+   value=json.loads(v) if isinstance(v,str) else v;key=','.join(sorted(value)) if isinstance(value,dict) else type(value).__name__
   except (ValueError,TypeError):key='text'
   profiles['template_'+field][key]+=1
 out['template_field_shapes']={k:dict(v) for k,v in profiles.items() if k.startswith('template_')}
+out['location_review']=[{k:d[k] for k in ('id','name','location')} for d in s['devices'] if d['id'] in issues['unparsed_location']]
+out['hierarchy_review']=[{k:d[k] for k in ('id','name','tenant_id','parent_id','device_type','device_config_id','sub_device_addr')} for d in s['devices'] if d['id'] in issues['gateway_invalid_child_kind']]
 print(json.dumps(out,ensure_ascii=False))
