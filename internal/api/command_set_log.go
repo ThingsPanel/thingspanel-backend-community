@@ -21,6 +21,9 @@ func (CommandSetLogApi) ServeSetLogsDataListByPage(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	if !authorizeHTTPDeviceReads(c, []string{req.DeviceId}) {
+		return
+	}
 
 	date, err := service.GroupApp.CommandData.GetCommandSetLogsDataListByPage(req)
 	if err != nil {
