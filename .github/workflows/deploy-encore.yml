@@ -79,7 +79,14 @@ jobs:
           UPGRADE_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/tp_upgrade_rehearsal_20000101000001?sslmode=disable
         run: |
           docker exec notification-test createdb -U notification_test tp_upgrade_rehearsal_20000101000001
-          go test -count=1 ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-groups ./cmd/metadata-upgrade-devices ./cmd/metadata-upgrade-relations
+          go test -count=1 ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-groups ./cmd/metadata-upgrade-devices ./cmd/metadata-upgrade-relations ./cmd/metadata-upgrade-credentials
+          go build -o ../metadata-upgrade-credentials ./cmd/metadata-upgrade-credentials
+      - name: Preserve verified offline credential converter
+        uses: actions/upload-artifact@v4
+        with:
+          name: metadata-credential-converter-${{ github.sha }}
+          path: metadata-upgrade-credentials
+          retention-days: 3
       - name: Verify scheduler transport
         run: |
           python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py

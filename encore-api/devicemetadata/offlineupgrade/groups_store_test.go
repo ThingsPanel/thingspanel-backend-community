@@ -102,6 +102,7 @@ func TestGroupsPostgresAtomicityReplayAndDrift(t *testing.T) {
 		t.Fatal("connection to wrong database accepted")
 	}
 	verifyDeviceIdentityRehearsal(t, db)
+	verifyCredentialRehearsal(t, db)
 	verifyRelationshipRehearsal(t, db)
 }
 
