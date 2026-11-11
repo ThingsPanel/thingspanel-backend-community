@@ -1,33 +1,33 @@
-import fcntl,json,os,pathlib,signal,subprocess,time,urllib.request
+import fcntl,json,os,pathlib,re,subprocess,urllib.request
 root=pathlib.Path('/opt/tp-community-actions')
 lock=(root/'deployment.lock').open('a')
 fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-target=pathlib.Path('/proc/3397375')
-expected='/opt/tp-community-actions/tools/encore-1.58.6/bin/encore'
-def run(args):
- p=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
- if p.returncode:raise RuntimeError('Resource check failed')
+approved=['/opt/tp-community-actions/encore-build-cache','/root/.cache/encore-build']
+def run(args,env=None):
+ p=subprocess.run(args,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=90,cwd='/opt/tp-community-actions')
+ if p.returncode:raise RuntimeError('Approved cache operation failed')
  return p.stdout.decode().strip()
-before=run(['docker','ps','--format','{{.ID}} {{.Names}}'])
 def health():
  with urllib.request.urlopen('http://127.0.0.1:14000/v1/health',timeout=5) as response:
   if json.load(response).get('status')!='ok':raise RuntimeError('Native health check failed')
 health()
-if target.exists():
- words=[a.decode() for a in (target/'cmdline').read_bytes().split(b'\x00') if a]
- if (os.readlink(str(target/'exe'))!=expected or words[:2]!=[expected,'daemon']
-     or os.readlink(str(target/'cwd'))!='/opt/tp-community-actions/encore-preflight/encore-api'):
-  raise RuntimeError('Observed build daemon identity changed; no process stopped')
- children=(target/'task'/'3397375'/'children').read_text().strip()
- if children:raise RuntimeError('Build daemon has children; no process stopped')
- os.kill(3397375,signal.SIGTERM)
- for _ in range(20):
-  if not target.exists():break
-  time.sleep(0.5)
- if target.exists():raise RuntimeError('Build daemon did not exit; no forced kill attempted')
-time.sleep(2)
+before=run(['docker','ps','--format','{{.ID}} {{.Names}}'])
+sizes={}
+for literal in approved:
+ p=pathlib.Path(literal)
+ if not p.is_dir() or p.is_symlink() or str(p.resolve())!=literal:
+  raise RuntimeError('Approved cache path does not resolve exactly')
+ if any(x.is_symlink() for x in p.rglob('*')):raise RuntimeError('Symlink in approved cache')
+ for entry in p.iterdir():
+  if entry.name not in ('README','trim.txt') and not re.fullmatch('[0-9a-f]{2}',entry.name):
+   raise RuntimeError('Unexpected file in approved Go build cache')
+ sizes[literal]={'before_bytes':int(run(['du','-s','-B1',literal]).split()[0])}
+for literal in approved:
+ env=dict(os.environ,GOCACHE=literal,GOTOOLCHAIN='local')
+ run(['/usr/local/go/bin/go','clean','-cache'],env)
+ sizes[literal]['after_bytes']=int(run(['du','-s','-B1',literal]).split()[0])
 health()
-after=run(['docker','ps','--format','{{.ID}} {{.Names}}'])
-if before!=after:raise RuntimeError('Running container set changed during resource verification')
-print(json.dumps({'idle_build_daemon_stopped':True,'running_containers_unchanged':True,
- 'native_health':'ok','memory':run(['free','-b']),'disk':run(['df','-B1','/opt'])}))
+if run(['docker','ps','--format','{{.ID}} {{.Names}}'])!=before:
+ raise RuntimeError('Running container set changed during cache operation')
+print(json.dumps({'cleaned_only_approved_caches':sizes,'running_containers_unchanged':True,'native_health':'ok',
+ 'memory':run(['free','-b']),'disk':run(['df','-B1','/opt'])}))
