@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -21,6 +22,9 @@ func run() error {
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&in); err != nil {
 		return fmt.Errorf("invalid private conversion input")
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		return fmt.Errorf("unexpected trailing conversion input")
 	}
 	if _, err := offlineupgrade.PlanGroups(in); err != nil {
 		return err

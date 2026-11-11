@@ -96,3 +96,23 @@ func TestPlanGroupsRejectsLiveOrSameDatabase(t *testing.T) {
 		}
 	}
 }
+
+func TestPlanGroupsOnlyAppliesExplicitMatchingNameResolution(t *testing.T) {
+	in := fixtureInput()
+	in.Groups = []json.RawMessage{fixtureGroup("a", "tenant", "0", "same"), fixtureGroup("b", "tenant", "0", "same")}
+	if _, err := PlanGroups(in); err == nil {
+		t.Fatal("unreviewed collision accepted")
+	}
+	in.NameResolutions = []GroupNameResolution{{SourceID: "b", OriginalName: "same", Name: "same (b)"}}
+	p, err := PlanGroups(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Groups[0].Row.Name != "same" || p.Groups[1].Row.Name != "same (b)" {
+		t.Fatal("resolution changed wrong group")
+	}
+	in.NameResolutions[0].OriginalName = "stale"
+	if _, err := PlanGroups(in); err == nil {
+		t.Fatal("stale resolution accepted")
+	}
+}

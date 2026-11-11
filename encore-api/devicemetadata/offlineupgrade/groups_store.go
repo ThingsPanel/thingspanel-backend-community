@@ -92,6 +92,7 @@ func ApplyGroupsPG(ctx context.Context, db *gorm.DB, input GroupInput) (GroupRec
 				"sourceArchiveSHA256": input.SourceArchiveSHA256, "sourceRowSHA256": g.SourceRowSHA256,
 				"quarantineSHA256": input.QuarantineSHA256, "targetArchiveSHA256": input.TargetArchiveSHA256,
 				"sourceID": g.SourceID, "scope": "group-only; full migration incomplete",
+				"convertedName": g.Row.Name,
 			})
 			events = append(events, auditEvent{
 				ID:       tenantidentity.CanonicalIdentity("upgrade-group-event", input.SourceArchiveSHA256+"/"+g.SourceID),

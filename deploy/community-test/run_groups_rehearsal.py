@@ -29,8 +29,8 @@ for e in quarantine['entries']:
   if current!=[original]:raise RuntimeError('quarantined group changed')
 bundle={'source_database':receipts[0]['rehearsal_database'],'target_database':receipts[1]['rehearsal_database'],
 'source_archive_sha256':expected_source,'target_archive_sha256':expected_target,'quarantine_sha256':expected_quarantine,
-'groups':rows['groups'],'excluded_groups':excluded}
-bundle_path=target/'group-conversion.v1.private.json'
+'groups':rows['groups'],'excluded_groups':excluded,'name_resolutions':[{'source_id':'f739ab04-fa41-9bec-e2e2-f18cef64e854','original_name':'group11','name':'group11（f739ab04）'}]}
+bundle_path=target/'group-conversion.v2.private.json'
 if bundle_path.exists():
  if json.loads(bundle_path.read_text())!=bundle:raise RuntimeError('existing conversion source changed')
 else:

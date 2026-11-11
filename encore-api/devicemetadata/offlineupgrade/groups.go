@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"encore.app/internal/tenantidentity"
+	"github.com/google/uuid"
 )
 
 var rehearsalDatabase = regexp.MustCompile(`^tp_upgrade_rehearsal_[0-9]{14}$`)
@@ -22,13 +23,22 @@ var sha256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 // GroupInput is assembled only from verified private restore receipts and the
 // approved quarantine archive. Original source rows stay in the private bundle.
 type GroupInput struct {
-	SourceDatabase      string            `json:"source_database"`
-	TargetDatabase      string            `json:"target_database"`
-	SourceArchiveSHA256 string            `json:"source_archive_sha256"`
-	TargetArchiveSHA256 string            `json:"target_archive_sha256"`
-	QuarantineSHA256    string            `json:"quarantine_sha256"`
-	Groups              []json.RawMessage `json:"groups"`
-	ExcludedGroups      []string          `json:"excluded_groups"`
+	SourceDatabase      string                `json:"source_database"`
+	TargetDatabase      string                `json:"target_database"`
+	SourceArchiveSHA256 string                `json:"source_archive_sha256"`
+	TargetArchiveSHA256 string                `json:"target_archive_sha256"`
+	QuarantineSHA256    string                `json:"quarantine_sha256"`
+	Groups              []json.RawMessage     `json:"groups"`
+	ExcludedGroups      []string              `json:"excluded_groups"`
+	NameResolutions     []GroupNameResolution `json:"name_resolutions,omitempty"`
+}
+
+// A resolution must be explicitly reviewed; no automatic suffixing, dropping,
+// or coalescing of distinct groups is performed by the converter.
+type GroupNameResolution struct {
+	SourceID     string `json:"source_id"`
+	OriginalName string `json:"original_name"`
+	Name         string `json:"name"`
 }
 
 type sourceGroup struct {
@@ -92,6 +102,16 @@ func PlanGroups(input GroupInput) (GroupPlan, error) {
 	}
 	rows := map[string]sourceGroup{}
 	planned := map[string]PlannedGroup{}
+	resolutions := map[string]GroupNameResolution{}
+	for _, resolution := range input.NameResolutions {
+		if resolution.SourceID == "" || resolution.Name == resolution.OriginalName || excluded[resolution.SourceID] {
+			return p, fmt.Errorf("invalid group name resolution")
+		}
+		if _, ok := resolutions[resolution.SourceID]; ok {
+			return p, fmt.Errorf("duplicate group name resolution")
+		}
+		resolutions[resolution.SourceID] = resolution
+	}
 	nativeIDs, names := map[string]bool{}, map[string]bool{}
 	for _, raw := range input.Groups {
 		var source sourceGroup
@@ -114,7 +134,14 @@ func PlanGroups(input GroupInput) (GroupPlan, error) {
 		if source.TenantID == "" || source.TenantID != strings.TrimSpace(source.TenantID) {
 			return p, fmt.Errorf("group %s: missing or ambiguous tenant", source.ID)
 		}
-		if strings.TrimSpace(source.Name) == "" || utf8.RuneCountInString(source.Name) > 128 {
+		name := source.Name
+		if resolution, ok := resolutions[source.ID]; ok {
+			if resolution.OriginalName != source.Name {
+				return p, fmt.Errorf("reviewed source group name changed")
+			}
+			name = resolution.Name
+		}
+		if strings.TrimSpace(name) == "" || utf8.RuneCountInString(name) > 128 {
 			return p, fmt.Errorf("group %s: invalid name", source.ID)
 		}
 		if source.CreatedAt == nil || source.UpdatedAt == nil {
@@ -122,6 +149,9 @@ func PlanGroups(input GroupInput) (GroupPlan, error) {
 		}
 		id := tenantidentity.CanonicalIdentity("group", source.ID)
 		tenant := tenantidentity.CanonicalIdentity("tenant", source.TenantID)
+		if id == uuid.Nil.String() || tenant == uuid.Nil.String() {
+			return p, fmt.Errorf("zero group or tenant identity")
+		}
 		if nativeIDs[id] {
 			return p, fmt.Errorf("native group identity collision")
 		}
@@ -135,17 +165,22 @@ func PlanGroups(input GroupInput) (GroupPlan, error) {
 		if parent != nil {
 			parentKey = *parent
 		}
-		nameKey := tenant + "/" + parentKey + "/" + source.Name
+		nameKey := tenant + "/" + parentKey + "/" + name
 		if names[nameKey] {
 			return p, fmt.Errorf("duplicate sibling group name")
 		}
 		names[nameKey] = true
 		hash := sha256.Sum256(raw)
 		planned[source.ID] = PlannedGroup{SourceID: source.ID, SourceRowSHA256: hex.EncodeToString(hash[:]), Row: Group{
-			ID: id, TenantID: tenant, ParentID: parent, Name: source.Name, Description: source.Description,
+			ID: id, TenantID: tenant, ParentID: parent, Name: name, Description: source.Description,
 			ResourceVersion: 1, CreatedBy: p.Actor, UpdatedBy: p.Actor,
 			CreatedAt: source.CreatedAt.UTC(), UpdatedAt: source.UpdatedAt.UTC(),
 		}}
+	}
+	for id := range resolutions {
+		if _, ok := planned[id]; !ok {
+			return p, fmt.Errorf("reviewed group name target absent")
+		}
 	}
 	for id := range excluded {
 		if _, ok := rows[id]; !ok {
