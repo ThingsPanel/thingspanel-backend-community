@@ -37,6 +37,9 @@ jobs:
         run: test "$DEPLOY_REF" = refs/heads/main
       - name: Verify migration history guard
         run: |
+          python3 -m venv "$RUNNER_TEMP/upgrade-checks"
+          "$RUNNER_TEMP/upgrade-checks/bin/python" -m pip install --quiet PyYAML==6.0.3
+          "$RUNNER_TEMP/upgrade-checks/bin/python" -m unittest discover -s deploy/community-test -p 'test_upgrade_platform_config.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_deployment_guard.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_rollout_preflight.py'
