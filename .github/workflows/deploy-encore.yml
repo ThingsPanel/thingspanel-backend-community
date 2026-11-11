@@ -1,4 +1,4 @@
-name: Read-only conversion profile
+name: Native device identity conversion rehearsal
 on:
   workflow_dispatch:
 permissions:
@@ -7,23 +7,44 @@ concurrency:
   group: community-main-encore-deploy
   cancel-in-progress: false
 jobs:
-  inspect:
+  rehearsal:
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect isolated source semantics only
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.9'
+          cache-dependency-path: encore-api/go.sum
+      - name: Start disposable PostgreSQL fixture
+        run: |
+          docker run -d --name groups-fixture --tmpfs /var/lib/postgresql/data -p 127.0.0.1:25544:5432 -e POSTGRES_PASSWORD=fixture-only -e POSTGRES_DB=tp_upgrade_rehearsal_20000101000001 postgres:16-alpine
+          for attempt in $(seq 1 30); do
+            if docker exec groups-fixture pg_isready -U postgres; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Verify actual native schema, atomicity, retries, source and target drift
+        working-directory: encore-api
+        env:
+          UPGRADE_TEST_DSN: postgres://postgres:fixture-only@127.0.0.1:25544/tp_upgrade_rehearsal_20000101000001?sslmode=disable
+        run: |
+          go test -count=1 -v ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-devices
+          CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/metadata-upgrade-devices" ./cmd/metadata-upgrade-devices
+      - name: Convert and reconcile device identities only in verified isolated native restore
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
           umask 077
-          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-profile-key"
-          ssh -i "$RUNNER_TEMP/community-profile-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'python3 -' < deploy/community-test/profile_conversion.py > conversion-profile.json
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-groups-key"
+          scp -i "$RUNNER_TEMP/community-groups-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts "$RUNNER_TEMP/metadata-upgrade-devices" root@47.92.253.145:/opt/tp-community-actions/upgrade-rehearsal/native-20261111165830/metadata-upgrade-devices
+          ssh -i "$RUNNER_TEMP/community-groups-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'chmod 700 /opt/tp-community-actions/upgrade-rehearsal/native-20261111165830/metadata-upgrade-devices && python3 -' < deploy/community-test/run_device_identities.py > device-identities-summary.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: conversion-profile
-          path: conversion-profile.json
+          name: device-identities-summary
+          path: device-identities-summary.json
       - name: Remove runner temporary SSH key
         if: always()
-        run: rm -f "$RUNNER_TEMP/community-profile-key"
+        run: rm -f "$RUNNER_TEMP/community-groups-key"

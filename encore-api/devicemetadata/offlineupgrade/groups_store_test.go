@@ -101,4 +101,56 @@ func TestGroupsPostgresAtomicityReplayAndDrift(t *testing.T) {
 	if _, err = ApplyGroupsPG(context.Background(), db, in); err == nil {
 		t.Fatal("connection to wrong database accepted")
 	}
+	verifyDeviceIdentityRehearsal(t, db)
+}
+
+func verifyDeviceIdentityRehearsal(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	if err := db.Exec("ALTER TABLE devices ADD CONSTRAINT fixture_device_failure CHECK (name <> 'fail-device')").Error; err != nil {
+		t.Fatal(err)
+	}
+	in := fixtureDevices()
+	in.Devices = []json.RawMessage{fixtureDevice("one", "tenant", "one", ""), fixtureDevice("two", "tenant", "fail-device", "")}
+	if _, err := ApplyDeviceIdentitiesPG(context.Background(), db, in); err == nil {
+		t.Fatal("device fixture constraint must fail")
+	}
+	var count int64
+	db.Table("devices").Count(&count)
+	if count != 0 {
+		t.Fatal("partial device identities survived rollback")
+	}
+	db.Table("metadata_audit_events").Where("resource_kind = ?", "device").Count(&count)
+	if count != 0 {
+		t.Fatal("partial device audit survived rollback")
+	}
+	in.Devices[1] = fixtureDevice("two", "tenant", "two", "")
+	receipt, err := ApplyDeviceIdentitiesPG(context.Background(), db, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.ConvertedIdentities != 2 || receipt.PendingAccessConversions != 2 || receipt.MigrationComplete {
+		t.Fatal("identity staging incorrectly declared full migration")
+	}
+	retry, err := ApplyDeviceIdentitiesPG(context.Background(), db, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retry.RowsSHA256 != receipt.RowsSHA256 || retry.State != "verified-existing-rehearsal-identities" {
+		t.Fatal("identity retry did not verify stored content")
+	}
+	db.Table("device_access_bindings").Count(&count)
+	if count != 0 {
+		t.Fatal("identity stage invented access configuration")
+	}
+	in.Devices[1] = fixtureDevice("two", "tenant", "changed", "")
+	if _, err := ApplyDeviceIdentitiesPG(context.Background(), db, in); err == nil {
+		t.Fatal("identity source drift accepted")
+	}
+	in.Devices[1] = fixtureDevice("two", "tenant", "two", "")
+	if err = db.Table("devices").Where("name = ?", "two").Update("administrative_state", "enabled").Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyDeviceIdentitiesPG(context.Background(), db, in); err == nil {
+		t.Fatal("identity target drift accepted")
+	}
 }
