@@ -318,6 +318,56 @@ SELECT json_build_object(
         raise RuntimeError('private quarantine read failed')
     return write_private_archive(directory, build_archive(json.loads(p.stdout), approval, receipt))
 
+"""Plan native tenant identities using the existing ThingModel v2 namespace.
+
+This is a pure reconciliation step. It never rewrites a source tenant, changes
+ownership, or grants access. A source snapshot must include every raw tenant ID
+and every existing native owner before its plan can be accepted for conversion.
+"""
+import hashlib
+import json
+import uuid
+
+
+def canonical_identity(kind, raw):
+    if not raw or not raw.strip():
+        raise ValueError('missing identity requires explicit quarantine')
+    # Authentication already disallows surrounding whitespace; do not turn it
+    # into another identity silently during an offline conversion.
+    if raw != raw.strip():
+        raise ValueError('identity has surrounding whitespace')
+    try:
+        identity = uuid.UUID(raw)
+    except ValueError:
+        identity = uuid.uuid5(uuid.NAMESPACE_OID, 'thingspanel/community/' + kind + '/' + raw)
+    if identity.int == 0:
+        raise ValueError('zero identity')
+    return str(identity)
+
+
+def tenant_identity_plan(raw_ids, existing_native_owners):
+    rows, owners, errors = [], {}, []
+    for raw in sorted(set(raw_ids)):
+        if not raw or not raw.strip():
+            # Missing-tenant resources are accounted for separately; there is
+            # deliberately no shared/default tenant for them.
+            continue
+        try:
+            native = canonical_identity('tenant', raw)
+        except ValueError:
+            errors.append({'reason':'invalid_source_tenant','source_id':raw})
+            continue
+        if native in owners:
+            errors.append({'reason':'canonical_identity_collision','source_ids':[owners[native],raw]})
+        owners[native] = raw
+        rows.append({'source_id':raw,'native_id':native})
+    for owner in sorted(set(existing_native_owners)):
+        if owner not in owners:
+            errors.append({'reason':'existing_native_owner_unresolved','native_id':owner})
+    return {'format_version':1,'mapping':'thingspanel/community/tenant UUIDv5 OID; UUID passthrough',
+            'ready_for_conversion':not errors,'migration_complete':False,'entries':rows,
+            'errors':errors,'entries_sha256':hashlib.sha256(json.dumps(rows,sort_keys=True,separators=(',',':')).encode()).hexdigest()}
+
 root=pathlib.Path('/opt/tp-community-actions/upgrade-rehearsal/20261111160912')
 approval={'disposition': 'preserve-for-later-claim', 'source_archive_sha256': '85ff3b5ce1c505e99a18420f5e94f270995e3f1dc55ca96a873188bbd52c4cdc', 'entries': [{'reason': 'missing-device-tenant', 'device_id': '0cce2885-2c20-f6a2-29e6-397b654d16a2'}, {'reason': 'missing-device-tenant', 'device_id': '3c4c15db-e461-22ff-07a2-9ce9ceb678a7'}, {'reason': 'cross-tenant-template', 'device_id': 'be638374-bae1-a74d-624d-e20bc00f59b8', 'template_id': '302a09e1-ab15-3c39-ee45-dd342eccfd20', 'device_tenant': 'f6482861', 'template_tenant': 'd616bcbb'}, {'reason': 'cross-tenant-group-member', 'device_id': '912c290a-8c36-f67f-bffc-70bcfd81a411', 'group_id': '1900798e-e72b-5b3d-f1eb-c2221c7c95aa', 'device_tenant': '63a4b529', 'group_tenant': 'd616bcbb', 'member_tenant': '63a4b529'}, {'reason': 'missing-template-tenant', 'template_id': '1ff8e532-5ead-b7cd-8aba-20223531c2cb'}, {'reason': 'missing-template-tenant', 'template_id': 'dd2188bf-f550-7b3c-ecbd-d3ec470bd000'}, {'reason': 'missing-template-tenant', 'template_id': '70adfe7d-8536-cc29-d34d-018cfa4a5bc8'}, {'reason': 'missing-template-tenant', 'template_id': '273160b0-aeb7-59bf-b3bd-22b87e13ed74'}, {'reason': 'missing-template-tenant', 'template_id': '462f7173-940e-95c2-f207-0d168d732b74'}, {'reason': 'missing-template-tenant', 'template_id': 'fe1738cb-6d58-0570-6be6-dc0c6b61d4d8'}, {'reason': 'missing-group-tenant', 'group_id': '82faecce-66c3-4a8f-1aae-220ed2536273'}, {'reason': 'cross-tenant-gateway', 'device_id': '681df01d-69f8-f4bd-6a83-0f7ccb9c2def', 'parent_id': '20fd11e8-0599-4df2-8574-04dd3c8b1c5b', 'device_tenant': 'test1', 'parent_tenant': '63a4b529'}, {'reason': 'self-referencing-gateway', 'device_id': '1b1c7008-16af-4305-de1a-985c9054d79f', 'parent_id': '1b1c7008-16af-4305-de1a-985c9054d79f', 'device_tenant': '63a4b529', 'parent_tenant': '63a4b529'}]}
 out={"quarantine":preserve_approved(root,approval),"inventory":read_verified_restore(root)}
@@ -341,5 +391,24 @@ out['native_tenants']=inspect('native_main_20261028',"""SELECT json_build_object
 )""")
 disk=subprocess.run(['df','-B1','/opt'],stdout=subprocess.PIPE,check=True,universal_newlines=True).stdout
 out['disk']=disk
+raw_tenants=inspect(receipt['rehearsal_database'],"""SELECT json_agg(tenant_id) FROM (
+ SELECT tenant_id FROM users UNION SELECT tenant_id FROM devices UNION SELECT tenant_id FROM device_configs
+ UNION SELECT tenant_id FROM groups UNION SELECT tenant_id FROM device_templates UNION SELECT tenant_id FROM service_access
+) t WHERE tenant_id IS NOT NULL""")
+native_tables=inspect('native_main_20261028',"""SELECT json_agg(table_name) FROM information_schema.columns WHERE table_schema='public' AND column_name='tenant_id'""")
+if any(not re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]*',name) for name in native_tables):raise RuntimeError('invalid owner table name')
+owner_union=' UNION '.join('SELECT tenant_id::text AS tenant_id FROM public."'+name+'" WHERE tenant_id IS NOT NULL' for name in native_tables)
+native_owners=inspect('native_main_20261028','SELECT coalesce(json_agg(tenant_id),\'[]\'::json) FROM ('+owner_union+') t')
+plan=tenant_identity_plan(raw_tenants,native_owners)
+plan['source_archive_sha256']=receipt['archive_sha256']
+plan['existing_native_owners']=native_owners
+planpath=root/'tenant-identity-plan.v1.private.json'
+if planpath.exists():
+ if json.loads(planpath.read_text())!=plan:raise RuntimeError('identity plan differs; retain original')
+else:
+ with planpath.open('x',encoding='utf-8') as outplan:json.dump(plan,outplan,ensure_ascii=False,indent=2)
+out['identity_plan']={k:v for k,v in plan.items() if k not in ('entries','existing_native_owners')}
+out['identity_plan']['source_tenants']=len(plan['entries'])
+out['identity_plan']['existing_native_tenants']=len(native_owners)
 
 print(json.dumps(out,ensure_ascii=False))
