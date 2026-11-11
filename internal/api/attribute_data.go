@@ -16,6 +16,9 @@ type AttributeDataApi struct{}
 // @Router   /api/v1/attribute/datas/{id} [get]
 func (*AttributeDataApi) HandleDataList(c *gin.Context) {
 	id := c.Param("id")
+	if !authorizeHTTPDeviceReads(c, []string{id}) {
+		return
+	}
 	data, err := service.GroupApp.AttributeData.GetAttributeDataList(id)
 	if err != nil {
 		c.Error(err)
@@ -29,6 +32,9 @@ func (*AttributeDataApi) HandleDataList(c *gin.Context) {
 func (*AttributeDataApi) HandleAttributeDataByKey(c *gin.Context) {
 	var req model.GetDataListByKeyReq
 	if !BindAndValidate(c, &req) {
+		return
+	}
+	if !authorizeHTTPDeviceReads(c, []string{req.DeviceId}) {
 		return
 	}
 	data, err := service.GroupApp.AttributeData.GetAttributeDataByKey(req)
@@ -56,6 +62,9 @@ func (*AttributeDataApi) DeleteData(c *gin.Context) {
 func (*AttributeDataApi) HandleAttributeSetLogsDataListByPage(c *gin.Context) {
 	var req model.GetAttributeSetLogsListByPageReq
 	if !BindAndValidate(c, &req) {
+		return
+	}
+	if !authorizeHTTPDeviceReads(c, []string{req.DeviceId}) {
 		return
 	}
 	data, err := service.GroupApp.AttributeData.GetAttributeSetLogsDataListByPage(req)

@@ -17,6 +17,9 @@ func (*EventDataApi) HandleEventDatasListByPage(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	if !authorizeHTTPDeviceReads(c, []string{req.DeviceId}) {
+		return
+	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.EventData.GetEventDatasListByPage(&req, userClaims)
 	if err != nil {

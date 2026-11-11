@@ -254,6 +254,32 @@ func runTelemetryHTTPDeviceAuthorization(t *testing.T, usePostgres bool) {
 		return payload.Code, recorder.snapshot()
 	}
 	fake := &telemetryCountingConn{}
+	// Other device data APIs must enforce the same tenant boundary before any
+	// attribute/event/command history query, including API-key synthetic claims.
+	attribute, event, command := &AttributeDataApi{}, &EventDataApi{}, &CommandSetLogApi{}
+	for _, ep := range []endpoint{
+		{"attributes", "/attributes/:id", "", attribute.HandleDataList},
+		{"attribute-key", "/attribute-key", "device_id=%s&key=temp", attribute.HandleAttributeDataByKey},
+		{"attribute-logs", "/attribute-logs", "device_id=%s&page=1&page_size=10", attribute.HandleAttributeSetLogsDataListByPage},
+		{"event-logs", "/event-logs", "device_id=%s&page=1&page_size=10", event.HandleEventDatasListByPage},
+		{"command-logs", "/command-logs", "device_id=%s&page=1&page_size=10", command.ServeSetLogsDataListByPage},
+	} {
+		for _, id := range []string{"foreign", "missing"} {
+			for _, key := range []bool{false, true} {
+				code, queries := call(ep, id, claims, key)
+				if code != errcode.CodeNoPermission {
+					t.Fatalf("%s id=%s API-key=%v code=%d", ep.name, id, key, code)
+				}
+				for _, q := range queries {
+					for _, table := range []string{"attribute_datas", "attribute_set_logs", "event_datas", "command_set_logs", "broker_command_requests"} {
+						if strings.Contains(q, table) {
+							t.Fatalf("unauthorized %s query: %s", ep.name, q)
+						}
+					}
+				}
+			}
+		}
+	}
 	oldClient := tptodb.TptodbClient
 	tptodb.TptodbClient = pb.NewThingsPanelClient(fake)
 	t.Cleanup(func() { tptodb.TptodbClient = oldClient })
