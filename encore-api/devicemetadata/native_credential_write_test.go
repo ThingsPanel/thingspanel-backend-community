@@ -82,9 +82,22 @@ func TestDecodeNativeCreateCredentialAndValidateCertificate(t *testing.T) {
 }
 
 func TestCreateNativeDeviceCredentialStoresOnlyProtectedMaterialAndReplaysSafely(t *testing.T) {
+	for _, form := range []string{"uuid", "community-short-id"} {
+		t.Run(form, func(t *testing.T) {
+			rawTenant := testTenantID()
+			if form == "community-short-id" {
+				rawTenant = "credential-tenant-" + rawTenant[:8]
+			}
+			verifyCredentialCreationAndReplay(t, rawTenant)
+		})
+	}
+}
+
+func verifyCredentialCreationAndReplay(t *testing.T, rawTenant string) {
+	t.Helper()
 	requireDeviceGroupPostgres(t)
 	ctx := context.Background()
-	tenantID, subjectID := testTenantID(), "credential-create-test"
+	tenantID, subjectID := normalizePrincipalID(rawTenant), "credential-create-test"
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -132,7 +145,7 @@ func TestCreateNativeDeviceCredentialStoresOnlyProtectedMaterialAndReplaysSafely
 		}
 	}
 	t.Cleanup(cleanup)
-	data := &authn.Data{UserID: subjectID, TenantID: tenantID, Roles: []string{"TENANT_ADMIN"}}
+	data := &authn.Data{UserID: subjectID, TenantID: rawTenant, Roles: []string{"TENANT_ADMIN"}}
 	et.OverrideAuthInfo(auth.UID(subjectID), data)
 	defer et.OverrideAuthInfo("", nil)
 	identity, err := currentNativeCredentialWriteIdentity()
@@ -154,6 +167,11 @@ func TestCreateNativeDeviceCredentialStoresOnlyProtectedMaterialAndReplaysSafely
 	if err != nil || !replayed.Replayed || string(replayed.Body) != string(first.Body) {
 		t.Fatalf("same request replay did not return the encrypted receipt: replayed=%v err=%v", replayed != nil && replayed.Replayed, err)
 	}
+	et.OverrideAuthInfo(auth.UID(subjectID), &authn.Data{UserID: subjectID, TenantID: "another-" + rawTenant, Roles: []string{"TENANT_ADMIN"}})
+	if _, err := createNativeDeviceCredential(ctx, identity, deviceID, key, body, "credential-cross-tenant-replay", protector); errs.Code(err) != errs.Unauthenticated {
+		t.Fatalf("changed tenant replay error=%v, want Unauthenticated", err)
+	}
+	et.OverrideAuthInfo(auth.UID(subjectID), data)
 	changedBody := []byte(`{"kind":"token","secret":"different-synthetic-secret"}`)
 	if _, err := createNativeDeviceCredential(ctx, identity, deviceID, key, changedBody, "credential-create-conflict", protector); errs.Code(err) != errs.AlreadyExists {
 		t.Fatalf("changed request with same key error=%v, want AlreadyExists", err)
