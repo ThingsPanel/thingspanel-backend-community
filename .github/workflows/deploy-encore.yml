@@ -39,6 +39,11 @@ jobs:
         run: |
           python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_deployment_guard.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_rollout_preflight.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_metadata_upgrade_inventory.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_quarantine.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_identity_plan.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_rehearsal.py'
       - name: Install pinned Encore CLI
         run: |
           set -euo pipefail
@@ -59,7 +64,7 @@ jobs:
       - name: Compile and test native services
         working-directory: encore-api
         run: |
-          encore test -p=1 ./automation/... ./thingmodel/... ./devicemetadata/... ./fileassets/... ./l1-access/authn ./internal/authz ./internal/authcore/... ./pkg/... ./internal/communityclient ./internal/luasandbox ./l3-core/connectorcatalog/... ./l3-core/notification/... ./marketinstall/... ./platformconfig/...
+          encore test -p=1 ./automation/... ./thingmodel/... ./devicemetadata/... ./fileassets/... ./l1-access/authn ./internal/authz ./internal/authcore/... ./internal/tenantidentity ./pkg/... ./internal/communityclient ./internal/luasandbox ./l3-core/connectorcatalog/... ./l3-core/notification/... ./marketinstall/... ./platformconfig/...
       - name: Verify scheduler transport
         run: |
           python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py
@@ -92,6 +97,13 @@ jobs:
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-deploy-key"
           ssh -i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'install -d -m 700 /opt/tp-community-actions/incoming'
+      - name: Check coordinated runtime before replacing any service
+        if: inputs.deploy_runtime
+        run: |
+          set -euo pipefail
+          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          scp "${args[@]}" deploy/community-test/rollout_preflight.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 'python3 /opt/tp-community-actions/incoming/rollout_preflight.py'
       - name: Deploy verified backend after all code checks pass
         if: inputs.deploy_runtime && inputs.deploy_backend
         run: |

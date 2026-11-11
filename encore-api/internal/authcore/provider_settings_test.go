@@ -40,10 +40,13 @@ func TestProviderConfigurationIsolationAndChannels(t *testing.T) {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/auth/login-options?channel="+tc.channel, nil))
 		var result struct {
-			Data struct{ External struct{ Enabled bool } }
+			Data struct {
+				External struct{ Enabled bool }
+				Bindings struct{ Enabled bool }
+			}
 		}
 		json.Unmarshal(w.Body.Bytes(), &result)
-		if w.Code != 200 || result.Data.External.Enabled != tc.enabled || strings.Contains(w.Body.String(), "not-public") {
+		if w.Code != 200 || result.Data.External.Enabled != tc.enabled || !result.Data.Bindings.Enabled || strings.Contains(w.Body.String(), "not-public") {
 			t.Fatal("unsafe channel discovery", w.Code)
 		}
 	}
@@ -52,6 +55,24 @@ func TestProviderConfigurationIsolationAndChannels(t *testing.T) {
 	providers, _ = configuredProviders([]ProviderConfig{good, duplicate}, "https://panel.example")
 	if len(providers) != 0 {
 		t.Fatal("duplicate source silently selected")
+	}
+}
+
+func TestDisabledOwnerDoesNotAdvertiseBindings(t *testing.T) {
+	raw, err := json.Marshal(DisabledLoginOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Password struct{ Enabled bool }
+		External struct{ Enabled bool }
+		Bindings *struct{ Enabled bool }
+	}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	if !result.Password.Enabled || result.External.Enabled || result.Bindings == nil || result.Bindings.Enabled {
+		t.Fatal("disabled identity owner must preserve password login and explicitly disable binding endpoints")
 	}
 }
 

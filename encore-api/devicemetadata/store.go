@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"encore.app/internal/tenantidentity"
 	"encore.app/l1-access/authn"
 	"encore.dev/beta/errs"
 	"encore.dev/storage/sqldb"
@@ -650,7 +651,7 @@ func currentUserID() string {
 	if data == nil || strings.TrimSpace(data.UserID) == "" {
 		return uuid.Nil.String()
 	}
-	return normalizePrincipalID(data.UserID)
+	return tenantidentity.CanonicalIdentity("subject", data.UserID)
 }
 
 func isUniqueViolation(err error, constraint string) bool {

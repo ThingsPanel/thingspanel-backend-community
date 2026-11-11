@@ -860,11 +860,15 @@ func (s *Service) ListAlarms(ctx context.Context, req *ListAlarmsRequest) (*List
 	if err != nil {
 		return nil, err
 	}
-	eps, err := rt.Store().ListEpisodes(ctx, tenantID, req.PolicyID, req.SubjectID, req.State, req.Limit)
+	filter, err := alarmPageFilter(req)
+	if err != nil {
+		return nil, err
+	}
+	eps, total, err := rt.Store().ListEpisodesPage(ctx, tenantID, filter)
 	if err != nil {
 		return nil, internal(err)
 	}
-	out := &ListAlarmsResponse{Alarms: make([]AlarmResponse, 0, len(eps))}
+	out := &ListAlarmsResponse{Alarms: make([]AlarmResponse, 0, len(eps)), Total: total}
 	for _, e := range eps {
 		out.Alarms = append(out.Alarms, alarmResponse(e))
 	}

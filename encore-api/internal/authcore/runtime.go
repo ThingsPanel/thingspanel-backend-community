@@ -170,7 +170,7 @@ func (r *Runtime) providerSnapshot(ctx context.Context) (*Runtime, error) {
 }
 
 func DisabledLoginOptions() map[string]any {
-	return map[string]any{"password": map[string]bool{"enabled": true}, "external": map[string]any{"enabled": false, "providers": []map[string]string{}}}
+	return map[string]any{"password": map[string]bool{"enabled": true}, "external": map[string]any{"enabled": false, "providers": []map[string]string{}}, "bindings": map[string]bool{"enabled": false}}
 }
 
 // openAccountsDB opens the account database for the configured driver. A MySQL DSN is refused unless it
