@@ -1,7 +1,7 @@
 import json,pathlib,subprocess,hashlib,yaml
 root=pathlib.Path('/opt/tp-community-main-20261028')
 live=pathlib.Path('/home/thingspanel/thingspanel-backend-community/configs/conf.yml')
-candidate=root/'platform.next.private.yml'
+candidate=pathlib.Path('/opt/tp-community-actions/upgrade-rehearsal/20261111160912/platform.next.private.yml')
 def sql(q):
  p=subprocess.run(['docker','exec','-i','timescaledb','psql','-X','-q','-At','-v','ON_ERROR_STOP=1','-U','postgres','-d','ThingsPanel'],input=('BEGIN READ ONLY;'+q+';COMMIT;').encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
  if p.returncode:raise RuntimeError('Read only upgrade inspection failed')
