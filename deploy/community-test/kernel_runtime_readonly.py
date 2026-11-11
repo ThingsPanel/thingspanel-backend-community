@@ -68,4 +68,10 @@ for confroot in ['/etc/nginx','/opt/nginx']:
    lines=[line.strip() for line in path.read_text(errors='replace').splitlines() if re.match(r'^\s*(location|proxy_pass|root|server_name|listen)\s',line)]
    out['nginx_paths'].append({'path':str(path),'directives':lines})
 out['containers']=[{k:x[k] for k in ['Names','Image','State']} for x in out['containers']]
+def community(q):
+ return command(['docker','exec','timescaledb','psql','-X','-U','postgres','-d','ThingsPanel','-At','-c',q])
+out['community_tables']=community("SELECT json_agg(table_name) FROM information_schema.tables WHERE table_schema='public'")
+out['community_device_counts']=community("SELECT json_agg(t) FROM (SELECT tenant_id,device_type, count(*) FROM (SELECT tenant_id, coalesce(protocol,'')||':'||coalesce(access_way,'') AS device_type FROM devices) d GROUP BY tenant_id,device_type)t")
+out['community_device_config_schema']=community("SELECT json_agg(t) FROM (SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public' AND (table_name ILIKE '%config%' OR table_name ILIKE '%group%') ORDER BY table_name,ordinal_position)t")
+out['community_config_root_keys']=command(['python3','-c',"import yaml,json; d=yaml.safe_load(open('/home/thingspanel/thingspanel-backend-community/configs/conf.yml')); print(json.dumps({'keys':list(d),'relational_keys':list(d.get('relational',{}))}))"])
 print(json.dumps(out,ensure_ascii=False))
