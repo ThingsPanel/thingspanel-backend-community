@@ -547,6 +547,12 @@ if out['platform_config']['state']=='staged-only':
  matches=[p for p in json.loads(processes.stdout) if p.get('name')=='thingspanel-backend-community']
  if len(matches)!=1:raise RuntimeError('platform process selection is ambiguous')
  process_env=matches[0].get('pm2_env',{})
+ arguments=process_env.get('args') or []
+ if isinstance(arguments,str):
+  import shlex
+  arguments=shlex.split(arguments)
+ out['platform_config']['process_config_arguments']=[arguments[i+1] for i,v in enumerate(arguments[:-1]) if v in ('-config','--config')]
+ out['platform_config']['process_working_directory']=process_env.get('pm_cwd')
  relevant={k:v for k,v in process_env.items() if k.startswith(('GOTP_DB_PSQL_','GOTP_RELATIONAL_'))}
  out['platform_config']['database_environment_override_names']=sorted(relevant)
  # Only verify the staged file if the actual process has no overriding values.
@@ -562,14 +568,21 @@ if out['platform_config']['state']=='staged-only':
   if any(not v.startswith('/var/lib/postgresql/') for v in volumes):raise RuntimeError('unexpected image volume declaration')
   args=['docker','run','--rm','--network','host','--read-only']
   for volume in volumes:args+=['--tmpfs',volume+':rw,size=16m']
-  args+=['--entrypoint','psql','-e','PGPASSWORD',image_id,'-X','-q','-At','-v','ON_ERROR_STOP=1',
+  args+=['--entrypoint','psql','-e','PGPASSWORD','-e','PGCONNECT_TIMEOUT',image_id,'-X','-q','-At','-v','ON_ERROR_STOP=1',
          '-h',str(settings.get('host') or 'localhost'),'-p',str(settings.get('port') or 5432),
          '-U',str(settings['username']),'-d',str(settings['database']),'-c',
          "BEGIN READ ONLY; SET LOCAL statement_timeout='5s'; SELECT 1; ROLLBACK;"]
   environment=os.environ.copy();environment['PGPASSWORD']=str(settings.get('password') or '');environment['PGCONNECT_TIMEOUT']='8'
   check=subprocess.run(args,env=environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
-  if check.returncode or check.stdout.strip()!=b'1':raise RuntimeError('staged database connectivity verification failed')
-  out['platform_config']['connectivity']='verified-read-only-from-host-network'
-  out['platform_config']['remaining_checks']=['full-data-reconciliation','native-resource-provisioning','route-and-runtime-cutover']
+  if check.returncode or check.stdout.strip()!=b'1':
+   (root/'platform-connectivity-failure.private.log').write_bytes(check.stderr+b'\nstdout:\n'+check.stdout)
+   error=check.stderr.decode(errors='replace').lower()
+   reasons=[v for v in ('password authentication failed','connection refused','could not translate host name','read-only file system','executable file not found','unknown flag','not a directory','permission denied','conflicting options','no password supplied') if v in error]
+   out['platform_config']['connectivity']='failed-read-only-check'
+   out['platform_config']['connection_failure']={'exit_code':check.returncode,'categories':reasons or ['unclassified-private-log'],
+       'stdout_tokens':[v if v in ('1','BEGIN','SET','ROLLBACK') else '<redacted>' for v in check.stdout.decode(errors='replace').split()[:8]]}
+  else:
+   out['platform_config']['connectivity']='verified-read-only-from-host-network'
+   out['platform_config']['remaining_checks']=['full-data-reconciliation','native-resource-provisioning','route-and-runtime-cutover']
 
 print(json.dumps(out,ensure_ascii=False))
