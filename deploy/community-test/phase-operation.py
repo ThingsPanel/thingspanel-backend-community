@@ -55,7 +55,7 @@ def consume(deadline):
    try:payload=json.loads(body[offset:])
    except ValueError:payload={'invalid_json':True}
    received.append({'topic':topic,'payload':payload})
-   if topic.startswith('devices/attributes/set/'+row['device_number']+'/') or topic.startswith('devices/command/'+row['device_number']+'/'):
+   if topic.startswith('devices/attributes/set/'+row['device_number']+'/') or topic.startswith('devices/command/'+row['device_number']+'/') or topic.startswith('devices/command/'+device+'/'):
     message_id=topic.split('/')[-1]
     response={'result':0,'message':'QA simulated device accepted','ts':int(time.time())}
     if 'method' in payload:response['method']=payload['method']
@@ -67,10 +67,10 @@ def publish(topic,payload):
  seq+=1;sock.sendall(frame(0x32,encoded(topic)+struct.pack('!H',seq)+json.dumps(payload).encode()))
  consume(time.time()+2)
 try:
- body=encoded('MQTT')+bytes([4,0xc2])+struct.pack('!H',60)+encoded('qa-functional-'+uuid.uuid4().hex[:10])+encoded(voucher['username'])+encoded(voucher['password'])
+ body=encoded('MQTT')+bytes([4,0xc2])+struct.pack('!H',300)+encoded('qa-functional-'+uuid.uuid4().hex[:10])+encoded(voucher['username'])+encoded(voucher['password'])
  sock.sendall(frame(0x10,body));kind,body=read_frame(sock)
  if kind!=0x20 or body!=b'\x00\x00':raise RuntimeError('QA MQTT authorization failed')
- topics=['devices/telemetry/control/'+row['device_number'],'devices/attributes/set/'+row['device_number']+'/+','devices/command/'+row['device_number']+'/+']
+ topics=['devices/telemetry/control/'+row['device_number'],'devices/attributes/set/'+row['device_number']+'/+','devices/command/'+row['device_number']+'/+','devices/command/'+device+'/+','devices/telemetry/control/'+device]
  sock.sendall(frame(0x82,struct.pack('!H',1)+b''.join(encoded(t)+b'\x01' for t in topics)))
  kind,ack=read_frame(sock)
  if kind!=0x90 or any(c==128 for c in ack[2:]):raise RuntimeError('QA MQTT subscription failed')
