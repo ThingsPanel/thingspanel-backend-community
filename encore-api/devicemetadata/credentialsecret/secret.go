@@ -196,6 +196,15 @@ func (p *CredentialSecretProtector) Fingerprint(aad CredentialAAD, secret []byte
 	return CredentialFingerprint{KeyID: p.activeKeyRef, Fingerprint: credentialFingerprint(key, aad, secret)}, nil
 }
 
+// VerifyFingerprint verifies with the stored key reference, including retained
+// keys after rotation, without exposing the protector's keyring to callers.
+func (p *CredentialSecretProtector) VerifyFingerprint(aad CredentialAAD, secret []byte, stored CredentialFingerprint) (bool, error) {
+	if p == nil {
+		return false, ErrCredentialKeyUnavailable
+	}
+	return VerifyCredentialFingerprint(aad, secret, stored, p.keys)
+}
+
 func VerifyCredentialFingerprint(aad CredentialAAD, secret []byte, stored CredentialFingerprint, keyring map[string][]byte) (bool, error) {
 	if ValidateCredentialAAD(aad) != nil || len(secret) == 0 || !validCredentialKeyRef(stored.KeyID) || len(stored.Fingerprint) != sha256.Size {
 		return false, ErrCredentialProtectionFailed

@@ -79,7 +79,7 @@ func runCredentialSecretWriteTx(ctx context.Context, command metadataWriteComman
 		if decodeErr != nil {
 			return nil, credentialProtectionUnavailable()
 		}
-		matches, verifyErr := VerifyCredentialFingerprint(replayAAD, command.CanonicalBody, CredentialFingerprint{KeyID: requestKey.String, Fingerprint: digest}, protector.keys)
+		matches, verifyErr := protector.VerifyFingerprint(replayAAD, command.CanonicalBody, CredentialFingerprint{KeyID: requestKey.String, Fingerprint: digest})
 		if verifyErr != nil {
 			return nil, credentialProtectionUnavailable()
 		}
