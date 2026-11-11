@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"encore.app/l3-core/connectorcatalog"
 	"encore.dev/beta/errs"
 )
 
@@ -43,9 +44,65 @@ func TestValidateNativeDeviceConfigurationRequiresEmptyParametersWithoutSchema(t
 func TestValidateNativeDeviceConfigurationFailsClosedForConnectors(t *testing.T) {
 	connector := strings.Replace(builtInMQTTAccess, `"mode":"direct","protocol":"mqtt"`, `"mode":"protocol_connector","protocol":"modbus"`, 1)
 	err := validateNativeDeviceConfiguration(context.Background(), nativeAccessTenant, "standalone", json.RawMessage(connector), json.RawMessage(`{}`))
-	var apiErr *errs.Error
-	if !errors.As(err, &apiErr) || apiErr.Code != errs.Unavailable {
-		t.Fatalf("connector error = %#v, want unavailable", err)
+	var inputErr *NativeDeviceInputError
+	if !errors.As(err, &inputErr) {
+		t.Fatalf("connector without immutable release error = %#v, want invalid input", err)
+	}
+}
+
+func TestNativeConnectorUsesPinnedReleaseAndSeparateSchemas(t *testing.T) {
+	provider := "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+	digest := strings.Repeat("a", 64)
+	access := strings.Replace(builtInMQTTAccess, `"mode":"direct","protocol":"mqtt"`, `"mode":"protocol_connector","protocol":"modbus"`, 1)
+	access = strings.Replace(access, `"providerId":null`, `"providerId":"`+provider+`","providerVersion":"1.0.0","schemaDigest":"`+digest+`"`, 1)
+	access = strings.Replace(access, `"parameters":{}`, `"parameters":{"port":502}`, 1)
+	schema := json.RawMessage(`{"type":"object","properties":{"port":{"type":"integer","minimum":1,"maximum":65535}},"required":["port"],"additionalProperties":false}`)
+	deviceSchema := json.RawMessage(`{"type":"object","properties":{"unit":{"type":"integer","minimum":1,"maximum":247}},"required":["unit"],"additionalProperties":false}`)
+	for _, tc := range []struct {
+		name, access, parameters, change string
+		wantError                        bool
+	}{
+		{"valid", access, `{"unit":1}`, "", false},
+		{"template", access, `{}`, "", false},
+		{"device required parameters", access, `{}`, "", true},
+		{"access schema", strings.Replace(access, `"port":502`, `"port":0`, 1), `{"unit":1}`, "", true},
+		{"device schema", access, `{"unit":248}`, "", true},
+		{"different release", access, `{"unit":1}`, "release", true},
+		{"wrong protocol", access, `{"unit":1}`, "protocol", true},
+		{"wrong device kind", access, `{"unit":1}`, "kind", true},
+		{"invalid schema", access, `{"unit":1}`, "schema", true},
+		{"owner unavailable", access, `{"unit":1}`, "unavailable", true},
+		{"secret rejected", access, `{"unit":1,"password":"sentinel"}`, "", true},
+		{"instance unverified", strings.Replace(access, `"serviceInstanceId":null`, `"serviceInstanceId":"instance-1"`, 1), `{"unit":1}`, "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resolver := func(_ context.Context, tenant string, request *connectorcatalog.ResolveNativeProviderReleaseRequest) (*connectorcatalog.ResolveNativeProviderReleaseResponse, error) {
+				if tenant != nativeAccessTenant || request.ProviderID != provider || request.Version != "1.0.0" || request.SchemaDigest != digest {
+					t.Fatal("lost trusted tenant or pinned release")
+				}
+				r := &connectorcatalog.ResolveNativeProviderReleaseResponse{ProviderID: provider, Version: "1.0.0", SchemaDigest: digest, Protocols: []string{"modbus"}, DeviceKinds: []string{"standalone"}, ConfigurationSchema: schema, DeviceParameterSchema: deviceSchema}
+				switch tc.change {
+				case "release":
+					r.Version = "2.0.0"
+				case "protocol":
+					r.Protocols = []string{"http"}
+				case "kind":
+					r.DeviceKinds = []string{"gateway"}
+				case "schema":
+					r.ConfigurationSchema = json.RawMessage(`{"type":"nonsense"}`)
+				case "unavailable":
+					return nil, &errs.Error{Code: errs.Unavailable, Message: "catalog unavailable"}
+				}
+				return r, nil
+			}
+			err := validateNativeAccessConfiguration(context.Background(), nativeAccessTenant, "standalone", json.RawMessage(tc.access), json.RawMessage(tc.parameters), resolver, tc.name != "template")
+			if (err != nil) != tc.wantError {
+				t.Fatalf("error=%v", err)
+			}
+			if err != nil && strings.Contains(err.Error(), "sentinel") {
+				t.Fatal("secret leaked")
+			}
+		})
 	}
 }
 

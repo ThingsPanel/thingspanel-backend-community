@@ -84,19 +84,38 @@ jobs:
         run: |
           python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py
           python3 -m unittest discover -s deploy/community-test -p test_encore_artifacts.py
+          python3 -m unittest discover -s deploy/community-test -p test_encore_image.py
           python3 -m unittest discover -s deploy/community-test -p test_notification_identity.py
-      - name: Package immutable tracked source
+      - name: Build complete native image away from the live server
+        working-directory: encore-api
+        run: encore build docker "tp-community-encore:source-$GITHUB_SHA" --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,platformconfig --skip-config
+      - name: Package immutable tracked source and verified image
         run: |
+          set -euo pipefail
           mkdir -p candidate
           git archive --format=tar HEAD encore-api pkg/relational | tar -xf - -C candidate
+          docker save "tp-community-encore:source-$GITHUB_SHA" | gzip -1 > candidate/image.tar.gz
           python3 - <<'PY'
-          import pathlib,json,hashlib,os,tarfile
+          import pathlib,json,hashlib,os,tarfile,subprocess
           root=pathlib.Path('candidate')
-          manifest={'commit':os.environ['GITHUB_SHA'],'sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()}}
+          image=json.loads(subprocess.check_output(['docker','image','inspect','tp-community-encore:source-'+os.environ['GITHUB_SHA']]))[0]
+          (root/'image.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'image_id':image['Id'],'uncompressed_bytes':image['Size'],'services':['authn','thingmodel','devicemetadata','fileassets','connectorcatalog','automation','notification','marketinstall','platformconfig']}))
+          def checksum(path):
+              digest=hashlib.sha256()
+              with path.open('rb') as stream:
+                  for block in iter(lambda:stream.read(1024*1024),b''):digest.update(block)
+              return digest.hexdigest()
+          manifest={'commit':os.environ['GITHUB_SHA'],'sha256':{str(p.relative_to(root)):checksum(p) for p in root.rglob('*') if p.is_file()}}
           (root/'manifest.json').write_text(json.dumps(manifest,indent=2))
           with tarfile.open('encore-'+os.environ['GITHUB_SHA']+'.tar.gz','w:gz') as archive:
               for path in root.iterdir(): archive.add(str(path),arcname=path.name)
           PY
+      - name: Preserve deployable native bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-candidate-${{ github.sha }}
+          path: encore-${{ github.sha }}.tar.gz
+          retention-days: 3
       - name: Download already verified backend bundle
         if: inputs.deploy_backend
         uses: actions/download-artifact@v4
@@ -132,11 +151,8 @@ jobs:
         run: |
           set -euo pipefail
           args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts -o ServerAliveInterval=20 -o ServerAliveCountMax=9)
-          if ! ssh "${args[@]}" root@47.92.253.145 'test -f /opt/tp-community-actions/tools/encore-1.58.6/.archive-sha256'; then
-            scp "${args[@]}" "$RUNNER_TEMP/encore-cli.tar.gz" root@47.92.253.145:/opt/tp-community-actions/incoming/encore-1.58.6-linux_amd64.tar.gz
-          fi
-          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_encore.py deploy/community-test/deployment_guard.py deploy/community-test/encore_migrations.py deploy/community-test/encore_artifacts.py deploy/community-test/install_encore_cli.py deploy/community-test/automation_tick.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
-          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/install_encore_cli.py && python3 /opt/tp-community-actions/incoming/deploy_encore.py '$GITHUB_SHA'"
+          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_encore.py deploy/community-test/deployment_guard.py deploy/community-test/encore_migrations.py deploy/community-test/encore_artifacts.py deploy/community-test/automation_tick.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_encore.py '$GITHUB_SHA'"
       - name: Preserve source identity
         uses: actions/upload-artifact@v4
         with:
