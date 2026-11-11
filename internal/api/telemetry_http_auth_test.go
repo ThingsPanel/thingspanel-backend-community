@@ -187,10 +187,14 @@ func runTelemetryHTTPDeviceAuthorization(t *testing.T, usePostgres bool) {
 			t.Fatal(err)
 		}
 	}
-	for _, pair := range [][2]string{{"apikey:test-key", "tenant-a"}, {"apikey:createdid:test-key", "user-a"}} {
-		if err := redisClient.Set(context.Background(), pair[0], pair[1], time.Hour).Err(); err != nil {
-			t.Fatal(err)
-		}
+	// Revocation checks use the primary database; cached allow entries alone
+	// must never grant access.
+	if err := db.AutoMigrate(&model.OpenAPIKey{}); err != nil {
+		t.Fatal(err)
+	}
+	status, creator := int16(1), "user-a"
+	if err := db.Create(&model.OpenAPIKey{ID: "fixture-key", APIKey: "test-key", TenantID: "tenant-a", Name: "fixture", Status: &status, CreatedID: &creator}).Error; err != nil {
+		t.Fatal(err)
 	}
 	handler, err := response.NewHandler("../../configs/messages.yaml", "../../configs/messages_str.yaml")
 	if err != nil {

@@ -45,6 +45,7 @@ func TestBrokerCommandWorkerSweepsTimeoutWhileRuntimeSyncFails(t *testing.T) {
 	done := make(chan struct{})
 	worker := &brokerCommandWorker{store: brokercommands.New(db), logger: logrus.New(), done: done, runtimeSync: func(context.Context) error { return gorm.ErrInvalidDB }}
 	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(func() { cancel(); <-done })
 	go worker.run(ctx)
 
 	deadline := time.After(2 * time.Second)
@@ -74,10 +75,16 @@ func TestBrokerCommandWorkerSweepsTimeoutWhileRuntimeSyncFails(t *testing.T) {
 
 func seedAcknowledgedTimeoutCommand(t *testing.T) (*gorm.DB, string) {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
+	pool, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = pool.Close() })
 	if err := db.AutoMigrate(&brokercommands.Row{}); err != nil {
 		t.Fatal(err)
 	}

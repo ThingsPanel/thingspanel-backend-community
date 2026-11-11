@@ -74,9 +74,9 @@ func TestAlarmExecutorMigrationBehaveTheSameOnMySQLAsOnPostgres(t *testing.T) {
 		}
 		last, err := s.LastTransition(ctx, "e1")
 		note("last transition: %s %s", kind(err), last.ID)
-		ok, _ = s.AckEpisode(ctx, "t2", "e1", "ann", 9)
+		ok, _ = s.AckEpisode(ctx, "t2", "e1", "ann", 9, "ack-ann")
 		note("ack from another tenant: %v", ok)
-		ok, _ = s.AckEpisode(ctx, "t1", "e1", "ann", 9)
+		ok, _ = s.AckEpisode(ctx, "t1", "e1", "ann", 9, "ack-ann")
 		note("ack: %v", ok)
 		for _, c := range []struct {
 			seq int64
@@ -87,7 +87,7 @@ func TestAlarmExecutorMigrationBehaveTheSameOnMySQLAsOnPostgres(t *testing.T) {
 		}
 		res, _ := s.ClearEpisode(ctx, nil, "missing", 1, 1)
 		note("clear a missing episode: %s", res)
-		ok, _ = s.AckEpisode(ctx, "t1", "e1", "bob", 102)
+		ok, _ = s.AckEpisode(ctx, "t1", "e1", "bob", 102, "ack-bob")
 		note("ack a cleared episode: %v", ok)
 		note("open again after the clear: %s", kind(open("e2")))
 		eps, err := s.ListEpisodes(ctx, "t1", "pk", "", "", 10)
