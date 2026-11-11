@@ -99,4 +99,12 @@ SELECT json_build_object(
 ); COMMIT;""")
 out['backup_capacity']=community("SELECT json_build_object('database_bytes',pg_database_size(current_database()),'tables',(SELECT json_agg(t) FROM (SELECT relname,pg_total_relation_size(relid) AS bytes FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 12)t))")
 out['identity_anomalies']=community("SELECT json_build_object('unowned',(SELECT json_agg(t) FROM (SELECT id,name,device_number,device_config_id FROM devices WHERE coalesce(btrim(tenant_id),'')='')t),'cross_tenant_templates',(SELECT json_agg(t) FROM (SELECT d.id,d.name,d.tenant_id,c.id AS template_id,c.tenant_id AS template_tenant FROM devices d JOIN device_configs c ON c.id=d.device_config_id WHERE d.tenant_id<>c.tenant_id)t),'cross_tenant_members',(SELECT json_agg(t) FROM (SELECT r.group_id,r.device_id,r.tenant_id AS member_tenant,g.tenant_id AS group_tenant,d.tenant_id AS device_tenant FROM r_group_device r JOIN groups g ON g.id=r.group_id JOIN devices d ON d.id=r.device_id WHERE g.tenant_id<>d.tenant_id OR r.tenant_id<>d.tenant_id)t))")
+restore_dir=pathlib.Path('/opt/tp-community-actions/upgrade-rehearsal/20261111160341')
+if restore_dir.exists():
+ out['rehearsal_files']=[{'name':p.name,'bytes':p.stat().st_size} for p in restore_dir.iterdir() if p.is_file()]
+ log=restore_dir/'restore.private.log'
+ if log.exists():
+  errors=[line for line in log.read_text(errors='replace').splitlines() if line.startswith('pg_restore: error:')]
+  out['restore_error_summary']=[re.sub(r"'[^']*'", "'<redacted>'",line)[:450] for line in errors[:3]]
+ out['rehearsal_size']=command(['docker','exec','timescaledb','psql','-X','-q','-At','-U','postgres','-c',"SELECT pg_database_size('tp_upgrade_rehearsal_20261111160341')"])
 print(json.dumps(out,ensure_ascii=False))
