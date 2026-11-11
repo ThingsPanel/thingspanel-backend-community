@@ -570,8 +570,9 @@ if out['platform_config']['state']=='staged-only':
   for volume in volumes:args+=['--tmpfs',volume+':rw,size=16m']
   args+=['--entrypoint','psql','-e','PGPASSWORD','-e','PGCONNECT_TIMEOUT',image_id,'-X','-q','-At','-v','ON_ERROR_STOP=1',
          '-h',str(settings.get('host') or 'localhost'),'-p',str(settings.get('port') or 5432),
-         '-U',str(settings['username']),'-d',str(settings['database']),'-c',
-         "BEGIN READ ONLY; SET LOCAL statement_timeout='5s'; SELECT 1; ROLLBACK;"]
+         '-U',str(settings['username']),'-d',str(settings['database']),
+         '-c','BEGIN READ ONLY', '-c',"SET LOCAL statement_timeout='5s'",
+         '-c','SELECT 1', '-c','ROLLBACK']
   environment=os.environ.copy();environment['PGPASSWORD']=str(settings.get('password') or '');environment['PGCONNECT_TIMEOUT']='8'
   check=subprocess.run(args,env=environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
   if check.returncode or check.stdout.strip()!=b'1':
