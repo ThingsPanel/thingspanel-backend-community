@@ -11,7 +11,7 @@ def query(database,sql):
 row=query('ThingsPanel',"SELECT row_to_json(d) FROM (SELECT id,tenant_id,name,is_enabled,voucher FROM devices WHERE id='"+device+"')d")
 if row['tenant_id']!=tenant or row['name']!='QA-FULL-20261112-TEMPLATE-MQTT' or row['is_enabled']!='enabled':raise RuntimeError('Test device identity changed')
 voucher=json.loads(row['voucher']) if isinstance(row['voucher'],str) else row['voucher']
-if not isinstance(voucher,dict) or 'username' not in voucher or 'password' not in voucher:raise RuntimeError('Unexpected test voucher mode')
+if not isinstance(voucher,dict) or not voucher.get('username'):raise RuntimeError('Unexpected test voucher mode')
 
 def encoded(value):
  b=value.encode('utf-8');return struct.pack('!H',len(b))+b
@@ -43,7 +43,7 @@ events=[]
 sock=socket.create_connection(('127.0.0.1',1883),timeout=10)
 try:
  client='phase-acceptance-'+uuid.uuid4().hex[:12]
- body=encoded('MQTT')+bytes([4,0xc2])+struct.pack('!H',30)+encoded(client)+encoded(voucher['username'])+encoded(voucher['password'])
+ body=encoded('MQTT')+bytes([4,0xc2])+struct.pack('!H',30)+encoded(client)+encoded(voucher['username'])+encoded(voucher.get('password',''))
  sock.sendall(frame(0x10,body))
  kind,body=read_frame(sock)
  if kind!=0x20 or body!=b'\x00\x00':raise RuntimeError('Broker did not authorize the existing test device')
