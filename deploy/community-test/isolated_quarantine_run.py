@@ -477,7 +477,60 @@ else:
 out['identity_plan']={k:v for k,v in plan.items() if k not in ('entries','existing_native_owners')}
 out['identity_plan']['source_tenants']=len(plan['entries'])
 out['identity_plan']['existing_native_tenants']=len(native_owners)
+accounting=inspect(receipt['rehearsal_database'],"""SELECT json_build_object(
+ 'devices',(SELECT json_agg(t) FROM (SELECT id,tenant_id,device_number,name,parent_id,device_config_id,is_enabled,activate_flag,created_at,update_at,activate_at,product_id FROM devices ORDER BY id)t),
+ 'templates',(SELECT json_agg(t) FROM (SELECT id,tenant_id,name,device_type,protocol_type FROM device_configs ORDER BY id)t),
+ 'groups',(SELECT json_agg(t) FROM (SELECT id,tenant_id,name,parent_id FROM groups ORDER BY id)t),
+ 'members',(SELECT json_agg(t) FROM (SELECT group_id,device_id,tenant_id FROM r_group_device ORDER BY group_id,device_id)t)
+)""")
+archive_path=root/('quarantine-'+digest(approval)+'.private.json')
+approved=json.loads(archive_path.read_text())
+exclusions=[e['excluded_from_conversion'] for e in approved['entries']]
+excluded={'devices':set(),'templates':set(),'groups':set()}
+for e in exclusions:
+ if e['entity'] in ('device','template','group'):excluded[e['entity']+'s'].add(e['id'])
+tenant_map={r['source_id']:r['native_id'] for r in plan['entries']}
+ledger={'source_archive_sha256':receipt['archive_sha256'],'quarantine_approval_sha256':digest(approval),
+        'identity_plan_sha256':plan['entries_sha256'],'entities':{},'relations':{},'migration_complete':False}
+for kind in ('devices','templates','groups'):
+ records=[];ids=set()
+ for r in accounting[kind]:
+  if r['id'] in excluded[kind]:
+   records.append({'source_id':r['id'],'disposition':'quarantined'});continue
+  tenant=tenant_map.get(r['tenant_id'])
+  if not tenant:raise RuntimeError('unresolved tenant in accounted resource')
+  native=canonical_identity(kind[:-1],r['id'])
+  if native in ids:raise RuntimeError('resource identity collision')
+  ids.add(native)
+  records.append({'source_id':r['id'],'source_tenant':r['tenant_id'],'native_id':native,'native_tenant':tenant,'disposition':'pending-conversion'})
+ ledger['entities'][kind]=records
+member_exclusions={(e['group_id'],e['device_id']) for e in exclusions if e['entity']=='group-membership'}
+gateway_exclusions={(e['device_id'],e['parent_id']) for e in exclusions if e['entity']=='gateway-relationship'}
+template_exclusions={(e['device_id'],e['template_id']) for e in exclusions if e['entity']=='device-template-relationship'}
+ledger['relations']['members']=[dict(r,disposition='quarantined' if (r['group_id'],r['device_id']) in member_exclusions else 'pending-conversion') for r in accounting['members']]
+ledger['relations']['gateways']=[{'device_id':r['id'],'parent_id':r['parent_id'],'disposition':'quarantined' if (r['id'],r['parent_id']) in gateway_exclusions else 'pending-conversion'} for r in accounting['devices'] if r['parent_id']]
+ledger['relations']['templates']=[{'device_id':r['id'],'template_id':r['device_config_id'],'disposition':'quarantined' if (r['id'],r['device_config_id']) in template_exclusions else 'pending-conversion'} for r in accounting['devices'] if r['device_config_id']]
+ledger_path=root/'conversion-accounting.v1.private.json'
+if ledger_path.exists():
+ if json.loads(ledger_path.read_text())!=ledger:raise RuntimeError('conversion ledger differs; retain original')
+else:
+ with ledger_path.open('x',encoding='utf-8') as outledger:json.dump(ledger,outledger,ensure_ascii=False)
+out['conversion_accounting']={'entities':{},'relations':{},'ledger_sha256':hashlib.sha256(ledger_path.read_bytes()).hexdigest(),'migration_complete':False}
+for section in ('entities','relations'):
+ for kind,rows in ledger[section].items():
+  out['conversion_accounting'][section][kind]=dict(collections.Counter(r['disposition'] for r in rows))
+out['device_conversion_facts']={
+ 'missing_names':sum(not (r['name'] or '').strip() for r in accounting['devices'] if r['id'] not in excluded['devices']),
+ 'missing_creation_time':sum(r['created_at'] is None for r in accounting['devices'] if r['id'] not in excluded['devices']),
+ 'missing_update_time':sum(r['update_at'] is None for r in accounting['devices'] if r['id'] not in excluded['devices']),
+ 'active_with_unknown_activation_time':sum(r['activate_flag']=='active' and r['activate_at'] is None for r in accounting['devices'] if r['id'] not in excluded['devices']),
+ 'product_references':sum(bool(r['product_id']) for r in accounting['devices'] if r['id'] not in excluded['devices']),
+ 'states':dict(collections.Counter(r['is_enabled'] for r in accounting['devices'] if r['id'] not in excluded['devices']))}
 
-out["platform_config"]=stage_platform_config("/home/thingspanel/thingspanel-backend-community/configs/conf.yml",root)
+try:
+ out["platform_config"]=stage_platform_config("/home/thingspanel/thingspanel-backend-community/configs/conf.yml",root)
+except ValueError:
+ import yaml
+ out["platform_config"]={"state":"blocked-unmapped-options","legacy_option_names":sorted(yaml.safe_load(pathlib.Path("/home/thingspanel/thingspanel-backend-community/configs/conf.yml").read_text())["db"]["psql"])}
 
 print(json.dumps(out,ensure_ascii=False))
