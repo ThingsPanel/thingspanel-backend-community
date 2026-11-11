@@ -7,6 +7,7 @@ on:
         type: string
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: community-phase-acceptance
   cancel-in-progress: false
@@ -21,6 +22,11 @@ jobs:
           ACTUAL_HEAD: ${{ github.sha }}
         run: test "$EXPECTED_HEAD" = "$ACTUAL_HEAD"
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: metadata-credential-converter-ad85b2da8c9721e4d81e2a1547622ae6150e8c84
+          run-id: 43035802826
+          github-token: ${{ github.token }}
       - name: Run approved phase operation
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
@@ -28,7 +34,8 @@ jobs:
           set -euo pipefail
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/phase-key"
-          ssh -i "$RUNNER_TEMP/phase-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'python3 -' < deploy/community-test/phase-operation.py > phase-result.json
+          scp -i "$RUNNER_TEMP/phase-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts metadata-upgrade-credentials root@47.92.253.145:/opt/tp-community-actions/upgrade-rehearsal/native-20261111165830/metadata-upgrade-credentials
+          ssh -i "$RUNNER_TEMP/phase-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'chmod 700 /opt/tp-community-actions/upgrade-rehearsal/native-20261111165830/metadata-upgrade-credentials && python3 -' < deploy/community-test/phase-operation.py > phase-result.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
