@@ -29,7 +29,15 @@ type DeviceIdentityReceipt struct {
 // ApplyDeviceIdentitiesPG stages identity only, into an isolated empty owner.
 // No access binding or credential is fabricated. Missing bindings explicitly
 // keep the deployment preflight closed until the other conversions finish.
-func ApplyDeviceIdentitiesPG(ctx context.Context, db *gorm.DB, input DeviceIdentityInput) (DeviceIdentityReceipt, error) {
+func ApplyDeviceIdentitiesPG(ctx context.Context, db *gorm.DB, input DeviceIdentityInput, progress ...func(string, int)) (DeviceIdentityReceipt, error) {
+	step := func(stage string, rows int) {
+		for _, report := range progress {
+			if report != nil {
+				report(stage, rows)
+			}
+		}
+	}
+	step("validate-source", 0)
 	p, err := PlanDeviceIdentities(input)
 	if err != nil {
 		return DeviceIdentityReceipt{}, err
@@ -37,6 +45,7 @@ func ApplyDeviceIdentitiesPG(ctx context.Context, db *gorm.DB, input DeviceIdent
 	if db.Dialector.Name() != "postgres" {
 		return DeviceIdentityReceipt{}, fmt.Errorf("PostgreSQL rehearsal required")
 	}
+	step("source-validated", len(p.Devices))
 	r := DeviceIdentityReceipt{SourceArchiveSHA256: input.SourceArchiveSHA256, TargetDatabase: input.TargetDatabase,
 		SourceDevices: len(input.Devices), QuarantinedDevices: len(input.ExcludedDevices), ConvertedIdentities: len(p.Devices), PendingAccessConversions: len(p.Devices)}
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -77,6 +86,7 @@ func ApplyDeviceIdentitiesPG(ctx context.Context, db *gorm.DB, input DeviceIdent
 		if e := tx.Table("devices").Order("id").Find(&before).Error; e != nil {
 			return e
 		}
+		step("read-existing-target", len(before))
 		expected := make([]DeviceIdentity, 0, len(p.Devices))
 		events := make([]auditEvent, 0, len(p.Devices))
 		for _, d := range p.Devices {
@@ -122,22 +132,36 @@ func ApplyDeviceIdentitiesPG(ctx context.Context, db *gorm.DB, input DeviceIdent
 			r.State = "verified-existing-rehearsal-identities"
 		} else {
 			if len(expected) > 0 {
-				if e := tx.Table("devices").CreateInBatches(expected, 250).Error; e != nil {
-					return e
+				step("insert-device-identities", 0)
+				for start := 0; start < len(expected); start += 250 {
+					end := min(start+250, len(expected))
+					batch := expected[start:end]
+					if e := tx.Table("devices").Create(&batch).Error; e != nil {
+						return e
+					}
+					step("insert-device-identities", end)
 				}
-				if e := tx.Table("metadata_audit_events").CreateInBatches(events, 250).Error; e != nil {
-					return e
+				step("insert-device-provenance", 0)
+				for start := 0; start < len(events); start += 250 {
+					end := min(start+250, len(events))
+					batch := events[start:end]
+					if e := tx.Table("metadata_audit_events").Create(&batch).Error; e != nil {
+						return e
+					}
+					step("insert-device-provenance", end)
 				}
 			}
 			r.State = "converted-and-verified-rehearsal-identities"
 		}
 		var after []DeviceIdentity
+		step("reconcile-target", 0)
 		if e := tx.Table("devices").Order("id").Find(&after).Error; e != nil {
 			return e
 		}
 		if !sameDeviceIdentities(after, expected) {
 			return fmt.Errorf("post-insert full device identity reconciliation failed")
 		}
+		step("reconciled-target", len(after))
 		data, _ := json.Marshal(expected)
 		sum := sha256.Sum256(data)
 		r.RowsSHA256 = hex.EncodeToString(sum[:])

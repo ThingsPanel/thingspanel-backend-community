@@ -88,11 +88,12 @@ func ApplyGroupsPG(ctx context.Context, db *gorm.DB, input GroupInput) (GroupRec
 		events := make([]auditEvent, 0, len(p.Groups))
 		for _, g := range p.Groups {
 			expected = append(expected, g.Row)
-			changes, _ := json.Marshal(map[string]string{
+			changes, _ := json.Marshal(map[string]any{
 				"sourceArchiveSHA256": input.SourceArchiveSHA256, "sourceRowSHA256": g.SourceRowSHA256,
 				"quarantineSHA256": input.QuarantineSHA256, "targetArchiveSHA256": input.TargetArchiveSHA256,
 				"sourceID": g.SourceID, "scope": "group-only; full migration incomplete",
-				"convertedName": g.Row.Name,
+				"convertedName":          g.Row.Name,
+				"danglingParentResolved": g.ParentResolved,
 			})
 			events = append(events, auditEvent{
 				ID:       tenantidentity.CanonicalIdentity("upgrade-group-event", input.SourceArchiveSHA256+"/"+g.SourceID),
@@ -114,7 +115,7 @@ func ApplyGroupsPG(ctx context.Context, db *gorm.DB, input GroupInput) (GroupRec
 				}
 				stored.CreatedAt = e.CreatedAt
 				// PostgreSQL JSONB canonical spacing is not the source encoding.
-				var got, want map[string]string
+				var got, want map[string]any
 				if json.Unmarshal([]byte(stored.RedactedChanges), &got) != nil || json.Unmarshal([]byte(e.RedactedChanges), &want) != nil || !reflect.DeepEqual(got, want) {
 					return fmt.Errorf("conversion provenance differs")
 				}

@@ -23,14 +23,22 @@ var sha256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 // GroupInput is assembled only from verified private restore receipts and the
 // approved quarantine archive. Original source rows stay in the private bundle.
 type GroupInput struct {
-	SourceDatabase      string                `json:"source_database"`
-	TargetDatabase      string                `json:"target_database"`
-	SourceArchiveSHA256 string                `json:"source_archive_sha256"`
-	TargetArchiveSHA256 string                `json:"target_archive_sha256"`
-	QuarantineSHA256    string                `json:"quarantine_sha256"`
-	Groups              []json.RawMessage     `json:"groups"`
-	ExcludedGroups      []string              `json:"excluded_groups"`
-	NameResolutions     []GroupNameResolution `json:"name_resolutions,omitempty"`
+	SourceDatabase      string                  `json:"source_database"`
+	TargetDatabase      string                  `json:"target_database"`
+	SourceArchiveSHA256 string                  `json:"source_archive_sha256"`
+	TargetArchiveSHA256 string                  `json:"target_archive_sha256"`
+	QuarantineSHA256    string                  `json:"quarantine_sha256"`
+	Groups              []json.RawMessage       `json:"groups"`
+	ExcludedGroups      []string                `json:"excluded_groups"`
+	NameResolutions     []GroupNameResolution   `json:"name_resolutions,omitempty"`
+	ParentResolutions   []GroupParentResolution `json:"parent_resolutions,omitempty"`
+}
+
+// Only an explicitly reviewed dangling parent can be detached. Valid ancestry
+// and tenant ownership are never reassigned by the conversion tool.
+type GroupParentResolution struct {
+	SourceID         string `json:"source_id"`
+	OriginalParentID string `json:"original_parent_id"`
 }
 
 // A resolution must be explicitly reviewed; no automatic suffixing, dropping,
@@ -70,6 +78,7 @@ type PlannedGroup struct {
 	Row             Group
 	SourceID        string
 	SourceRowSHA256 string
+	ParentResolved  bool
 }
 
 type GroupPlan struct {
@@ -103,6 +112,13 @@ func PlanGroups(input GroupInput) (GroupPlan, error) {
 	rows := map[string]sourceGroup{}
 	planned := map[string]PlannedGroup{}
 	resolutions := map[string]GroupNameResolution{}
+	parentResolutions := map[string]string{}
+	for _, resolution := range input.ParentResolutions {
+		if resolution.SourceID == "" || resolution.OriginalParentID == "" || resolution.OriginalParentID == "0" || excluded[resolution.SourceID] || parentResolutions[resolution.SourceID] != "" {
+			return p, fmt.Errorf("invalid group parent resolution")
+		}
+		parentResolutions[resolution.SourceID] = resolution.OriginalParentID
+	}
 	for _, resolution := range input.NameResolutions {
 		if resolution.SourceID == "" || resolution.Name == resolution.OriginalName || excluded[resolution.SourceID] {
 			return p, fmt.Errorf("invalid group name resolution")
@@ -157,7 +173,10 @@ func PlanGroups(input GroupInput) (GroupPlan, error) {
 		}
 		nativeIDs[id] = true
 		var parent *string
-		if source.ParentID != nil && *source.ParentID != "" && *source.ParentID != "0" {
+		if resolved, ok := parentResolutions[source.ID]; ok && text(source.ParentID) != resolved {
+			return p, fmt.Errorf("reviewed source group parent changed")
+		}
+		if parentResolutions[source.ID] == "" && source.ParentID != nil && *source.ParentID != "" && *source.ParentID != "0" {
 			v := tenantidentity.CanonicalIdentity("group", *source.ParentID)
 			parent = &v
 		}
@@ -171,7 +190,7 @@ func PlanGroups(input GroupInput) (GroupPlan, error) {
 		}
 		names[nameKey] = true
 		hash := sha256.Sum256(raw)
-		planned[source.ID] = PlannedGroup{SourceID: source.ID, SourceRowSHA256: hex.EncodeToString(hash[:]), Row: Group{
+		planned[source.ID] = PlannedGroup{SourceID: source.ID, SourceRowSHA256: hex.EncodeToString(hash[:]), ParentResolved: parentResolutions[source.ID] != "", Row: Group{
 			ID: id, TenantID: tenant, ParentID: parent, Name: name, Description: source.Description,
 			ResourceVersion: 1, CreatedBy: p.Actor, UpdatedBy: p.Actor,
 			CreatedAt: source.CreatedAt.UTC(), UpdatedAt: source.UpdatedAt.UTC(),
@@ -180,6 +199,14 @@ func PlanGroups(input GroupInput) (GroupPlan, error) {
 	for id := range resolutions {
 		if _, ok := planned[id]; !ok {
 			return p, fmt.Errorf("reviewed group name target absent")
+		}
+	}
+	for id, parent := range parentResolutions {
+		if _, ok := planned[id]; !ok {
+			return p, fmt.Errorf("reviewed group parent target absent")
+		}
+		if _, exists := rows[parent]; exists {
+			return p, fmt.Errorf("reviewed missing parent now exists")
 		}
 	}
 	for id := range excluded {
@@ -198,7 +225,7 @@ func PlanGroups(input GroupInput) (GroupPlan, error) {
 		}
 		visited[id] = 1
 		row := rows[id]
-		if row.ParentID != nil && *row.ParentID != "" && *row.ParentID != "0" {
+		if parentResolutions[id] == "" && row.ParentID != nil && *row.ParentID != "" && *row.ParentID != "0" {
 			parent, ok := rows[*row.ParentID]
 			if !ok || excluded[parent.ID] {
 				return fmt.Errorf("group parent is absent or quarantined")

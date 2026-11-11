@@ -26,9 +26,8 @@ func run() error {
 	if decoder.Decode(new(any)) != io.EOF {
 		return fmt.Errorf("unexpected trailing conversion input")
 	}
-	if _, err := offlineupgrade.PlanDeviceIdentities(in); err != nil {
-		return err
-	}
+	// ApplyDeviceIdentitiesPG validates the complete plan before starting a
+	// transaction. Avoid building two full copies for large source snapshots.
 	if os.Getenv("PGDATABASE") != in.TargetDatabase {
 		return fmt.Errorf("PGDATABASE must match isolated target")
 	}
@@ -44,7 +43,9 @@ func run() error {
 	connection.SetMaxOpenConns(1)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	receipt, err := offlineupgrade.ApplyDeviceIdentitiesPG(ctx, db, in)
+	receipt, err := offlineupgrade.ApplyDeviceIdentitiesPG(ctx, db, in, func(stage string, rows int) {
+		_ = json.NewEncoder(os.Stderr).Encode(map[string]any{"stage": stage, "rows": rows})
+	})
 	if err != nil {
 		return err
 	}

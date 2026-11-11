@@ -35,18 +35,28 @@ else:
  with bundle_path.open('x',encoding='utf-8') as f:json.dump(bundle,f,ensure_ascii=False)
 settings=yaml.safe_load((source/'platform.next.private.yml').read_text())['relational']['postgres']['platform']
 env=os.environ.copy()
-env.update(PGHOST=str(settings.get('host') or 'localhost'),PGPORT=str(settings.get('port') or 5432),PGUSER=str(settings['username']),PGPASSWORD=str(settings.get('password') or ''),PGDATABASE=bundle['target_database'],PGCONNECT_TIMEOUT='8',PGSSLMODE='disable')
+env.update(PGHOST=str(settings.get('host') or 'localhost'),PGPORT=str(settings.get('port') or 5432),PGUSER=str(settings['username']),PGPASSWORD=str(settings.get('password') or ''),PGDATABASE=bundle['target_database'],PGCONNECT_TIMEOUT='8',PGSSLMODE='disable',GOMEMLIMIT='320MiB',GOGC='60',GOMAXPROCS='2')
+del rows,bundle,p
+import gc
+gc.collect()
 binary=target/'metadata-upgrade-devices'
 checks=[]
 for attempt in range(2):
  with bundle_path.open('rb') as stdin:
   result=subprocess.run([str(binary)],stdin=stdin,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=330)
+ progress=[]
+ for line in result.stderr.decode(errors='replace').splitlines():
+  try:
+   entry=json.loads(line)
+   if set(entry)=={'stage','rows'}:progress.append(entry)
+  except (ValueError,TypeError):pass
+ (target/('device-identities-progress-'+str(attempt)+'.private.json')).write_text(json.dumps(progress))
  if result.returncode:
   (target/'device-identities-failure.private.log').write_bytes(result.stderr)
   # Do not export database error text or source rows.
-  known=('invalid source device row','invalid private conversion input','unresolved gateway relationship','requires reviewed display name','invalid source coordinates','unknown template device kind','template contradicts gateway hierarchy','template contradicts parent relation','additional metadata must be an object','nested custom field requires explicit conversion','invalid extended metadata','conflicting custom field values','target device identities differ','post-insert full device identity reconciliation failed','missing source timestamp','invalid name','duplicate sibling group name','cannot connect to isolated target','cross-tenant group parent','target groups differ','conversion provenance differs','conversion audit identity differs')
+  known=('context deadline exceeded','canceling statement due to statement timeout','invalid source device row','invalid private conversion input','unresolved gateway relationship','requires reviewed display name','invalid source coordinates','unknown template device kind','template contradicts gateway hierarchy','template contradicts parent relation','additional metadata must be an object','nested custom field requires explicit conversion','invalid extended metadata','conflicting custom field values','target device identities differ','post-insert full device identity reconciliation failed','missing source timestamp','invalid name','duplicate sibling group name','cannot connect to isolated target','cross-tenant group parent','target groups differ','conversion provenance differs','conversion audit identity differs')
   detail=result.stderr.decode(errors='replace')
-  print(json.dumps({'state':'failed-no-cutover','categories':[k for k in known if k in detail] or ['private-log-review-required']}))
+  print(json.dumps({'state':'failed-no-cutover','categories':[k for k in known if k in detail] or ['private-log-review-required'],'last_progress':progress[-5:]}))
   raise SystemExit(1)
  checks.append(json.loads(result.stdout))
 receipt={'device_identity_conversion':checks[0],'retry_verification':checks[1],'bundle_sha256':hashlib.sha256(bundle_path.read_bytes()).hexdigest(),'cutover_completed':False,'source_mutated':False}
