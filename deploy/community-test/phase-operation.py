@@ -39,24 +39,6 @@ def read_frame(sock):
  raise RuntimeError('Invalid MQTT remaining length')
 
 
-import urllib.request,urllib.error
-qa=json.loads(pathlib.Path('/opt/tp-community-main-20261028/qa-tenant.private.json').read_text())
-def http(path,payload=None,token=None):
- h={'Content-Type':'application/json'}
- if token:h['x-token']=token
- req=urllib.request.Request('http://127.0.0.1:9999'+path,headers=h,data=json.dumps(payload).encode() if payload is not None else None)
- try:
-  with urllib.request.urlopen(req,timeout=15) as r:return r.status,json.load(r)
- except urllib.error.HTTPError as e:
-  try:return e.code,json.load(e)
-  except ValueError:return e.code,{}
-status,login=http('/api/v1/login',{'email':qa['email'],'password':qa['password']})
-token=(login.get('data') or {}).get('token')
-if status!=200 or not token:raise RuntimeError('QA tenant login failed')
-import base64
-claims=json.loads(base64.urlsafe_b64decode(token.split('.')[1]+'==='))
-print(json.dumps({'qa_email_matches':qa['email']=='test@test.cn','claims_tenant':claims.get('tenant_id'), 'claim_keys':sorted(claims)}))
-raise SystemExit(0)
 results=[];received=[];seq=10
 sock=socket.create_connection(('127.0.0.1',1883),timeout=10)
 def consume(deadline):
@@ -94,15 +76,7 @@ try:
  if kind!=0x90 or any(c==128 for c in ack[2:]):raise RuntimeError('QA MQTT subscription failed')
  publish('devices/attributes/qa-20261112',{'qa_firmware':'20261112.1','qa_enabled':True})
  publish('devices/event/qa-20261112',{'method':'qa_self_check','params':{'result':'ok','run':'20261112'}})
- for label,path,payload in [
- ('telemetry-control','/api/v1/telemetry/datas/pub',{'device_id':device,'value':json.dumps({'qa_control':12})}),
- ('attribute-set','/api/v1/attribute/datas/pub',{'device_id':device,'value':json.dumps({'qa_mode':'test'})}),
- ('command','/api/v1/command/datas/pub',{'device_id':device,'identify':'qa_self_check','value':json.dumps({'run':'20261112'})})]:
-  status,res=http(path,payload,token);results.append({'operation':label,'http_status':status,'code':res.get('code'),'message':res.get('message'),'data':res.get('data')})
-  consume(time.time()+3)
- time.sleep(2)
- status,res=http('/api/v1/attribute/datas/'+device,token=token)
- results.append({'operation':'read-attributes','http_status':status,'response':res})
+ consume(time.time()+120)
 finally:
  try:sock.sendall(b'\xe0\x00')
  except Exception:pass
