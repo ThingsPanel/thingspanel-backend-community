@@ -24,10 +24,24 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Build isolated test Redis
+        run: |
+          set -euo pipefail
+          # Tests start private Redis processes on ephemeral ports. Do not depend
+          # on the runner's apt mirror or start a shared system Redis service.
+          redis_source="$RUNNER_TEMP/redis-test-source"
+          mkdir -p "$redis_source"
+          curl --fail --location --retry 3 --max-time 120 \
+            https://codeload.github.com/redis/redis/tar.gz/refs/tags/7.2.6 \
+            -o "$redis_source/redis.tar.gz"
+          echo "86c8a1c315ce95df7771bcc37e6b3a5f41f4e23eb0d83cb0044609ac8f9d3875  $redis_source/redis.tar.gz" | sha256sum --check --strict
+          tar -xzf "$redis_source/redis.tar.gz" -C "$redis_source"
+          make -C "$redis_source/redis-7.2.6" -j2 MALLOC=libc BUILD_TLS=no redis-server
+          "$redis_source/redis-7.2.6/src/redis-server" --version
+          echo "$redis_source/redis-7.2.6/src" >> "$GITHUB_PATH"
       - name: Verify backend boundaries
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y redis-server
+          command -v redis-server
           (cd pkg/relational && go test ./...)
           go test ./... -run '^$'
           go test ./internal/... ./pkg/... ./initialize/... ./router/... ./sql/... ./cmd/... ./mqtt/... ./third_party/...
