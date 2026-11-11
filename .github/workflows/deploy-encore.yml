@@ -80,7 +80,7 @@ jobs:
         run: |
           docker exec notification-test createdb -U notification_test tp_upgrade_rehearsal_20000101000001
           go test -count=1 ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-groups ./cmd/metadata-upgrade-devices ./cmd/metadata-upgrade-relations ./cmd/metadata-upgrade-credentials
-          go build -o ../metadata-upgrade-credentials ./cmd/metadata-upgrade-credentials
+          CGO_ENABLED=0 go build -trimpath -o ../metadata-upgrade-credentials ./cmd/metadata-upgrade-credentials
       - name: Preserve verified offline credential converter
         uses: actions/upload-artifact@v4
         with:
