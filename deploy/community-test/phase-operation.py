@@ -1,63 +1,30 @@
-import datetime,fcntl,hashlib,json,pathlib,shutil,subprocess,os
-root=pathlib.Path('/opt/tp-community-main-20261028')
-out={'at':datetime.datetime.utcnow().isoformat()+'Z','operation':'qa-fixes-release-preflight','changes':False}
-def run(args):
-    p=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=12)
-    if p.returncode:raise RuntimeError('readonly command failed: '+args[0])
-    return p.stdout
-def hashfile(path):
-    p=pathlib.Path(path)
-    if not p.exists():return {'path':str(p),'exists':False}
-    if p.is_symlink():return {'path':str(p),'exists':True,'symlink':True}
-    h=hashlib.sha256()
-    with p.open('rb') as f:
-        for chunk in iter(lambda:f.read(1024*1024),b''):h.update(chunk)
-    return {'path':str(p),'exists':True,'sha256':h.hexdigest(),'size':p.stat().st_size}
-lockpath=pathlib.Path('/opt/tp-community-actions/deployment.lock')
-try:
-    lock=lockpath.open('r')
-    fcntl.flock(lock,fcntl.LOCK_SH|fcntl.LOCK_NB)
-except (OSError,BlockingIOError):
-    out['status']='blocked-deployment-lock';print(json.dumps(out));raise SystemExit(0)
-try:
-    out['lock']='shared nonblocking lock acquired for consistent read snapshot'
-    out['controllers']=[hashfile(root/f) for f in ['http-runtime/scope.py','ha-runtime/scope.py','http-runtime/broker_scope_roles.py','ha-runtime/broker_scope_roles.py']]
-    out['containers']=[]
-    for name in ['tp-community-main-47-broker-owner-1','tp-community-main-47-broker-mosquitto-1','tp-community-main-47-encore-api-1']:
-        c=json.loads(run(['docker','inspect',name]))[0]
-        labels=c['Config'].get('Labels') or {}
-        mounts=[{'source':m['Source'],'destination':m['Destination'],'type':m['Type'],'rw':m['RW']} for m in c['Mounts']]
-        refs=[]
-        for f in labels.get('com.docker.compose.project.config_files','').split(','):
-            if f:refs.append(hashfile(f))
-        out['containers'].append({'name':name,'id':c['Id'],'image_id':c['Image'],'image_reference':c['Config']['Image'],'running':c['State']['Running'],'health':c['State'].get('Health',{}).get('Status'),'restart_count':c['RestartCount'],'started_at':c['State']['StartedAt'],'compose_project':labels.get('com.docker.compose.project'),'compose_service':labels.get('com.docker.compose.service'),'compose_workdir':labels.get('com.docker.compose.project.working_dir'),'compose_files':refs,'mount_references':mounts,'source_labels':{k:v for k,v in labels.items() if k in ['org.opencontainers.image.revision','org.opencontainers.image.source']}})
-    procs=json.loads(run(['pm2','jlist']))
-    matched=[p for p in procs if p.get('name')=='thingspanel-backend-community']
-    if len(matched)!=1:raise RuntimeError('community Gin process not unique')
-    p=matched[0];env=p['pm2_env'];binary=env['pm_exec_path'];cwd=env['pm_cwd']
-    out['gin']={'process':p['name'],'pid':p['pid'],'status':env.get('status'),'restarts':env.get('restart_time'),'cwd':cwd,'binary':hashfile(binary),'version':run([binary,'--version']).strip(),'config':hashfile(pathlib.Path(cwd)/'configs/conf.yml')}
-    out['policy_file']=hashfile(root/'active-broker-services.private.json')
-    policy=json.loads((root/'active-broker-services.private.json').read_text())
-    out['policy_summary']=[{'index':i,'principal_kind':s.get('principal',{}).get('principal_kind'),'plugin_socket':bool(s.get('plugin_socket')),'target_scoped_publisher':bool(s.get('target_scoped_publisher')),'target_tenant_scope':s.get('target_tenant_scope'),'device_count':len(s.get('allowed_device_ids',[])),'tenant_count':len(s.get('allowed_tenant_ids',[])),'publish_rule_count':len(s.get('policy',{}).get('publish',[])),'subscribe_rule_count':len(s.get('policy',{}).get('subscribe',[]))} for i,s in enumerate(policy)]
-    mem=dict(line.split(':',1) for line in pathlib.Path('/proc/meminfo').read_text().splitlines())
-    disk=shutil.disk_usage(str(root))
-    out['capacity']={'mem_available_kib':int(mem['MemAvailable'].split()[0]),'swap_total_kib':int(mem['SwapTotal'].split()[0]),'swap_free_kib':int(mem['SwapFree'].split()[0]),'disk_total_bytes':disk.total,'disk_free_bytes':disk.free}
-    out['running_pm2']=[{'name':p.get('name'),'pid':p.get('pid'),'status':p.get('pm2_env',{}).get('status')} for p in procs]
-    out['systemd_jobs']=run(['systemctl','list-jobs','--no-legend','--no-pager']).strip().splitlines()
-    out['managed_scope_units']={}
-    for unit in ['tp-http-scope.service','tp-ha-scope.service','tp-http-scope.timer','tp-ha-scope.timer']:
-        data=run(['systemctl','show',unit,'--property=ActiveState,SubState,MainPID,ExecMainStatus,LastTriggerUSec,NextElapseUSecRealtime'])
-        out['managed_scope_units'][unit]=dict(line.split('=',1) for line in data.splitlines() if '=' in line)
-    out['running_task_names']=run(['ps','-eo','pid=,comm=']).strip().splitlines()
-    site=pathlib.Path('/home/thingspanel/nginx/www/dist')
-    actual=site.resolve()
-    out['frontend']={'link':str(site),'target':str(actual),'is_symlink':site.is_symlink(),'source_commit':(actual/'SOURCE_COMMIT').read_text().strip(),'files':{name:hashfile(actual/name) for name in ['index.html','mp-device/index.html','RELEASE_PROFILE.json','manifest.json']},'nginx':hashfile('/etc/nginx/conf.d/community.conf')}
-    out['frontend']['profile']=json.loads((actual/'RELEASE_PROFILE.json').read_text())
-    out['nginx_config_test']=subprocess.run(['nginx','-t'],stdout=subprocess.PIPE,stderr=subprocess.PIPE).returncode==0
-    out['status']='read-only-snapshot-complete'
-except Exception as e:
-    out['status']='read-only-snapshot-incomplete';out['error_type']=type(e).__name__
-finally:
-    fcntl.flock(lock,fcntl.LOCK_UN);lock.close()
-    out['lock_released']=True
+import json,subprocess,hashlib,pathlib,fcntl,datetime
+out={'at':datetime.datetime.utcnow().isoformat()+'Z','scope':'read-only HTTP running executable build info and checkout status; no deployment'}
+lock=open('/opt/tp-community-actions/deployment.lock','r')
+try:fcntl.flock(lock,fcntl.LOCK_SH|fcntl.LOCK_NB)
+except BlockingIOError:print(json.dumps({'blocked':'deployment lock busy'}));raise SystemExit()
+def run(a):return subprocess.check_output(a,timeout=15).decode().strip()
+def inline(data,pos):
+ n=0;shift=0
+ for i in range(10):
+  c=data[pos];pos+=1;n|=(c&127)<<shift
+  if c<128:return data[pos:pos+n].decode(errors='replace'),pos+n
+  shift+=7
+ raise ValueError('bad length')
+out['containers']=[]
+for cid in run(['docker','ps','-q']).split():
+ c=json.loads(run(['docker','inspect',cid]))[0]
+ aliases=[a for n in c['NetworkSettings']['Networks'].values() for a in (n.get('Aliases') or [])]
+ if 'tp-plugin-http-adapter' not in aliases:continue
+ im=json.loads(run(['docker','image','inspect',c['Image']]))[0]
+ row={'name':c['Name'],'image_id':c['Image'],'image_ref':c['Config']['Image'],'pid':c['State']['Pid'],'entry_executable':c.get('Path'),'working_dir':c['Config'].get('WorkingDir'),'image_created':im.get('Created'),'repo_digests':im.get('RepoDigests'),'oci':{k:v for k,v in ((im.get('Config')or {}).get('Labels')or {}).items() if k.startswith('org.opencontainers.image.')},'restart_count':c['RestartCount']}
+ exe=pathlib.Path('/proc')/str(c['State']['Pid'])/'exe';data=exe.read_bytes();row['binary_sha256']=hashlib.sha256(data).hexdigest();row['binary_bytes']=len(data)
+ i=data.find(b'\xff Go buildinf:')
+ if i>=0 and data[i+15]&2:
+  version,pos=inline(data,i+32);module,pos=inline(data,pos);row['go_version']=version
+  row['build_info']=[x for x in module.splitlines() if x.startswith(('path\t','mod\t','build\tvcs','build\tGOOS','build\tGOARCH','build\tCGO_ENABLED','build\t-buildmode','build\t-compiler'))]
+ else:row['build_info_unavailable']=True
+ out['containers'].append(row)
+p='/home/plugin/thingspanel-adapter-http'
+out['checkout']={'path':p,'head':run(['git','-C',p,'rev-parse','HEAD']),'status':run(['git','-C',p,'status','--porcelain']),'diff_stat':run(['git','-C',p,'diff','--stat'])}
 print(json.dumps(out))
