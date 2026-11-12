@@ -21,6 +21,16 @@ func pluginOwnedRecord(device DeviceRecord) bool {
 }
 
 func (o *Owner) resolvePluginTargets(ctx context.Context, ids, allowedTenants []string, cell string) ([]brokercontract.PluginTarget, error) {
+	return o.resolvePluginTargetsWithBinding(ctx, ids, allowedTenants, cell, false)
+}
+
+// Publishers use an existing active route. They must not run device admission:
+// the command dispatcher already holds that route lock across bounded publish.
+func (o *Owner) resolvePluginPublisherTargets(ctx context.Context, ids, allowedTenants []string, cell string) ([]brokercontract.PluginTarget, error) {
+	return o.resolvePluginTargetsWithBinding(ctx, ids, allowedTenants, cell, true)
+}
+
+func (o *Owner) resolvePluginTargetsWithBinding(ctx context.Context, ids, allowedTenants []string, cell string, publisher bool) ([]brokercontract.PluginTarget, error) {
 	repo, ok := o.repo.(pluginTargetResolver)
 	if !ok || len(ids) == 0 || len(ids) > MaxServiceTargets {
 		return nil, ErrUnavailable
@@ -66,11 +76,23 @@ func (o *Owner) resolvePluginTargets(ctx context.Context, ids, allowedTenants []
 		if i > 0 && rows[i-1].DeviceID == rows[i].DeviceID {
 			return nil, nil
 		}
-		binding, bindErr := o.repo.ResolveActiveBinding(ctx, rows[i].TenantID, rows[i].DeviceID, cell)
-		if admission, ok := o.repo.(interface {
-			ResolveAdmissionBinding(context.Context, string, string, string) (TransportBinding, error)
-		}); ok {
-			binding, bindErr = admission.ResolveAdmissionBinding(ctx, rows[i].TenantID, rows[i].DeviceID, cell)
+		var binding TransportBinding
+		var bindErr error
+		if publisher {
+			reader, ok := o.repo.(interface {
+				ReadActiveBinding(context.Context, string, string, string) (TransportBinding, error)
+			})
+			if !ok {
+				return nil, ErrUnavailable
+			}
+			binding, bindErr = reader.ReadActiveBinding(ctx, rows[i].TenantID, rows[i].DeviceID, cell)
+		} else {
+			binding, bindErr = o.repo.ResolveActiveBinding(ctx, rows[i].TenantID, rows[i].DeviceID, cell)
+			if admission, ok := o.repo.(interface {
+				ResolveAdmissionBinding(context.Context, string, string, string) (TransportBinding, error)
+			}); ok {
+				binding, bindErr = admission.ResolveAdmissionBinding(ctx, rows[i].TenantID, rows[i].DeviceID, cell)
+			}
 		}
 		if bindErr != nil {
 			if errors.Is(bindErr, ErrBindingConflict) {

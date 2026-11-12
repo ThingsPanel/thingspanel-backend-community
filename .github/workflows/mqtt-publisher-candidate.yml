@@ -11,6 +11,17 @@ jobs:
   candidate:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: publisher_test
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: publisher_test
+        ports: ['25543:5432']
+        options: >-
+          --health-cmd "pg_isready -U publisher_test -d publisher_test"
+          --health-interval 2s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,6 +44,24 @@ jobs:
           go test ./internal/api -run 'Test(SharedHTTPInstallationScope|LegacyPluginCompatibilityAndHAFencing)' -count=1
           cd "$RUNNER_TEMP/mqtt-source/broker"
           go test ./internal/brokercontrol ./internal/brokercontract ./internal/mosquittodriver -count=1
+      - name: Prove plugin publishing does not reacquire the dispatch lock
+        env:
+          TEST_BROKER_DATABASE_DSN: postgres://publisher_test:fixture-only-password@127.0.0.1:25543/publisher_test?sslmode=disable
+        run: |
+          set -euo pipefail
+          for component in backend broker; do
+            cd "$RUNNER_TEMP/mqtt-source/$component"
+            go test ./internal/brokercontrol -run '^TestPostgresPluginPublisherAuthenticatesWhileDispatchHoldsRoute$' -count=1 -json > "$RUNNER_TEMP/$component-plugin-lock.jsonl"
+          done
+          python3 - <<'PY'
+          import json, os, pathlib
+          name = 'TestPostgresPluginPublisherAuthenticatesWhileDispatchHoldsRoute'
+          for component in ('backend', 'broker'):
+              rows = [json.loads(line) for line in (pathlib.Path(os.environ['RUNNER_TEMP']) / (component + '-plugin-lock.jsonl')).read_text().splitlines()]
+              terminal = [row['Action'] for row in rows if row.get('Test') == name and row['Action'] in ('pass', 'fail', 'skip')]
+              assert terminal == ['pass'], (component, terminal)
+              print(component + ': real PostgreSQL dispatch-lock regression passed, zero skips')
+          PY
       - name: Build owner and driver from the same preserved HA source
         run: |
           set -euo pipefail

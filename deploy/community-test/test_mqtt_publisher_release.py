@@ -58,6 +58,31 @@ class PublisherConfiguration(unittest.TestCase):
 
 
 class ReleaseIntegrity(unittest.TestCase):
+    def test_baseline_requires_reviewed_version_and_both_immutable_images(self):
+        current = {'Image': release.DEPLOYED_BROKER_IMAGE}
+        release.verify_runtime_baseline(release.DEPLOYED_BACKEND, current, current)
+        for version, owner, broker in [
+                ('another-release', current, current),
+                (release.DEPLOYED_BACKEND, {'Image': 'changed-owner'}, current),
+                (release.DEPLOYED_BACKEND, current, {'Image': 'changed-broker'})]:
+            with self.assertRaisesRegex(ValueError, 'baseline changed'):
+                release.verify_runtime_baseline(version, owner, broker)
+
+    def test_controller_snapshot_checks_content_and_previously_absent_files(self):
+        with tempfile.TemporaryDirectory() as folder:
+            controller, helper = Path(folder) / 'scope.py', Path(folder) / 'helper.py'
+            controller.write_text('reviewed controller')
+            snapshot = {str(controller): release.digest(controller), str(helper): None}
+            with patch.object(release, 'SCOPE_CONTROLLER_FILES', snapshot):
+                self.assertEqual(release.scope_controller_preflight(), snapshot)
+                helper.write_text('unexpected replacement helper')
+                with self.assertRaises(ValueError):
+                    release.scope_controller_preflight()
+                helper.unlink()
+                controller.write_text('changed controller')
+                with self.assertRaises(ValueError):
+                    release.scope_controller_preflight()
+
     def bundle(self, root):
         profile = {'source_commit': 'a' * 40, 'encore_changed': False, 'database_owner_changed': False,
                    'expected_backend_version': release.DEPLOYED_BACKEND,

@@ -21,9 +21,21 @@ BROKER_BASE = '87ad45b09cbed15594277aaafb85a4258246808e'
 DRIVER_BASE = 'd1d01969792fa543b15e8721ee325a2dd603e849'
 HTTP_PATCH = '107e064ff191b909558746b661215469a30f4577'
 HTTP_FIX = '2a780fe468645cb500a8249670ac61da56aeda9f'
-DEPLOYED_BACKEND = 'http-managed-2a780fe4'
+DEPLOYED_BACKEND = 'mqtt-publisher-5fb4c68e11b4ce3632abad32197a345e3d0f0f89'
+# Reviewed read-only snapshot, 2026-11-13. A later deployment must be reviewed
+# again instead of accepting arbitrary tags or silently relaxing these guards.
+DEPLOYED_BROKER_IMAGE = 'sha256:fd7091f1868a6642742315be959bb52db144d1416bf9fcf1a3455d068e24ec50'
+SCOPE_CONTROLLER_FILES = {
+    '/opt/tp-community-main-20261028/http-runtime/scope.py': '4942a20e28557ff9275580018cfc58fc5eb54a522e7740e9f9d4d8f5607edcb2',
+    '/opt/tp-community-main-20261028/ha-runtime/scope.py': '6331a89ee2d148eb58f101615f277059a82c74b2bcd94241b47fab5e0fd80997',
+    '/opt/tp-community-main-20261028/http-runtime/broker_scope_roles.py': None,
+    '/opt/tp-community-main-20261028/ha-runtime/broker_scope_roles.py': None,
+}
 PRODUCT_FILES = [
     'internal/brokercontrol/owner.go', 'internal/brokercontrol/README.md',
+    'internal/brokercontrol/plugin_owner.go', 'internal/brokercontrol/gorm_repository.go',
+    'internal/brokercontrol/owner_test.go', 'internal/brokercontrol/target_plugin_publisher_test.go',
+    'internal/brokercontrol/target_plugin_publisher_postgres_test.go',
     'internal/adapter/mqttadapter/adapter.go', 'internal/adapter/mqttadapter/command.go',
     'internal/adapter/mqttadapter/ingress.go', 'internal/adapter/mqttadapter/publisher.go',
     'internal/app/mqtt_service.go', 'internal/brokercontract/target_client.go',
@@ -213,11 +225,33 @@ def inspect(container):
     return json.loads(run(['docker', 'inspect', container]))[0]
 
 
+def file_matches_snapshot(name, expected):
+    path = Path(name)
+    if expected is None:
+        return not path.exists() and not path.is_symlink()
+    return not path.is_symlink() and path.is_file() and digest(path) == expected
+
+
+def verify_runtime_baseline(version, owner, broker):
+    if version != DEPLOYED_BACKEND:
+        raise ValueError('Backend baseline changed; review release profile before deployment')
+    if any(item.get('Image') != DEPLOYED_BROKER_IMAGE for item in (owner, broker)):
+        raise ValueError('Broker image baseline changed; review before deployment')
+
+
+def scope_controller_preflight():
+    for name, expected in SCOPE_CONTROLLER_FILES.items():
+        if not file_matches_snapshot(name, expected):
+            raise ValueError('Managed scope controller compatibility requires review')
+    return dict(SCOPE_CONTROLLER_FILES)
+
+
 def stage(root, owner, broker, pm2):
     import yaml
     root = Path(root).resolve()
     manifest = verify_bundle(root)
     capacity = resource_preflight(root, manifest)
+    controller_files = scope_controller_preflight()
     if (root / 'stage.private.json').exists():
         raise ValueError('Release already staged; inspect or use a new directory')
     oi, bi = inspect(owner), inspect(broker)
@@ -252,10 +286,7 @@ def stage(root, owner, broker, pm2):
     spec = process_spec(matches[0])
     binary = Path(spec['script'])
     current_version = run([binary, '--version']).decode().strip()
-    if current_version != DEPLOYED_BACKEND:
-        raise ValueError('Backend baseline changed; review release profile before deployment')
-    if '87ad45b0' not in oi['Config']['Image'] or 'd1d01969' not in bi['Config']['Image']:
-        raise ValueError('HA broker baseline changed; review before deployment')
+    verify_runtime_baseline(current_version, oi, bi)
     conf = Path(spec['cwd']) / 'configs/conf.yml'
     settings = yaml.safe_load(conf.read_bytes())
     next_policy, next_env = publisher_settings(json.loads(policy), settings['mqtt'], spec['env'])
@@ -268,7 +299,7 @@ def stage(root, owner, broker, pm2):
     private(root / 'backend.before.private.json', {'apps': [spec]})
     private(root / 'backend.next.private.json', {'apps': [next_spec]})
     shutil.copy2(binary, root / 'backend.before')
-    state = {'project': project, 'working_dir': wd, 'services': service_names, 'containers': [owner, broker],
+    state = {'controller_files': controller_files, 'project': project, 'working_dir': wd, 'services': service_names, 'containers': [owner, broker],
              'images_before': [oi['Image'], bi['Image']], 'container_ids': [oi['Id'], bi['Id']],
              'compose_files': {path: digest(path) for path in files}, 'process_spec_sha256': value_digest(spec),
              'pm2': pm2, 'binary': str(binary),
@@ -312,17 +343,32 @@ def compose_up(root, state, suffix):
 
 
 def wait_ready(state, expected):
-    for _ in range(30):
+    deadline = time.monotonic() + 150
+    stable_since, stable_identity = None, None
+    while time.monotonic() < deadline:
         try:
+            identity = []
             for container, mode in zip(state['containers'], ('owner-liveness', 'broker')):
+                current = inspect(container)
+                if (not current['State']['Running']
+                        or current['State'].get('Health', {}).get('Status') != 'healthy'):
+                    raise RuntimeError('Broker runtime is not healthy')
+                identity.append((current['Id'], current['RestartCount'], current['State']['StartedAt']))
                 run(['docker', 'exec', container, '/usr/local/bin/tp-broker-readiness', mode])
             with urllib.request.urlopen('http://127.0.0.1:9999/api/v1/sys_version', timeout=3) as response:
-                if json.load(response).get('data', {}).get('version') == expected:
-                    return
+                if json.load(response).get('data', {}).get('version') != expected:
+                    raise RuntimeError('Backend version did not converge')
+            now = time.monotonic()
+            if identity != stable_identity:
+                stable_since, stable_identity = now, identity
+            # Observe at least two complete managed-scope timer periods. A
+            # one-shot readiness success hid a subsequent controller restart.
+            if stable_since is not None and now - stable_since >= 60:
+                return
         except Exception:
-            pass
-        time.sleep(1)
-    raise RuntimeError('MQTT-only release readiness failed')
+            stable_since, stable_identity = None, None
+        time.sleep(2)
+    raise RuntimeError('MQTT-only release sustained readiness failed')
 
 
 def apply_release(root, rollback_only=False):
@@ -356,6 +402,7 @@ def apply_release(root, rollback_only=False):
             or [c['Image'] for c in current_containers] != state['images_before']
             or [c['Id'] for c in current_containers] != state['container_ids']
             or any(digest(path) != sha for path, sha in state['compose_files'].items())
+            or any(not file_matches_snapshot(path, sha) for path, sha in state.get('controller_files', {}).items())
             or len(current_processes) != 1 or value_digest(process_spec(current_processes[0])) != state['process_spec_sha256']):
         raise ValueError('Live deployment changed since staging')
     run(['docker', 'load', '-i', root / 'broker-image.tar.gz'])

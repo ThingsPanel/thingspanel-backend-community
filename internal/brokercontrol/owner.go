@@ -401,7 +401,7 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 				if len(allowedTenants) == 0 {
 					allowedTenants = []string{s.Principal.TenantID}
 				}
-				pluginTargets, targetErr = o.resolvePluginTargets(ctx, pluginIDs, allowedTenants, s.BrokerCell)
+				pluginTargets, targetErr = o.resolvePluginPublisherTargets(ctx, pluginIDs, allowedTenants, s.BrokerCell)
 				if targetErr != nil {
 					return deny, targetErr
 				}
