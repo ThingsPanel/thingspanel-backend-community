@@ -1,19 +1,14 @@
-import pathlib,json,re,subprocess
-out={'broker':{},'qa_logs':[],'sdk_dirs':[]}
-for name in ['tp-community-main-47-broker-mosquitto-1','tp-community-main-47-broker-owner-1']:
- p=subprocess.run(['docker','logs','--since','25m','--tail','1500',name],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=10);lines=p.stdout.decode(errors='replace').splitlines();matches=[]
- for l in lines:
-  if any(w in l for w in ['ModbusTCP','16fb8743-bc16-a53a-f6b1-5e82b07a760b','plugin','denied','not author','fenced']):
-   if re.search(r'password|secret|token|payload|credential',l,re.I):continue
-   matches.append(l[:500])
- out['broker'][name]={'total':len(lines),'matched':matches[-80:]}
-p=pathlib.Path('/home/plugin/access-service-modbus-tcp/cmd/logs/app.log')
-f=p.open('rb');f.seek(max(0,p.stat().st_size-300000));lines=f.read().decode(errors='replace').splitlines()
-for l in lines:
- if '16fb8743-bc16-a53a-f6b1-5e82b07a760b' in l:
-  if re.search(r'password|secret|token|payload|credential',l,re.I):continue
-  out['qa_logs'].append(l[:500])
-out['qa_logs']=out['qa_logs'][-15:]
-r=pathlib.Path('/home/plugin/access-service-modbus-tcp/internal/platform/platform.go');lines=r.read_text(errors='replace').splitlines();out['publish_envelope']=[str(i+1)+': '+l for i,l in enumerate(lines) if 258<=i+1<=283]
-p=subprocess.run(['ss','-tnp'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=5);out['mqtt_sockets']=[l for l in p.stdout.decode(errors='replace').splitlines() if ':1883' in l and ('access-service' in l or '1599577' in l)]
+import subprocess,json,pathlib,re
+out={'containers':[],'pm2':[],'paths':[]}
+p=subprocess.run(['docker','ps','--format','{{.Names}}'],capture_output=True,text=True,timeout=10)
+for n in p.stdout.splitlines():
+ if not any(s in n for s in ['ha-agent','ha-bridge','broker-owner','broker-mosquitto']):continue
+ x=json.loads(subprocess.run(['docker','inspect',n],capture_output=True,text=True,timeout=10).stdout)[0]
+ out['containers'].append({'name':n,'image':x['Config']['Image'],'image_id':x['Image'],'mounts':[{'source':m['Source'],'dest':m['Destination'],'rw':m['RW']} for m in x['Mounts']],'env_keys':[s.split('=',1)[0] for s in x['Config'].get('Env',[])],'labels':{k:v for k,v in x['Config'].get('Labels',{}).items() if 'source' in k or 'revision' in k or 'working_dir' in k}})
+p=subprocess.run(['/root/.local/share/pnpm/pm2','jlist'],capture_output=True,text=True,timeout=10)
+for x in json.loads(p.stdout):
+ e=x.get('pm2_env',{});out['pm2'].append({'name':x.get('name'),'pid':x.get('pid'),'cwd':e.get('pm_cwd'),'exec':e.get('pm_exec_path'),'status':e.get('status'),'restarts':e.get('restart_time')})
+for root in ['/opt/tp-community-actions','/opt/tp-community-main-20261028','/opt/tp-main47-ha']:
+ p=pathlib.Path(root)
+ if p.exists():out['paths'] += [str(x) for x in p.glob('*') if any(s in x.name for s in ['catalog','trust','agent','gin','source','release','broker','ha','private'])]
 print(json.dumps(out))
