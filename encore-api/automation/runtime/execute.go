@@ -403,17 +403,6 @@ func (r *Runtime) RunNow(ctx context.Context, rule *store.Rule, deviceID string)
 	return run, nil
 }
 
-// executeRunFromPC resumes at an explicit program counter. It is used by the
-// wait timer, whose continuation point is the recorded counter, not the
-// checkpoint (the checkpoint still points at the wait step itself).
-func (r *Runtime) executeRunFromPC(ctx context.Context, runID string, pc int) (bool, error) {
-	run, err := r.store.GetRunByID(ctx, runID)
-	if err != nil {
-		return false, err
-	}
-	return r.executeRunAt(ctx, run, pc)
-}
-
 func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int) (bool, error) {
 	// Branch conditions evaluate against the revision the run was admitted on,
 	// so a concurrent edit cannot change what a half-finished program means.
@@ -498,6 +487,40 @@ func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int)
 			continue
 
 		case domain.StepWait:
+			timer, err := r.store.GetRunTimer(ctx, run.ID, pc)
+			if err != nil {
+				return true, err
+			}
+			if timer != nil {
+				if timer.State != "fired" {
+					return true, nil // Never extend or bypass an outstanding wait.
+				}
+				// Both the scheduler and crash recovery pass through this point.
+				// Keep the fired timer until the run is retained/removed normally:
+				// if a crash precedes the next checkpoint it proves this wait ended.
+				steps, err := r.store.ListSteps(ctx, run.ID)
+				if err != nil {
+					return true, err
+				}
+				found := false
+				for _, st := range steps {
+					if st.Idx != pc || st.Kind != "wait" {
+						continue
+					}
+					found = true
+					if st.Status != "succeeded" {
+						if err := r.store.UpdateStepStatus(ctx, st.ID, "succeeded", string(st.Detail)); err != nil {
+							return true, err
+						}
+					}
+					break
+				}
+				if !found {
+					return true, errors.New("wait timer has no recorded step")
+				}
+				pc++
+				continue
+			}
 			stepID, attempt, err := r.ensureStep(ctx, run, pc, "wait")
 			if err != nil {
 				return true, err
