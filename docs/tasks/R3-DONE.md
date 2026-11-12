@@ -19,7 +19,7 @@
 
 **真实演练**（隔离栈 `r3`，含 Encore；脚本 `stack.sh` 与日志在 `/Volumes/KIOXIA/archive/evidence/2026-11-12-R3/`）：
 - 数据：`telemetry_datas`（TimescaleDB hypertable）先 5000 行，后加到 300 万行（库约 800 MB）；一个租户和设备。
-- 创建：5000 行时 8 秒；**800 MB 的库约 2 分钟，包 21 MB**（合成数据压缩得很好，真实数据不会这么小）。**粗略耗时 ≈ 2.5 分钟 / GB 数据库**，只有这一个测量点，不是基准测试。
+- 创建耗时：同一个约 800 MB 的库（300 万行），**一次约 2 分钟、另一次只要 4 秒**，包都是 21 MB。第一次发生在刚插完大批量数据之后、磁盘很忙的时候，所以**没有可靠的“每 GB 耗时”数字**，我之前写的“≈2.5 分钟/GB”不成立，已删除；合成数据压缩得很好，真实数据的包不会这么小。
 - 独立校验：把包解开在宿主机上，用 Python 逐个重算 sha256（13 个文件全对）；`pg_restore -l` 能读出 143 个表数据条目和 `telemetry_datas`；包内没有 `.env`、`services.json`；搜索 13 个 `.env` 里的密钥**值**，只命中 `TP_DATABASE_PASSWORD`/`TP_NATIVE_DB_PASSWORD`，经查是仓库里公开的默认值字符串 `postgresThingsPanel`（写在 `docker-compose.yml` 和 `prepare.py` 默认值里），不是该栈生成的密钥。**注意：如果运维把数据库口令改成自定义值而又写进 compose，它会在包里。**
 - `kill -9`：① 在 dumping 阶段 `docker kill -s KILL` Agent：只留下 `*.partial.d`，没有 `.tar`，重启后 `list` 只显示完整的包，下一次备份清掉残留；② 在出现 `.tar.partial` 时杀：这次杀的时机正好在 rename 之后，得到的是完整、`verify` 通过的包；**没有抓到“恰好在 rename 之前”的瞬间**，这一条只有单元测试（失败/中断后无 `.tar`）和 ① 作证；③ 演练中 OrbStack（Docker 引擎）自己停了一次，等于整机掉电：Agent 与备份被一起杀掉，现场与 ① 一致（只有 `.partial.d`，不被列出）。
 - 重启 Agent 后三个包全部 `verify` 通过。
