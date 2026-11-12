@@ -956,6 +956,10 @@ func (*DeviceApi) GetDeviceDiagnostics(c *gin.Context) {
 		return
 	}
 
+	if !authorizeHTTPDeviceReads(c, []string{deviceID}) {
+		return
+	}
+
 	collector := diagnostics.GetInstance()
 	data, err := collector.GetDiagnostics(deviceID)
 	if err != nil {
