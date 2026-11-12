@@ -16,6 +16,7 @@ PATCHES = (
     '2503e1d8a61b224cb70196f50f8d84dfca30d0aa',
     '547482f6d9d91d186e2e6aba497c1af210737d7f',
     '107e064ff191b909558746b661215469a30f4577',
+    '2a780fe468645cb500a8249670ac61da56aeda9f',
 )
 FIXTURE = 'internal/api/telemetry_http_auth_test.go'
 
