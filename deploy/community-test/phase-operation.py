@@ -1,16 +1,11 @@
-import subprocess,json,pathlib,re
-out={'containers':[],'pm2':[],'paths':[]}
-p=subprocess.run(['docker','ps','--format','{{.Names}}'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=10)
-for n in p.stdout.splitlines():
- if not any(s in n for s in ['ha-agent','ha-bridge','broker-owner','broker-mosquitto','http']):continue
- x=json.loads(subprocess.run(['docker','inspect',n],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=10).stdout)[0]
- out['containers'].append({'name':n,'image':x['Config']['Image'],'image_id':x['Image'],'mounts':[{'source':m['Source'],'dest':m['Destination'],'rw':m['RW']} for m in x['Mounts']],'env_keys':[s.split('=',1)[0] for s in (x['Config'].get('Env') or [])],'labels':{k:v for k,v in (x['Config'].get('Labels') or {}).items() if 'source' in k or 'revision' in k or 'working_dir' in k}})
-p=subprocess.run(['/root/.local/share/pnpm/pm2','jlist'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=10)
-for x in json.loads(p.stdout):
- e=x.get('pm2_env',{});out['pm2'].append({'name':x.get('name'),'pid':x.get('pid'),'cwd':e.get('pm_cwd'),'exec':e.get('pm_exec_path'),'status':e.get('status'),'restarts':e.get('restart_time')})
-for root in ['/opt/tp-community-actions','/opt/tp-community-main-20261028','/opt/tp-main47-ha']:
- p=pathlib.Path(root)
- if p.exists():out['paths'] += [str(x) for x in p.glob('*') if any(s in x.name for s in ['catalog','trust','agent','gin','source','release','broker','ha','private'])]
-p=subprocess.run(['ss','-lntp'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=5)
-out['http_listeners']=[l for l in p.stdout.splitlines() if ':1909' in l]
-print(json.dumps(out))
+import subprocess,json,pathlib,tempfile,sys,os
+listener='import http.server,json,time,datetime,sys,pathlib\nout={\'at\':datetime.datetime.now().isoformat(),\'requests\':[]};device=\'373fb5d9-a73a-e948-dcb5-5ab07aed6dec\';deadline=time.time()+100\nclass Handler(http.server.BaseHTTPRequestHandler):\n def setup(self):\n  http.server.BaseHTTPRequestHandler.setup(self);self.connection.settimeout(2)\n def log_message(self,*args):pass\n def do_POST(self):\n  try:length=int(self.headers.get(\'Content-Length\',\'0\'))\n  except (TypeError,ValueError):self.send_error(400);return\n  if length<0:self.send_error(400);return\n  if length>10000:self.send_error(413);return\n  try:body=json.loads(self.rfile.read(length))\n  except Exception:self.send_error(400);return\n  if self.path!=\'/api/v1/control\' or body.get(\'tp_device_number\')!=device:self.send_error(404);return\n  out[\'requests\'].append({\'path\':self.path,\'body\':body});pathlib.Path(sys.argv[2]).write_text(json.dumps(out));self.send_response(200);self.end_headers();self.wfile.write(b\'{"ok":true}\')\nwith http.server.HTTPServer((sys.argv[1],35180),Handler) as s:\n s.timeout=1\n while time.time()<deadline:s.handle_request()\nout[\'stopped\']=True;pathlib.Path(sys.argv[2]).write_text(json.dumps(out))\n'
+ids=subprocess.check_output(['docker','ps','-q']).decode().split();gateway=None
+for cid in ids:
+ x=json.loads(subprocess.check_output(['docker','inspect',cid]))[0]
+ for n,v in x['NetworkSettings']['Networks'].items():
+  if 'tp-plugin-http-adapter' in (v.get('Aliases') or []) and v.get('Gateway'):gateway=v['Gateway']
+if not gateway:raise RuntimeError('HTTP plugin bridge gateway not found; refusing public bind')
+d=pathlib.Path(tempfile.mkdtemp(prefix='qa-q06-http-direct-'));os.chmod(str(d),0o700);p=d/'listener.py';p.write_text(listener);result=d/'result.json';log=(d/'server.log').open('wb')
+child=subprocess.Popen([sys.executable,str(p),gateway,str(result)],stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True,close_fds=True)
+print(json.dumps({'pid':child.pid,'host':gateway,'port':35180,'deadline_seconds':100,'result_path':str(result),'log_path':str(d/'server.log')}))
