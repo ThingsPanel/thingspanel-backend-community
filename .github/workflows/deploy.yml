@@ -13,6 +13,10 @@ on:
         description: 'Build and stage the interim device security profile without deploying'
         type: boolean
         default: false
+      build_mqtt_publisher:
+        description: 'Build and upload the MQTT-only candidate; never deploy runtime'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -20,7 +24,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build_backend:
-    if: ${{ !inputs.build_device_safety }}
+    if: ${{ !inputs.build_device_safety && !inputs.build_mqtt_publisher }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -84,7 +88,7 @@ jobs:
     secrets: inherit
 
   device_safety:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_device_safety && !inputs.deploy_to_test }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_device_safety && !inputs.build_mqtt_publisher && !inputs.deploy_to_test }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -139,3 +143,8 @@ jobs:
           trap 'rm -f "$key"' EXIT
           printf '%s\n' "$DEPLOY_KEY" > "$key"
           scp -i "$key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts "device-safety-$GITHUB_SHA.tar.gz" root@47.92.253.145:/opt/tp-community-actions/incoming/
+
+  mqtt_publisher:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_mqtt_publisher && !inputs.build_device_safety && !inputs.deploy_to_test }}
+    uses: ./.github/workflows/mqtt-publisher-candidate.yml
+    secrets: inherit
