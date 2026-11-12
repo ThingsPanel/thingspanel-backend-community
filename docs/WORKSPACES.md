@@ -146,3 +146,10 @@
 | `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r3-backup`（安装器） | `wp/R3-backup` | R3 备份 | 审查合并后当天清理 |
 | `.claude/worktrees/wp-r3-done`（后端） | `wp/R3-done` | R3 交付说明 | 审查合并后当天清理 |
 | 容器 `r3-*`、卷 `r3_*`、网络 `r3_thingspanel_network`、镜像 `r3-backend:dev`、`/Volumes/KIOXIA/tmp/r3-work` | — | R3 演练栈，**保留给 R4**，R4 结束后清理（含临时凭据） | Claude 会话 |
+
+## R4（2026-11-12 登记）
+| 路径/对象 | 分支 | 任务 | 预计清理 |
+|---|---|---|---|
+| `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r4-restore`（安装器） | `wp/R4-restore` | R4 恢复 | 审查合并后当天清理 |
+| `.claude/worktrees/wp-r3-done`（后端，现分支 `wp/R4-done`） | `wp/R4-done` | R3+R4 交付说明 | 审查合并后当天清理 |
+| R3/R4 演练栈（容器 `r3-*`、卷 `r3_*`、网络、镜像 `r3-backend:dev`、`/Volumes/KIOXIA/tmp/r3-work`） | — | **已于 R4 结束时删除**，证据在 `/Volumes/KIOXIA/archive/evidence/2026-11-12-R3` 和 `-R4` | 已清理 |
