@@ -13,18 +13,22 @@ def digest(path):
  return h.hexdigest()
 try:
  assert archive.is_file() and not archive.is_symlink(),'Candidate archive missing'
- assert not root.exists() and not root.is_symlink(),'Refusing to overwrite an existing stage'
+ assert not root.is_symlink(),'Refusing symlink stage'
  with tarfile.open(archive,'r:gz') as tf:
   members=tf.getmembers()
   assert {m.name for m in members}==allowed and len(members)==len(allowed),'Unexpected archive entries'
   assert all(m.isfile() and m.size>0 for m in members) and sum(m.size for m in members)<1024**3,'Unsafe archive entries'
   assert hashlib.sha256(tf.extractfile('mqtt_publisher_release.py').read()).hexdigest()==tool_sha,'Candidate tool mismatch'
   manifest=json.load(tf.extractfile('manifest.json'));assert manifest['commit']==commit,'Candidate source mismatch'
-  root.mkdir(mode=0o700)
-  tf.extractall(root,filter='data')
+  if root.exists():
+   assert root.is_dir() and {p.name for p in root.iterdir()}==allowed,'Previously extracted stage changed'
+  else:
+   root.mkdir(mode=0o700)
+   tf.extractall(root,filter='data')
+ assert all((root/n).is_file() and not (root/n).is_symlink() for n in allowed),'Invalid extracted file'
  for name,sha in manifest['sha256'].items():assert name in allowed and digest(root/name)==sha,'Payload hash mismatch'
  assert digest(root/'mqtt_publisher_release.py')==tool_sha
- p=subprocess.run(['python3',str(root/'mqtt_publisher_release.py'),'stage',str(root)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=90)
+ p=subprocess.run(['python3',str(root/'mqtt_publisher_release.py'),'stage',str(root)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=90)
  if p.returncode:
   result['status']='stage-rejected';result['error']=p.stderr.strip().splitlines()[-1] if p.stderr.strip() else 'stage process failed'
  else:
