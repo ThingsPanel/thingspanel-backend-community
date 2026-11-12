@@ -127,3 +127,8 @@
 | `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r1-system-role`（安装器） | `wp/R1-system-role` | R1 Agent system 角色 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
 | `.claude/worktrees/wp-r2-check-config`（后端） | `wp/R2-check-config` | R2 `--check-config`（叠在 `wp/R1-health-gate` 上） | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
 | `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r2-restart`（安装器） | `wp/R2-restart`（叠在 `wp/R1-system-role` 上） | R2 重启 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
+
+## R2E Encore 镜像构建（2026-11-12 登记）
+| 路径 | 分支 | 任务 | 负责人 | 预计清理 |
+|---|---|---|---|---|
+| `.claude/worktrees/wp-r2e-encore-build-4e9274`（后端） | `wp/R2E-encore-build` | R2E 查明 `encore build docker` 卡死并给出可用构建方式 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认。本机另有镜像 `r2e-encore:dev`（只含我自己建的 `r2e-` 资源） |

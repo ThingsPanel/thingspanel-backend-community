@@ -14,3 +14,8 @@
 - [ ] `TestTelemetryHTTPDeviceAuthorization/owner_key` 在基线 `origin/develop@c0ab14d1` 上同样失败（`code=40103 allowed=true`），属于原有问题，和本阶段无关。
 - [ ] 方言分支散落在函数里（如 `internal/dal/telemetry_datas.go`、`internal/automationguard/guard.go`、`internal/dal/insert_if_absent.go` 中的 `Dialector.Name()=="mysql"`）；按架构规则 A2，后续收拢到所属 repository 的 PG/MySQL 显式实现。
 - [ ] `telemetry_datas.go` 的 MySQL `ON DUPLICATE KEY UPDATE ... VALUES(col)` 写法在 MySQL 8.0.20 后不推荐，后续改为行别名写法。
+
+## R2E 发现的范围外问题（2026-11-12）
+- [ ] `deploy/local-develop/build.py` 的 `encore_command` 在 `repo / 'encore-api'` 里直接 `encore build docker`；如果 `repo` 是 git worktree 会因 Encore CLI 的 `WorkspaceRoot` 死循环而永久卡住（见 `docs/tasks/R2E-ENCORE-BUILD-DONE.md`）。建议给它加超时，或改成先导出干净副本（参考 `scripts/build-encore-image.sh`）。
+- [ ] 同一处 `--services` 只列了 7 个，CI（`encore-image-build.yml`）是 10 个（多 `marketinstall,northbound,platformconfig`）；本地与发行版镜像内容不一致，需要确认是否有意。
+- [ ] Encore CLI 当前 v1.58.6，v1.58.8 已发布；`WorkspaceRoot` 的 `.git` 为文件时死循环，应向上游 encoredev/encore 报告，并确认新版是否已修。
