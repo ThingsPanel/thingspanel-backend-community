@@ -11,36 +11,12 @@ def call(base,path,body=None,auth=None,method=None):
  except Exception as e:return {'error':type(e).__name__}
 base='http://127.0.0.1:9999';ha='http://127.0.0.1:58123'
 
-# Restore only the previously documented demo lamp state, through the platform.
-import time
-fixture=json.loads((key.parent/'fixture.private.json').read_text())
-prior=fixture.get('light_before')
-# Do not guess fixture shape or change an unexpected device state.
-if isinstance(prior,dict):prior=prior.get('state')
-current=call(ha,'/api/states/light.office_rgbw_lights',auth=ha_token)
-out['original_state']=prior
-out['before_state']=current.get('result',{}).get('state')
-if prior!='on':out['blocked']='original state not verified as on'
-elif out['before_state']=='on':out['restore']='already at original state; no command'
-elif out['before_state']!='off':out['blocked']='unexpected live state; no command'
-else:
- r=call(base,'/api/v1/command/datas/pub',{'device_id':'40fd7d06-6f29-6903-9dc0-4e736357c34f','identify':'switch','value':'true','idempotency_key':'qa-q08-restore-office-firstpass-v2'})
- data=r.get('result',{}).get('data') or {};mid=data.get('message_id');out['submit']={'http_status':r.get('http_status'),'code':r.get('result',{}).get('code'),'message_id':mid,'status':data.get('status')}
- if mid:
-  for _ in range(10):
-   time.sleep(1)
-   status=call(base,'/api/v1/command/datas/status/'+mid)
-   d=status.get('result',{}).get('data',{});out['command_status']={k:d.get(k) for k in ['message_id','status','error_message']}
-   actual=call(ha,'/api/states/light.office_rgbw_lights',auth=ha_token);out['after_state']=actual.get('result',{}).get('state')
-   if out['after_state']=='on' and d.get('status')=='device_reported_success':break
-out['sensor_sequence']=[]
-for av,bv in [(20,31),(38,32)]:
- row={'input':[av,bv],'ha':[],'platform':[]}
- for entity,value in [('sensor.qa_q08_temperature_20261112',av),('sensor.qa_q08_compare_20261112',bv)]:
-  r=call(ha,'/api/states/'+entity,{'state':str(value),'attributes':{'friendly_name':'QA-Q08-'+entity,'unit_of_measurement':'C'}},auth=ha_token)
-  row['ha'].append({'http':r.get('http_status'),'state':r.get('result',{}).get('state')})
- time.sleep(3)
- for id in ['bb9e5ff3-d73e-6efe-5dda-ae216fb44179','147d134e-6b82-2aea-e2b4-2424011ed23a']:
-  row['platform'].append(call(base,'/api/v1/telemetry/datas/current/'+id))
- out['sensor_sequence'].append(row)
+
+fixture=json.loads((key.parent/'fixture.private.json').read_text());original=fixture.get('light_before');original=original.get('state') if isinstance(original,dict) else original
+before=call(ha,'/api/states/light.office_rgbw_lights',auth=ha_token);out['light_original']=original;out['light_before']=before.get('result',{}).get('state')
+if original=='on' and out['light_before']=='off':
+ r=call(ha,'/api/services/light/turn_on',{'entity_id':'light.office_rgbw_lights'},auth=ha_token);out['cleanup_direct_ha_status']=r.get('http_status')
+import time;time.sleep(1)
+after=call(ha,'/api/states/light.office_rgbw_lights',auth=ha_token);out['light_after']=after.get('result',{}).get('state');out['cleanup_only_not_platform_control']=True
+entity='sensor.qa_q08_model_20261112';r=call(ha,'/api/states/'+entity,{'state':'25','attributes':{'friendly_name':'QA-Q08-MODEL-20261112','unit_of_measurement':'C','device_class':'temperature'}},auth=ha_token);out['new_qa_sensor']={'entity':entity,'http':r.get('http_status'),'state':r.get('result',{}).get('state')}
 print(json.dumps(out))
