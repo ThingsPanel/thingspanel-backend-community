@@ -41,19 +41,23 @@ type TokenBinding struct {
 }
 
 type ServiceCredential struct {
-	Username         string                   `json:"username"`
-	Password         string                   `json:"password"`
-	BrokerCell       string                   `json:"broker_cell"`
-	BrokerInstance   string                   `json:"broker_instance"`
-	AllowedClientIDs []string                 `json:"allowed_client_ids"`
-	AllowedDeviceIDs []string                 `json:"allowed_device_ids,omitempty"`
-	AllowedTenantIDs []string                 `json:"allowed_tenant_ids,omitempty"`
-	PluginSocket     bool                     `json:"plugin_socket,omitempty"`
-	AllowAnyClientID bool                     `json:"allow_any_client_id,omitempty"`
-	Principal        brokercontract.Principal `json:"principal"`
-	Policy           brokercontract.Policy    `json:"policy"`
-	PolicyVersion    string                   `json:"policy_version"`
-	MappingVersion   string                   `json:"mapping_version"`
+	Username              string   `json:"username"`
+	Password              string   `json:"password"`
+	BrokerCell            string   `json:"broker_cell"`
+	BrokerInstance        string   `json:"broker_instance"`
+	AllowedClientIDs      []string `json:"allowed_client_ids"`
+	AllowedDeviceIDs      []string `json:"allowed_device_ids,omitempty"`
+	AllowedTenantIDs      []string `json:"allowed_tenant_ids,omitempty"`
+	PluginSocket          bool     `json:"plugin_socket,omitempty"`
+	AllowAnyClientID      bool     `json:"allow_any_client_id,omitempty"`
+	TargetScopedPublisher bool     `json:"target_scoped_publisher,omitempty"`
+	// Platform scope is reserved for the first-party application publisher.
+	// The owner still resolves and grants exactly one current target per connection.
+	TargetTenantScope string                   `json:"target_tenant_scope,omitempty"`
+	Principal         brokercontract.Principal `json:"principal"`
+	Policy            brokercontract.Policy    `json:"policy"`
+	PolicyVersion     string                   `json:"policy_version"`
+	MappingVersion    string                   `json:"mapping_version"`
 }
 
 type Config struct {
@@ -92,6 +96,15 @@ func NewOwner(repo Repository, cfg Config) (*Owner, error) {
 	}
 	serviceKeys := map[string]struct{}{}
 	for _, service := range cfg.Services {
+		platformPublisher := service.TargetTenantScope == "platform"
+		if (service.TargetTenantScope != "" && service.TargetTenantScope != "tenant" && !platformPublisher) ||
+			(service.TargetTenantScope != "" && !service.TargetScopedPublisher) ||
+			(platformPublisher && (service.PluginSocket || len(service.AllowedTenantIDs) != 0 || len(service.AllowedDeviceIDs) != 0)) {
+			return nil, errors.New("brokercontrol: invalid target tenant scope")
+		}
+		if service.TargetScopedPublisher && (service.PluginSocket || service.AllowAnyClientID || (!platformPublisher && len(service.AllowedTenantIDs) == 0) || len(service.AllowedClientIDs) == 0 || len(service.Policy.Publish) == 0) {
+			return nil, errors.New("brokercontrol: invalid target-scoped publisher")
+		}
 		idlePlugin := service.PluginSocket && len(service.AllowedDeviceIDs) == 0 && len(service.AllowedTenantIDs) == 0 && len(service.Policy.Publish) == 0 && len(service.Policy.Subscribe) == 0
 		if !validConfigString(service.Username) || service.Password == "" || !utf8.ValidString(service.Password) || len(service.Password) > 256 ||
 			!validConfigString(service.BrokerCell) || !validConfigString(service.BrokerInstance) || service.Principal.Kind != brokercontract.PrincipalService ||
@@ -108,7 +121,7 @@ func NewOwner(repo Repository, cfg Config) (*Owner, error) {
 		serviceKeys[key] = struct{}{}
 		service.Policy = normalizePolicy(service.Policy)
 		if len(service.AllowedDeviceIDs) > MaxServiceTargets || len(service.AllowedTenantIDs) > MaxServiceTargets ||
-			(len(service.Policy.Publish) > 0 && len(service.AllowedDeviceIDs) == 0) ||
+			(len(service.Policy.Publish) > 0 && len(service.AllowedDeviceIDs) == 0 && !service.TargetScopedPublisher) ||
 			!validUniqueScopeIDs(service.AllowedDeviceIDs) || !validUniqueScopeIDs(service.AllowedTenantIDs) {
 			return nil, errors.New("brokercontrol: invalid service target scope")
 		}
@@ -118,6 +131,11 @@ func NewOwner(repo Repository, cfg Config) (*Owner, error) {
 			}
 		}
 		for _, clientID := range service.AllowedClientIDs {
+			if service.TargetScopedPublisher {
+				if _, err := brokercontract.TargetPublisherClientID(clientID, "validation-target"); err != nil {
+					return nil, errors.New("brokercontrol: invalid target publisher client prefix")
+				}
+			}
 			if !validConfigString(clientID) {
 				return nil, errors.New("brokercontrol: invalid service client id")
 			}
@@ -299,7 +317,23 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 		if req.BrokerCell != s.BrokerCell || req.BrokerInstance != s.BrokerInstance {
 			continue
 		}
-		if !constantStringEqual(req.Password, s.Password) || (!s.AllowAnyClientID && !containsExact(s.AllowedClientIDs, req.WireClientID)) {
+		clientAllowed := containsExact(s.AllowedClientIDs, req.WireClientID)
+		if s.TargetScopedPublisher {
+			for _, base := range s.AllowedClientIDs {
+				if targetID, ok := brokercontract.ParseTargetPublisherClientID(base, req.WireClientID); ok {
+					s.AllowedDeviceIDs = []string{targetID}
+					s.Policy.Subscribe = nil // A target connection cannot consume platform ingress.
+					clientAllowed = true
+					break
+				}
+			}
+			if len(s.AllowedDeviceIDs) == 0 {
+				// Without an explicit legacy target list, the stable base connection
+				// remains read-only. Existing finite base grants are not broadened.
+				s.Policy.Publish = nil
+			}
+		}
+		if !constantStringEqual(req.Password, s.Password) || (!s.AllowAnyClientID && !clientAllowed) {
 			return deny, nil
 		}
 		policy := normalizePolicy(s.Policy)
@@ -335,6 +369,15 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 			targets, targetErr := o.repo.ResolveServiceTargets(ctx, s.AllowedDeviceIDs)
 			if targetErr != nil {
 				return deny, ErrUnavailable
+			}
+			if s.TargetTenantScope == "platform" {
+				// Platform service identity has a system-wide responsibility, not a
+				// wildcard MQTT grant. The selected target must resolve uniquely;
+				// its tenant comes only from current owner data, never the request.
+				if len(targets) != 1 || len(s.AllowedDeviceIDs) != 1 || targets[0].ID != s.AllowedDeviceIDs[0] || !validUniqueScopeIDs([]string{targets[0].TenantID}) {
+					return deny, nil
+				}
+				s.AllowedTenantIDs = []string{targets[0].TenantID}
 			}
 			policy, targetErr = scopeServicePublishPolicy(s, targets)
 			if targetErr != nil {
