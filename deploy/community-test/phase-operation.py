@@ -9,18 +9,25 @@ def query(database,sql):
  return json.loads(p.stdout)
 
 
-import re
-out={'commands':query('ThingsPanel',"SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT id,device_id,target_device_id,state,last_error,route_cell,route_epoch,convert_from(payload,'UTF8')::jsonb->'message' AS message FROM broker_command_requests WHERE id IN ('5e574249-61ab-4eca-8751-9cb7e42b1ad6','a6ad0493-975a-47bd-9e04-40d7351e5534'))t"),'containers':[],'logs':{}}
-for name in subprocess.check_output(['docker','ps','--format','{{.Names}}']).decode().splitlines():
- if not any(w in name for w in ['broker-owner','broker-mosquitto','encore']):continue
- x=json.loads(subprocess.check_output(['docker','inspect',name]))[0];labels=x['Config'].get('Labels') or {}
- out['containers'].append({'name':name,'image':x['Image'],'image_name':x['Config']['Image'],'status':x['State']['Status'],'labels':{k:v for k,v in labels.items() if k.startswith('com.docker.compose.') or k in ['org.opencontainers.image.revision','org.opencontainers.image.source']}})
- if 'encore' in name:continue
- p=subprocess.run(['docker','logs','--since','12m','--tail','1600',name],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=20)
- lines=p.stdout.decode(errors='replace').splitlines()
- out['logs'][name]=[l[:900] for l in lines if any(w in l.lower() for w in ['not author','denied','target-v1','failed','error']) and not any(w in l.lower() for w in ['password','token','secret','credential','authorization'])][-70:]
-proc=json.loads(subprocess.check_output(['/root/.local/share/pnpm/pm2','jlist']));backend=next(x for x in proc if x['name']=='thingspanel-backend-community')
-for key in ['pm_out_log_path','pm_err_log_path']:
- p=pathlib.Path(backend['pm2_env'][key]);f=p.open('rb');f.seek(max(0,p.stat().st_size-180000));lines=f.read().decode(errors='replace').splitlines()
- out['logs'][key]=[l[:900] for l in lines if any(w in l.lower() for w in ['publish','broker','target-v1','a6ad0493','5e574249']) and not any(w in l.lower() for w in ['password','token','secret','credential','authorization'])][-45:]
+
+import base64,urllib.request,urllib.error
+out={}
+ids=['373fb5d9-a73a-e948-dcb5-5ab07aed6dec','40fd7d06-6f29-6903-9dc0-4e736357c34f']
+quoted=','.join("'"+x+"'" for x in ids)
+out['target_records']=query('ThingsPanel',"SELECT json_agg(t) FROM (SELECT d.id,d.tenant_id,d.device_number,(SELECT count(*) FROM devices dx WHERE dx.device_number=d.device_number) AS device_number_count,d.is_enabled,d.activate_flag,d.parent_id,d.device_config_id,d.service_access_id,d.access_way,c.device_type,c.protocol_type,c.tenant_id AS config_tenant_id,(SELECT count(*) FROM device_topic_mappings m WHERE CAST(m.device_config_id AS text)=CAST(d.device_config_id AS text) AND m.enabled=TRUE) AS active_mappings FROM devices d LEFT JOIN device_configs c ON c.id=d.device_config_id AND c.tenant_id=d.tenant_id WHERE d.id IN ("+quoted+"))t")
+out['plugin_matches']=query('ThingsPanel',"SELECT json_agg(t) FROM (SELECT d.id,sp.id AS plugin_id,sp.service_identifier,sp.service_type,sp.service_config::jsonb->>'sub_topic_prefix' AS prefix,sa.tenant_id AS access_tenant FROM devices d LEFT JOIN device_configs c ON c.id=d.device_config_id LEFT JOIN service_access sa ON sa.id=d.service_access_id LEFT JOIN service_plugins sp ON sp.id=sa.service_plugin_id OR (sp.service_identifier=c.protocol_type AND sp.service_type=1) WHERE d.id IN ("+quoted+"))t")
+out['bindings']=query('ThingsPanel',"SELECT json_agg(t) FROM (SELECT device_id,tenant_id,broker_cell,route_epoch,phase FROM broker_transport_bindings WHERE device_id IN ("+quoted+"))t")
+root=pathlib.Path('/opt/tp-community-main-20261028')
+services=json.loads((root/'active-broker-services.private.json').read_text());app=next(x for x in services if x.get('target_tenant_scope')=='platform')
+# Authentication probe creates only ordinary service client identity evidence;
+# it publishes no command and does not modify any credential or scope.
+binding=next(x for x in json.loads((root/'active-broker-tokens.private.json').read_text()) if x['broker_cell']==app['broker_cell'] and x['broker_instance']==app['broker_instance'])
+out['auth_probes']=[]
+for target in ids:
+ body={'request_id':str(uuid.uuid4()),'provider':'mosquitto','broker_cell':app['broker_cell'],'broker_instance':app['broker_instance'],'connection_nonce':str(uuid.uuid4()),'wire_client_id':app['allowed_client_ids'][0]+'--target-v1--'+base64.urlsafe_b64encode(target.encode()).decode().rstrip('='),'username':app['username'],'password':app['password'],'protocol':4,'peer':'127.0.0.1'}
+ req=urllib.request.Request('http://127.0.0.1:9801/v1/authenticate',data=json.dumps(body).encode(),headers={'Content-Type':'application/json','Authorization':'Bearer '+binding['token']})
+ try:
+  with urllib.request.urlopen(req,timeout=10) as r:grant=json.load(r);status=r.status
+  out['auth_probes'].append({'target':target,'http_status':status,'allow':grant.get('allow'),'deny_code':grant.get('deny_code'),'publish':grant.get('policy',{}).get('publish')})
+ except urllib.error.HTTPError as e:out['auth_probes'].append({'target':target,'http_status':e.code})
 print(json.dumps(out))
