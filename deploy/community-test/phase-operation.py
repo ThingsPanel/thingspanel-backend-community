@@ -9,33 +9,18 @@ def query(database,sql):
  return json.loads(p.stdout)
 
 
-
-import base64,urllib.request,urllib.error
-out={}
-ids=['373fb5d9-a73a-e948-dcb5-5ab07aed6dec','40fd7d06-6f29-6903-9dc0-4e736357c34f']
-quoted=','.join("'"+x+"'" for x in ids)
-root=pathlib.Path('/opt/tp-community-main-20261028')
-services=json.loads((root/'active-broker-services.private.json').read_text());app=next(x for x in services if x.get('target_tenant_scope')=='platform')
-# Authentication probe creates only ordinary service client identity evidence;
-# it publishes no command and does not modify any credential or scope.
-binding=next(x for x in json.loads((root/'active-broker-tokens.private.json').read_text()) if x['broker_cell']==app['broker_cell'] and x['broker_instance']==app['broker_instance'])
-
-def enc(v):
- b=v.encode();return struct.pack('!H',len(b))+b
-def frame(t,b):
- n=len(b);r=b''
- while True:
-  v=n%128;n//=128;r+=bytes([v|(128 if n else 0)])
-  if not n:break
- return bytes([t])+r+b
-out={'at':datetime.datetime.now().isoformat(),'probes':[]}
-for target in ids+['eac72acb-63a5-f582-906f-88d828abb64e']:
- client=app['allowed_client_ids'][0]+'--target-v1--'+base64.urlsafe_b64encode(target.encode()).decode().rstrip('=')
- start=time.monotonic()
- try:
-  with socket.create_connection(('127.0.0.1',1883),timeout=8) as sock:
-   sock.sendall(frame(16,enc('MQTT')+bytes([4,194])+struct.pack('!H',30)+enc(client)+enc(app['username'])+enc(app['password'])))
-   response=sock.recv(4);sock.sendall(bytes([224,0]))
-  out['probes'].append({'target':target,'connack_hex':response.hex(),'elapsed_ms':round((time.monotonic()-start)*1000,1)})
- except Exception as e:out['probes'].append({'target':target,'error':type(e).__name__})
+import re
+out={'commands':query('ThingsPanel',"SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT id,device_id,target_device_id,state,last_error,route_cell,route_epoch,convert_from(payload,'UTF8')::jsonb AS prepared FROM broker_command_requests WHERE id IN ('2e4bdcb2-2c0a-4cf4-b892-15a9a8dfee19'))t"),'containers':[],'logs':{}}
+for name in subprocess.check_output(['docker','ps','--format','{{.Names}}']).decode().splitlines():
+ if not any(w in name for w in ['broker-owner','broker-mosquitto','encore']):continue
+ x=json.loads(subprocess.check_output(['docker','inspect',name]))[0];labels=x['Config'].get('Labels') or {}
+ out['containers'].append({'name':name,'image':x['Image'],'image_name':x['Config']['Image'],'status':x['State']['Status'],'labels':{k:v for k,v in labels.items() if k.startswith('com.docker.compose.') or k in ['org.opencontainers.image.revision','org.opencontainers.image.source']}})
+ if 'encore' in name:continue
+ p=subprocess.run(['docker','logs','--since','4m','--tail','1600',name],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=20)
+ lines=p.stdout.decode(errors='replace').splitlines()
+ out['logs'][name]=[l[:900] for l in lines if any(w in l.lower() for w in ['MzczZmI1ZDktYTczYS1lOTQ4LWRjYjUtNWFiMDdhZWQ2ZGVj'.lower(),'373fb5d9','2e4bdcb2']) and not any(w in l.lower() for w in ['password','token','secret','credential','authorization'])][-70:]
+proc=json.loads(subprocess.check_output(['/root/.local/share/pnpm/pm2','jlist']));backend=next(x for x in proc if x['name']=='thingspanel-backend-community')
+for key in ['pm_out_log_path','pm_err_log_path']:
+ p=pathlib.Path(backend['pm2_env'][key]);f=p.open('rb');f.seek(max(0,p.stat().st_size-3000000));lines=f.read().decode(errors='replace').splitlines()
+ out['logs'][key]=[l[:900] for l in lines if any(w in l.lower() for w in ['2e4bdcb2','target publisher','373fb5d9']) and not any(w in l.lower() for w in ['password','token','secret','credential','authorization'])][-45:]
 print(json.dumps(out))
