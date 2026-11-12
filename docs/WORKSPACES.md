@@ -139,3 +139,10 @@
 |---|---|---|---|---|
 | `.claude/worktrees/wp-r2e-encore-build-4e9274`（后端） | `wp/R2E-encore-build` | R2E 查明 `encore build docker` 卡死并给出可用构建方式 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认。本机另有镜像 `r2e-encore:dev`（只含我自己建的 `r2e-` 资源） |
 | `.claude/worktrees/wp-r2g-scope-encore-15bd9f`（后端） | `wp/R2G-scope-encore` | R2G 把 `/internal/broker-scope` 从老 Gin 改写为 Encore 服务 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
+
+## R3（2026-11-12 登记）
+| 路径/对象 | 分支 | 任务 | 预计清理 |
+|---|---|---|---|
+| `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r3-backup`（安装器） | `wp/R3-backup` | R3 备份 | 审查合并后当天清理 |
+| `.claude/worktrees/wp-r3-done`（后端） | `wp/R3-done` | R3 交付说明 | 审查合并后当天清理 |
+| 容器 `r3-*`、卷 `r3_*`、网络 `r3_thingspanel_network`、镜像 `r3-backend:dev`、`/Volumes/KIOXIA/tmp/r3-work` | — | R3 演练栈，**保留给 R4**，R4 结束后清理（含临时凭据） | Claude 会话 |
