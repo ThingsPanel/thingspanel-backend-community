@@ -26,5 +26,5 @@ git -C "$WORK" add -A
 git -C "$WORK" -c user.name=r2e -c user.email=r2e@localhost commit -qm export
 cd "$WORK/encore-api"
 encore build docker "$TAG" --arch="$ARCH" \
-  --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,northbound,platformconfig \
+  --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,northbound,platformconfig,brokerscope \
   --skip-config
