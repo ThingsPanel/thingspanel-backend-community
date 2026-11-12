@@ -28,3 +28,6 @@
 
 - [R-series, 2026-11-12] `go test ./internal/api/` 里 `TestTelemetryHTTPDeviceAuthorization` 在 develop 0b618560（R0 之前）就失败，与 R0–R2 无关，未修。
 - [R4S, 2026-11-12] schema 校验的 CHECK 文本规范化只覆盖 PG 14.5 观察到的 varchar `IN` 数组还原形态；换 PG 15/16 后若出现新的还原形态，需要在 `canonicalizeRestoredArrayAny` 补充并加测试。更稳的长期做法是用语义比较（如试探性插入或 `pg_constraint.conbin` 解析），不在本卡范围。
+- [R5a, 2026-11-12] 安装器 `tests/test_plugin_bundle_activation.py` 有 7 个测试在安装器 develop 上就失败（"Downloaded plugin helper does not match the installer pin: tools/plugin_catalog.py"），与 R5a 无关，未修。
+- [R5a, 2026-11-12] `deploy/community-test/deploy_encore.py` 的 `native_services` 清单不含 `brokerscope`（R2G 说明里已提；CI 工作流和 `scripts/build-encore-image.sh` 已补）。
+- [R5a, 2026-11-12] Agent 的 `system.json` 由 Agent 二进制生成：升级 Agent 后需重新 `agent_host.py up --system` 才会刷新配置；R5b 的升级编排要包含这一步。
