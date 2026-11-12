@@ -12,11 +12,10 @@ def call(base,path,body=None,auth=None,method=None):
 base='http://127.0.0.1:9999';ha='http://127.0.0.1:58123'
 
 
-fixture=json.loads((key.parent/'fixture.private.json').read_text());original=fixture.get('light_before');original=original.get('state') if isinstance(original,dict) else original
-before=call(ha,'/api/states/light.office_rgbw_lights',auth=ha_token);out['light_original']=original;out['light_before']=before.get('result',{}).get('state')
-if original=='on' and out['light_before']=='off':
- r=call(ha,'/api/services/light/turn_on',{'entity_id':'light.office_rgbw_lights'},auth=ha_token);out['cleanup_direct_ha_status']=r.get('http_status')
-import time;time.sleep(1)
-after=call(ha,'/api/states/light.office_rgbw_lights',auth=ha_token);out['light_after']=after.get('result',{}).get('state');out['cleanup_only_not_platform_control']=True
-entity='sensor.qa_q08_model_20261112';r=call(ha,'/api/states/'+entity,{'state':'25','attributes':{'friendly_name':'QA-Q08-MODEL-20261112','unit_of_measurement':'C','device_class':'temperature'}},auth=ha_token);out['new_qa_sensor']={'entity':entity,'http':r.get('http_status'),'state':r.get('result',{}).get('state')}
+import time
+out['rule_id']='c67841b0-59ee-4308-af75-45c313deb12d';out['steps']=[]
+for value in [20,38,38,20]:
+ r=call(ha,'/api/states/sensor.qa_q08_model_20261112',{'state':str(value),'attributes':{'friendly_name':'QA-Q08-MODEL-20261112','unit_of_measurement':'C','device_class':'temperature'}},auth=ha_token)
+ time.sleep(3)
+ out['steps'].append({'at':datetime.datetime.now().isoformat(),'input':value,'ha_status':r.get('http_status'),'ha_state':r.get('result',{}).get('state'),'current':call(base,'/api/v1/telemetry/datas/current/0f68b2e0-37b3-79f3-7ebd-4d2ffaf732a8'),'alarms':call('http://c.thingspanel.cn','/automation-core/v1/alarms?policy_id='+out['rule_id']+'&limit=20')})
 print(json.dumps(out))
