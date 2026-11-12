@@ -30,9 +30,18 @@ func main() {
 	// go run . -config ./configs/conf-dev.yml
 	configPath := flag.String("config", "", "配置文件路径...")
 	showVersion := flag.Bool("version", false, "显示版本并退出")
+	checkConfig := flag.Bool("check-config", false, "只检查配置（配置文件、环境变量、RSA 密钥），不连接数据库、不启动服务；通过返回 0，否则返回 1")
 	flag.Parse()
 	if *showVersion {
 		fmt.Println(global.SYSTEM_VERSION)
+		return
+	}
+	if *checkConfig {
+		if err := runConfigCheck(*configPath); err != nil {
+			fmt.Fprintf(os.Stderr, "config check failed: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("config ok")
 		return
 	}
 	if err := automationbridge.Initialize(); err != nil {
