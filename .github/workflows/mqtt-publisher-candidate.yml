@@ -42,6 +42,8 @@ jobs:
           cd "$RUNNER_TEMP/mqtt-source/backend"
           go test ./internal/brokercontrol ./internal/brokercontract ./internal/adapter/mqttadapter ./internal/app ./internal/service -run 'Test(Target|GatewayTwoChildren|ServicePublish|ExplicitService|MQTTService)' -count=1
           go test ./internal/api -run 'Test(SharedHTTPInstallationScope|LegacyPluginCompatibilityAndHAFencing)' -count=1
+          go test ./router -run '^TestDeviceDiagnosticsAuthenticatedTenantBoundary$' -count=1
+          go test ./internal/adapter/mqttadapter -run '^TestHTTPCommandWireUsesAcceptedDeadlineOnly$' -count=1
           cd "$RUNNER_TEMP/mqtt-source/broker"
           go test ./internal/brokercontrol ./internal/brokercontract ./internal/mosquittodriver -count=1
       - name: Prove plugin publishing does not reacquire the dispatch lock

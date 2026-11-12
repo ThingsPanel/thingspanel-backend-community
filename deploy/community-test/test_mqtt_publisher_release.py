@@ -58,6 +58,22 @@ class PublisherConfiguration(unittest.TestCase):
 
 
 class ReleaseIntegrity(unittest.TestCase):
+    def test_deadline_overlay_keeps_staged_command_frame_and_rejects_drift(self):
+        source = 'existing transport setup\n\tframe, err := bc.EncodeCommandFrame(STAGED_FIELDS)\nexisting publisher\n'
+        insertion = ('\twirePayload, err := httpCommandDeadlinePayload(msg, wirePayload, row.ExpiresAt)\n'
+                     '\tif err != nil {\n\t\treturn err\n\t}\n')
+        helper = '// HTTP can buffer a command beyond MQTT delivery.\nfunc httpCommandDeadlinePayload() {}\n'
+        reviewed = 'unrelated native transport\n' + insertion + '\tframe, err := bc.EncodeCommandFrame(NATIVE_FIELDS)\n' + helper
+        result = release.add_http_deadline(source, reviewed)
+        self.assertEqual(result, source.replace('\tframe,', insertion + '\tframe,') + '\n' + helper)
+        self.assertNotIn('NATIVE_FIELDS', result)
+        with self.assertRaises(ValueError):
+            release.add_http_deadline(result, reviewed)
+        with self.assertRaises(ValueError):
+            release.add_http_deadline(source + source, reviewed)
+        with self.assertRaises(ValueError):
+            release.add_http_deadline(source, reviewed.replace('row.ExpiresAt', 'time.Now()'))
+
     def test_baseline_requires_reviewed_version_and_both_immutable_images(self):
         current = {'Image': release.DEPLOYED_BROKER_IMAGE}
         release.verify_runtime_baseline(release.DEPLOYED_BACKEND, release.DEPLOYED_BACKEND_SHA256, current, current)
@@ -86,8 +102,9 @@ class ReleaseIntegrity(unittest.TestCase):
 
     def bundle(self, root):
         profile = {'source_commit': 'a' * 40, 'encore_changed': False, 'database_owner_changed': False,
+                   'command_sources': {'mqtt': release.MQTT_COMMAND_SOURCE, 'http_deadline': release.HTTP_COMMAND_SOURCE},
                    'expected_backend_version': release.DEPLOYED_BACKEND,
-                   'sources': {'broker': {'baseline': release.BROKER_BASE}, 'backend': {'retained_patches': [release.HTTP_PATCH,release.HTTP_FIX]}}}
+                   'sources': {'broker': {'baseline': release.BROKER_BASE}, 'backend': {'retained_patches': [release.HTTP_PATCH,release.HTTP_FIX,*release.APPLICATION_PATCHES]}}}
         (root / 'ThingsPanel-Go').write_bytes(b'candidate')
         (root / 'broker-image.tar.gz').write_bytes(b'image')
         (root / 'RELEASE_PROFILE.json').write_text(json.dumps(profile))

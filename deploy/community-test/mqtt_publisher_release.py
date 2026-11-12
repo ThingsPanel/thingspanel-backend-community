@@ -21,11 +21,19 @@ BROKER_BASE = '87ad45b09cbed15594277aaafb85a4258246808e'
 DRIVER_BASE = 'd1d01969792fa543b15e8721ee325a2dd603e849'
 HTTP_PATCH = '107e064ff191b909558746b661215469a30f4577'
 HTTP_FIX = '2a780fe468645cb500a8249670ac61da56aeda9f'
-DEPLOYED_BACKEND = 'mqtt-publisher-5fb4c68e11b4ce3632abad32197a345e3d0f0f89'
-DEPLOYED_BACKEND_SHA256 = '99cf92bae98df01e78e97c01f6958351b48fe78a9a4b0dc70e321e0978840f4b'
+DEPLOYED_BACKEND = 'mqtt-publisher-204b48feb04ee7a85b1788ba361f8cfdab88f5a5'
+DEPLOYED_BACKEND_SHA256 = 'b6c0a88342e35c3fcabe5dc8a61eeaf4fbc61c241bf79750c296899ed56d12ef'
 # Reviewed read-only snapshot, 2026-11-13. A later deployment must be reviewed
 # again instead of accepting arbitrary tags or silently relaxing these guards.
-DEPLOYED_BROKER_IMAGE = 'sha256:fd7091f1868a6642742315be959bb52db144d1416bf9fcf1a3455d068e24ec50'
+DEPLOYED_BROKER_IMAGE = 'sha256:9eacef06c41998668296d4a5da3a4081a2ec7a351e86dd3bc7315b3f89962871'
+APPLICATION_PATCHES = ('03412bff968afd72c4235c7b74f683e552d2fc06',)
+APPLICATION_PATCH_FILES = {
+    'internal/api/device.go', 'router/router_init.go',
+    'router/device_diagnostics.go', 'router/device_diagnostics_auth_test.go',
+}
+MQTT_COMMAND_SOURCE = '204b48feb04ee7a85b1788ba361f8cfdab88f5a5'
+HTTP_COMMAND_SOURCE = '89c52f652bd8589f38046713149c8dd7157dfc74'
+COMMAND_FILE = 'internal/adapter/mqttadapter/command.go'
 SCOPE_CONTROLLER_FILES = {
     '/opt/tp-community-main-20261028/http-runtime/scope.py': '4942a20e28557ff9275580018cfc58fc5eb54a522e7740e9f9d4d8f5607edcb2',
     '/opt/tp-community-main-20261028/ha-runtime/scope.py': '6331a89ee2d148eb58f101615f277059a82c74b2bcd94241b47fab5e0fd80997',
@@ -39,6 +47,7 @@ PRODUCT_FILES = [
     'internal/brokercontrol/target_plugin_publisher_postgres_test.go',
     'internal/adapter/mqttadapter/adapter.go', 'internal/adapter/mqttadapter/command.go',
     'internal/adapter/mqttadapter/ingress.go', 'internal/adapter/mqttadapter/publisher.go',
+    'internal/adapter/mqttadapter/http_command_expiry_test.go',
     'internal/app/mqtt_service.go', 'internal/brokercontract/target_client.go',
     'internal/brokercontract/target_client_test.go', 'internal/brokercontrol/target_publisher_test.go',
     'internal/brokercontrol/gateway_target_transport_test.go',
@@ -82,6 +91,21 @@ def private(path, value):
     path.chmod(0o600)
 
 
+def add_http_deadline(source, reviewed):
+    # The staged command frame intentionally predates the native transport
+    # owner fields. Add only the reviewed deadline boundary, never import the
+    # whole mainline command file and its unrelated runtime contract.
+    marker = '\tframe, err := bc.EncodeCommandFrame('
+    insertion = ('\twirePayload, err := httpCommandDeadlinePayload(msg, wirePayload, row.ExpiresAt)\n'
+                 '\tif err != nil {\n\t\treturn err\n\t}\n')
+    helper = '// HTTP can buffer a command beyond MQTT delivery.'
+    if source.count(marker) != 1 or 'httpCommandDeadlinePayload' in source:
+        raise ValueError('Staged command deadline boundary changed')
+    if reviewed.count(helper) != 1 or insertion + marker not in reviewed:
+        raise ValueError('Reviewed HTTP deadline source changed')
+    return source.replace(marker, insertion + marker, 1) + '\n' + helper + reviewed.split(helper, 1)[1]
+
+
 def compose_sources(repo, target):
     from build_device_safety_profile import build as build_safety
     repo, target = Path(repo).resolve(), Path(target).resolve()
@@ -107,6 +131,15 @@ def compose_sources(repo, target):
             run(['git', 'apply', '--check'], backend, http_delta)
             run(['git', 'apply'], backend, http_delta)
             retained.append(sha)
+    for sha in APPLICATION_PATCHES:
+        run(['git', 'merge-base', '--is-ancestor', sha, head], repo)
+        paths = set(run(['git', 'diff', '--name-only', sha + '^', sha], repo).decode().splitlines())
+        if not paths or not paths.issubset(APPLICATION_PATCH_FILES):
+            raise ValueError('Application security patch exceeds reviewed scope')
+        delta = run(['git', 'diff', '--binary', sha + '^', sha], repo)
+        run(['git', 'apply', '--check'], backend, delta)
+        run(['git', 'apply'], backend, delta)
+        retained.append(sha)
     driver_paths = ['internal/mosquittodriver', 'cmd/tp-mosquitto-plugin', 'internal/brokercontract', 'deploy/mosquitto-community']
     if run(['git', 'diff', DRIVER_BASE, BROKER_BASE, '--', *driver_paths], repo):
         raise ValueError('Current driver differs from the reviewed HA source')
@@ -116,11 +149,21 @@ def compose_sources(repo, target):
         archive.extractall(broker, filter='data')
     profiles = {}
     for name, root, files in [('backend', backend, PRODUCT_FILES), ('broker', broker, BROKER_FILES)]:
-        patch = run(['git', 'diff', '--binary', ANCHOR, head, '--', *files], repo)
+        base_files = [f for f in files if f != COMMAND_FILE]
+        patch = run(['git', 'diff', '--binary', ANCHOR, head, '--', *base_files], repo)
         if not patch.strip():
             raise ValueError('Candidate contains no MQTT changes')
         run(['git', 'apply', '--check'], root, patch)
         run(['git', 'apply'], root, patch)
+        if name == 'backend':
+            for sha in (MQTT_COMMAND_SOURCE, HTTP_COMMAND_SOURCE):
+                run(['git', 'merge-base', '--is-ancestor', sha, head], repo)
+            command_delta = run(['git', 'diff', '--binary', ANCHOR, MQTT_COMMAND_SOURCE, '--', COMMAND_FILE], repo)
+            run(['git', 'apply', '--check'], root, command_delta)
+            run(['git', 'apply'], root, command_delta)
+            path = root / COMMAND_FILE
+            reviewed = run(['git', 'show', HTTP_COMMAND_SOURCE + ':' + COMMAND_FILE], repo).decode()
+            path.write_text(add_http_deadline(path.read_text(), reviewed), encoding='utf-8', newline='\n')
         for required in ['target_scoped_publisher', 'target_tenant_scope']:
             if required not in (root / 'internal/brokercontrol/owner.go').read_text():
                 raise ValueError('Target publisher contract absent')
@@ -130,6 +173,7 @@ def compose_sources(repo, target):
                           'files': {f: digest(root / f) for f in files}}
     report = {'profile': 'mqtt-target-publisher', 'source_commit': head,
               'delta_anchor': ANCHOR, 'sources': profiles,
+              'command_sources': {'mqtt': MQTT_COMMAND_SOURCE, 'http_deadline': HTTP_COMMAND_SOURCE},
               'database_owner_changed': False, 'encore_changed': False,
               'expected_backend_version': DEPLOYED_BACKEND, 'existing_driver_source': DRIVER_BASE,
               'retained_http_files': {p: digest(backend / p) for p in http_paths}}
@@ -179,10 +223,11 @@ def verify_bundle(root):
     profile = json.loads((root / 'RELEASE_PROFILE.json').read_text())
     if (profile.get('source_commit') != manifest['commit'] or profile.get('encore_changed') is not False
             or profile.get('database_owner_changed') is not False
-            or profile['sources']['broker']['baseline'] != BROKER_BASE):
+            or profile['sources']['broker']['baseline'] != BROKER_BASE
+            or profile.get('command_sources') != {'mqtt': MQTT_COMMAND_SOURCE, 'http_deadline': HTTP_COMMAND_SOURCE}):
         raise ValueError('Release provenance mismatch')
-    if profile.get('expected_backend_version') != DEPLOYED_BACKEND or any(sha not in profile['sources']['backend'].get('retained_patches', []) for sha in (HTTP_PATCH, HTTP_FIX)):
-        raise ValueError('Current HTTP release was not preserved')
+    if profile.get('expected_backend_version') != DEPLOYED_BACKEND or any(sha not in profile['sources']['backend'].get('retained_patches', []) for sha in (HTTP_PATCH, HTTP_FIX, *APPLICATION_PATCHES)):
+        raise ValueError('Required HTTP/application security patches were not preserved')
     return manifest
 
 
