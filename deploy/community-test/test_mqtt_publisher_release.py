@@ -60,13 +60,14 @@ class PublisherConfiguration(unittest.TestCase):
 class ReleaseIntegrity(unittest.TestCase):
     def test_baseline_requires_reviewed_version_and_both_immutable_images(self):
         current = {'Image': release.DEPLOYED_BROKER_IMAGE}
-        release.verify_runtime_baseline(release.DEPLOYED_BACKEND, current, current)
-        for version, owner, broker in [
-                ('another-release', current, current),
-                (release.DEPLOYED_BACKEND, {'Image': 'changed-owner'}, current),
-                (release.DEPLOYED_BACKEND, current, {'Image': 'changed-broker'})]:
+        release.verify_runtime_baseline(release.DEPLOYED_BACKEND, release.DEPLOYED_BACKEND_SHA256, current, current)
+        for version, binary_sha, owner, broker in [
+                ('another-release', release.DEPLOYED_BACKEND_SHA256, current, current),
+                (release.DEPLOYED_BACKEND, 'same-version-different-binary', current, current),
+                (release.DEPLOYED_BACKEND, release.DEPLOYED_BACKEND_SHA256, {'Image': 'changed-owner'}, current),
+                (release.DEPLOYED_BACKEND, release.DEPLOYED_BACKEND_SHA256, current, {'Image': 'changed-broker'})]:
             with self.assertRaisesRegex(ValueError, 'baseline changed'):
-                release.verify_runtime_baseline(version, owner, broker)
+                release.verify_runtime_baseline(version, binary_sha, owner, broker)
 
     def test_controller_snapshot_checks_content_and_previously_absent_files(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -204,6 +205,23 @@ class ReleaseIntegrity(unittest.TestCase):
                  patch.object(release,'digest',return_value='third-party-new-release'), patch.object(release,'replace_file') as replace:
                 with self.assertRaisesRegex(ValueError,'stale rollback'):
                     release.apply_release(root,rollback_only=True)
+                replace.assert_not_called()
+
+    def test_explicit_rollback_rejects_controller_drift_before_mutation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            state = {'staged_files': {'services.next.private.json': 'same'}, 'binary': 'live-binary',
+                     'config_path': 'config', 'config_sha256': 'same', 'policy_path': 'policy',
+                     'containers': ['owner', 'broker'], 'controller_files': {'helper.py': None}}
+            (root / 'stage.private.json').write_text(json.dumps(state))
+            manifest = {'sha256': {'ThingsPanel-Go': 'candidate'}, 'image_id': 'new-image'}
+            with patch.object(release, 'verify_bundle', return_value=manifest), \
+                 patch.object(release, 'digest', side_effect=lambda path: 'candidate' if str(path) == 'live-binary' else 'same'), \
+                 patch.object(release, 'inspect', return_value={'Image': 'new-image'}), \
+                 patch.object(release, 'file_matches_snapshot', return_value=False), \
+                 patch.object(release, 'replace_file') as replace:
+                with self.assertRaisesRegex(ValueError, 'stale rollback'):
+                    release.apply_release(root, rollback_only=True)
                 replace.assert_not_called()
 
 

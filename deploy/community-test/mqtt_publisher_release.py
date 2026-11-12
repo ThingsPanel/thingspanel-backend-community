@@ -22,6 +22,7 @@ DRIVER_BASE = 'd1d01969792fa543b15e8721ee325a2dd603e849'
 HTTP_PATCH = '107e064ff191b909558746b661215469a30f4577'
 HTTP_FIX = '2a780fe468645cb500a8249670ac61da56aeda9f'
 DEPLOYED_BACKEND = 'mqtt-publisher-5fb4c68e11b4ce3632abad32197a345e3d0f0f89'
+DEPLOYED_BACKEND_SHA256 = '99cf92bae98df01e78e97c01f6958351b48fe78a9a4b0dc70e321e0978840f4b'
 # Reviewed read-only snapshot, 2026-11-13. A later deployment must be reviewed
 # again instead of accepting arbitrary tags or silently relaxing these guards.
 DEPLOYED_BROKER_IMAGE = 'sha256:fd7091f1868a6642742315be959bb52db144d1416bf9fcf1a3455d068e24ec50'
@@ -232,8 +233,8 @@ def file_matches_snapshot(name, expected):
     return not path.is_symlink() and path.is_file() and digest(path) == expected
 
 
-def verify_runtime_baseline(version, owner, broker):
-    if version != DEPLOYED_BACKEND:
+def verify_runtime_baseline(version, binary_sha256, owner, broker):
+    if version != DEPLOYED_BACKEND or binary_sha256 != DEPLOYED_BACKEND_SHA256:
         raise ValueError('Backend baseline changed; review release profile before deployment')
     if any(item.get('Image') != DEPLOYED_BROKER_IMAGE for item in (owner, broker)):
         raise ValueError('Broker image baseline changed; review before deployment')
@@ -286,7 +287,7 @@ def stage(root, owner, broker, pm2):
     spec = process_spec(matches[0])
     binary = Path(spec['script'])
     current_version = run([binary, '--version']).decode().strip()
-    verify_runtime_baseline(current_version, oi, bi)
+    verify_runtime_baseline(current_version, digest(binary), oi, bi)
     conf = Path(spec['cwd']) / 'configs/conf.yml'
     settings = yaml.safe_load(conf.read_bytes())
     next_policy, next_env = publisher_settings(json.loads(policy), settings['mqtt'], spec['env'])
@@ -361,8 +362,9 @@ def wait_ready(state, expected):
             now = time.monotonic()
             if identity != stable_identity:
                 stable_since, stable_identity = now, identity
-            # Observe at least two complete managed-scope timer periods. A
-            # one-shot readiness success hid a subsequent controller restart.
+            # Initial runtime stability only. The deployment lock is held here,
+            # so managed-scope timers cannot run. Acceptance requires a separate
+            # post-lock observation of actual controller executions and traffic.
             if stable_since is not None and now - stable_since >= 60:
                 return
         except Exception:
@@ -390,6 +392,7 @@ def apply_release(root, rollback_only=False):
         if (digest(state['binary']) != manifest['sha256']['ThingsPanel-Go']
                 or digest(state['config_path']) != state['config_sha256']
                 or digest(state['policy_path']) != state['staged_files']['services.next.private.json']
+                or any(not file_matches_snapshot(path, sha) for path, sha in state.get('controller_files', {}).items())
                 or any(inspect(c)['Image'] != manifest['image_id'] for c in state['containers'])):
             raise ValueError('Live deployment no longer matches this candidate; refusing stale rollback')
         rollback()
@@ -426,6 +429,7 @@ def apply_release(root, rollback_only=False):
         rollback()
         raise RuntimeError('MQTT-only candidate failed; previous runtime restored')
     return {'status': 'deployed', 'commit': manifest['commit'], 'version': state['next_version'],
+            'acceptance': 'pending-post-lock-controller-and-functional-checks',
             'database_owner_changed': False, 'encore_changed': False}
 
 
