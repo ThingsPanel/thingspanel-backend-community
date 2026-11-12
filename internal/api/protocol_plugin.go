@@ -79,6 +79,19 @@ func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPluginByProtocolType(c *g
 	if identity != nil {
 		req.TenantID = identity.TenantID
 	}
+	if identity != nil && identity.TenantID == "" && identity.ServiceIdentifier == "HTTP" {
+		if req.DeviceType != "1" {
+			scopeDenied(c)
+			return
+		}
+		data, err := sharedHTTPDeviceList(req)
+		if err != nil {
+			c.Error(err)
+			return
+		}
+		c.Set("data", data)
+		return
+	}
 	data, err := service.GroupApp.ProtocolPlugin.GetDevicesByProtocolPlugin(req)
 	if err != nil {
 		c.Error(err)

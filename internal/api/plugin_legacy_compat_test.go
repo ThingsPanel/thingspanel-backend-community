@@ -11,6 +11,7 @@ import (
 	"project/internal/middleware"
 	"project/internal/model"
 	"project/internal/pluginidentity"
+	"project/internal/plugininstall"
 	"project/internal/query"
 	"project/pkg/global"
 
@@ -27,7 +28,7 @@ func TestLegacyPluginCompatibilityAndHAFencing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = db.AutoMigrate(&model.ServicePlugin{}, &model.ServiceAccess{}, &model.Device{}, &pluginidentity.Record{}); err != nil {
+	if err = db.AutoMigrate(&model.ServicePlugin{}, &model.ServiceAccess{}, &model.Device{}, &pluginidentity.Record{}, &plugininstall.Installation{}); err != nil {
 		t.Fatal(err)
 	}
 	oldDB := global.DB

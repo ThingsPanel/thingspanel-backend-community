@@ -147,6 +147,10 @@ func (*ServiceAccessApi) HandlePluginServiceAccessList(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if identity != nil && identity.ServiceIdentifier == "HTTP" && identity.TenantID == "" {
+		scopeDenied(c)
+		return
+	}
 	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccessList(&req)
 	if err != nil {
 		c.Error(err)
@@ -183,6 +187,10 @@ func (*ServiceAccessApi) HandlePluginServiceAccess(c *gin.Context) {
 	}
 	identity, ok := requirePluginService(c, plugin.ServiceIdentifier)
 	if !ok {
+		return
+	}
+	if identity != nil && identity.ServiceIdentifier == "HTTP" && identity.TenantID == "" {
+		scopeDenied(c)
 		return
 	}
 	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccess(&req)
