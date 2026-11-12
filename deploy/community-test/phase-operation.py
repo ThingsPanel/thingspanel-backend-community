@@ -1,13 +1,18 @@
-import pathlib,hashlib,json,subprocess,urllib.request
-root=pathlib.Path('/opt/tp-community-actions/mqtt-publisher-5fb4c68e11b4ce3632abad32197a345e3d0f0f89-stage-20261112100920')
-tool=root/'mqtt_publisher_release.py'
-assert hashlib.sha256(tool.read_bytes()).hexdigest()=='70e2e2f16b09d4cc4a07777fc89b5265c41cb832d914e16c5b84fa16eac9199c'
-result={'operation':'approved-mqtt-only-apply','directory':str(root)}
-p=subprocess.run(['python3',str(tool),'apply',str(root)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=360)
-if p.returncode:
- result['status']='apply-failed';result['error']=p.stderr.strip().splitlines()[-1] if p.stderr.strip() else 'apply process failed'
-else:result.update(json.loads(p.stdout))
-try:
- with urllib.request.urlopen('http://127.0.0.1:9999/api/v1/sys_version',timeout=10) as r:result['sys_version']=json.load(r)
-except Exception as e:result['version_read_error']=type(e).__name__
-print(json.dumps(result))
+"""Authorized MQTT smoke on the existing test sensor; never exports its voucher."""
+import datetime,json,pathlib,socket,struct,subprocess,time,uuid
+device='5ed19dd2-4422-dfe3-2a54-13e180f120ed'
+tenant='63a4b529'
+
+def query(database,sql):
+ p=subprocess.run(['docker','exec','-i','timescaledb','psql','-X','-q','-At','-v','ON_ERROR_STOP=1','-U','postgres','-d',database],input=('BEGIN READ ONLY;'+sql+';COMMIT;').encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
+ if p.returncode:raise RuntimeError('Read-only acceptance query failed')
+ return json.loads(p.stdout)
+
+
+out={}
+for device in ['5ed19dd2-4422-dfe3-2a54-13e180f120ed','eac72acb-63a5-f582-906f-88d828abb64e','373fb5d9-a73a-e948-dcb5-5ab07aed6dec']:
+ out[device]={'commands':query('ThingsPanel',"SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT id,state,last_error,route_cell,route_epoch,dispatched_at,completed_at FROM broker_command_requests WHERE device_id='"+device+"' ORDER BY created_at DESC LIMIT 3)t"),'device':query('ThingsPanel',"SELECT row_to_json(t) FROM (SELECT id,tenant_id,is_enabled,activate_flag FROM devices WHERE id='"+device+"')t")}
+for name in ['tp-community-main-47-broker-mosquitto-1','tp-community-main-47-broker-owner-1']:
+ p=subprocess.run(['docker','logs','--since','10m','--tail','300',name],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=15)
+ lines=p.stdout.decode(errors='replace').splitlines();out[name]=[l[:600] for l in lines if any(w in l.lower() for w in ['error','fail','denied','author','qa-q04']) and not any(w in l.lower() for w in ['password','token','secret','credential','authorization'])][-45:]
+print(json.dumps(out))
