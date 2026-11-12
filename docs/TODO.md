@@ -25,3 +25,5 @@
 - [ ] `encore-api/devicemetadata/legacydb.go` 用裸 pgx 连 `TP_LEGACY_DATABASE_URL`，不在 GORM/`relational` 的约束内；迁移用途，随旧库退役删除。
 - [ ] `relational.EnvSource` 的键是 `TP_RELATIONAL_<驱动>_PLATFORM_*`，平台（Gin，viper）与 Encore 的前缀协调仍未做（同 PROJECT-AUDIT 的 A1 备注）。
 
+
+- [R-series, 2026-11-12] `go test ./internal/api/` 里 `TestTelemetryHTTPDeviceAuthorization` 在 develop 0b618560（R0 之前）就失败，与 R0–R2 无关，未修。
