@@ -1,30 +1,33 @@
-import json,subprocess,hashlib,pathlib,fcntl,datetime
-out={'at':datetime.datetime.utcnow().isoformat()+'Z','scope':'read-only HTTP running executable build info and checkout status; no deployment'}
-lock=open('/opt/tp-community-actions/deployment.lock','r')
-try:fcntl.flock(lock,fcntl.LOCK_SH|fcntl.LOCK_NB)
-except BlockingIOError:print(json.dumps({'blocked':'deployment lock busy'}));raise SystemExit()
-def run(a):return subprocess.check_output(a,timeout=15).decode().strip()
-def inline(data,pos):
- n=0;shift=0
- for i in range(10):
-  c=data[pos];pos+=1;n|=(c&127)<<shift
-  if c<128:return data[pos:pos+n].decode(errors='replace'),pos+n
-  shift+=7
- raise ValueError('bad length')
-out['containers']=[]
-for cid in run(['docker','ps','-q']).split():
- c=json.loads(run(['docker','inspect',cid]))[0]
- aliases=[a for n in c['NetworkSettings']['Networks'].values() for a in (n.get('Aliases') or [])]
- if 'tp-plugin-http-adapter' not in aliases:continue
- im=json.loads(run(['docker','image','inspect',c['Image']]))[0]
- row={'name':c['Name'],'image_id':c['Image'],'image_ref':c['Config']['Image'],'pid':c['State']['Pid'],'entry_executable':c.get('Path'),'working_dir':c['Config'].get('WorkingDir'),'image_created':im.get('Created'),'repo_digests':im.get('RepoDigests'),'oci':{k:v for k,v in ((im.get('Config')or {}).get('Labels')or {}).items() if k.startswith('org.opencontainers.image.')},'restart_count':c['RestartCount']}
- exe=pathlib.Path('/proc')/str(c['State']['Pid'])/'exe';data=exe.read_bytes();row['binary_sha256']=hashlib.sha256(data).hexdigest();row['binary_bytes']=len(data)
- i=data.find(b'\xff Go buildinf:')
- if i>=0 and data[i+15]&2:
-  version,pos=inline(data,i+32);module,pos=inline(data,pos);row['go_version']=version
-  row['build_info']=[x for x in module.splitlines() if x.startswith(('path\t','mod\t','build\tvcs','build\tGOOS','build\tGOARCH','build\tCGO_ENABLED','build\t-buildmode','build\t-compiler'))]
- else:row['build_info_unavailable']=True
- out['containers'].append(row)
-p='/home/plugin/thingspanel-adapter-http'
-out['checkout']={'path':p,'head':run(['git','-C',p,'rev-parse','HEAD']),'status':run(['git','-C',p,'status','--porcelain']),'diff_stat':run(['git','-C',p,'diff','--stat'])}
-print(json.dumps(out))
+import base64,hashlib,json,pathlib,subprocess,os
+os.umask(0o077)
+commit='7da24b0d2bf75e987c5aaaa092a0d60acc784055'
+mode='plan'
+script_bytes=base64.b64decode(ENCODED)
+expected_tool='f97b2794266be5ed43a0cd8e31472996928ab9eeb80a2bed395f51dc11998934'
+expected_archive=None
+root=pathlib.Path('/opt/tp-community-actions')
+archive=root/'incoming'/('control-plane-frontend-'+commit+'.tar.gz')
+tools=root/'qa-frontend-tools';tools.mkdir(exist_ok=True,mode=0o700)
+path=tools/('release-'+commit+'.py')
+def digest(path):
+ h=hashlib.sha256()
+ with path.open('rb') as f:
+  for b in iter(lambda:f.read(1024*1024),b''):h.update(b)
+ return h.hexdigest()
+result={'operation':'frontend-qa-'+mode,'commit':commit}
+try:
+ assert hashlib.sha256(script_bytes).hexdigest()==expected_tool
+ assert not path.is_symlink()
+ if path.exists():assert digest(path)==expected_tool
+ else:path.write_bytes(script_bytes)
+ assert archive.is_file() and not archive.is_symlink()
+ result['archive_sha256']=digest(archive)
+ if expected_archive:assert result['archive_sha256']==expected_archive,'Candidate archive changed after plan'
+ args=['/usr/bin/python3.11',str(path)]
+ if mode=='apply':args+=['--apply','--bundle',str(archive),'--bundle-sha256',expected_archive]
+ p=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=150)
+ result['exit_code']=p.returncode
+ if p.returncode:result.update(status='FAIL',error=p.stderr.strip().splitlines()[-1] if p.stderr.strip() else 'operation failed')
+ else:result.update(status='PASS',result=json.loads(p.stdout))
+except Exception as e:result.update(status='FAIL',error=type(e).__name__+': '+str(e))
+print(json.dumps(result))
