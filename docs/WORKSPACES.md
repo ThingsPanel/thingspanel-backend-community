@@ -127,3 +127,10 @@
 | `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r1-system-role`（安装器） | `wp/R1-system-role` | R1 Agent system 角色 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
 | `.claude/worktrees/wp-r2-check-config`（后端） | `wp/R2-check-config` | R2 `--check-config`（叠在 `wp/R1-health-gate` 上） | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
 | `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r2-restart`（安装器） | `wp/R2-restart`（叠在 `wp/R1-system-role` 上） | R2 重启 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
+
+## R2 演练现场（2026-11-12 登记，已停止未删除，待用户确认清理）
+| 路径/对象 | 说明 | 负责人 |
+|---|---|---|
+| `/Volumes/KIOXIA/tmp/r2-work`（含 `r2/` 安装器副本与 `.env`、`agent/`、构建上下文） | R2 隔离栈（compose 项目 `r2`），含演练用临时凭据 | Claude 会话 |
+| 容器 `r2-*`（11 个）、卷 `r2_go_configs/r2_go_files/r2_mosquitto_data/r2_postgres_data/r2_redis_data`、网络 `r2_thingspanel_network`、镜像 `r2-backend:dev` | 同上，已停止 | Claude 会话 |
+| `.claude/worktrees/wp-r2-drill` | `wp/R2-drill`：本说明 | Claude 会话 |
