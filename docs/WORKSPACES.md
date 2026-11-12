@@ -123,3 +123,5 @@
 | 路径 | 分支 | 任务 | 负责人 | 预计清理 |
 |---|---|---|---|---|
 | `.claude/worktrees/wp-r0-restart-plan-179c91`（后端） | `wp/R0-restart-plan` | R0 盘点与审定 | Claude 会话 | 审查合并后当天清理，删除前确认 |
+| `.claude/worktrees/wp-r1-health-gate`（后端） | `wp/R1-health-gate` | R1 健康门（后端部分） | Claude 会话 | 审查合并后当天清理，删除前确认 |
+| `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r1-system-role`（安装器） | `wp/R1-system-role` | R1 Agent system 角色 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
