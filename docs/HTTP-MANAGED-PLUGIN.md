@@ -6,6 +6,8 @@ HTTP 仍是 service_type=1 的协议插件。平台安装 ID 固定为 http-adap
 
 设备列表与单设备查询使用相同过滤条件，HTTP 身份不读取服务接入点凭据。受管记录产生 generation 后，HTTP 的无身份兼容接口停止接受请求，停用、失败、卸载不重新开放匿名访问；其他旧协议保持兼容。动态注册暂不开放，设备通过平台模板创建。
 
+通过实例身份及设备范围检查的共享 HTTP 查询属于服务查询，与既有按设备 ID 查询保持一致，不套用匿名设备编号认证的三秒限流；匿名旧请求及其他协议继续执行原限流。这样首次上报、长轮询与命令并发也不会互相阻断。
+
 安装和撤销沿 internal/plugininstall、internal/pluginidentity。HTTP 权限入口 internal/api/plugin_http_scope.go；回归 TestSharedHTTPInstallationScope 与 TestLegacyPluginCompatibilityAndHAFencing。
 
 主线测试服仍用 device-safety 组合源码。部署必须在当前已验收的组合源码上应用本改动，保留 RELEASE_PROFILE 的数据库及设备所有者信息，不能把本分支完整源码直接部署为该测试服后端。

@@ -2,6 +2,7 @@ package api
 
 import (
 	"project/initialize"
+	"project/internal/middleware"
 	model "project/internal/model"
 	service "project/internal/service"
 	"project/pkg/errcode"
@@ -46,7 +47,14 @@ func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPlugin(c *gin.Context) {
 		limitKey = "device_auth_device_number:" + req.DeviceNumber
 	}
 
-	if limitKey != "" {
+	// This is an authenticated service lookup after pluginMayReadDevice has
+	// checked the live installation and device scope. Device-ID lookup is already
+	// unlimited; applying the anonymous number-auth limiter here breaks a device's
+	// simultaneous uplink, command and poll requests. Legacy callers stay limited.
+	value, _ := c.Get(middleware.PluginRuntimeIdentityKey)
+	identity, managed := value.(*middleware.PluginRuntimeIdentity)
+	sharedHTTP := managed && identity != nil && identity.TenantID == "" && identity.ServiceIdentifier == "HTTP" && !legacyPluginRequest(c)
+	if limitKey != "" && !sharedHTTP {
 		limiter := initialize.NewDeviceAuthLimiter()
 		if !limiter.Allow(limitKey) {
 			c.Error(errcode.WithData(errcode.CodeRateLimit, map[string]interface{}{
