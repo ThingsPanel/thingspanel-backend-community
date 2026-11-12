@@ -13,9 +13,23 @@ base='http://127.0.0.1:9999';ha='http://127.0.0.1:58123'
 
 
 import time
+started_utc=datetime.datetime.utcnow().isoformat()+'Z'
 out['rule_id']='c67841b0-59ee-4308-af75-45c313deb12d';out['steps']=[]
-for value in [20,38,38,20]:
+for value in [38,38,20]:
  r=call(ha,'/api/states/sensor.qa_q08_model_20261112',{'state':str(value),'attributes':{'friendly_name':'QA-Q08-MODEL-20261112','unit_of_measurement':'C','device_class':'temperature'}},auth=ha_token)
  time.sleep(3)
- out['steps'].append({'at':datetime.datetime.now().isoformat(),'input':value,'ha_status':r.get('http_status'),'ha_state':r.get('result',{}).get('state'),'current':call(base,'/api/v1/telemetry/datas/current/0f68b2e0-37b3-79f3-7ebd-4d2ffaf732a8'),'alarms':call('http://c.thingspanel.cn','/automation-core/v1/alarms?policy_id='+out['rule_id']+'&limit=20')})
+ notice=call('http://c.thingspanel.cn','/api/v2/notifications?page=1&pageSize=50')
+ entries=notice.get('result',{}).get('data',{}).get('items',[])
+ out['steps'].append({'at':datetime.datetime.now().isoformat(),'input':value,'notifications':[i for i in entries if i.get('createdAt','')>=started_utc],'ha_status':r.get('http_status'),'ha_state':r.get('result',{}).get('state'),'current':call(base,'/api/v1/telemetry/datas/current/0f68b2e0-37b3-79f3-7ebd-4d2ffaf732a8'),'alarms':call('http://c.thingspanel.cn','/automation-core/v1/alarms?policy_id='+out['rule_id']+'&limit=20')})
+for step in out['steps']:
+ pass
+r=call('http://c.thingspanel.cn','/api/v2/notifications?page=1&pageSize=50');items=r.get('result',{}).get('data',{}).get('items',[]);out['notifications']=[i for i in items if i.get('createdAt','')>=started_utc]
+out['notification_details']={i['id']:call('http://c.thingspanel.cn','/api/v2/notifications/'+i['id']) for i in out['notifications']}
+expected=pathlib.Path('/tmp/qa-q08-session-gk9qwhrb');out['temporary_session_cleanup']=[]
+if key.parent.resolve()==expected.resolve():
+ for name in ['fixture.private.json','private.pem','public.pem']:
+  target=expected/name
+  if target.is_file():target.unlink();out['temporary_session_cleanup'].append(name)
+ try:expected.rmdir();out['temporary_directory_removed']=True
+ except OSError:out['temporary_directory_removed']=False
 print(json.dumps(out))
