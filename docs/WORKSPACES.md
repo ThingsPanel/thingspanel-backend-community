@@ -118,3 +118,8 @@
 ## 数据库第一阶段清理（2026-11-10）
 已删除：T1-A2/A3/A4、T3 的 worktree 与本地分支（均已合入 origin/develop `82ad259e`）、`dbp1-smoke-*` 与 `dbp1-tdengine` 已退出容器。
 负责人于 2026-11-10 确认后，已删除 `dbp1-tdengine-*` 验收栈（14 个容器、6 个数据卷、2 个匿名 Mosquitto 卷、网络）和 `/Volumes/KIOXIA/tmp/dbp1-tdengine-stack`。证据目录保留。
+
+## R1（2026-11-12 登记）
+| 路径 | 分支 | 任务 | 负责人 | 预计清理 |
+|---|---|---|---|---|
+| `.claude/worktrees/wp-r1-health-gate`（后端） | `wp/R1-health-gate` | R1 健康门（后端部分） | Claude 会话 | 审查合并后当天清理，删除前确认 |
