@@ -28,4 +28,4 @@ cd encore-api && encore check                      # 见下
 - 与 T1-A1 的冲突：本卡只改了 `internal/api/system.go` 的 `HealthCheck`，没动启动流程。
 
 ## `encore check` 结论
-在本机运行超过 120 秒未返回（整个 Encore 应用较大），**没有拿到结果**，因此 `encore:api` 注解是否被 Encore 解析通过**未验证**；只有 `go vet`/`go test ./system/` 通过。需要在能跑完 `encore check` 的环境里补做。
+编译通过（1 分 42 秒），Encore 注册了 273 个接口，说明 `encore:api` 注解被解析通过。随后的“启动应用并等 healthz”一步失败：`notification` 服务报 `notification privacy configuration is unavailable`（本机没有配置隐私/密钥环境变量），与本卡改动无关。所以**编译和注解解析已验证，运行时行为未验证**。
