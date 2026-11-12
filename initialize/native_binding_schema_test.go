@@ -185,3 +185,39 @@ func assertNativeBindingLedgerCount(t *testing.T, db *gorm.DB, expected int64) {
 		t.Fatalf("native migration ledger has %d rows, expected %d", count, expected)
 	}
 }
+
+func TestNormalizeSchemaExpressionIsStableAcrossDumpRestore(t *testing.T) {
+	fresh := `CHECK (((state)::text = ANY ((ARRAY['active'::character varying, 'tombstoned'::character varying])::text[])))`
+	restored := `CHECK (((state)::text = ANY (ARRAY[('active'::character varying)::text, ('tombstoned'::character varying)::text])))`
+	if normalizeSchemaExpression(fresh) != normalizeSchemaExpression(restored) {
+		t.Fatalf("fresh and restored renderings must compare equal:\n%s\n%s", normalizeSchemaExpression(fresh), normalizeSchemaExpression(restored))
+	}
+	// literal containing a quote and a comma
+	freshQ := `CHECK (((s)::text = ANY ((ARRAY['a''b, c'::character varying, 'd'::character varying])::text[])))`
+	restoredQ := `CHECK (((s)::text = ANY (ARRAY[('a''b, c'::character varying)::text, ('d'::character varying)::text])))`
+	if normalizeSchemaExpression(freshQ) != normalizeSchemaExpression(restoredQ) {
+		t.Fatal("quoted literals must canonicalize")
+	}
+	// fresh form is unchanged by canonicalization
+	if canonicalizeRestoredArrayAny(fresh) != fresh {
+		t.Fatal("fresh rendering must be left untouched")
+	}
+}
+
+func TestNormalizeSchemaExpressionStillRejectsDifferences(t *testing.T) {
+	fresh := `CHECK (((state)::text = ANY ((ARRAY['active'::character varying, 'tombstoned'::character varying])::text[])))`
+	for name, other := range map[string]string{
+		"missing value":   `CHECK (((state)::text = ANY (ARRAY[('active'::character varying)::text])))`,
+		"extra value":     `CHECK (((state)::text = ANY (ARRAY[('active'::character varying)::text, ('tombstoned'::character varying)::text, ('x'::character varying)::text])))`,
+		"changed value":   `CHECK (((state)::text = ANY (ARRAY[('active'::character varying)::text, ('deleted'::character varying)::text])))`,
+		"changed column":  `CHECK (((status)::text = ANY (ARRAY[('active'::character varying)::text, ('tombstoned'::character varying)::text])))`,
+		"changed order":   `CHECK (((state)::text = ANY (ARRAY[('tombstoned'::character varying)::text, ('active'::character varying)::text])))`,
+		"all instead any": `CHECK (((state)::text = ALL (ARRAY[('active'::character varying)::text, ('tombstoned'::character varying)::text])))`,
+		"negated":         `CHECK (((state)::text <> ANY (ARRAY[('active'::character varying)::text, ('tombstoned'::character varying)::text])))`,
+		"mixed element":   `CHECK (((state)::text = ANY (ARRAY[('active'::character varying)::text, 'tombstoned'::text])))`,
+	} {
+		if normalizeSchemaExpression(fresh) == normalizeSchemaExpression(other) {
+			t.Errorf("%s must not match the contract", name)
+		}
+	}
+}

@@ -139,3 +139,8 @@
 |---|---|---|---|---|
 | `.claude/worktrees/wp-r2e-encore-build-4e9274`（后端） | `wp/R2E-encore-build` | R2E 查明 `encore build docker` 卡死并给出可用构建方式 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认。本机另有镜像 `r2e-encore:dev`（只含我自己建的 `r2e-` 资源） |
 | `.claude/worktrees/wp-r2g-scope-encore-15bd9f`（后端） | `wp/R2G-scope-encore` | R2G 把 `/internal/broker-scope` 从老 Gin 改写为 Encore 服务 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
+
+## R4S dump/restore 之后 schema 校验（2026-11-12 登记）
+| 路径 | 分支 | 任务 | 负责人 | 预计清理 |
+|---|---|---|---|---|
+| `.claude/worktrees/wp-r4s-schema-contract-95ecf9`（后端） | `wp/R4S-schema-contract` | R4S 还原后 schema 校验稳定化 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认。`r4s-` 容器/网络已删除 |
