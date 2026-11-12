@@ -122,6 +122,7 @@ func RouterInit() *gin.Engine {
 	router.GET("/api/v1/notification/source-policies/:id", reader.GetAutomationPolicy)
 
 	api.RegisterAutomationOwnerRoutes(router, global.DB)
+	api.RegisterBrokerScopeRoutes(router, global.DB)
 
 	// 记录操作日志
 	router.Use(middleware.OperationLogs())
