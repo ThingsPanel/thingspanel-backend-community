@@ -134,3 +134,7 @@
 | `/Volumes/KIOXIA/tmp/r2-work`（含 `r2/` 安装器副本与 `.env`、`agent/`、构建上下文） | R2 隔离栈（compose 项目 `r2`），含演练用临时凭据 | Claude 会话 |
 | 容器 `r2-*`（11 个）、卷 `r2_go_configs/r2_go_files/r2_mosquitto_data/r2_postgres_data/r2_redis_data`、网络 `r2_thingspanel_network`、镜像 `r2-backend:dev` | 同上，已停止 | Claude 会话 |
 | `.claude/worktrees/wp-r2-drill` | `wp/R2-drill`：本说明 | Claude 会话 |
+## R2E Encore 镜像构建（2026-11-12 登记）
+| 路径 | 分支 | 任务 | 负责人 | 预计清理 |
+|---|---|---|---|---|
+| `.claude/worktrees/wp-r2e-encore-build-4e9274`（后端） | `wp/R2E-encore-build` | R2E 查明 `encore build docker` 卡死并给出可用构建方式 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认。本机另有镜像 `r2e-encore:dev`（只含我自己建的 `r2e-` 资源） |
