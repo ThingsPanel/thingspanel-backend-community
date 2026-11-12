@@ -19,3 +19,9 @@
 - [ ] `deploy/local-develop/build.py` 的 `encore_command` 在 `repo / 'encore-api'` 里直接 `encore build docker`；如果 `repo` 是 git worktree 会因 Encore CLI 的 `WorkspaceRoot` 死循环而永久卡住（见 `docs/tasks/R2E-ENCORE-BUILD-DONE.md`）。建议给它加超时，或改成先导出干净副本（参考 `scripts/build-encore-image.sh`）。
 - [ ] 同一处 `--services` 只列了 7 个，CI（`encore-image-build.yml`）是 10 个（多 `marketinstall,northbound,platformconfig`）；本地与发行版镜像内容不一致，需要确认是否有意。
 - [ ] Encore CLI 当前 v1.58.6，v1.58.8 已发布；`WorkspaceRoot` 的 `.git` 为文件时死循环，应向上游 encoredev/encore 报告，并确认新版是否已修。
+## R2G 发现（2026-11-12）
+- [ ] `encore-image-build.yml` 的 `--services` 清单里没有 `system`（`GET /api/system/info`）；`deploy/community-test/deploy_encore.py` 的 `native_services` 也没有 `system` 和 `brokerscope`。镜像要带上它们，社区测试部署才能用。
+- [ ] 设备数据仍在旧平台库，`brokerscope` 只是只读借道；设备迁到 `device_metadata` 后，把 `internal/brokerscope.Query` 改为读新表（A5 的终态）。
+- [ ] `encore-api/devicemetadata/legacydb.go` 用裸 pgx 连 `TP_LEGACY_DATABASE_URL`，不在 GORM/`relational` 的约束内；迁移用途，随旧库退役删除。
+- [ ] `relational.EnvSource` 的键是 `TP_RELATIONAL_<驱动>_PLATFORM_*`，平台（Gin，viper）与 Encore 的前缀协调仍未做（同 PROJECT-AUDIT 的 A1 备注）。
+
