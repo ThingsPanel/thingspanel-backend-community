@@ -1,41 +1,19 @@
-import pathlib,json,re,subprocess,hashlib,urllib.parse
-out={'source':{},'config':{},'log_signals':[]}
-r=pathlib.Path('/home/plugin/access-service-modbus-tcp')
-for f in ['internal/platform/platform.go','internal/service/modbus_service.go']:
- lines=(r/f).read_text(errors='replace').splitlines();selected=[]
- for i,l in enumerate(lines):
-  if any(k in l for k in ['Publish','SendTelemetry','SendData','dataReportLoop','DataReport','ReportData','MQTT']):
-   selected.extend(str(j+1)+': '+lines[j] for j in range(max(0,i-2),min(len(lines),i+12)) if not re.search('password|secret|token',lines[j],re.I))
- out['source'][f]=list(dict.fromkeys(selected))
-config=(r/'configs/config.yaml').read_text(errors='replace')
-logpaths=[]
-for line in config.splitlines():
- m=re.match(r'\s*(url|mqtt_broker|service_identifier|filePath|base_dir):\s*(.*?)\s*(?:#.*)?$',line)
- if m:
-  value=m.group(2).strip('\"\' ')
-  if m.group(1) in ['url','mqtt_broker']:value=re.sub(r'//[^/@]+@','//[redacted]@',value)
-  out['config'][m.group(1)]=value
-  if m.group(1)=='filePath':logpaths += [r/value,r/'cmd'/value]
-for root in ['/root/go/pkg/mod/github.com/!things!panel','/home/plugin']:
- p=pathlib.Path(root)
- for d in list(p.glob('tp-protocol-sdk-go*'))[:4]:
-  for f in d.rglob('*.go'):
-   if f.stat().st_size>100000:continue
-   lines=f.read_text(errors='replace').splitlines()
-   hits=[]
-   for i,l in enumerate(lines):
-    if re.search(r'(/telemetry|/status|Publish\(|MQTTBroker|device/data|attributes)',l):
-     hits.extend(str(j+1)+': '+lines[j] for j in range(max(0,i-2),min(len(lines),i+7)) if not re.search('password|secret|token',lines[j],re.I))
-   if hits:out['source'][str(f)]=list(dict.fromkeys(hits))[:100]
-for p in logpaths:
- if not p.is_file():continue
- raw=p.open('rb');raw.seek(max(0,p.stat().st_size-80000));lines=raw.read().decode(errors='replace').splitlines();counts={}
- for word in ['not authorized','not authorised','connection refused','Publish','publish','MQTT','error','Error','failed','disconnected','connected']:
-  counts[word]=sum(word in l for l in lines)
- out['log_signals'].append({'path':str(p),'counts':counts})
-p=subprocess.run(['docker','logs','--since','30m','--tail','400','tp-community-broker'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=10)
-lines=p.stdout.decode(errors='replace').splitlines();out['broker_signals']={'line_count':len(lines),'matches':[]}
+import pathlib,json,re,subprocess
+out={'broker':{},'qa_logs':[],'sdk_dirs':[]}
+for name in ['tp-community-main-47-broker-mosquitto-1','tp-community-main-47-broker-owner-1']:
+ p=subprocess.run(['docker','logs','--since','25m','--tail','1500',name],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=10);lines=p.stdout.decode(errors='replace').splitlines();matches=[]
+ for l in lines:
+  if any(w in l for w in ['ModbusTCP','16fb8743-bc16-a53a-f6b1-5e82b07a760b','plugin','denied','not author','fenced']):
+   if re.search(r'password|secret|token|payload|credential',l,re.I):continue
+   matches.append(l[:500])
+ out['broker'][name]={'total':len(lines),'matched':matches[-80:]}
+p=pathlib.Path('/home/plugin/access-service-modbus-tcp/cmd/logs/app.log')
+f=p.open('rb');f.seek(max(0,p.stat().st_size-300000));lines=f.read().decode(errors='replace').splitlines()
 for l in lines:
- if 'ModbusTCP' in l or ('not author' in l.lower()):
-  out['broker_signals']['matches'].append(re.sub(r'(?i)(password|secret|token)[^ ,]*[=: ]+[^ ,]+',r'\1=[redacted]',l)[:300])
+ if '16fb8743-bc16-a53a-f6b1-5e82b07a760b' in l:
+  if re.search(r'password|secret|token|payload|credential',l,re.I):continue
+  out['qa_logs'].append(l[:500])
+out['qa_logs']=out['qa_logs'][-15:]
+r=pathlib.Path('/home/plugin/access-service-modbus-tcp/internal/platform/platform.go');lines=r.read_text(errors='replace').splitlines();out['publish_envelope']=[str(i+1)+': '+l for i,l in enumerate(lines) if 258<=i+1<=283]
+p=subprocess.run(['ss','-tnp'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=5);out['mqtt_sockets']=[l for l in p.stdout.decode(errors='replace').splitlines() if ':1883' in l and ('access-service' in l or '1599577' in l)]
 print(json.dumps(out))
