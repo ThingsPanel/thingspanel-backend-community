@@ -2,6 +2,7 @@ package initialize
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	nativebindingsql "project/sql"
@@ -143,6 +144,31 @@ func verifyNativeConstraint(tx *gorm.DB, tableName, constraintName, expectedDefi
 	return nil
 }
 
+// normalizeSchemaExpression produces the form used to compare a catalog-rendered
+// expression with the contract text: dump/restore-stable, lower-cased, with
+// whitespace collapsed.
 func normalizeSchemaExpression(expression string) string {
-	return strings.ToLower(strings.Join(strings.Fields(expression), " "))
+	return strings.ToLower(strings.Join(strings.Fields(canonicalizeRestoredArrayAny(expression)), " "))
+}
+
+var (
+	// `= ANY (ARRAY[('a'::character varying)::text, ('b'::character varying)::text])`
+	// is how pg_get_constraintdef renders a varchar IN-list after pg_dump/pg_restore
+	// (the dump text is re-parsed, so the per-element casts are no longer folded).
+	restoredVarcharAny = regexp.MustCompile(`(?i)ANY \(ARRAY\[((?:\('(?:[^']|'')*'::character varying\)::text(?:, )?)+)\]\)`)
+	restoredVarcharElt = regexp.MustCompile(`(?i)\(('(?:[^']|'')*'::character varying)\)::text`)
+)
+
+// canonicalizeRestoredArrayAny rewrites the post-restore rendering of a varchar
+// `col IN ('a','b')` check into the fresh-install rendering
+// `ANY ((ARRAY['a'::character varying, 'b'::character varying])::text[])`.
+// Only the exact restored shape (every element a quoted literal cast to
+// character varying and then text) is rewritten; the literals themselves are
+// kept, so a different value list, a different column or a different operator
+// still compares unequal. Any other text is returned unchanged.
+func canonicalizeRestoredArrayAny(expression string) string {
+	return restoredVarcharAny.ReplaceAllStringFunc(expression, func(match string) string {
+		inner := restoredVarcharAny.FindStringSubmatch(match)[1]
+		return "ANY ((ARRAY[" + restoredVarcharElt.ReplaceAllString(inner, "$1") + "])::text[])"
+	})
 }

@@ -27,3 +27,4 @@
 
 
 - [R-series, 2026-11-12] `go test ./internal/api/` 里 `TestTelemetryHTTPDeviceAuthorization` 在 develop 0b618560（R0 之前）就失败，与 R0–R2 无关，未修。
+- [R4S, 2026-11-12] schema 校验的 CHECK 文本规范化只覆盖 PG 14.5 观察到的 varchar `IN` 数组还原形态；换 PG 15/16 后若出现新的还原形态，需要在 `canonicalizeRestoredArrayAny` 补充并加测试。更稳的长期做法是用语义比较（如试探性插入或 `pg_constraint.conbin` 解析），不在本卡范围。
