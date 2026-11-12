@@ -52,7 +52,7 @@
 | A1 | **控制面与数据面分离** | 控制面是 Encore 服务，负责“定规则、发身份、管配置”。数据面（Broker、上行、下行）负责“搬数据”，在控制面短暂不可用时仍按已下发的规则运行。数据面不直接改控制面的表；控制面不在数据面的热路径上同步调用 | Encore 任务书 §2.1 |
 | A2 | **关系库只用 GORM** | 普通增删改查一律通过已有的 GORM/DAL 实现。特殊语义（JSON 查询、条件 upsert、队列领取、锁）在**所属模块的 repository 里**分别写小范围的 PG 和 MySQL 实现。不新增第二套 ORM，不做万能 SQL 接口 | Encore 任务书 §2.3 |
 | A3 | **其他数据库走专用 Adapter** | 时序只管**遥测历史**（批量写、范围读、聚合、删除、健康检查、关闭），用普通 Go 接口实现，不新增服务进程。最新值、属性、回执仍归关系库。通过 `storage.history_backend` 切换 | Encore 任务书 §2.4；`internal/app/history_backend.go` |
-| A4 | **业务能力用插件扩展** | 南向、北向、通知能力做成独立容器插件。由 Agent 安装启停；插件以**受管运行时身份**（服务 + 租户 + 代次，可撤销）访问平台。不提供匿名入口，也不让所有插件共用一个管理员账号 | 插件设计 §1.2、§5.1、§7.4；`docs/legacy-plugin-runtime-guard-v1.md` |
+| A4 | **业务能力用插件扩展；Agent 是宿主侧唯一的管理者** | 南向、北向、通知能力做成独立容器插件，由 Agent 安装启停；插件以**受管运行时身份**（服务 + 租户 + 代次，可撤销）访问平台。不提供匿名入口，也不让所有插件共用一个管理员账号。**Agent（tp-agent）是宿主侧唯一的管理者，分 `plugin` / `system` 两个隔离的角色**：独立的 socket 和 token；`plugin` 角色保持原有严格策略；`system` 角色只接受固定动作（检查配置、重启、备份、恢复、升级、状态），不接受任意命令、镜像或参数；Agent 不自我升级，也不在它所管理的 compose 栈里。（2026-11-12 修订，见 `docs/RESTART-BACKUP-UPGRADE-PLAN-2026-11-12.md` §3） | 插件设计 §1.2、§5.1、§7.4；`docs/legacy-plugin-runtime-guard-v1.md` |
 | A5 | **不做 API 桥** | 老 Gin 由 Encore 逐步替换。不新增“Encore 回调老 Gin”的转换层（如 `communityclient`、`automationcompat`）。已有的桥随 Gin 退役一起删除 | 用户决定 2026-11-04 |
 
 ---
