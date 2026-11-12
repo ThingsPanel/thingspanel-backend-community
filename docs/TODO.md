@@ -14,3 +14,10 @@
 - [ ] `TestTelemetryHTTPDeviceAuthorization/owner_key` 在基线 `origin/develop@c0ab14d1` 上同样失败（`code=40103 allowed=true`），属于原有问题，和本阶段无关。
 - [ ] 方言分支散落在函数里（如 `internal/dal/telemetry_datas.go`、`internal/automationguard/guard.go`、`internal/dal/insert_if_absent.go` 中的 `Dialector.Name()=="mysql"`）；按架构规则 A2，后续收拢到所属 repository 的 PG/MySQL 显式实现。
 - [ ] `telemetry_datas.go` 的 MySQL `ON DUPLICATE KEY UPDATE ... VALUES(col)` 写法在 MySQL 8.0.20 后不推荐，后续改为行别名写法。
+
+## R2G 发现（2026-11-12）
+- [ ] `encore-image-build.yml` 的 `--services` 清单里没有 `system`（`GET /api/system/info`）；`deploy/community-test/deploy_encore.py` 的 `native_services` 也没有 `system` 和 `brokerscope`。镜像要带上它们，社区测试部署才能用。
+- [ ] 设备数据仍在旧平台库，`brokerscope` 只是只读借道；设备迁到 `device_metadata` 后，把 `internal/brokerscope.Query` 改为读新表（A5 的终态）。
+- [ ] `encore-api/devicemetadata/legacydb.go` 用裸 pgx 连 `TP_LEGACY_DATABASE_URL`，不在 GORM/`relational` 的约束内；迁移用途，随旧库退役删除。
+- [ ] `relational.EnvSource` 的键是 `TP_RELATIONAL_<驱动>_PLATFORM_*`，平台（Gin，viper）与 Encore 的前缀协调仍未做（同 PROJECT-AUDIT 的 A1 备注）。
+

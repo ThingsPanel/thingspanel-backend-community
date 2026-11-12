@@ -8,7 +8,7 @@
 3. 单元测试（Linux 容器，`-race`，原有测试全部通过）：控制面/全栈的停启顺序、配置检查失败不动任何容器、backend 停着时的行为、启动失败点名组件并保留维护标记、同时只能一个操作、scope 校验、没开启操作时路由拒绝。
 
 ## 方案（用户已选“后端算范围”）与已做的第二批
-3. **后端 `GET /internal/broker-scope`**（后端 f5dbe388）：需要 `Authorization: Bearer $GOTP_BROKER_SCOPE_TOKEN`（环境变量未设或短于 32 字符时路由不存在，返回 404；错误 token 401；常量时间比较）。用 GORM 算出 `targets`（直连 MQTT 设备）和 `plugins`（协议/服务接入设备），条件与安装器原 SQL 逐条一致，每个列表最多 1000 条，不含任何凭据。没有挂在前端 nginx 的任何 location 下（nginx 只转发 `/api`、`/files` 等），所以不对外。测试（内存 SQLite）：十种设备组合分到正确的列表；认证的各种错误。**路线选择说明**：设备表属于旧 Gin 后端，所以沿用已有的 `/internal/automation/*` 同类内部路由，而不是写在 Encore 里；如果你要求必须在 Encore，需要另议。
+3. **后端 `GET /internal/broker-scope`**（后端 f5dbe388）：需要 `Authorization: Bearer $GOTP_BROKER_SCOPE_TOKEN`（环境变量未设或短于 32 字符时路由不存在，返回 404；错误 token 401；常量时间比较）。用 GORM 算出 `targets`（直连 MQTT 设备）和 `plugins`（协议/服务接入设备），条件与安装器原 SQL 逐条一致，每个列表最多 1000 条，不含任何凭据。没有挂在前端 nginx 的任何 location 下（nginx 只转发 `/api`、`/files` 等），所以不对外。测试（内存 SQLite）：十种设备组合分到正确的列表；认证的各种错误。**（已被 R2G 取代：该路由已改写为 Encore 服务 `brokerscope`，老 Gin 路由已删除，见 `docs/tasks/R2G-DONE.md`。）路线选择说明（历史）**：设备表属于旧 Gin 后端，所以沿用已有的 `/internal/automation/*` 同类内部路由，而不是写在 Encore 里；如果你要求必须在 Encore，需要另议。
 4. **Agent Broker 范围同步（Go）**（安装器 6a703c4）：`scope_sync.go`。从平台拉范围 → 用 `.env` 里的 Broker 账号构造 `services.json`（**对同一输入与 Python `scope_services` 输出逐字段相同**，由 Python 生成的黄金文件校验）→ 与现有文件语义比较 → 变化才写（临时文件 + 原子替换，0440，root 时 chown 1883）→ 先写 pending 标记 → 停启 broker-owner 再停启 mosquitto → 删 pending。重启中途失败，pending 保留，下一轮重试。使用安装器同一个 `.thingspanel-update/lock`（flock，非阻塞，忙就下次）；installer journal 未处于 `complete/recovered` 时不碰配置；与系统操作（重启）互斥，不会同时进行；范围超过 256 台拒绝。`system status` 返回最近一次同步结果（固定码）。不接触数据库，也不需要数据库账号。
 
 ## 没做（以及为什么停）

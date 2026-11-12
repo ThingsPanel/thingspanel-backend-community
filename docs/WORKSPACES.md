@@ -127,3 +127,4 @@
 | `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r1-system-role`（安装器） | `wp/R1-system-role` | R1 Agent system 角色 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
 | `.claude/worktrees/wp-r2-check-config`（后端） | `wp/R2-check-config` | R2 `--check-config`（叠在 `wp/R1-health-gate` 上） | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
 | `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r2-restart`（安装器） | `wp/R2-restart`（叠在 `wp/R1-system-role` 上） | R2 重启 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
+| `.claude/worktrees/wp-r2g-scope-encore-15bd9f`（后端） | `wp/R2G-scope-encore` | R2G 把 `/internal/broker-scope` 从老 Gin 改写为 Encore 服务 | Claude 会话 | 2026-11-12 登记；审查合并后当天清理，删除前确认 |
