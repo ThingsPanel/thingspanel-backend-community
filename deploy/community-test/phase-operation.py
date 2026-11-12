@@ -1,17 +1,30 @@
-import json,subprocess,pathlib,re
-out={}
+import pathlib,json,re,subprocess
+root=pathlib.Path('/home/plugin/access-service-modbus-tcp');out={'files':[],'references':[],'config_keys':[],'logs':[]}
+for p in root.rglob('*'):
+ if not p.is_file() or '.git' in p.parts:continue
+ if p.suffix in ['.go','.yaml','.yml','.json','.toml']:
+  out['files'].append(str(p.relative_to(root)))
+  if p.stat().st_size>200000:continue
+  lines=p.read_text(errors='replace').splitlines()
+  if p.suffix=='.go':
+   for i,l in enumerate(lines):
+    if '/api/' in l or re.search(r'func .*?(Refresh|Load|Init|Start|Notify|Device)',l):
+     if not re.search(r'password|secret|token|api.?key',l,re.I):out['references'].append({'file':str(p.relative_to(root)),'line':i+1,'text':l[:240]})
+  else:
+   for l in lines:
+    m=re.match(r'\s*([A-Za-z_][\w.-]*)\s*[:=]',l)
+    if m:out['config_keys'].append({'file':str(p.relative_to(root)),'key':m.group(1),'configured':bool(l.split(m.group(1),1)[1].strip(' :=\"\''))})
 p=subprocess.run(['/root/.local/share/pnpm/pm2','jlist'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10)
-out['pm2']=[]
 for x in json.loads(p.stdout):
- e=x.get('pm2_env',{});name=x.get('name','')
- if any(k in name.lower() for k in ['http','modbus','chirp']):
-  i={'name':name,'status':e.get('status'),'restarts':e.get('restart_time'),'cwd':e.get('pm_cwd'),'executable':e.get('pm_exec_path'),'logs':[]}
-  for k in ['pm_out_log_path','pm_err_log_path']:
-   path=e.get(k)
-   if path and pathlib.Path(path).is_file():
-    s='\n'.join(pathlib.Path(path).read_text(errors='replace').splitlines()[-300:])
-    i['logs'].append({'kind':k,'counts':{v:s.lower().count(v.lower()) for v in ['401','403','unauthorized','forbidden','connection refused','invalid','panic:','GetDevice','16fb8743','device list','设备列表','获取设备','认证']}})
-  out['pm2'].append(i)
-p=subprocess.run(['ss','-lntp'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10)
-out['listeners']=[l for l in p.stdout.decode().splitlines() if re.search(r':(19090|19091|1505|503|502|35102)\b',l)]
+ if x.get('name')!='access-service-modbus-tcp':continue
+ for k in ['pm_out_log_path','pm_err_log_path']:
+  path=x.get('pm2_env',{}).get(k)
+  if path and pathlib.Path(path).exists():
+   lines=pathlib.Path(path).read_text(errors='replace').splitlines()[-100:]
+   for l in lines:
+    if any(w in l.lower() for w in ['error','fail','错误','失败','warn']):
+     l=re.sub(r'\{.*','[payload omitted]',l)
+     l=re.sub(r'(?i)(token|password|secret|api.?key)\s*[:=]\s*\S+',r'\1=[redacted]',l)
+     out['logs'].append(l[:300])
+out['references']=out['references'][:100];out['files']=out['files'][:120]
 print(json.dumps(out))
