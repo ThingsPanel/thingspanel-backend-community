@@ -1,36 +1,26 @@
-import json,pathlib,base64,subprocess,urllib.request,urllib.error,urllib.parse,datetime
-enc={'chunks': ['M/WCA5cGMG3od4xHgmv2BovIQeJyhaNfMw9jnxo9UIuGxOJrxYiG6C0Af32yMQKUwNnsjazEd/601hyrZU1lExu+6Sy6DLUGYKUsXX3LN82GJvWiJkY9NhajzUfezR1bwx3ZUc6jfsoHvjLY7AtWjug65jLU9bEM4n83LZhbGn4CEMl5wMoVbsEhQoFR3FKdIqRBDunEgiYFYjQGyZIVWo+CHL8GcEHevWw1e4WNX0sJtNmT2DQc08TxMtM0jxJHGScUhW0DBd10xw4KKS+we5zPs05jFp8NLOfwdQP/WCpughCGnjuZDwkQwV4ZHrGoeL7G2JVbWDlbDRwt+XNBsw==', 'thSOC/FiGkJL4V2HpIAHltXEnk2WojpLUGE/6u0Qbspsl2Q8z+PHAfBboNADZOWNrQiEBWmO7oXwWEleyaJ5wZIhjmq1qTcQ0k3MDROGxcB8zcDARl8xrd6sBhkZhxbPextVQi7Qj42pdJZDZ1/b/iub29y66FDzeQ8+zULVU+U56SG87IwKuY6E9qLXOjr7l9DKOZnNCO0VF5mrVCYi7PANv8fzzuIluAkqSqr0UJqQWd2lyqCREiLsYz4yh28skhLL0tzCUw7d9lXOETrSJQf8tN+HrNMhN3397MvFs1F2TgpzXZMZcjHPl+BDePFSqs76qevTvN0qZkcSzV891Q=='], 'key_directory': '/tmp/qa-q08-session-gk9qwhrb'}
-key=pathlib.Path(enc['key_directory'])/'private.pem'
-token=b''.join(subprocess.check_output(['openssl','pkeyutl','-decrypt','-inkey',str(key),'-pkeyopt','rsa_padding_mode:oaep','-pkeyopt','rsa_oaep_md:sha256','-pkeyopt','rsa_mgf1_md:sha256'],input=base64.b64decode(c)) for c in enc['chunks']).decode()
-cred=json.loads(pathlib.Path('/opt/tp-community-main-20261028/ha-runtime/ha-demo.credentials.private.json').read_text());ha_token=cred['long_lived_token'];out={'at':datetime.datetime.now().isoformat()}
-def call(base,path,body=None,auth=None,method=None):
- req=urllib.request.Request(base+path,data=json.dumps(body).encode() if body is not None else None,headers={'Content-Type':'application/json','Authorization':'Bearer '+(auth or token),'x-token':auth or token},method=method)
- try:
-  with urllib.request.urlopen(req,timeout=15) as r:return {'http_status':r.status,'result':json.load(r)}
- except urllib.error.HTTPError as e:return {'http_status':e.code,'error':e.read().decode()[:300].replace(ha_token,'[redacted]').replace(token,'[redacted]')}
- except Exception as e:return {'error':type(e).__name__}
-base='http://127.0.0.1:9999';ha='http://127.0.0.1:58123'
+"""Authorized MQTT smoke on the existing test sensor; never exports its voucher."""
+import datetime,json,pathlib,socket,struct,subprocess,time,uuid
+device='5ed19dd2-4422-dfe3-2a54-13e180f120ed'
+tenant='63a4b529'
 
-# Restore only the previously documented demo lamp state, through the platform.
-import time
-fixture=json.loads((key.parent/'fixture.private.json').read_text())
-prior=fixture.get('light_before')
-# Do not guess fixture shape or change an unexpected device state.
-if isinstance(prior,dict):prior=prior.get('state')
-current=call(ha,'/api/states/light.office_rgbw_lights',auth=ha_token)
-out['original_state']=prior
-out['before_state']=current.get('result',{}).get('state')
-if prior!='on':out['blocked']='original state not verified as on'
-elif out['before_state']=='on':out['restore']='already at original state; no command'
-elif out['before_state']!='off':out['blocked']='unexpected live state; no command'
-else:
- r=call(base,'/api/v1/command/datas/pub',{'device_id':'40fd7d06-6f29-6903-9dc0-4e736357c34f','identify':'switch','value':'true','idempotency_key':'qa-q08-restore-office-20261112-v1'})
- data=r.get('result',{}).get('data') or {};mid=data.get('message_id');out['submit']={'http_status':r.get('http_status'),'code':r.get('result',{}).get('code'),'message_id':mid,'status':data.get('status')}
- if mid:
-  for _ in range(10):
-   time.sleep(1)
-   status=call(base,'/api/v1/command/datas/status/'+mid)
-   d=status.get('result',{}).get('data',{});out['command_status']={k:d.get(k) for k in ['message_id','status','error_message']}
-   actual=call(ha,'/api/states/light.office_rgbw_lights',auth=ha_token);out['after_state']=actual.get('result',{}).get('state')
-   if out['after_state']=='on' and d.get('status')=='device_reported_success':break
+def query(database,sql):
+ p=subprocess.run(['docker','exec','-i','timescaledb','psql','-X','-q','-At','-v','ON_ERROR_STOP=1','-U','postgres','-d',database],input=('BEGIN READ ONLY;'+sql+';COMMIT;').encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
+ if p.returncode:raise RuntimeError('Read-only acceptance query failed')
+ return json.loads(p.stdout)
+
+
+import re
+out={'commands':query('ThingsPanel',"SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT id,device_id,target_device_id,state,last_error,route_cell,route_epoch,convert_from(payload,'UTF8')::jsonb->'message' AS message FROM broker_command_requests WHERE id IN ('5e574249-61ab-4eca-8751-9cb7e42b1ad6','a6ad0493-975a-47bd-9e04-40d7351e5534'))t"),'containers':[],'logs':{}}
+for name in subprocess.check_output(['docker','ps','--format','{{.Names}}']).decode().splitlines():
+ if not any(w in name for w in ['broker-owner','broker-mosquitto','encore']):continue
+ x=json.loads(subprocess.check_output(['docker','inspect',name]))[0];labels=x['Config'].get('Labels') or {}
+ out['containers'].append({'name':name,'image':x['Image'],'image_name':x['Config']['Image'],'status':x['State']['Status'],'labels':{k:v for k,v in labels.items() if k.startswith('com.docker.compose.') or k in ['org.opencontainers.image.revision','org.opencontainers.image.source']}})
+ if 'encore' in name:continue
+ p=subprocess.run(['docker','logs','--since','12m','--tail','1600',name],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=20)
+ lines=p.stdout.decode(errors='replace').splitlines()
+ out['logs'][name]=[l[:900] for l in lines if any(w in l.lower() for w in ['not author','denied','target-v1','failed','error']) and not any(w in l.lower() for w in ['password','token','secret','credential','authorization'])][-70:]
+proc=json.loads(subprocess.check_output(['/root/.local/share/pnpm/pm2','jlist']));backend=next(x for x in proc if x['name']=='thingspanel-backend-community')
+for key in ['pm_out_log_path','pm_err_log_path']:
+ p=pathlib.Path(backend['pm2_env'][key]);f=p.open('rb');f.seek(max(0,p.stat().st_size-180000));lines=f.read().decode(errors='replace').splitlines()
+ out['logs'][key]=[l[:900] for l in lines if any(w in l.lower() for w in ['publish','broker','target-v1','a6ad0493','5e574249']) and not any(w in l.lower() for w in ['password','token','secret','credential','authorization'])][-45:]
 print(json.dumps(out))
