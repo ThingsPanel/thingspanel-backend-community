@@ -2,7 +2,7 @@ import pathlib,json,urllib.request,datetime,time
 token=json.loads(pathlib.Path('/opt/tp-community-main-20261028/ha-runtime/ha-demo.credentials.private.json').read_text())['long_lived_token']
 entities=['light.office_rgbw_lights','sensor.qa_q08_compare_20261112']
 out={'started':datetime.datetime.utcnow().isoformat()+'Z','mode':'read-only actual HA states; no provider control','samples':[]}
-deadline=time.monotonic()+65
+deadline=time.monotonic()+1
 while time.monotonic()<deadline:
  row={'at':datetime.datetime.utcnow().isoformat()+'Z','entities':{}}
  for e in entities:
