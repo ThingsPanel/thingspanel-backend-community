@@ -11,23 +11,26 @@ def call(base,path,body=None,auth=None,method=None):
  except Exception as e:return {'error':type(e).__name__}
 base='http://127.0.0.1:9999';ha='http://127.0.0.1:58123'
 
-light=call(ha,'/api/states/light.office_rgbw_lights',auth=ha_token);out['light_after_command']={'status':light.get('http_status'),'state':light.get('result',{}).get('state')}
-out['current']={}
-ids=['bb9e5ff3-d73e-6efe-5dda-ae216fb44179','147d134e-6b82-2aea-e2b4-2424011ed23a','40fd7d06-6f29-6903-9dc0-4e736357c34f'];out['service_scope']=[]
-p=pathlib.Path('/opt/tp-community-main-20261028/active-broker-services.private.json');policies=json.loads(p.read_text());policies=policies if isinstance(policies,list) else policies.get('services',[])
-for item in policies:
- covered=[i for i in ids if i in item.get('allowed_device_ids',[])];out['service_scope'].append({'role':item.get('role'),'plugin_socket':item.get('plugin_socket',False),'target_scoped':item.get('target_scoped_publisher',False),'targets_count':len(item.get('allowed_device_ids',[])),'qa_covered':covered})
-for id in ids:out['current'][id]=call(base,'/api/v1/telemetry/datas/current/'+id)
-import re
-out['plugin_logs']=[]
-for cid in subprocess.check_output(['docker','ps','-q']).decode().split():
- data=json.loads(subprocess.check_output(['docker','inspect',cid]))[0];aliases=sum([(v.get('Aliases') or []) for v in data['NetworkSettings']['Networks'].values()],[])
- if not any(a in aliases for a in ['tp-plugin-homeassistant','tp-plugin-http-adapter']):continue
- p=subprocess.run(['docker','logs','--since','45m','--tail','1200',cid],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=10)
- lines=p.stdout.decode(errors='replace').splitlines();selected=[]
- for line in lines:
-  if any(w in line for w in ['35180','qa_q08_','bb9e5ff3','147d134e','40fd7d06','direct control failed']):
-   if re.search('secret|token|voucher|credential|password',line,re.I):continue
-   selected.append(line[:700])
- out['plugin_logs'].append({'name':data['Name'],'image':data['Config']['Image'],'matches':selected[-30:]})
+# Restore only the previously documented demo lamp state, through the platform.
+import time
+fixture=json.loads((key.parent/'fixture.private.json').read_text())
+prior=fixture.get('light_before')
+# Do not guess fixture shape or change an unexpected device state.
+if isinstance(prior,dict):prior=prior.get('state')
+current=call(ha,'/api/states/light.office_rgbw_lights',auth=ha_token)
+out['original_state']=prior
+out['before_state']=current.get('result',{}).get('state')
+if prior!='on':out['blocked']='original state not verified as on'
+elif out['before_state']=='on':out['restore']='already at original state; no command'
+elif out['before_state']!='off':out['blocked']='unexpected live state; no command'
+else:
+ r=call(base,'/api/v1/command/datas/pub',{'device_id':'40fd7d06-6f29-6903-9dc0-4e736357c34f','identify':'switch','value':'true','idempotency_key':'qa-q08-restore-office-20261112-v1'})
+ data=r.get('result',{}).get('data') or {};mid=data.get('message_id');out['submit']={'http_status':r.get('http_status'),'code':r.get('result',{}).get('code'),'message_id':mid,'status':data.get('status')}
+ if mid:
+  for _ in range(10):
+   time.sleep(1)
+   status=call(base,'/api/v1/command/datas/status/'+mid)
+   d=status.get('result',{}).get('data',{});out['command_status']={k:d.get(k) for k in ['message_id','status','error_message']}
+   actual=call(ha,'/api/states/light.office_rgbw_lights',auth=ha_token);out['after_state']=actual.get('result',{}).get('state')
+   if out['after_state']=='on' and d.get('status')=='device_reported_success':break
 print(json.dumps(out))
