@@ -1,23 +1,33 @@
-import hashlib,json,pathlib,re
-path=pathlib.Path('/etc/nginx/conf.d/community.conf')
-out={'path':str(path),'exists':path.is_file()}
-if path.is_file():
-    raw=path.read_bytes();text=raw.decode('utf-8')
-    out['sha256']=hashlib.sha256(raw).hexdigest()
-    out['server_name_and_root']=[line.strip() for line in text.splitlines() if re.match(r'^\s*(server_name|root)\s',line)]
-    out['location_headers']=[line.strip() for line in text.splitlines() if re.match(r'^\s*location\s',line)]
-    blocks=[]
-    pattern=r'(?m)^\s*location\s+(?:=\s+|\^~\s+)?/(?:index\.html|mp-device/index\.html|SOURCE_COMMIT|assets/)?\s*\{(.*?)^\s*\}'
-    for match in re.finditer(pattern,text,re.S):
-        lines=match.group(0).splitlines()
-        safe=[line.strip() for line in lines if re.match(r'^\s*(location|root|alias|try_files|index|expires|default_type|error_page)\b',line) or re.match(r'^\s*add_header\s+Cache-Control\b',line) or line.strip()=='}']
-        directives=[re.match(r'^\s*([\w-]+)',line).group(1) for line in lines[1:-1] if re.match(r'^\s*([\w-]+)',line) and not line.strip().startswith('#')]
-        blocks.append({'static_lines':safe,'directive_names':directives})
-    out['static_blocks']=blocks
-target=pathlib.Path('/home/thingspanel/nginx/www/dist')
-if target.exists():
-    out['site_path']=str(target.resolve())
-    out['source_commit']=(target/'SOURCE_COMMIT').read_text().strip()
-    out['site_index_sha256']=hashlib.sha256((target/'index.html').read_bytes()).hexdigest()
-    out['profile_sha256']=hashlib.sha256((target/'RELEASE_PROFILE.json').read_bytes()).hexdigest()
-print(json.dumps(out))
+import os,json,pathlib,tarfile,hashlib,subprocess,sys,datetime
+os.umask(0o077)
+commit='5fb4c68e11b4ce3632abad32197a345e3d0f0f89'
+archive=pathlib.Path('/opt/tp-community-actions/incoming/mqtt-publisher-'+commit+'.tar.gz')
+root=pathlib.Path('/opt/tp-community-actions/mqtt-publisher-'+commit+'-stage-'+datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d%H%M%S'))
+allowed={'ThingsPanel-Go','broker-image.tar.gz','RELEASE_PROFILE.json','mqtt_publisher_release.py','manifest.json'}
+result={'operation':'stage-only','commit':commit,'directory':str(root),'live_configuration_changed':False}
+try:
+ assert archive.is_file() and not archive.is_symlink(), 'Candidate archive missing'
+ with tarfile.open(archive,'r:gz') as tf:
+  members=tf.getmembers()
+  assert {m.name for m in members}==allowed and len(members)==len(allowed), 'Unexpected archive entries'
+  assert all(m.isfile() and m.size>0 for m in members) and sum(m.size for m in members)<1024**3,'Unsafe archive entries'
+  tool=tf.extractfile('mqtt_publisher_release.py').read()
+  assert hashlib.sha256(tool).hexdigest()=='70e2e2f16b09d4cc4a07777fc89b5265c41cb832d914e16c5b84fa16eac9199c','Candidate tool mismatch'
+  manifest=json.load(tf.extractfile('manifest.json'))
+  assert manifest['commit']==commit,'Candidate source mismatch'
+  root.mkdir(mode=0o700)
+  for m in members:
+   with (root/m.name).open('xb') as out:out.write(tf.extractfile(m).read())
+  for name,digest in manifest['sha256'].items():
+   assert hashlib.sha256((root/name).read_bytes()).hexdigest()==digest,'Payload hash mismatch'
+ lock=pathlib.Path('/opt/tp-community-actions/deployment.lock');lock.touch(exist_ok=True)
+ p=subprocess.run(['python3',str(root/'mqtt_publisher_release.py'),'stage',str(root)],capture_output=True,text=True,timeout=90)
+ if p.returncode:
+  result['status']='stage-rejected';result['error']=p.stderr.strip().splitlines()[-1] if p.stderr.strip() else 'stage process failed'
+ else:
+  result.update(json.loads(p.stdout));s=json.loads((root/'stage.private.json').read_text())
+  result['snapshot']={k:s[k] for k in ('old_version','next_version','images_before','container_ids','binary_before_sha256','config_sha256','policy_sha256','process_spec_sha256','compose_files')}
+  result['candidate']={k:manifest[k] for k in ('commit','image_id','image_size_bytes','sha256','tool_sha256')}
+except Exception as e:
+ result['status']='stage-rejected';result['error']=type(e).__name__+': '+str(e)
+print(json.dumps(result))
