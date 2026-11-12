@@ -592,7 +592,9 @@ func TestEveryDeclaredStepKindHasARealImplementation(t *testing.T) {
 				t.Fatalf("create rule: %v", err)
 			}
 			if _, err := e.rt.Ingest(e.ctx(), store.IngestEvent{
-				EventID: "ev-a09-kind-" + string(kind), TenantID: e.tenant,
+				// Events are globally deduplicated, so repeated test runs in the
+				// same database need the current fixture identity in the event ID.
+				EventID: "ev-a09-kind-" + string(kind) + "-" + e.tenant, TenantID: e.tenant,
 				DeviceID: e.dev1, Signal: domain.SignalTelemetry, Key: "temperature",
 				Value: 35.0, Unit: "℃", Quality: domain.QualityGood, ObservedAt: e.now,
 			}); err != nil {
