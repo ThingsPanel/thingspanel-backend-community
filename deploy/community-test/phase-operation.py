@@ -1,80 +1,70 @@
 #!/usr/bin/env python3
-"""Read-only managed HTTP upgrade preflight. No container/config/API mutations."""
-import fcntl, hashlib, json, os, pathlib, shutil, subprocess
+"""Stage signed HTTP candidate only: no load, activate, restart, API write, or live config edit."""
+import argparse, fcntl, hashlib, io, json, os, pathlib, shutil, subprocess, tarfile, zipfile
+EXPECTED = {'agent_id': '251ea9ea56ae048c6728f9407056d56b13b8bdf6cfb803e617acc532a46a08df', 'http_id': '407aea5e5f19a7ab99fe23e7b80b76a749860b2a315cab12442b180915a53c73', 'old_image': 'sha256:ae73719fae5eb291f098ccf1dbea5bc23092969b8ef8c8f2175c1fc319926a9f', 'old_catalog_sha': 'a2d85aaeaedd716feb61bfa44af2d219b5b0caf3281c0d9be553589f8237645f', 'old_sig_sha': '8866a0bec0cb8187d77894f784c91092bed08f0c8e343c4fcffefb5b02631cc1', 'catalog_path': '/opt/tp-community-main-20261028/ha-runtime/bundle-public/plugins/plugin-catalog.json', 'trust_path': '/opt/tp-community-main-20261028/ha-runtime/installer/config/native/plugin-trust.pem', 'trust_sha': '2e6b4e5f748a6145ebadf228471da257c578cff498fb0a6ea7b899eed1aeb7f3', 'agent_path': '/opt/tp-community-main-20261028/ha-runtime/bundle-public/bin/tp-agent', 'agent_sha': 'fbae4ca150617ea761ed27ce487be62264a01f14ccbff4b64b189ed2604200ca', 'state_path': '/opt/tp-community-main-20261028/ha-runtime/state/state.json', 'new_image': 'sha256:606ddaad2557e909808aeb1d12c67d947d9923357fcf97633468784459914510', 'new_catalog_sha': '94e7f34e7850d13eee294a72b072910c34044acf3e3943297e48adc61dbb2d0f', 'new_zip_sha': '72fb293bf0d3c8c56ab2d12ae0781e514b451787b494a4e271666adc74dc2498', 'source': '247579be25b7125dd2f9a5c7b4f975e56ccdb695', 'workflow': 'bd639a0c7484ea70bfd3a90a2b5cbb6a7d125229'}
+FILES = {'catalog-linux-amd64.json','catalog-linux-amd64.json.sig','http-image-linux-amd64.tar','ha-image-linux-amd64.tar','tp-agent-linux-amd64','provenance-linux-amd64.json'}
 
-def run(args):
-    p = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=30)
-    if p.returncode:
-        raise RuntimeError("read command failed: " + args[0])
-    return p.stdout
+def digest(path):
+    return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
 
-def sha(path):
-    f = pathlib.Path(path)
-    return hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else None
+def inspect(name):
+    return json.loads(subprocess.check_output(['docker','inspect',name],universal_newlines=True,timeout=30))[0]
 
-def summary_state(value):
-    # State can carry credentials. Only expose known non-secret lifecycle fields.
-    allowed = {"instance", "instance_id", "plugin", "profile", "generation", "state", "status", "expires_at", "lease_expires_at", "active_generation", "accepted_generation"}
-    rows = []
-    def walk(x, path):
-        if isinstance(x, dict):
-            row = {k:v for k,v in x.items() if k in allowed and isinstance(v, (str,int,float,bool,type(None)))}
-            if row: rows.append({"path":path, "lifecycle":row})
-            for k,v in x.items():
-                if isinstance(v,(dict,list)): walk(v,path+"/"+str(k))
-        elif isinstance(x,list):
-            for i,v in enumerate(x): walk(v,path+"/"+str(i))
-    walk(value, "")
-    return rows
+def require(ok, message):
+    if not ok: raise RuntimeError(message)
 
-lock = open('/opt/tp-community-actions/deployment.lock','r')
-fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
-agent = json.loads(run(['docker','inspect','tp-main47-ha-agent']))[0]
-http = json.loads(run(['docker','inspect','tp-agent-prepared-ac01d43ee3f1859518c788843b51690757b1fdc7']))[0]
-mounts = {m['Destination']:m['Source'] for m in agent['Mounts']}
-args = agent['Config'].get('Cmd') or []
-flags = {}
-allowed_flags = {'-state','-socket','-token-file','-catalog','-trust-root','-stack-env','-network','-docker-socket','-sweep-interval'}
-for i,a in enumerate(args[:-1]):
-    if a in allowed_flags: flags[a]=args[i+1]
+def verify_signature(catalog, signature):
+    p=subprocess.run(['openssl','dgst','-sha256','-verify',EXPECTED['trust_path'],'-signature',str(signature),str(catalog)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=15)
+    require(p.returncode==0,'signature verification failed')
 
-def hostpath(containerpath):
-    for target,source in sorted(mounts.items(),key=lambda kv:len(kv[0]),reverse=True):
-        if containerpath==target or containerpath.startswith(target+'/'):
-            return source+containerpath[len(target):]
-    return None
+def baseline():
+    a=inspect('tp-main47-ha-agent');h=inspect('tp-agent-prepared-ac01d43ee3f1859518c788843b51690757b1fdc7')
+    require(a['Id']==EXPECTED['agent_id'] and a['State']['Running'],'Agent baseline changed')
+    require(h['Id']==EXPECTED['http_id'] and h['Image']==EXPECTED['old_image'] and h['State']['Running'],'HTTP baseline changed')
+    for path,key in [(EXPECTED['catalog_path'],'old_catalog_sha'),(EXPECTED['catalog_path']+'.sig','old_sig_sha'),(EXPECTED['trust_path'],'trust_sha'),(EXPECTED['agent_path'],'agent_sha')]:
+        require(digest(path)==EXPECTED[key],'baseline file changed: '+path)
+    state=json.loads(pathlib.Path(EXPECTED['state_path']).read_text())
+    held={(x.get('instance'),x.get('generation')) for x in state.get('requests',{}).values() if x.get('state')=='held'}
+    require(held=={('homeassistant',2),('http-adapter',3)},'active generation changed')
+    return {'agent_id':a['Id'],'http_id':h['Id'],'http_generation':3,'ha_generation':2}
 
-def container_view(c):
-    return {'name':c['Name'],'id':c['Id'],'image_id':c['Image'],'image_ref':c['Config']['Image'],
-            'status':c['State']['Status'],'started_at':c['State'].get('StartedAt'),
-            'restart_count':c['RestartCount'],'network_mode':c['HostConfig']['NetworkMode'],
-            'networks':{k:{'aliases':v.get('Aliases')} for k,v in c['NetworkSettings']['Networks'].items()}}
+def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--bundle',required=True);ap.add_argument('--stage',required=True);args=ap.parse_args()
+    stage=pathlib.Path(args.stage).resolve();root=pathlib.Path('/opt/tp-community-actions/http-expiry-releases')
+    require(stage.parent==root and stage.name=='signed-bd639a0','unexpected stage directory')
+    lock=open('/opt/tp-community-actions/deployment.lock','r');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    before=baseline()
+    require(shutil.disk_usage('/opt').free>256*1024*1024,'insufficient staging disk')
+    require(digest(args.bundle)==EXPECTED['new_zip_sha'],'artifact zip digest mismatch')
+    with zipfile.ZipFile(args.bundle) as archive:
+        require(len(archive.infolist())==len(FILES) and set(archive.namelist())==FILES,'unexpected bundle members')
+        require(sum(i.file_size for i in archive.infolist())<100*1024*1024,'bundle oversized')
+        root.mkdir(mode=0o700,exist_ok=True);stage.mkdir(mode=0o700)
+        for name in sorted(FILES):
+            with open(str(stage/name),'xb') as f: f.write(archive.read(name))
+    cpath=stage/'catalog-linux-amd64.json';sig=stage/'catalog-linux-amd64.json.sig'
+    require(digest(cpath)==EXPECTED['new_catalog_sha'],'candidate catalog digest mismatch')
+    verify_signature(cpath,sig)
+    c=json.loads(cpath.read_text());old=json.loads(pathlib.Path(EXPECTED['catalog_path']).read_text())
+    require(c['version']=='1.2.1' and c['target_platform']=='linux/amd64','candidate version/platform mismatch')
+    require(c['agent_sha256']==old['agent_sha256']==digest(stage/'tp-agent-linux-amd64'),'Agent changed')
+    byid={x['id']:x for x in c['plugins']};oldbyid={x['id']:x for x in old['plugins']}
+    require(set(byid)==set(oldbyid)=={'http-adapter','homeassistant'},'plugin set changed')
+    require(byid['homeassistant']==oldbyid['homeassistant'],'HA entry changed')
+    http=byid['http-adapter'];require(http['source_commit']==EXPECTED['source'] and http['image_id']==EXPECTED['new_image'],'HTTP source/image mismatch')
+    for ident,file in [('http-adapter','http-image-linux-amd64.tar'),('homeassistant','ha-image-linux-amd64.tar')]:
+        require(digest(stage/file)==byid[ident]['image_archive_sha256'],'archive mismatch')
+    with tarfile.open(str(stage/'http-image-linux-amd64.tar')) as tar:
+        m=json.load(tar.extractfile('manifest.json'));require(len(m)==1,'unexpected image count')
+        cfg=tar.extractfile(m[0]['Config']).read();require('sha256:'+hashlib.sha256(cfg).hexdigest()==EXPECTED['new_image'],'image config mismatch')
+    provenance=json.loads((stage/'provenance-linux-amd64.json').read_text())
+    require(provenance['source_commit']==EXPECTED['source'] and provenance['workflow_commit']==EXPECTED['workflow'] and provenance['catalog_sha256']==EXPECTED['new_catalog_sha'],'provenance mismatch')
+    baseline()
+    for src,dst in [(EXPECTED['catalog_path'],'previous-catalog.json'),(EXPECTED['catalog_path']+'.sig','previous-catalog.json.sig')]:
+        with open(str(stage/dst),'xb') as f: f.write(pathlib.Path(src).read_bytes())
+    verify_signature(stage/'previous-catalog.json',stage/'previous-catalog.json.sig')
+    result={'staged':True,'activated':False,'stage':str(stage),'baseline':before,'expected':EXPECTED,'artifact_sha256':digest(args.bundle),'candidate_source':http['source_commit'],'candidate_image':http['image_id'],'signature':'verified','live_config_unchanged':True}
+    with open(str(stage/'stage-result.json'),'x') as f: json.dump(result,f,indent=2)
+    print(json.dumps(result,indent=2))
 
-result={'read_only':True,'agent':container_view(agent),'http':container_view(http),'agent_flags':flags,
-        'agent_mounts':[{k:m[k] for k in ('Source','Destination','RW')} for m in agent['Mounts']],
-        'disk_free_bytes':shutil.disk_usage('/opt').free}
-mem={}
-for line in pathlib.Path('/proc/meminfo').read_text().splitlines():
-    key,val=line.split(':',1)
-    if key in ('MemAvailable','SwapFree'): mem[key]=int(val.strip().split()[0])*1024
-result['memory_bytes']=mem
-catpath=hostpath(flags.get('-catalog',''))
-if not catpath: raise RuntimeError('cannot map catalog')
-cat=json.loads(pathlib.Path(catpath).read_text())
-result['catalog']={'path':catpath,'sha256':sha(catpath),'signature_sha256':sha(catpath+'.sig'),
-                   'version':cat.get('version'),'agent_sha256':cat.get('agent_sha256'),
-                   'plugins':[{k:p.get(k) for k in ('id','version','source_commit','image_id','image_archive_sha256','installer_commit')} for p in cat['plugins']]}
-rootpath=hostpath(flags.get('-trust-root',''))
-result['trust_root']={'path':rootpath,'sha256':sha(rootpath)}
-result['agent_binary']={'path':mounts.get('/tp-agent'),'sha256':sha(mounts.get('/tp-agent',''))}
-statepath=hostpath(flags.get('-state',''))
-result['state']={'path':statepath,'lifecycle':summary_state(json.loads(pathlib.Path(statepath).read_text()))}
-result['existing_tools']=[]
-for base in ['/opt/tp-community-main-20261028/ha-runtime/installer','/opt/tp-community-main-20261028/http-runtime/installer']:
-    for rel in ['tools/agent_host.py','tools/plugin_catalog.py','tools/scope_sync.py','config/native/plugin-trust.pem','config/native/plugin_catalog_trust.pem']:
-        path=base+'/'+rel
-        if pathlib.Path(path).is_file(): result['existing_tools'].append({'path':path,'sha256':sha(path)})
-result['preconditions']={'agent_running':agent['State']['Running'],'http_running':http['State']['Running'],
-                         'catalog_has_http':any(p.get('id')=='http-adapter' for p in cat['plugins']),
-                         'agent_binary_matches_catalog':result['agent_binary']['sha256']==cat.get('agent_sha256')}
-print(json.dumps(result,indent=2))
+if __name__=='__main__':main()
