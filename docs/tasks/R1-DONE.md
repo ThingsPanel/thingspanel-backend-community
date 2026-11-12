@@ -26,3 +26,6 @@ cd encore-api && encore check                      # 见下
 - `/api/system/info` 没有在真实 Encore 运行时下用真实 token 调用过，只有角色判断的单元测试。
 - encore-api / notification-core / mosquitto 的 compose healthcheck 还没补（在安装器仓库的 compose 里，R1 的 Agent 部分一起做）。
 - 与 T1-A1 的冲突：本卡只改了 `internal/api/system.go` 的 `HealthCheck`，没动启动流程。
+
+## `encore check` 结论
+在本机运行超过 120 秒未返回（整个 Encore 应用较大），**没有拿到结果**，因此 `encore:api` 注解是否被 Encore 解析通过**未验证**；只有 `go vet`/`go test ./system/` 通过。需要在能跑完 `encore check` 的环境里补做。
