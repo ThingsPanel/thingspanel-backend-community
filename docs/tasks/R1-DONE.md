@@ -1,7 +1,6 @@
-# R1 交付说明：健康门（**仅后端部分**）（2026-11-12）
+# R1 交付说明：健康门 + system 角色骨架（2026-11-12）
 
-分支 `wp/R1-health-gate`，从后端 `develop`（0b618560）切出。**不叠在其他分支上。**
-状态：**R1 只完成了后端一半**。Agent 的 system 角色（socket/token、`/v1/system/status|verify`、`tp-agentctl system ...`）在安装器仓库，按用户决定“先把安装器分支 `codex/matter-agent-generic-storage` 合入 develop 再做”，**尚未开始**。所以 R1 的完成标准（停库后 `verify` 指出哪个组件失败；plugin token 调 system 被拒）**没有达成，也没有验证**。
+后端分支 `wp/R1-health-gate`（从后端 `develop` 0b618560 切出）+ 安装器分支 `wp/R1-system-role`（从安装器 develop 切出，**develop 已包含用户合入的 `codex/matter-agent-generic-storage`，合并提交 0ef9603**；安装器 worktree：`thingspanel-installer/.claude/worktrees/wp-r1-system-role`，最后提交 82a33d7）。都没有叠在别的未合入分支上。
 
 ## 做了什么
 1. `internal/health`：并行无关、各自超时（2 秒）、不在第一个失败处停下的探针执行器；失败原因是固定代码，**不含错误文本、地址、密码**；探针 panic 视为失败。
@@ -20,7 +19,33 @@ cd encore-api && encore check                      # 见下
 ```
 结果见提交时的运行记录；`encore check` 的结论写在文末。
 
+## 安装器部分（Agent system 角色）
+- `agent/system.go`：固定配置（compose 项目名 + 组件清单，文件不能被组/其他人写，未知字段拒绝）、`Verifier`（逐个组件检查：容器存在、运行、Docker 健康状态，可选固定的 HTTP/TCP 探测；不在第一个失败处停；原因是固定代码，不含错误文本/地址）、`wait_seconds` 轮询。
+- `agent/system_docker.go`：只读 Docker 客户端，只发“按 compose 项目标签列容器”和“inspect”两个 GET。
+- `agent/system_service.go`：独立的 `http.Handler`，**只有** `/v1/system/status`、`/v1/system/verify`；独立 token；请求里不能带命令/镜像/URL（未知字段 400）。
+- `cmd/tp-agent`：新增 `-system-socket/-system-token-file/-system-config`（三个必须一起给；两个 token 必须不同，socket/token 文件不能和 plugin 的相同，否则启动失败）。plugin 角色的代码路径一字未改。
+- `cmd/tp-agentctl`：`system status|verify [wait_seconds=N]`；栈不健康时退出码为 1。
+- `agent/system-config.example.json`、`agent/README.md` 增补。
+
+## 测试
+**单元测试**（Linux 容器 `golang:1.22` 内运行，Agent 包是 `//go:build linux`，Mac 上不能直接测）：新增 9 组用例（全部健康、点名全部故障组件且不泄漏错误文本、health 各状态、Docker 读取失败、等待到健康/预算耗尽、配置校验、配置文件权限、system API 认证与固定路由、plugin 处理器无 system 路由且拒绝 system token、token 必须不同）+ 原有测试全部通过（`go test -count=1 . ./cmd/...`；原有 `*_real_test.go` 仍按原来的开关跳过）。
+
+**真实演练**（隔离栈，容器和网络都加 `r1-` 前缀，已清理；日志：`/Volumes/KIOXIA/archive/evidence/2026-11-12-R1/drill.log`、`drill2.log`）：栈由 `r1-postgres`（timescaledb:14，真实健康检查）、`r1-redis`、`r1-backend`（nc 起的假 HTTP 服务）加一个真实的 `tp-agent` 容器组成。
+- 健康时 `system verify` 退出 0；
+- `docker stop r1-postgres` 后 `verify` 退出 1，并指出 `postgres: failed / not_running`（backend、redis 仍 ok）；再停 backend 则两者都列出；
+- 重新启动后 `verify wait_seconds=60` 在约 2.1 秒内转为 ok；
+- plugin token 打 system socket → 401；system token 打 plugin socket → 401；plugin socket 上的 `/v1/system/status` → 404。
+- 第一次演练里假 backend 因 busybox 缺 `httpd` 起不来（演练环境问题，不是产品问题），换成 nc 后重跑得到上面的结果。
+
 ## 没做 / 未验证
+- 演练栈是**简化栈**（3 个容器），不是真实的 ThingsPanel 整栈；真实栈上的探测 URL 只写在示例配置里，没有实测（特别是 encore-api / notification-core 的 `/__encore/healthz` 端口，以及 Agent 要加入栈网络）。
+- Agent 容器启动 system role 的接线（`tools/agent_host.py` 加参数、生成 system token/config）**留给 R2**（R2 要把 Agent 变成系统服务，一起改）。
+- socket 权限 0600 在 Docker Desktop 挂载卷上显示为 777（文件系统不保留权限），代码里用的是 umask 0177，**权限没有在真实 Linux 上验证**。
+- 没有为 encore-api / notification-core / mosquitto 往 compose 里加 healthcheck：encore 镜像没有 shell，容器内无法做；改用 Agent 侧的 HTTP/TCP 探测。
+- `/health` 的 503 和容器 healthcheck 的联动没有在真实栈验证。
+- 另见下面的后端部分“没做”。
+
+## （后端部分）没做 / 未验证
 - Agent system 角色（见上，被冲突决定阻塞）。
 - 没有在真实栈上停库验证 `/health` 的 503 和容器 healthcheck 的联动。
 - `/api/system/info` 没有在真实 Encore 运行时下用真实 token 调用过，只有角色判断的单元测试。
