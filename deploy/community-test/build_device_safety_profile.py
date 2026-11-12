@@ -15,6 +15,7 @@ PATCHES = (
     'bcdc25e7433e03b204f30ec938fbb1d5ac2c2013',
     '2503e1d8a61b224cb70196f50f8d84dfca30d0aa',
     '547482f6d9d91d186e2e6aba497c1af210737d7f',
+    '107e064ff191b909558746b661215469a30f4577',
 )
 FIXTURE = 'internal/api/telemetry_http_auth_test.go'
 
@@ -31,6 +32,12 @@ def build(repo, target):
     target.mkdir(parents=True)
     with tarfile.open(fileobj=io.BytesIO(git('archive', BASELINE))) as archive:
         archive.extractall(target, filter='data')
+    # sql/28.sql is embedded in the binary and compared with the live ledger.
+    # Its historical blob uses CRLF; the deployed migration is the same SQL in LF.
+    sql28 = target / 'sql/28.sql'
+    sql28.write_bytes(sql28.read_bytes().replace(b'\r\n', b'\n'))
+    if hashlib.sha256(sql28.read_bytes()).hexdigest() != 'e19c6aa7989a398c76dc8494c9441aa32e15ca6d82fe0ec3db219321113f24ff':
+        raise ValueError('Unexpected command guard migration content')
     changed = set()
     for sha in PATCHES:
         paths = git('diff', '--name-only', sha + '^', sha, '--', 'internal', 'pkg').decode().splitlines()
