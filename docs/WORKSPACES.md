@@ -158,3 +158,14 @@
 | `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r4-restore`（安装器） | `wp/R4-restore` | R4 恢复 | 审查合并后当天清理 |
 | `.claude/worktrees/wp-r3-done`（后端，现分支 `wp/R4-done`） | `wp/R4-done` | R3+R4 交付说明 | 审查合并后当天清理 |
 | R3/R4 演练栈（容器 `r3-*`、卷 `r3_*`、网络、镜像 `r3-backend:dev`、`/Volumes/KIOXIA/tmp/r3-work`） | — | **已于 R4 结束时删除**，证据在 `/Volumes/KIOXIA/archive/evidence/2026-11-12-R3` 和 `-R4` | 已清理 |
+
+## R3/R4 清理（2026-11-12）
+R3、R4、R4S 已合并推送到两个仓库的 develop；`wp-r3-done`、`wp-r4s-schema-contract-95ecf9`（后端）和 `wp-r3-backup`、`wp-r4-restore`（安装器）worktree 及对应分支已删除。
+
+## R5a（2026-11-12 登记）
+| 路径/对象 | 分支 | 任务 | 预计清理 |
+|---|---|---|---|
+| `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r5a-txn`（安装器） | `wp/R5a-txn` | R5a 配置事务移植 + Agent 生产接线 | 审查合并后当天清理 |
+| `.claude/worktrees/wp-r5a-done`（后端） | `wp/R5a-done` | R5a 交付说明、镜像脚本补 brokerscope | 审查合并后当天清理 |
+| 镜像 `r5a-encore:dev`（含 brokerscope 的 Encore 镜像） | — | **保留给 R5b**，R5b 结束后删除 | Claude 会话 |
+| 演练栈 `r5a-*`、`/Volumes/KIOXIA/tmp/r5a-work`、`r5a-bin` | — | 已于 R5a 结束时删除，证据在 `/Volumes/KIOXIA/archive/evidence/2026-11-12-R5a` | 已清理 |
