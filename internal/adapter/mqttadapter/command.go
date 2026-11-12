@@ -110,6 +110,9 @@ func (a *Adapter) PublishDurableCommand(ctx context.Context, row brokercommands.
 	if err != nil {
 		return err
 	}
+	if a.targetPublishers != nil {
+		return a.targetPublishers.publish(ctx, row.TargetDeviceID, topic, frame)
+	}
 	// Do not queue a new publish while the service connection is reconnecting.
 	// A disconnect after this check remains ambiguous and is never auto-retried.
 	if !a.mqttClient.IsConnectionOpen() {

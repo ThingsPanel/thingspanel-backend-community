@@ -167,6 +167,11 @@ func (s *MQTTService) initMQTTAdapter(ctx context.Context) error {
 	prepareAdapter := func(client mqtt_client.Client) error {
 		adapter := mqttadapter.NewAdapter(bus, client, s.logger())
 		adapter.SetContext(ctx)
+		if viper.GetBool("mqtt.target_scoped_publisher") {
+			if err := adapter.ConfigureTargetPublisher(ctx, mqttadapter.MQTTConfig{Broker: broker, Username: username, Password: password, ClientID: clientID}); err != nil {
+				return fmt.Errorf("failed to configure target publisher: %w", err)
+			}
+		}
 		if err := adapter.ConfigureIngressFromConfig(); err != nil {
 			return fmt.Errorf("failed to configure MQTT ingress: %w", err)
 		}
@@ -281,6 +286,9 @@ func (s *MQTTService) cleanupPartialStart() {
 	if worker != nil {
 		worker.Stop()
 	}
+	if adapter != nil {
+		adapter.CloseTargetPublisher()
+	}
 	if client != nil {
 		mqttadapter.DisconnectMQTTClient(client, s.logger())
 	}
@@ -337,6 +345,9 @@ func (s *MQTTService) stopGeneration(generation uint64) error {
 	globalMQTTAdapterMu.Unlock()
 	s.mu.Unlock()
 
+	if adapter != nil {
+		adapter.CloseTargetPublisher()
+	}
 	if client != nil {
 		mqttadapter.DisconnectMQTTClient(client, s.logger())
 	}

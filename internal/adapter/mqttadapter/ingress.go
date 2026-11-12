@@ -256,20 +256,20 @@ func (a *Adapter) HandleIngressMessage(topic string, body []byte, retained bool)
 				}
 				failure := errors.New("business message rejected; see platform receipt diagnostics")
 				if kind == "event" || kind == "gateway_event" {
-					a.publishEventResponse(device.DeviceNumber, messageID, a.parseEventMethod(payload), failure)
+					a.publishEventResponse(device.DeviceNumber, messageID, a.parseEventMethod(payload), failure, device.ID)
 				}
 				if kind == "attribute" || kind == "gateway_attribute" {
-					a.publishAttributeResponse(device.DeviceNumber, messageID, failure)
+					a.publishAttributeResponse(device.DeviceNumber, messageID, failure, device.ID)
 				}
 				return nil
 			}
 			return err
 		}
 		if kind == "event" || kind == "gateway_event" {
-			a.publishEventResponse(device.DeviceNumber, messageID, a.parseEventMethod(payload), nil)
+			a.publishEventResponse(device.DeviceNumber, messageID, a.parseEventMethod(payload), nil, device.ID)
 		}
 		if kind == "attribute" || kind == "gateway_attribute" {
-			a.publishAttributeResponse(device.DeviceNumber, messageID, nil)
+			a.publishAttributeResponse(device.DeviceNumber, messageID, nil, device.ID)
 		}
 		return nil
 	}
