@@ -1,6 +1,7 @@
 package mqttadapter
 
 import (
+	"errors"
 	"project/pkg/common"
 	"time"
 
@@ -20,7 +21,7 @@ func (a *Adapter) waitResponseToken(token mqtt.Token) error {
 
 // publishAttributeResponse 发送属性上报 ACK 响应
 // 协议层行为：告诉设备"我收到了你的属性上报"
-func (a *Adapter) publishAttributeResponse(deviceNumber, messageID string, err error) {
+func (a *Adapter) publishAttributeResponse(deviceNumber, messageID string, err error, targetID ...string) {
 	if deviceNumber == "" || messageID == "" {
 		a.logger.Debug("Skip attribute response: empty deviceNumber or messageID")
 		return
@@ -33,8 +34,7 @@ func (a *Adapter) publishAttributeResponse(deviceNumber, messageID string, err e
 	payload := common.GetResponsePayload("", err)
 
 	// 发布消息
-	token := a.mqttClient.Publish(topic, 1, false, payload)
-	if publishErr := a.waitResponseToken(token); publishErr != nil {
+	if publishErr := a.publishResponse(topic, payload, targetID); publishErr != nil {
 		a.logger.WithFields(logrus.Fields{
 			"device_number": deviceNumber,
 			"message_id":    messageID,
@@ -52,7 +52,7 @@ func (a *Adapter) publishAttributeResponse(deviceNumber, messageID string, err e
 
 // publishEventResponse 发送事件上报 ACK 响应
 // 协议层行为：告诉设备"我收到了你的事件上报"
-func (a *Adapter) publishEventResponse(deviceNumber, messageID, method string, err error) {
+func (a *Adapter) publishEventResponse(deviceNumber, messageID, method string, err error, targetID ...string) {
 	if deviceNumber == "" || messageID == "" {
 		a.logger.Debug("Skip event response: empty deviceNumber or messageID")
 		return
@@ -65,8 +65,7 @@ func (a *Adapter) publishEventResponse(deviceNumber, messageID, method string, e
 	payload := common.GetResponsePayload(method, err)
 
 	// 发布消息
-	token := a.mqttClient.Publish(topic, 1, false, payload)
-	if publishErr := a.waitResponseToken(token); publishErr != nil {
+	if publishErr := a.publishResponse(topic, payload, targetID); publishErr != nil {
 		a.logger.WithFields(logrus.Fields{
 			"device_number": deviceNumber,
 			"message_id":    messageID,
@@ -82,4 +81,14 @@ func (a *Adapter) publishEventResponse(deviceNumber, messageID, method string, e
 			"topic":         topic,
 		}).Debug("Event response sent successfully")
 	}
+}
+
+func (a *Adapter) publishResponse(topic string, payload []byte, targetID []string) error {
+	if a.targetPublishers != nil {
+		if len(targetID) != 1 || targetID[0] == "" {
+			return errors.New("response lacks authenticated target identity")
+		}
+		return a.targetPublishers.publish(a.adapterContext(), targetID[0], topic, payload)
+	}
+	return a.waitResponseToken(a.mqttClient.Publish(topic, 1, false, payload))
 }

@@ -473,3 +473,7 @@ func TestHTTPBearerCellScopeBodyLimitAndGenericFailures(t *testing.T) {
 		t.Fatalf("database detail leaked: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func (f *fakeRepository) ReadActiveBinding(ctx context.Context, tenant, device, cell string) (TransportBinding, error) {
+	return f.ResolveActiveBinding(ctx, tenant, device, cell)
+}

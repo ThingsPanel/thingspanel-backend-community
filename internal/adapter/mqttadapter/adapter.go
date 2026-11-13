@@ -33,17 +33,18 @@ type UplinkMessage struct {
 // Adapter MQTT 适配器
 // 负责将 MQTT 消息转换为统一的 DeviceMessage 格式
 type Adapter struct {
-	ctx             context.Context
-	inputProfile    string
-	ingressTrust    bc.TrustedMetadata
-	retainedProfile bc.RetainedProfile
-	ingressAcceptor IngressAcceptor
-	mapperRepo      *brokermapper.Repository
-	mappingMu       sync.RWMutex
-	mappingVersions map[string]string
-	bus             *uplink.Bus
-	mqttClient      mqtt.Client
-	logger          *logrus.Logger
+	ctx              context.Context
+	inputProfile     string
+	ingressTrust     bc.TrustedMetadata
+	retainedProfile  bc.RetainedProfile
+	ingressAcceptor  IngressAcceptor
+	mapperRepo       *brokermapper.Repository
+	mappingMu        sync.RWMutex
+	mappingVersions  map[string]string
+	bus              *uplink.Bus
+	mqttClient       mqtt.Client
+	targetPublishers *targetPublisherPool
+	logger           *logrus.Logger
 }
 
 // publicPayload MQTT 消息格式
@@ -215,7 +216,7 @@ func (a *Adapter) HandleEventMessage(payload []byte, topic string) error {
 	}
 
 	// 8. 立即发送 ACK 响应（协议层行为，不等待业务处理完成）
-	a.publishEventResponse(device.DeviceNumber, messageID, method, busErr)
+	a.publishEventResponse(device.DeviceNumber, messageID, method, busErr, device.ID)
 
 	a.logger.WithFields(logrus.Fields{
 		"device_id":  device.ID,
@@ -303,7 +304,7 @@ func (a *Adapter) HandleAttributeMessage(payload []byte, topic string) error {
 	}
 
 	// 7. 立即发送 ACK 响应（协议层行为，不等待业务处理完成）
-	a.publishAttributeResponse(device.DeviceNumber, messageID, busErr)
+	a.publishAttributeResponse(device.DeviceNumber, messageID, busErr, device.ID)
 
 	a.logger.WithFields(logrus.Fields{
 		"device_id":  device.ID,

@@ -106,9 +106,16 @@ func (a *Adapter) PublishDurableCommand(ctx context.Context, row brokercommands.
 		transportID = scope.TransportID
 		transportEpoch = scope.TransportEpoch
 	}
+	wirePayload, err := httpCommandDeadlinePayload(msg, wirePayload, row.ExpiresAt)
+	if err != nil {
+		return err
+	}
 	frame, err := bc.EncodeCommandFrame(bc.CommandFrame{LegacyTelemetryID: prepared.LegacyTelemetryID, TransportDeviceID: transportID, TransportRouteEpoch: transportEpoch, CommandID: row.ID, TenantID: row.TenantID, TargetDeviceID: row.TargetDeviceID, TargetDeviceNumber: targetNumberProof, RouteEpoch: uint64(row.RouteEpoch), MappingVersion: version, CanonicalTopic: canonicalProof, WireTopic: topic, ExpiresAt: row.ExpiresAt.UnixMilli(), Payload: wirePayload}, time.Now())
 	if err != nil {
 		return err
+	}
+	if a.targetPublishers != nil {
+		return a.targetPublishers.publish(ctx, row.TargetDeviceID, topic, frame)
 	}
 	// Do not queue a new publish while the service connection is reconnecting.
 	// A disconnect after this check remains ambiguous and is never auto-retried.
@@ -117,4 +124,23 @@ func (a *Adapter) PublishDurableCommand(ctx context.Context, row brokercommands.
 	}
 	token := a.mqttClient.Publish(topic, 1, false, frame)
 	return WaitTokenContext(ctx, token, 5*time.Second)
+}
+
+// HTTP can buffer a command beyond MQTT delivery. Preserve the accepted
+// deadline after the broker unwraps its private frame; never derive a new TTL.
+// Other protocols retain their exact existing wire bytes.
+func httpCommandDeadlinePayload(msg *downlink.Message, payload []byte, expires time.Time) ([]byte, error) {
+	if msg.TopicPrefix != "plugin/HTTP/" || msg.Type != downlink.MessageTypeCommand {
+		return payload, nil
+	}
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &object); err != nil || object == nil {
+		return nil, errors.New("HTTP command must encode a JSON object")
+	}
+	deadline, err := json.Marshal(expires.UnixMilli())
+	if err != nil {
+		return nil, err
+	}
+	object["expires_at"] = deadline
+	return json.Marshal(object)
 }

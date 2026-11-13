@@ -140,3 +140,21 @@ func (r *GormRepository) resolveBinding(ctx context.Context, tenantID, deviceID,
 	}
 	return binding, nil
 }
+
+// ReadActiveBinding validates an already admitted target without acquiring its
+// dispatch lock or creating a route. Command dispatch still serializes publish
+// with route changes, and delivery retains epoch/cell/runtime fencing checks.
+func (r *GormRepository) ReadActiveBinding(ctx context.Context, tenantID, deviceID, requestedCell string) (TransportBinding, error) {
+	var binding TransportBinding
+	err := r.quietDB(ctx).Where("tenant_id = ? AND device_id = ?", tenantID, deviceID).Take(&binding).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return TransportBinding{}, ErrBindingConflict
+	}
+	if err != nil {
+		return TransportBinding{}, err
+	}
+	if binding.BrokerCell != requestedCell || binding.Phase != "active" || binding.RouteEpoch == 0 {
+		return TransportBinding{}, ErrBindingConflict
+	}
+	return binding, nil
+}
