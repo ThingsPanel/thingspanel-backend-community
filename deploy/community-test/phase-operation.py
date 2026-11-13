@@ -1,15 +1,50 @@
-import subprocess,json,pathlib,tempfile,sys,os
-listener='"""Finite remote QA receiver. Launched only by reviewed ops wrapper; no secrets logged."""\nimport http.server,socketserver,socket,json,time,datetime,sys,pathlib,threading,urllib.request,urllib.error\nHOST=sys.argv[1];DEST=pathlib.Path(sys.argv[2]);PORT=35180;DEVICE=\'373fb5d9-a73a-e948-dcb5-5ab07aed6dec\'\ndeadline=time.time()+240;lock=threading.Lock();seen={};claimed=set();state={\'qa_switch\':0,\'qa_temperature\':20}\nout={\'started\':datetime.datetime.utcnow().isoformat()+\'Z\',\'requests\':[],\'executions\':[],\'stopped\':False,\'scope\':\'finite QA simulated device, not physical hardware\'}\ndef save():DEST.write_text(json.dumps(out,indent=2),encoding=\'utf8\')\nclass Server(socketserver.ThreadingMixIn,http.server.HTTPServer):daemon_threads=True\nclass Handler(http.server.BaseHTTPRequestHandler):\n def setup(self):\n  http.server.BaseHTTPRequestHandler.setup(self);self.connection.settimeout(3)\n def log_message(self,*args):pass\n def respond(self,code,body):\n  self.send_response(code);self.send_header(\'Content-Type\',\'application/json\');self.end_headers()\n  try:self.wfile.write(json.dumps(body).encode())\n  except (BrokenPipeError,ConnectionResetError):pass\n def do_POST(self):\n  row={\'at\':datetime.datetime.utcnow().isoformat()+\'Z\',\'http_method\':\'POST\',\'path\':self.path[:180],\'executed\':False}\n  with lock:\n   if len(out[\'requests\'])>=32:self.respond(429,{\'ok\':False});return\n   out[\'requests\'].append(row);save()\n  def reject(status,reason):\n   with lock:row.update({\'status\':status,\'reason\':reason});save()\n   self.respond(status,{\'ok\':False,\'reason\':reason})\n  try:n=int(self.headers.get(\'Content-Length\',\'0\'))\n  except (TypeError,ValueError):reject(400,\'invalid length\');return\n  if n<1 or n>16384:reject(413,\'bounded payload required\');return\n  try:b=json.loads(self.rfile.read(n))\n  except Exception:reject(400,\'invalid JSON\');return\n  if not isinstance(b,dict):reject(400,\'object required\');return\n  mid=b.get(\'tp_message_id\');expires=b.get(\'expires_at\')\n  with lock:\n   row.update({k:b.get(k) for k in [\'tp_message_id\',\'tp_device_id\',\'tp_device_number\',\'method\',\'expires_at\']});save()\n  if b.get(\'tp_device_number\')!=DEVICE or b.get(\'tp_device_id\')!=DEVICE or b.get(\'method\') not in (\'qa_set\',\'qa_set_reason\') or not isinstance(mid,str):reject(404,\'outside QA target\');return\n  if self.path not in [\'/api/v1/command\',\'/qa/fail500\',\'/qa/delay\',\'/qa/disconnect\']:reject(404,\'unknown QA route\');return\n  if not isinstance(expires,int) or expires<=int(time.time()*1000):reject(408,\'expired or missing trusted deadline\');return\n  params=b.get(\'params\');value=params.get(\'qa_switch\') if isinstance(params,dict) else None\n  if type(value) is not int or value not in [0,1]:reject(400,\'invalid QA switch\');return\n  if set(params)-{\'qa_switch\',\'reason\'} or (\'reason\' in params and (not isinstance(params[\'reason\'],str) or len(params[\'reason\'])>128)):reject(400,\'invalid QA parameters\');return\n  with lock:row[\'params\']=dict(params);save()\n  if b.get(\'method\')==\'qa_set_reason\' and not isinstance(params.get(\'reason\'),str):reject(400,\'QA reason required\');return\n  if self.path==\'/qa/fail500\':reject(500,\'intentional QA failure before execution\');return\n  if self.path==\'/qa/delay\':time.sleep(12);reject(504,\'intentional QA delay; never executed\');return\n  if self.path==\'/qa/disconnect\':\n   with lock:row.update({\'status\':\'connection_closed_without_response\',\'http_response_sent\':False,\'reason\':\'intentional finite QA disconnect before execution\'});save()\n   self.close_connection=True\n   try:self.connection.shutdown(socket.SHUT_RDWR)\n   except OSError:pass\n   self.connection.close();return\n  token=self.headers.get(\'Access-Token\')\n  if not token:reject(401,\'credential required\');return\n  with lock:\n   if mid in seen:\n    row.update({\'status\':200,\'duplicate\':True});save();self.respond(200,seen[mid]);return\n   if mid in claimed:\n    row.update({\'status\':409,\'duplicate_inflight\':True});save();self.respond(409,{\'ok\':False,\'reason\':\'QA command already in flight\'});return\n   claimed.add(mid)\n  # Authenticate and report only through the actual deployed HTTP ingress. No provider bypass.\n  request=urllib.request.Request(\'http://127.0.0.1:19090/api/v1/uplink\',data=json.dumps({\'device_number\':DEVICE,\'qa_temperature\':20,\'qa_switch\':value}).encode(),headers={\'Content-Type\':\'application/json\',\'Access-Token\':token})\n  try:\n   with urllib.request.urlopen(request,timeout=4) as response:code=response.status;response.read(512)\n  except Exception:reject(502,\'QA state uplink failed\');return\n  if code!=200:reject(502,\'QA state uplink rejected\');return\n  with lock:\n   state[\'qa_switch\']=value;out[\'executions\'].append({\'message_id\':mid,\'state\':value,\'at\':datetime.datetime.utcnow().isoformat()+\'Z\'});reply={\'message_id\':mid,\'ok\':True,\'data\':dict(state)};seen[mid]=reply;row.update({\'status\':200,\'executed\':True});save()\n  self.respond(200,reply)\nsave()\nwith Server((HOST,PORT),Handler) as server:\n server.timeout=1\n while time.time()<deadline:server.handle_request()\nwith lock:out[\'stopped\']=True;out[\'final_state\']=dict(state);save()\n'
-ids=subprocess.check_output(['docker','ps','-q']).decode().split();gateway=None;matches=[]
-for cid in ids:
- item=json.loads(subprocess.check_output(['docker','inspect',cid]))[0]
- for network,data in item['NetworkSettings']['Networks'].items():
-  if 'tp-plugin-http-adapter' in (data.get('Aliases') or []) and data.get('Gateway'):
-   matches.append({'id':item['Id'],'image':item['Image'],'gateway':data['Gateway'],'network':network})
-if len(matches)!=1:raise RuntimeError('Exactly one current HTTP plugin bridge required; no public bind')
-gateway=matches[0]['gateway']
-d=pathlib.Path(tempfile.mkdtemp(prefix='qa-q06-upgrade-direct-'));os.chmod(str(d),0o700)
-p=d/'listener.py';p.write_text(listener);result=d/'result.json';log=(d/'server.log').open('wb')
-python='/usr/bin/python3.11' if pathlib.Path('/usr/bin/python3.11').exists() else sys.executable
-child=subprocess.Popen([python,str(p),gateway,str(result)],stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True,close_fds=True)
-print(json.dumps({'pid':child.pid,'host':gateway,'port':35180,'deadline_seconds':240,'result_path':str(result),'log_path':str(d/'server.log'),'runtime':matches[0]}))
+"""Read only runtime inventory for choosing reviewed exact baseline selectors.
+
+No environment values, container commands, process arguments, logs or credentials.
+No service mutation or daemon restart. Uses the existing deployment lock.
+"""
+import datetime,fcntl,json,pathlib,subprocess
+
+def run(args):
+    r=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                     universal_newlines=True,timeout=15)
+    if r.returncode:raise RuntimeError('read-only inventory command failed')
+    return r.stdout
+
+def main():
+    out={'operation':'Q09-readonly-runtime-names','at':datetime.datetime.utcnow().isoformat()+'Z',
+         'changes':False,'containers':[],'pm2':[]}
+    try:
+        lock=pathlib.Path('/opt/tp-community-actions/deployment.lock').open('r')
+        fcntl.flock(lock,fcntl.LOCK_SH|fcntl.LOCK_NB)
+    except OSError:
+        out['status']='BLOCKED-deployment-lock';print(json.dumps(out));return 2
+    try:
+        ids=run(['docker','ps','-aq','--no-trunc']).splitlines()
+        if len(ids)>150:raise RuntimeError('unexpected inventory size')
+        for start in range(0,len(ids),20):
+            for c in json.loads(run(['docker','inspect']+ids[start:start+20])):
+                labels=c['Config'].get('Labels') or {}
+                out['containers'].append({'id':c['Id'],'name':c['Name'].lstrip('/'),
+                    'image_id':c['Image'],'image_reference':c['Config']['Image'],
+                    'running':c['State']['Running'],'status':c['State']['Status'],
+                    'project':labels.get('com.docker.compose.project'),
+                    'service':labels.get('com.docker.compose.service'),
+                    'working_dir':labels.get('com.docker.compose.project.working_dir'),
+                    'compose_refs':labels.get('com.docker.compose.project.config_files')})
+        # Previously verified PM2 entrypoint; absence is an explicit blocker.
+        pm2='/root/.local/share/pnpm/pm2'
+        for p in json.loads(run([pm2,'jlist'])):
+            env=p.get('pm2_env') or {}
+            out['pm2'].append({'name':p.get('name'),'pm_id':p.get('pm_id'),
+                 'pid':p.get('pid'),'status':env.get('status'),
+                 'binary':env.get('pm_exec_path'),'cwd':env.get('pm_cwd')})
+        out['pm2_command']=pm2;out['status']='READ_ONLY_COMPLETE'
+    except Exception as e:
+        out['status']='INCOMPLETE';out['error_type']=type(e).__name__
+    finally:
+        fcntl.flock(lock,fcntl.LOCK_UN);lock.close();out['lock_released']=True
+    print(json.dumps(out))
+    return 0 if out['status']=='READ_ONLY_COMPLETE' else 1
+
+if __name__=='__main__':raise SystemExit(main())
