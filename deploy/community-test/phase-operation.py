@@ -1,113 +1,15 @@
-"""Prepared only. Read-only baseline under the existing deployment lock.
-
-No env/command arguments, credentials, DB queries, writes, restarts or deployments.
-Run only after root explicitly assigns an ops window. Python 3.6 compatible.
-"""
-import datetime
-import fcntl
-import hashlib
-import json
-import pathlib
-import shutil
-import subprocess
-
-ROOT = pathlib.Path('/opt/tp-community-main-20261028')
-LOCK = pathlib.Path('/opt/tp-community-actions/deployment.lock')
-NAMES = ['tp-community-main-47-encore-api-1',
-         'tp-community-main-47-broker-owner-1',
-         'tp-community-main-47-broker-mosquitto-1']
-
-def run(args):
-    p = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                       universal_newlines=True, timeout=15)
-    if p.returncode:
-        raise RuntimeError('read-only command failed')
-    return p.stdout
-
-def file_record(path):
-    p = pathlib.Path(path)
-    if not p.exists():
-        return {'path': str(p), 'exists': False}
-    if p.is_symlink() or not p.is_file():
-        return {'path': str(p), 'exists': True, 'regular_file': False}
-    h = hashlib.sha256()
-    with p.open('rb') as f:
-        for chunk in iter(lambda: f.read(1048576), b''):
-            h.update(chunk)
-    return {'path': str(p), 'exists': True, 'sha256': h.hexdigest(),
-            'size': p.stat().st_size}
-
-def fingerprint(value):
-    return hashlib.sha256(json.dumps(value, sort_keys=True,
-                                    separators=(',', ':')).encode()).hexdigest()
-
-def main():
-    out = {'operation': 'Q09-readonly-release-baseline', 'changes': False,
-           'at': datetime.datetime.utcnow().isoformat() + 'Z', 'containers': []}
-    try:
-        lock = LOCK.open('r')
-        fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
-    except OSError:
-        out['status'] = 'BLOCKED-existing-deployment-lock-unavailable'
-        print(json.dumps(out)); return 2
-    try:
-        out['lock_inode'] = LOCK.stat().st_ino
-        for name in NAMES:
-            c = json.loads(run(['docker', 'inspect', name]))[0]
-            cfg, state = c['Config'], c['State']
-            labels = cfg.get('Labels') or {}
-            image = json.loads(run(['docker', 'image', 'inspect', c['Image']]))[0]
-            compose = []
-            for ref in labels.get('com.docker.compose.project.config_files', '').split(','):
-                if ref:
-                    # No arbitrary label-driven reads outside the approved deployment.
-                    p = pathlib.Path(ref)
-                    if ROOT not in p.parents or '..' in p.parts:
-                        raise RuntimeError('unexpected compose reference')
-                    compose.append(file_record(p))
-            mounts = [{'type': m['Type'], 'source': m['Source'],
-                       'destination': m['Destination'], 'rw': m['RW']}
-                      for m in c['Mounts']]
-            out['containers'].append({
-                'name': name, 'id': c['Id'], 'image_id': c['Image'],
-                'image_reference': cfg['Image'],
-                'repo_digests': image.get('RepoDigests', []),
-                'source_revision': (image.get('Config', {}).get('Labels') or {}).get('org.opencontainers.image.revision'),
-                'running': state['Running'], 'health': state.get('Health', {}).get('Status'),
-                'restart_count': c['RestartCount'], 'started_at': state['StartedAt'],
-                'compose_project': labels.get('com.docker.compose.project'),
-                'compose_service': labels.get('com.docker.compose.service'),
-                'compose_files': compose, 'mount_references': mounts,
-                # Config may contain secrets: compare full config only by hash.
-                'runtime_contract_sha256': fingerprint({'Env': cfg.get('Env'),
-                    'Cmd': cfg.get('Cmd'), 'Entrypoint': cfg.get('Entrypoint'),
-                    'HostConfig': c['HostConfig'], 'Mounts': mounts}),
-                'mounted_file_hashes': [file_record(m['source']) for m in mounts
-                                       if m['type'] == 'bind' and pathlib.Path(m['source']).is_file()]})
-        pm = json.loads(run(['pm2', 'jlist']))
-        gin = [p for p in pm if p.get('name') == 'thingspanel-backend-community']
-        if len(gin) != 1:
-            raise RuntimeError('Gin process identity not unique')
-        proc = gin[0]; env = proc['pm2_env']
-        out['gin_preserve'] = {'pid': proc['pid'], 'status': env.get('status'),
-                              'restarts': env.get('restart_time'),
-                              'binary': file_record(env['pm_exec_path'])}
-        out['compose_expected'] = file_record(ROOT / 'compose.encore.private.json')
-        out['controllers_preserve'] = [file_record(ROOT / p) for p in
-            ['http-runtime/scope.py', 'ha-runtime/scope.py',
-             'http-runtime/broker_scope_roles.py', 'ha-runtime/broker_scope_roles.py']]
-        mem = dict(line.split(':', 1) for line in pathlib.Path('/proc/meminfo').read_text().splitlines())
-        disk = shutil.disk_usage(str(ROOT))
-        out['capacity'] = {'mem_available_kib': int(mem['MemAvailable'].split()[0]),
-                           'disk_free_bytes': disk.free}
-        out['systemd_jobs'] = run(['systemctl', 'list-jobs', '--no-legend', '--no-pager']).splitlines()
-        out['status'] = 'READ_ONLY_COMPLETE-not-deployment-authorization'
-    except Exception as e:
-        out['status'] = 'INCOMPLETE'; out['error_type'] = type(e).__name__
-    finally:
-        fcntl.flock(lock, fcntl.LOCK_UN); lock.close(); out['lock_released'] = True
-    print(json.dumps(out))
-    return 0 if out['status'].startswith('READ_ONLY_COMPLETE') else 1
-
-if __name__ == '__main__':
-    raise SystemExit(main())
+import subprocess,json,pathlib,tempfile,sys,os
+listener='"""Finite remote QA receiver. Launched only by reviewed ops wrapper; no secrets logged."""\nimport http.server,socketserver,socket,json,time,datetime,sys,pathlib,threading,urllib.request,urllib.error\nHOST=sys.argv[1];DEST=pathlib.Path(sys.argv[2]);PORT=35180;DEVICE=\'373fb5d9-a73a-e948-dcb5-5ab07aed6dec\'\ndeadline=time.time()+240;lock=threading.Lock();seen={};claimed=set();state={\'qa_switch\':0,\'qa_temperature\':20}\nout={\'started\':datetime.datetime.utcnow().isoformat()+\'Z\',\'requests\':[],\'executions\':[],\'stopped\':False,\'scope\':\'finite QA simulated device, not physical hardware\'}\ndef save():DEST.write_text(json.dumps(out,indent=2),encoding=\'utf8\')\nclass Server(socketserver.ThreadingMixIn,http.server.HTTPServer):daemon_threads=True\nclass Handler(http.server.BaseHTTPRequestHandler):\n def setup(self):\n  http.server.BaseHTTPRequestHandler.setup(self);self.connection.settimeout(3)\n def log_message(self,*args):pass\n def respond(self,code,body):\n  self.send_response(code);self.send_header(\'Content-Type\',\'application/json\');self.end_headers()\n  try:self.wfile.write(json.dumps(body).encode())\n  except (BrokenPipeError,ConnectionResetError):pass\n def do_POST(self):\n  row={\'at\':datetime.datetime.utcnow().isoformat()+\'Z\',\'http_method\':\'POST\',\'path\':self.path[:180],\'executed\':False}\n  with lock:\n   if len(out[\'requests\'])>=32:self.respond(429,{\'ok\':False});return\n   out[\'requests\'].append(row);save()\n  def reject(status,reason):\n   with lock:row.update({\'status\':status,\'reason\':reason});save()\n   self.respond(status,{\'ok\':False,\'reason\':reason})\n  try:n=int(self.headers.get(\'Content-Length\',\'0\'))\n  except (TypeError,ValueError):reject(400,\'invalid length\');return\n  if n<1 or n>16384:reject(413,\'bounded payload required\');return\n  try:b=json.loads(self.rfile.read(n))\n  except Exception:reject(400,\'invalid JSON\');return\n  if not isinstance(b,dict):reject(400,\'object required\');return\n  mid=b.get(\'tp_message_id\');expires=b.get(\'expires_at\')\n  with lock:\n   row.update({k:b.get(k) for k in [\'tp_message_id\',\'tp_device_id\',\'tp_device_number\',\'method\',\'expires_at\']});save()\n  if b.get(\'tp_device_number\')!=DEVICE or b.get(\'tp_device_id\')!=DEVICE or b.get(\'method\') not in (\'qa_set\',\'qa_set_reason\') or not isinstance(mid,str):reject(404,\'outside QA target\');return\n  if self.path not in [\'/api/v1/command\',\'/qa/fail500\',\'/qa/delay\',\'/qa/disconnect\']:reject(404,\'unknown QA route\');return\n  if not isinstance(expires,int) or expires<=int(time.time()*1000):reject(408,\'expired or missing trusted deadline\');return\n  params=b.get(\'params\');value=params.get(\'qa_switch\') if isinstance(params,dict) else None\n  if type(value) is not int or value not in [0,1]:reject(400,\'invalid QA switch\');return\n  if set(params)-{\'qa_switch\',\'reason\'} or (\'reason\' in params and (not isinstance(params[\'reason\'],str) or len(params[\'reason\'])>128)):reject(400,\'invalid QA parameters\');return\n  with lock:row[\'params\']=dict(params);save()\n  if b.get(\'method\')==\'qa_set_reason\' and not isinstance(params.get(\'reason\'),str):reject(400,\'QA reason required\');return\n  if self.path==\'/qa/fail500\':reject(500,\'intentional QA failure before execution\');return\n  if self.path==\'/qa/delay\':time.sleep(12);reject(504,\'intentional QA delay; never executed\');return\n  if self.path==\'/qa/disconnect\':\n   with lock:row.update({\'status\':\'connection_closed_without_response\',\'http_response_sent\':False,\'reason\':\'intentional finite QA disconnect before execution\'});save()\n   self.close_connection=True\n   try:self.connection.shutdown(socket.SHUT_RDWR)\n   except OSError:pass\n   self.connection.close();return\n  token=self.headers.get(\'Access-Token\')\n  if not token:reject(401,\'credential required\');return\n  with lock:\n   if mid in seen:\n    row.update({\'status\':200,\'duplicate\':True});save();self.respond(200,seen[mid]);return\n   if mid in claimed:\n    row.update({\'status\':409,\'duplicate_inflight\':True});save();self.respond(409,{\'ok\':False,\'reason\':\'QA command already in flight\'});return\n   claimed.add(mid)\n  # Authenticate and report only through the actual deployed HTTP ingress. No provider bypass.\n  request=urllib.request.Request(\'http://127.0.0.1:19090/api/v1/uplink\',data=json.dumps({\'device_number\':DEVICE,\'qa_temperature\':20,\'qa_switch\':value}).encode(),headers={\'Content-Type\':\'application/json\',\'Access-Token\':token})\n  try:\n   with urllib.request.urlopen(request,timeout=4) as response:code=response.status;response.read(512)\n  except Exception:reject(502,\'QA state uplink failed\');return\n  if code!=200:reject(502,\'QA state uplink rejected\');return\n  with lock:\n   state[\'qa_switch\']=value;out[\'executions\'].append({\'message_id\':mid,\'state\':value,\'at\':datetime.datetime.utcnow().isoformat()+\'Z\'});reply={\'message_id\':mid,\'ok\':True,\'data\':dict(state)};seen[mid]=reply;row.update({\'status\':200,\'executed\':True});save()\n  self.respond(200,reply)\nsave()\nwith Server((HOST,PORT),Handler) as server:\n server.timeout=1\n while time.time()<deadline:server.handle_request()\nwith lock:out[\'stopped\']=True;out[\'final_state\']=dict(state);save()\n'
+ids=subprocess.check_output(['docker','ps','-q']).decode().split();gateway=None;matches=[]
+for cid in ids:
+ item=json.loads(subprocess.check_output(['docker','inspect',cid]))[0]
+ for network,data in item['NetworkSettings']['Networks'].items():
+  if 'tp-plugin-http-adapter' in (data.get('Aliases') or []) and data.get('Gateway'):
+   matches.append({'id':item['Id'],'image':item['Image'],'gateway':data['Gateway'],'network':network})
+if len(matches)!=1:raise RuntimeError('Exactly one current HTTP plugin bridge required; no public bind')
+gateway=matches[0]['gateway']
+d=pathlib.Path(tempfile.mkdtemp(prefix='qa-q06-upgrade-direct-'));os.chmod(str(d),0o700)
+p=d/'listener.py';p.write_text(listener);result=d/'result.json';log=(d/'server.log').open('wb')
+python='/usr/bin/python3.11' if pathlib.Path('/usr/bin/python3.11').exists() else sys.executable
+child=subprocess.Popen([python,str(p),gateway,str(result)],stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True,close_fds=True)
+print(json.dumps({'pid':child.pid,'host':gateway,'port':35180,'deadline_seconds':240,'result_path':str(result),'log_path':str(d/'server.log'),'runtime':matches[0]}))
