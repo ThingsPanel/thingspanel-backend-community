@@ -1,4 +1,4 @@
-name: Approved phase operation
+name: Stage reviewed Gin candidate without activation
 on:
   workflow_dispatch:
     inputs:
@@ -7,6 +7,7 @@ on:
         type: string
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: community-phase-acceptance
   cancel-in-progress: false
@@ -15,20 +16,49 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Require the reviewed operation revision
-        env:
-          EXPECTED_HEAD: ${{ inputs.expected_head }}
-          ACTUAL_HEAD: ${{ github.sha }}
-        run: test "$EXPECTED_HEAD" = "$ACTUAL_HEAD"
       - uses: actions/checkout@v4
-      - name: Run approved phase operation
+      - name: Verify exact operation revision
+        env:
+          EXPECTED: ${{ inputs.expected_head }}
+        run: test "$EXPECTED" = "$GITHUB_SHA"
+      - name: Download immutable candidate and verify CI digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,urllib.request,urllib.error
+          base='https://api.github.com/repos/ThingsPanel/thingspanel-backend-community/'
+          headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'}
+          def api(path):
+              with urllib.request.urlopen(urllib.request.Request(base+path,headers=headers),timeout=30) as r:return json.load(r)
+          run=api('actions/runs/43365065896')
+          if run['conclusion']!='success' or run['head_sha']!='efb3f95f45310206fa484efb59402eb4bf7aa62f':raise RuntimeError('CI-run-identity-mismatch')
+          meta=api('actions/artifacts/14009863711')
+          if meta['id']!=14009863711 or meta['workflow_run']['id']!=43365065896 or meta['digest']!='sha256:02886937a00bb00c0402217e7b77952c3630330b7c06a844b11bc93bbc1c008f' or meta.get('expired'):raise RuntimeError('CI-artifact-identity-mismatch')
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self,*args,**kwargs):return None
+          try:urllib.request.build_opener(NoRedirect).open(urllib.request.Request(base+'actions/artifacts/14009863711/zip',headers=headers),timeout=30)
+          except urllib.error.HTTPError as e:
+              if e.code!=302:raise RuntimeError('artifact redirect unavailable') from None
+              url=e.headers['Location']
+          else:raise RuntimeError('artifact redirect missing')
+          try:
+              with urllib.request.urlopen(url,timeout=120) as r:data=r.read(100*1024*1024+1)
+          except Exception:raise RuntimeError('artifact download failed') from None
+          if len(data)>100*1024*1024 or hashlib.sha256(data).hexdigest()!='02886937a00bb00c0402217e7b77952c3630330b7c06a844b11bc93bbc1c008f':raise RuntimeError('CI-artifact-size-or-digest-mismatch')
+          pathlib.Path(os.environ['RUNNER_TEMP'],'q09-directory-candidate.zip').write_bytes(data)
+          PY
+      - name: Stage exact candidate without activation
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/phase-key"
-          ssh -i "$RUNNER_TEMP/phase-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'python3 -' < deploy/community-test/phase-operation.py > phase-result.json
+          ssh_args=(-i "$RUNNER_TEMP/phase-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          ssh "${ssh_args[@]}" root@47.92.253.145 'for p in /opt/tp-community-actions/q09-gin-directory-efb-ci43365065896.zip /opt/tp-community-actions/q09-gin-directory-efb-ci43365065896-bundle /opt/tp-community-actions/q09-gin-directory-efb-ci43365065896; do test ! -e "$p" && test ! -L "$p" || exit 1; done'
+          scp "${ssh_args[@]}" "$RUNNER_TEMP/q09-directory-candidate.zip" root@47.92.253.145:/opt/tp-community-actions/q09-gin-directory-efb-ci43365065896.zip
+          ssh "${ssh_args[@]}" root@47.92.253.145 '/usr/bin/python3.11 -' < deploy/community-test/phase-operation.py > phase-result.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
