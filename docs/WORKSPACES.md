@@ -185,3 +185,6 @@ R3、R4、R4S 已合并推送到两个仓库的 develop；`wp-r3-done`、`wp-r4s
 | 镜像 `r6-encore:dev`、`r6-frontend:dev` | — | 保留给 R7 整栈演练，R7 结束后删除 | Claude 会话 |
 | 演练栈 `r6-*`、`r6-backend:*`、`docker:27-cli`、`r5a-encore:dev`、`/Volumes/KIOXIA/tmp/r6-work` | — | 已于 R6 结束时删除，证据在 `/Volumes/KIOXIA/archive/evidence/2026-11-13-R6` | 已清理 |
 
+## R5b、R6 合并推送（2026-11-13）
+R5b、R6 已合并推送：安装器 develop `f7e9212`、后端 develop `53a7032f`、前端 develop `d7dbeae3`。后端 `wp-r5b-done`、`wp-r6-system-api`，安装器 `wp-r5b-upgrade`、`wp-r6-agent`，前端 `wp-r6-frontend` 的 worktree 与分支已删除（上面 R5b、R6 两节里这些行的“待清理”以此为准）。镜像 `r6-encore:dev`、`r6-frontend:dev` 保留给 R7。
+
