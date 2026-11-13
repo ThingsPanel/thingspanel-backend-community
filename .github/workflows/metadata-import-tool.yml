@@ -51,15 +51,16 @@ jobs:
           path: import-tool/
           retention-days: 7
       - name: Stage verified tool without changing services or data
+        timeout-minutes: 5
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/import-key"
-          args=(-i "$RUNNER_TEMP/import-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          args=(-i "$RUNNER_TEMP/import-key" -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
           ssh "${args[@]}" root@47.92.253.145 "install -d -m 700 /opt/tp-community-actions/migration-tools/$GITHUB_SHA"
-          scp "${args[@]}" import-tool/metadata-import-tenant import-tool/manifest.json "root@47.92.253.145:/opt/tp-community-actions/migration-tools/$GITHUB_SHA/"
+          scp -C "${args[@]}" import-tool/metadata-import-tenant import-tool/manifest.json "root@47.92.253.145:/opt/tp-community-actions/migration-tools/$GITHUB_SHA/"
       - name: Remove runner key
         if: always()
         run: rm -f "$RUNNER_TEMP/import-key"
