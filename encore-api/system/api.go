@@ -177,14 +177,14 @@ func Restart(ctx context.Context, req *RestartRequest) (*OperationResponse, erro
 
 // UpdateItem is one entry of the update list.
 type UpdateItem struct {
-	Kind         string    `json:"kind"` // "platform" | "agent"
-	Name         string    `json:"name"`
-	Current      string    `json:"current"`
-	Latest       string    `json:"latest,omitempty"`
-	UpdateAvail  bool      `json:"update_available"`
-	CanUpgrade   bool      `json:"can_upgrade"`            // the UI offers [Upgrade] only for the platform
-	Instructions string    `json:"instructions,omitempty"` // for items the UI cannot upgrade itself
-	ValidUntil   time.Time `json:"valid_until,omitempty"`
+	Kind         string     `json:"kind"` // "platform" | "agent"
+	Name         string     `json:"name"`
+	Current      string     `json:"current"`
+	Latest       string     `json:"latest,omitempty"`
+	UpdateAvail  bool       `json:"update_available"`
+	CanUpgrade   bool       `json:"can_upgrade"`            // the UI offers [Upgrade] only for the platform
+	Instructions string     `json:"instructions,omitempty"` // for items the UI cannot upgrade itself
+	ValidUntil   *time.Time `json:"valid_until,omitempty"`  // the release manifest's expiry, platform item only
 }
 
 // UpdatesResponse is the result of "check for updates". Plugins join this list in R7.
@@ -203,7 +203,7 @@ func updates(ctx context.Context, c *systemagent.Client) (*UpdatesResponse, erro
 	switch {
 	case err == nil && r.Updates != nil:
 		out.Items = append(out.Items, UpdateItem{Kind: "platform", Name: "ThingsPanel", Current: r.Updates.Current, Latest: r.Updates.Latest,
-			UpdateAvail: r.Updates.Newer, CanUpgrade: r.Updates.Newer, ValidUntil: r.Updates.ValidTo})
+			UpdateAvail: r.Updates.Newer, CanUpgrade: r.Updates.Newer, ValidUntil: &r.Updates.ValidTo})
 	case err != nil:
 		var ae *systemagent.Error
 		if errors.As(err, &ae) {

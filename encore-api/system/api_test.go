@@ -138,7 +138,7 @@ func TestUpdatesListsPlatformAndAgentAndKeepsWorkingWhenTheCheckFails(t *testing
 		"updates": {"ok": true, "updates": map[string]any{"current": "v1.3.0", "latest": "v1.4.0", "newer": true, "valid_until": "2027-01-01T00:00:00Z"}},
 	})
 	got, err := updates(context.Background(), c)
-	if err != nil || len(got.Items) != 2 || !got.Items[0].CanUpgrade || got.Items[0].Latest != "v1.4.0" || got.Items[1].Kind != "agent" || got.Items[1].CanUpgrade || got.Items[1].Instructions == "" {
+	if err != nil || len(got.Items) != 2 || !got.Items[0].CanUpgrade || got.Items[0].Latest != "v1.4.0" || got.Items[1].Kind != "agent" || got.Items[1].CanUpgrade || got.Items[1].Instructions == "" || got.Items[0].ValidUntil == nil || got.Items[1].ValidUntil != nil {
 		t.Fatalf("%+v %v", got, err)
 	}
 	failing, _ := fakeAgent(t, map[string]map[string]any{
