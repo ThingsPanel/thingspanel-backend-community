@@ -203,7 +203,7 @@ func (s *Service) previewScope(ctx context.Context, tenantID, ruleID string,
 			out.TemplateIDs = append(out.TemplateIDs, def.Targets.DeviceConfigIDs...)
 			devices, derr := dir.ByDeviceConfig(ctx, tenantID, def.Targets.DeviceConfigIDs)
 			if derr != nil {
-				return out, nil // a directory hiccup must not block an editor
+				return ScopePreview{}, internal(derr)
 			}
 			for _, d := range devices {
 				add(d.ID)
@@ -233,7 +233,7 @@ func (s *Service) previewScope(ctx context.Context, tenantID, ruleID string,
 			}
 			devices, derr := dir.ByDeviceConfig(ctx, tenantID, []string{b.DeviceConfigID})
 			if derr != nil {
-				continue
+				return ScopePreview{}, internal(derr)
 			}
 			for _, d := range devices {
 				add(d.ID)
