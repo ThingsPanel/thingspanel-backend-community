@@ -51,7 +51,7 @@ func TestNativeRuntimeRegistrationRequiresOwnerConfirmation(t *testing.T) {
 	t.Setenv("TP_COMMUNITY_BASE_URL", server.URL)
 	t.Setenv("TP_AUTOMATION_SERVICE_TOKEN", strings.Repeat("x", 32))
 	t.Setenv("TP_SOURCE_DEPLOYMENT_ID", "dep")
-	item := runtimeOutboxItem{TenantID: tenant, DeviceID: id}
+	item := runtimeOutboxItem{EventID: uuid.NewString(), TenantID: tenant, DeviceID: id}
 	change := credentialChangeDesired{Change: "activation", CredentialID: uuid.NewString()}
 	if err := registerNativeMQTTRuntime(ctx, item, change, `{"username":"secret"}`); err == nil {
 		t.Fatal("unconfirmed owner response succeeded")

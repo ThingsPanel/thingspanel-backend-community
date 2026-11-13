@@ -185,7 +185,7 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 		if plan.FailureCode != "" {
 			return runtimeApplyOutcome{FailureCode: plan.FailureCode, Retryable: plan.Retryable}
 		}
-		if change.Change == "activation" && isOwnedNativeRuntime(ctx, item.TenantID, item.DeviceID) {
+		if isOwnedNativeRuntime(ctx, item.TenantID, item.DeviceID) {
 			if err := registerNativeMQTTRuntime(ctx, item, change, plan.Voucher); err != nil {
 				return runtimeApplyOutcome{FailureCode: "RUNTIME_REGISTRATION_UNCONFIRMED", Retryable: true}
 			}

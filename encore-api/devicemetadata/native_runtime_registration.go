@@ -34,7 +34,7 @@ func registerNativeMQTTRuntime(ctx context.Context, item runtimeOutboxItem, chan
 	if err != nil {
 		return err
 	}
-	if administrativeState != "enabled" {
+	if administrativeState != "enabled" && change.Change != "revocation" {
 		return fmt.Errorf("disabled native device cannot register runtime access")
 	}
 	if kind != "standalone" || accessProtocol(configuration, direct) != "mqtt" {
@@ -64,7 +64,7 @@ func registerNativeMQTTRuntime(ctx context.Context, item runtimeOutboxItem, chan
 			return fmt.Errorf("runtime identity already assigned")
 		}
 	}
-	payload, _ := json.Marshal(map[string]string{"deviceId": item.DeviceID, "credentialId": change.CredentialID, "deviceNumber": number, "name": name, "voucher": voucher})
+	payload, _ := json.Marshal(map[string]string{"eventId": item.EventID, "change": change.Change, "replacementCredentialId": change.ReplacementCredentialID, "deviceId": item.DeviceID, "credentialId": change.CredentialID, "deviceNumber": number, "name": name, "voucher": voucher})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint+"/internal/automation/runtime-devices/register", bytes.NewReader(payload))
 	if err != nil {
 		return err

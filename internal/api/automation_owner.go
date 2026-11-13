@@ -8,6 +8,7 @@ import (
 	"project/internal/automationbridge"
 	"project/internal/brokercommands"
 	"project/internal/service"
+	"project/pkg/global"
 	"strconv"
 )
 
@@ -44,6 +45,10 @@ func RegisterAutomationOwnerRoutes(router *gin.Engine, db *gorm.DB) {
 				status = 409
 			}
 			c.JSON(status, gin.H{"code": status, "message": "runtime registration not confirmed"})
+			return
+		}
+		if service.ClearNativeRuntimeDeviceCache(c.Request.Context(), global.REDIS, body.DeviceID) != nil {
+			c.JSON(503, gin.H{"code": 503, "message": "runtime cache invalidation not confirmed"})
 			return
 		}
 		c.JSON(200, gin.H{"code": 200, "data": gin.H{"deviceId": body.DeviceID}})
