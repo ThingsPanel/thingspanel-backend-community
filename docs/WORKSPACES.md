@@ -132,3 +132,6 @@
 ### 2026-11-11 新设备目标调整
 
 用户随后明确不再处理废弃旧设备，要求保证最新代码与新设备完整链路正常。旧转换工作停止，历史数据和备份保留。后端同一 worktree 改用 `wp/new-device-readiness-20261111`，基于 main 独立修复新设备问题，不携带未合并的旧凭据迁移候选。任务报告和外置证据目录不变；新设备完整链路尚未通过。
+
+### 2026-11-13 Q09 scope and hold regression
+- F:/coding/thingspanel-backend-community/.claude/worktrees/q09-scope-hold; wp/q09-scope-hold-20261113; qa_connectors; root assigned Q09 scope/hold PG reproduction. Baseline 9d42e119 = ece5 + exact ce9097 five files + 47405bfd four owner files, matching deployed Encore composition. No deployments. Evidence outside repo in F:/coding/artifacts/20261111-coordinated-rollout. Retain until acceptance; removal requires confirmation.

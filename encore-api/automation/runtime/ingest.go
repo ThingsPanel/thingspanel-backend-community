@@ -104,6 +104,16 @@ func (r *Runtime) evaluateForDevice(ctx context.Context, e *store.IngestEvent, s
 	// still costs a single query.
 	bound := r.bindingsFor(ctx, e.TenantID, e.DeviceID)
 	for _, rule := range rules {
+		if bound[rule.ID] == nil {
+			allowed, scopeErr := r.unboundSourceAllowed(ctx, rule, e.DeviceID, string(e.Signal), e.Key)
+			if scopeErr != nil {
+				r.recordEvaluationError(ctx, rule, e, scopeErr)
+				continue
+			}
+			if !allowed {
+				continue
+			}
+		}
 		// The rule body is shared; the values are this device's. Materializing
 		// here — and only here — is what makes "edit the rule once, 500 devices
 		// follow, one device overrides" true without 500 copies of the body.

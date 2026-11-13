@@ -192,14 +192,12 @@ func TestADetachedBindingStopsFutureTriggersButKeepsItsRecord(t *testing.T) {
 	}
 	e.rt.InvalidateBindings(e.tenant, "")
 
-	// The condition still matches (self/temperature), so the rule is still a
-	// candidate. Without a binding it falls back to the default value, which is
-	// the honest behaviour: detaching an override returns the device to the
-	// shared rule, it does not delete the rule.
+	// The retained detached row distinguishes revoked membership from a rule
+	// that was never bound. Matching self/temperature must not reopen its scope.
 	e.ingest("ev-a19-7", e.dev1, "temperature", 40.0, "")
 	after := len(e.runs(rule.ID))
-	if after != before+1 {
-		t.Fatalf("detaching the template binding must not delete the rule itself (runs %d -> %d)", before, after)
+	if after != before {
+		t.Fatalf("detaching membership must stop new runs while retaining history (runs %d -> %d)", before, after)
 	}
 
 	rows, err := e.st.ListBindingsForRule(e.ctx(), e.tenant, rule.ID)

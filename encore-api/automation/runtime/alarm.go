@@ -122,6 +122,26 @@ func (r *Runtime) submitDetectorVerdict(ctx context.Context, rule *store.Rule, s
 	if !rule.Definition.Alarm.Allows(domain.AlarmSourceDetector) {
 		return Decision{Outcome: OutcomeRejected, ReasonCode: ReasonNotDetector}, nil
 	}
+	scope := ScopeKey(&rule.Definition, rule.ID, subjectID)
+	if res.Verdict == domain.VerdictFalse {
+		// A normal sample interrupts the unqualified trigger window even when
+		// there is no active episode yet. It must earn a fresh full duration.
+		if err := r.store.ClearPending(ctx, scope); err != nil {
+			return Decision{}, err
+		}
+	}
+	if res.Verdict == domain.VerdictTrue {
+		if err := r.store.ClearPending(ctx, scope+":recovery"); err != nil {
+			return Decision{}, err
+		}
+	} else if rule.Definition.Recovery != nil {
+		recovery := domain.Evaluate(*rule.Definition.Recovery, r.evalContext(ctx, &rule.Definition, subjectID, nil, now))
+		if recovery.Verdict == domain.VerdictFalse {
+			if err := r.store.ClearPending(ctx, scope+":recovery"); err != nil {
+				return Decision{}, err
+			}
+		}
+	}
 	// A configured "for" means the condition must hold for a while before the
 	// alarm opens. The alarm owner does not grow a second waiting mechanism for
 	// that: it opens the same pending window the automation path uses, and the
@@ -689,6 +709,15 @@ func (r *Runtime) startRecoveryPending(ctx context.Context, rule *store.Rule, de
 		Deadline:       now.Add(rule.Definition.Recovery.For.Std()),
 		LastEvidenceAt: now, EvidenceSeq: seq, RequireProcessedBefore: now,
 		CausalRoot: c.Root, CausalHop: c.Hop,
+		BindingParams: rule.BindingParams, BindingSource: rule.BindingSource,
+	}
+	existing, err := r.store.GetPending(ctx, p.ScopeKey)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return err
+	}
+	if existing != nil {
+		// Repeated normal readings refresh evidence, not the duration earned.
+		p.StartedAt, p.Deadline = existing.StartedAt, existing.Deadline
 	}
 	return r.store.UpsertPending(ctx, p)
 }

@@ -138,6 +138,14 @@ func (r *Runtime) Tick(ctx context.Context) (TickResult, error) {
 	return out, nil
 }
 func (r *Runtime) firePending(ctx context.Context, p *store.Pending, now time.Time) string {
+	allowed, scopeErr := r.pendingScopeActive(ctx, p)
+	if scopeErr != nil {
+		return "deferred" // Directory/store failures must not widen membership.
+	}
+	if !allowed {
+		_ = r.store.ClearPending(ctx, p.ScopeKey)
+		return "dropped"
+	}
 	// Input-progress barrier (V31). A deadline must not be decided while a
 	// sample received before the deadline is still unprocessed: otherwise a
 	// 4:59 "normal" reading could be overtaken by the 5:00 timer.

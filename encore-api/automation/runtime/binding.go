@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"time"
 
@@ -45,9 +46,9 @@ type templateFlagEntry struct {
 // bindingCache holds the two lookups above. It is guarded because the worker
 // and the HTTP handlers share one runtime.
 type bindingCache struct {
-	mu       sync.RWMutex
-	devices  map[string]deviceConfigEntry
-	tenants  map[string]templateFlagEntry
+	mu      sync.RWMutex
+	devices map[string]deviceConfigEntry
+	tenants map[string]templateFlagEntry
 }
 
 func (c *bindingCache) getDevice(key string, now time.Time) (string, bool) {
@@ -208,7 +209,7 @@ func (r *Runtime) bindingsFor(ctx context.Context, tenantID, deviceID string) ma
 // revision history. Only the run snapshot keeps the resolved values, and only
 // because "what did it actually run with" has to stay answerable.
 func bindRule(rule *store.Rule, res *bindingResolution) (*store.Rule, error) {
-	if !rule.Definition.HasParams() {
+	if !rule.Definition.HasParams() && res == nil {
 		return rule, nil
 	}
 	var params map[string]string
@@ -233,6 +234,59 @@ func bindRule(rule *store.Rule, res *bindingResolution) (*store.Rule, error) {
 	// hashes, which is what makes "which body produced this run" checkable.
 	out.DefinitionHash = domain.DefinitionHash(def)
 	return &out, nil
+}
+
+// Without an explicit binding, self means a device selected by this rule.
+// An explicit source A is independent of action targets B; never infer A from
+// the order of targets. Membership ignores the action fan-out budget.
+func (r *Runtime) unboundSourceAllowed(ctx context.Context, rule *store.Rule, deviceID, signal, key string) (bool, error) {
+	for _, group := range rule.Definition.Trigger.Groups {
+		for _, condition := range group.Conditions {
+			if condition.Source == "device" && condition.DeviceID == deviceID &&
+				(signal == "" || string(condition.Signal) == signal) && (key == "" || condition.Key == key) {
+				return true, nil
+			}
+		}
+	}
+	spec := rule.Definition.Targets
+	if len(spec.DeviceIDs)+len(spec.DeviceConfigIDs)+len(spec.Labels)+len(spec.DeviceTypes)+len(spec.AreaIDs) == 0 {
+		return true, nil // Existing explicitly unscoped self definitions.
+	}
+	copy := *rule
+	copy.Definition.Targets.MaxTargets = 0
+	targets, err := r.resolveTargets(ctx, &copy, deviceID)
+	if err != nil {
+		return false, err
+	}
+	for _, target := range targets {
+		if target.DeviceID == deviceID && target.Status == "selected" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// A stored hold cannot outlive removal of its membership or disabling a rule.
+// The pinned definition/parameter values still determine the original deadline.
+func (r *Runtime) pendingScopeActive(ctx context.Context, p *store.Pending) (bool, error) {
+	current, err := r.store.GetRule(ctx, p.TenantID, p.RuleID)
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !current.Enabled {
+		return false, nil
+	}
+	bindings, err := r.store.ListBindingsForRule(ctx, p.TenantID, p.RuleID)
+	if err != nil {
+		return false, err
+	}
+	if len(bindings) != 0 {
+		return r.bindingsFor(ctx, p.TenantID, p.DeviceID)[p.RuleID] != nil, nil
+	}
+	return r.unboundSourceAllowed(ctx, current, p.DeviceID, "", "")
 }
 
 // ruleForRun loads the pinned revision and applies the parameter values frozen
