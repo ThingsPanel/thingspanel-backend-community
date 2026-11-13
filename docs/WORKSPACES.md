@@ -165,7 +165,14 @@ R3、R4、R4S 已合并推送到两个仓库的 develop；`wp-r3-done`、`wp-r4s
 ## R5a（2026-11-12 登记）
 | 路径/对象 | 分支 | 任务 | 预计清理 |
 |---|---|---|---|
-| `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r5a-txn`（安装器） | `wp/R5a-txn` | R5a 配置事务移植 + Agent 生产接线 | 审查合并后当天清理 |
-| `.claude/worktrees/wp-r5a-done`（后端） | `wp/R5a-done` | R5a 交付说明、镜像脚本补 brokerscope | 审查合并后当天清理 |
+| （已合并推送，worktree 与分支已删除 2026-11-13） | `wp/R5a-txn`、`wp/R5a-done` | R5a | 已清理 |
 | 镜像 `r5a-encore:dev`（含 brokerscope 的 Encore 镜像） | — | **保留给 R5b**，R5b 结束后删除 | Claude 会话 |
 | 演练栈 `r5a-*`、`/Volumes/KIOXIA/tmp/r5a-work`、`r5a-bin` | — | 已于 R5a 结束时删除，证据在 `/Volumes/KIOXIA/archive/evidence/2026-11-12-R5a` | 已清理 |
+
+## R5b（2026-11-13 登记）
+| 路径/对象 | 分支 | 任务 | 预计清理 |
+|---|---|---|---|
+| `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r5b-upgrade`（安装器） | `wp/R5b-upgrade` | R5b 升级 + 自动回退 | 审查合并后当天清理 |
+| `.claude/worktrees/wp-r5b-done`（后端） | `wp/R5b-done` | R5b 交付说明 | 审查合并后当天清理 |
+| 镜像 `r5a-encore:dev` | — | 保留给 R6 整栈演练，R6 结束后删除 | Claude 会话 |
+| 演练栈 `r5b-*`、`r5b-backend:*`、`r5b-encore-broken`、`docker:27-cli`、`/Volumes/KIOXIA/tmp/r5b-work` | — | 已于 R5b 结束时删除，证据在 `/Volumes/KIOXIA/archive/evidence/2026-11-13-R5b` | 已清理 |
