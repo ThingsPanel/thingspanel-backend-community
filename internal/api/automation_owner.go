@@ -23,6 +23,7 @@ func RegisterAutomationOwnerRoutes(router *gin.Engine, db *gorm.DB) {
 		c.Set("automation_owner_tenant", tenant)
 		c.Next()
 	})
+	group.POST("/devices/lookup", automationDeviceLookup(db))
 	group.GET("/devices", func(c *gin.Context) {
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 		size, _ := strconv.Atoi(c.DefaultQuery("page_size", "200"))
