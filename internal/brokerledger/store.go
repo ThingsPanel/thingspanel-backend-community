@@ -389,10 +389,55 @@ func (s *Store) ProcessOneInCell(ctx context.Context, cell string, handler func(
 }
 
 func (s *Store) processOne(ctx context.Context, cell string, handler func(context.Context, *gorm.DB, Message) error) (processed bool, err error) {
+	return s.processOnePrepared(ctx, cell, handler, nil)
+}
+
+// PrepareHandler may decode and fetch immutable contracts before acquiring any
+// receipt/route/database write lock. Its returned handler only fences and writes
+// within the receipt transaction. Preparation must have no business side effects.
+type ReceiptOutcome string
+
+const (
+	OutcomeCommitted ReceiptOutcome = "committed"
+	OutcomeRejected  ReceiptOutcome = "rejected"
+	OutcomeFenced    ReceiptOutcome = "fenced"
+)
+
+type PreparedOperation struct {
+	Write        func(context.Context, *gorm.DB, Message) error
+	BeforeReject func(context.Context, *gorm.DB, Message) error
+	// AfterOutcome is best-effort observation, never part of business commit.
+	// No callback occurs for pending retries, rollbacks or an unclaimed receipt.
+	AfterOutcome func(context.Context, Message, ReceiptOutcome)
+}
+type PrepareHandler func(context.Context, *gorm.DB, Message) (*PreparedOperation, error)
+
+func notifyReceiptOutcome(ctx context.Context, operation *PreparedOperation, row receiptRow, outcome ReceiptOutcome) {
+	if operation == nil || operation.AfterOutcome == nil {
+		return
+	}
+	defer func() { _ = recover() }() // Observability must never undo a committed receipt.
+	m, err := rowToMessage(row)
+	if err != nil {
+		return
+	}
+	observed, cancel := context.WithTimeout(context.WithoutCancel(ctx), 500*time.Millisecond)
+	defer cancel()
+	operation.AfterOutcome(observed, m, outcome)
+}
+
+func (s *Store) ProcessOnePrepared(ctx context.Context, cell string, prepare PrepareHandler) (bool, error) {
+	if prepare == nil {
+		return false, ErrInvalid
+	}
+	return s.processOnePrepared(ctx, cell, nil, prepare)
+}
+
+func (s *Store) processOnePrepared(ctx context.Context, cell string, handler func(context.Context, *gorm.DB, Message) error, prepare PrepareHandler) (processed bool, err error) {
 	if s == nil || s.db == nil {
 		return false, errors.New("brokerledger: database is nil")
 	}
-	if ctx == nil || handler == nil {
+	if ctx == nil || (handler == nil && prepare == nil) {
 		return false, errors.New("brokerledger: context and handler are required")
 	}
 	var candidate receiptRow
@@ -410,9 +455,25 @@ func (s *Store) processOne(ctx context.Context, cell string, handler func(contex
 		return false, err
 	}
 
+	var preparationErr error
+	var operation *PreparedOperation
+	if prepare != nil {
+		message, e := rowToMessage(candidate)
+		if e != nil {
+			return false, e
+		}
+		operation, preparationErr = prepare(ctx, s.db, message)
+		if operation != nil {
+			handler = operation.Write
+		}
+		if preparationErr == nil && handler == nil {
+			preparationErr = errors.New("brokerledger: preparation returned no handler")
+		}
+	}
 	var claimed receiptRow
 	var handlerErr error
 	var fenced bool
+	var preparedRejected bool
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockTenantCapacity(tx, candidate.TenantID); err != nil {
 			return err
@@ -450,6 +511,32 @@ func (s *Store) processOne(ctx context.Context, cell string, handler func(contex
 		if err != nil {
 			return err
 		}
+		// Receipt payload is immutable, but compare its recorded canonical hash
+		// explicitly before applying any data prepared outside this transaction.
+		if !equalDigest(claimed.CanonicalSHA, candidate.CanonicalSHA) {
+			return errors.New("brokerledger: receipt changed during preparation")
+		}
+		if preparationErr != nil {
+			if operation != nil && operation.BeforeReject != nil {
+				if e := operation.BeforeReject(ctx, tx, message); e != nil {
+					handlerErr = e
+					return e
+				}
+			}
+			handlerErr = preparationErr
+			var permanent interface{ Permanent() bool }
+			if errors.As(preparationErr, &permanent) && permanent.Permanent() {
+				// No business write has run. Keep the binding locks through the
+				// terminal transition instead of rollback + a separate dead write.
+				preparedRejected = true
+				message := preparationErr.Error()
+				if len(message) > 512 {
+					message = message[:512]
+				}
+				return tx.Model(&receiptRow{}).Where("id=? AND state=?", claimed.ID, statePending).Updates(map[string]any{"state": stateDead, "attempts": claimed.Attempts + 1, "last_error": message, "processed_at": time.Now().UTC()}).Error
+			}
+			return preparationErr
+		}
 		if err := handler(ctx, tx, message); err != nil {
 			handlerErr = err
 			return err
@@ -460,16 +547,35 @@ func (s *Store) processOne(ctx context.Context, cell string, handler func(contex
 		}).Error
 	})
 	if err != nil {
+		if preparedRejected {
+			return false, err
+		} // Failed terminal commit remains pending.
 		if handlerErr == nil {
 			return false, err
 		}
 		if recordErr := s.recordFailure(ctx, claimed.ID, handlerErr); recordErr != nil {
 			return true, errors.Join(handlerErr, fmt.Errorf("record retry: %w", recordErr))
 		}
+		// Only the committed final dead state is terminal. A model binding race
+		// or temporary owner outage remains pending and may later succeed.
+		readCtx, readCancel := context.WithTimeout(context.WithoutCancel(ctx), 500*time.Millisecond)
+		result, readErr := s.GetReceipt(readCtx, claimed.TenantID, claimed.DeviceID, claimed.ID)
+		readCancel()
+		if readErr == nil && result.State == stateDead {
+			notifyReceiptOutcome(ctx, operation, claimed, OutcomeRejected)
+		}
 		return true, handlerErr
 	}
+	if preparedRejected {
+		notifyReceiptOutcome(ctx, operation, claimed, OutcomeRejected)
+		return true, preparationErr
+	}
 	if fenced {
+		notifyReceiptOutcome(ctx, operation, claimed, OutcomeFenced)
 		return true, nil
+	}
+	if processed {
+		notifyReceiptOutcome(ctx, operation, claimed, OutcomeCommitted)
 	}
 	return processed, nil
 }

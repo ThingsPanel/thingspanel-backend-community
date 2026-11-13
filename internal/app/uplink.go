@@ -107,6 +107,8 @@ func WithFlowService() Option {
 
 		// 5. 创建 TelemetryUplink
 		telemetryUplink := uplink.NewTelemetryUplink(uplink.TelemetryUplinkConfig{
+			DB:               a.DB,
+			Contracts:        a.uplinkContractClient(),
 			Processor:        dataProcessor,
 			StorageInput:     storageInputChan,
 			HeartbeatService: heartbeatService,
@@ -115,6 +117,8 @@ func WithFlowService() Option {
 
 		// 6. 创建 AttributeUplink
 		attributeUplink := uplink.NewAttributeUplink(uplink.AttributeUplinkConfig{
+			DB:               a.DB,
+			Contracts:        a.uplinkContractClient(),
 			Processor:        dataProcessor,
 			StorageInput:     storageInputChan,
 			HeartbeatService: heartbeatService,
@@ -123,6 +127,8 @@ func WithFlowService() Option {
 
 		// 7. 创建 EventUplink
 		eventUplink := uplink.NewEventUplink(uplink.EventUplinkConfig{
+			DB:               a.DB,
+			Contracts:        a.uplinkContractClient(),
 			Processor:        dataProcessor,
 			StorageInput:     storageInputChan,
 			HeartbeatService: heartbeatService,

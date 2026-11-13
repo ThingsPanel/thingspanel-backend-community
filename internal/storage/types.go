@@ -2,6 +2,8 @@ package storage
 
 import (
 	"encoding/json"
+	"project/internal/uplinkbinding"
+	"project/internal/diagnostics"
 	"time"
 )
 
@@ -16,13 +18,15 @@ const (
 
 // Message 统一消息格式
 type Message struct {
-	DeviceID    string                 `json:"device_id"`
-	TenantID    string                 `json:"tenant_id"`
-	DataType    DataType               `json:"data_type"`
-	Timestamp   int64                  `json:"timestamp"` // 毫秒时间戳
-	Data        interface{}            `json:"data"`
-	BrokerRoute *TrustedTelemetryRoute `json:"-"`
-	AfterCommit func()                 `json:"-"`
+	DeviceID    string                   `json:"device_id"`
+	TenantID    string                   `json:"tenant_id"`
+	DataType    DataType                 `json:"data_type"`
+	Timestamp   int64                    `json:"timestamp"` // 毫秒时间戳
+	Data        interface{}              `json:"data"`
+	BrokerRoute *TrustedTelemetryRoute   `json:"-"`
+	AfterCommit func()                   `json:"-"`
+	Bindings    []uplinkbinding.Snapshot `json:"-"`
+	Observation *diagnostics.LogicalMessage `json:"-"`
 }
 
 // TrustedTelemetryRoute originates in the authenticated MQTT adapter metadata,

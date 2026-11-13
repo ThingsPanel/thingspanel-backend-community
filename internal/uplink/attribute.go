@@ -4,15 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"project/initialize"
 	"time"
 
-	"project/initialize"
+	"gorm.io/gorm"
 	"project/internal/dal"
 	"project/internal/diagnostics"
 	"project/internal/model"
 	"project/internal/processor"
 	"project/internal/service"
 	"project/internal/storage"
+	"project/internal/uplinkbinding"
 	"project/pkg/global"
 
 	"github.com/sirupsen/logrus"
@@ -20,6 +22,8 @@ import (
 
 // AttributeUplink 属性数据流处理器
 type AttributeUplink struct {
+	db        *gorm.DB
+	contracts uplinkbinding.ContractReader
 	// 依赖注入
 	processor        processor.DataProcessor
 	storageInput     chan<- *storage.Message // Storage输入channel
@@ -33,6 +37,8 @@ type AttributeUplink struct {
 
 // AttributeUplinkConfig 属性流程配置
 type AttributeUplinkConfig struct {
+	DB               *gorm.DB
+	Contracts        uplinkbinding.ContractReader
 	Processor        processor.DataProcessor
 	StorageInput     chan<- *storage.Message
 	HeartbeatService *service.HeartbeatService
@@ -47,7 +53,11 @@ func NewAttributeUplink(config AttributeUplinkConfig) *AttributeUplink {
 		config.Logger = logrus.StandardLogger()
 	}
 
+	if config.DB == nil {
+		config.DB = global.DB
+	}
 	return &AttributeUplink{
+		db: config.DB, contracts: config.Contracts,
 		processor:        config.Processor,
 		storageInput:     config.StorageInput,
 		heartbeatService: config.HeartbeatService,
@@ -86,65 +96,15 @@ func (f *AttributeUplink) Stop() {
 
 // processMessage 处理单条属性消息
 func (f *AttributeUplink) processMessage(msg *DeviceMessage) {
-	// 从 metadata 获取设备ID
-	deviceIDObj, ok := msg.GetMetadata("device_id")
-	if !ok {
-		f.logger.Error("Device ID not found in message metadata")
-		return
-	}
-
-	deviceID, ok := deviceIDObj.(string)
-	if !ok {
-		f.logger.Error("Invalid device ID type in metadata")
-		return
-	}
-
-	// 从缓存获取设备信息
-	device, err := initialize.GetDeviceCacheById(deviceID)
+	batch, err := prepareBusMessage(f.ctx, f.db, f.contracts, f.processor, msg, f.logger)
 	if err != nil {
-		f.logger.WithFields(logrus.Fields{
-			"device_id": deviceID,
-			"error":     err,
-		}).Error("Failed to get device from cache")
+
+		f.logger.WithError(err).Warn("uplink validation rejected")
 		return
 	}
-
-	// 1. 数据脚本处理（如果配置了）
-	processedPayload := msg.Payload
-	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
-		output, err := f.processor.Decode(f.ctx, &processor.DecodeInput{
-			DeviceConfigID: *device.DeviceConfigID,
-			Type:           processor.DataTypeAttribute,
-			RawData:        msg.Payload,
-			Timestamp:      msg.Timestamp,
-		})
-
-		if err != nil {
-			f.logger.WithFields(logrus.Fields{
-				"device_id": device.ID,
-				"error":     err,
-			}).Error("Processor decode failed, terminate processing")
-			return // 脚本失败直接终止
-		}
-
-		if !output.Success {
-			f.logger.WithFields(logrus.Fields{
-				"device_id": device.ID,
-				"error":     output.Error,
-			}).Error("Processor execution failed, terminate processing")
-			return // 脚本失败直接终止
-		}
-
-		processedPayload = output.Data
-	}
-
-	// 2. 根据消息类型判断是否为网关消息
-	// 使用 Type 字段而不是解析 Payload,支持协议无关的判断
-	if msg.Type == "gateway_attribute" {
-		f.processGatewayMessage(device, processedPayload, msg)
-	} else {
-		// 直连设备消息
-		f.processDirectDeviceMessage(device, processedPayload, msg)
+	for _, entry := range batch.entries {
+		prepared := preparedBusMessage(msg, batch, entry.device.ID)
+		f.processDirectDeviceMessage(&entry.device, entry.payload, prepared)
 	}
 }
 
@@ -317,28 +277,38 @@ func (f *AttributeUplink) processDirectDeviceMessage(device *model.Device, paylo
 	}
 
 	// 4. 发送到 Storage（通过channel）
-	f.storageInput <- &storage.Message{
-		DeviceID:  device.ID,
-		TenantID:  device.TenantID,
-		DataType:  storage.DataTypeAttribute,
-		Timestamp: time.Now().UnixMilli(),
-		Data:      points,
+	stored := &storage.Message{
+		Bindings:    originalMsg.preparedBindings,
+		Observation: &diagnostics.LogicalMessage{TenantID: device.TenantID, DeviceID: device.ID, ID: originalMsg.observationID, Family: "attribute"},
+		DeviceID:    device.ID,
+		TenantID:    device.TenantID,
+		DataType:    storage.DataTypeAttribute,
+		Timestamp:   time.Now().UnixMilli(),
+		Data:        points,
 	}
 
 	// 5. 场景联动（异步）
-	go func() {
-		err := DispatchAutomation(device, service.AutomateFromExt{
-			TriggerParamType: model.TRIGGER_PARAM_TYPE_ATTR,
-			TriggerParam:     triggerParam,
-			TriggerValues:    triggerValues,
-		})
-		if err != nil {
-			f.logger.WithFields(logrus.Fields{
-				"device_id": device.ID,
-				"error":     err,
-			}).Error("Automation execute failed")
-		}
-	}()
+	stored.AfterCommit = func() {
+		go func() {
+			err := DispatchAutomation(device, service.AutomateFromExt{
+				TriggerParamType: model.TRIGGER_PARAM_TYPE_ATTR,
+				TriggerParam:     triggerParam,
+				TriggerValues:    triggerValues,
+			})
+			if err != nil {
+				f.logger.WithFields(logrus.Fields{
+					"device_id": device.ID,
+					"error":     err,
+				}).Error("Automation execute failed")
+			}
+		}()
+	}
+	select {
+	case f.storageInput <- stored:
+	case <-f.ctx.Done():
+		return
+	}
+
 }
 
 // refreshHeartbeat 刷新设备心跳

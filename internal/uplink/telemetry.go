@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"project/initialize"
 	"project/internal/dal"
 	"project/internal/diagnostics"
@@ -16,6 +17,7 @@ import (
 	"project/internal/processor"
 	"project/internal/service"
 	"project/internal/storage"
+	"project/internal/uplinkbinding"
 	"project/pkg/global"
 
 	"github.com/sirupsen/logrus"
@@ -23,6 +25,8 @@ import (
 
 // TelemetryUplink 遥测数据流处理器
 type TelemetryUplink struct {
+	db        *gorm.DB
+	contracts uplinkbinding.ContractReader
 	// 依赖注入
 	processor        processor.DataProcessor
 	storageInput     chan<- *storage.Message // 只写 channel
@@ -36,6 +40,8 @@ type TelemetryUplink struct {
 
 // TelemetryUplinkConfig 遥测流程配置
 type TelemetryUplinkConfig struct {
+	DB               *gorm.DB
+	Contracts        uplinkbinding.ContractReader
 	Processor        processor.DataProcessor
 	StorageInput     chan<- *storage.Message // 只写 channel
 	HeartbeatService *service.HeartbeatService
@@ -50,7 +56,11 @@ func NewTelemetryUplink(config TelemetryUplinkConfig) *TelemetryUplink {
 		config.Logger = logrus.StandardLogger()
 	}
 
+	if config.DB == nil {
+		config.DB = global.DB
+	}
 	return &TelemetryUplink{
+		db: config.DB, contracts: config.Contracts,
 		processor:        config.Processor,
 		storageInput:     config.StorageInput,
 		heartbeatService: config.HeartbeatService,
@@ -62,12 +72,14 @@ func NewTelemetryUplink(config TelemetryUplinkConfig) *TelemetryUplink {
 
 // DeviceMessage 设备消息（避免循环导入，在 flow 包内定义）
 type DeviceMessage struct {
-	Type      string
-	DeviceID  string
-	TenantID  string
-	Timestamp int64
-	Payload   []byte
-	Metadata  map[string]interface{}
+	preparedBindings []uplinkbinding.Snapshot
+	observationID    string
+	Type             string
+	DeviceID         string
+	TenantID         string
+	Timestamp        int64
+	Payload          []byte
+	Metadata         map[string]interface{}
 }
 
 // GetMetadata 获取元数据
@@ -108,73 +120,15 @@ func (f *TelemetryUplink) Stop() {
 
 // processMessage 处理单条遥测消息
 func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
-	trusted, transportDeviceID, _, _, _, trustErr := trustedTelemetryMetadata(msg)
-	if trustErr != nil {
-		f.logger.WithError(trustErr).Error("Invalid trusted telemetry transport metadata")
-		return
-	}
-	// 从 metadata 获取设备ID
-	deviceIDObj, ok := msg.GetMetadata("device_id")
-	if !ok {
-		f.logger.Error("Device ID not found in message metadata")
-		return
-	}
-	deviceID, ok := deviceIDObj.(string)
-	if !ok {
-		f.logger.Error("Invalid device ID type in metadata")
-		return
-	}
-	if trusted && (deviceID != transportDeviceID || msg.DeviceID != transportDeviceID || msg.TenantID == "") {
-		f.logger.Error("Trusted telemetry identity does not match message scope")
-		return
-	}
-
-	// 从缓存获取设备信息
-	device, err := initialize.GetDeviceCacheById(deviceID)
+	batch, err := prepareBusMessage(f.ctx, f.db, f.contracts, f.processor, msg, f.logger)
 	if err != nil {
-		f.logger.WithFields(logrus.Fields{
-			"device_id": deviceID,
-			"error":     err,
-		}).Error("Failed to get device from cache")
-		return
-	}
-	if trusted && device.TenantID != msg.TenantID {
-		f.logger.Error("Trusted telemetry tenant does not match cached device")
-		return
-	}
 
-	// 1. 数据脚本处理（如果配置了）
-	processedPayload, decodeOutput, err := decodeTelemetryPayload(f.ctx, f.processor, device.DeviceConfigID, msg.Payload, msg.Timestamp)
-	if err != nil {
-		// 记录诊断：processor 解码失败
-		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("解码失败：%v", err))
-		f.logger.WithFields(logrus.Fields{
-			"device_id": device.ID,
-			"error":     err,
-		}).Error("Processor decode failed, terminate processing")
+		f.logger.WithError(err).Warn("telemetry validation rejected")
 		return
 	}
-	if decodeOutput != nil && !decodeOutput.Success {
-		// 记录诊断：processor 执行失败
-		errMsg := "执行失败"
-		if decodeOutput.Error != nil {
-			errMsg = fmt.Sprintf("执行失败：%v", decodeOutput.Error)
-		}
-		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, errMsg)
-		f.logger.WithFields(logrus.Fields{
-			"device_id": device.ID,
-			"error":     decodeOutput.Error,
-		}).Error("Processor execution failed, terminate processing")
-		return
-	}
-
-	// 2. 根据消息类型判断是否为网关消息
-	// 使用 Type 字段而不是解析 Payload,支持协议无关的判断
-	if msg.Type == "gateway_telemetry" {
-		f.processGatewayMessage(device, processedPayload, msg)
-	} else {
-		// 直连设备消息
-		f.processDirectDeviceMessage(device, processedPayload, msg)
+	for _, entry := range batch.entries {
+		prepared := preparedBusMessage(msg, batch, entry.device.ID)
+		f.processDirectDeviceMessage(&entry.device, entry.payload, prepared)
 	}
 }
 
@@ -429,20 +383,15 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 	telemetryPoints, triggerParam, triggerValues, _ := f.convertToTelemetryPoints(payload, device)
 
 	// 4. 发送到 Storage（同步发送到 channel）
-	// 计数调整：uplink 统计按点位计数，由 uplink 层在解析到点位后逐点上报。
-	// 为减少高并发下的短路开销，先做一次 fast-path 判断：若 diagnostics 未启用则跳过逐点计数。
-	if inst := diagnostics.GetInstance(); inst != nil && inst.IsEnabled() {
-		for range telemetryPoints {
-			inst.RecordUplinkTotal(device.ID)
-		}
-	}
 
 	stored := &storage.Message{
-		DeviceID:  device.ID,
-		TenantID:  device.TenantID,
-		DataType:  storage.DataTypeTelemetry,
-		Timestamp: time.Now().UnixMilli(),
-		Data:      telemetryPoints,
+		DeviceID:    device.ID,
+		TenantID:    device.TenantID,
+		DataType:    storage.DataTypeTelemetry,
+		Timestamp:   time.Now().UnixMilli(),
+		Data:        telemetryPoints,
+		Bindings:    originalMsg.preparedBindings,
+		Observation: &diagnostics.LogicalMessage{TenantID: device.TenantID, DeviceID: device.ID, ID: originalMsg.observationID, Family: "telemetry"},
 	}
 	if trusted {
 		stored.Timestamp = observedAt.UnixMilli()
@@ -461,32 +410,22 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 			}
 		}
 	}
+	if !trusted {
+		stored.AfterCommit = func() {
+			go f.checkAndPublishToWS(device.ID, device.TenantID, triggerValues)
+			go func() {
+				if err := DispatchAutomation(device, service.AutomateFromExt{TriggerParamType: model.TRIGGER_PARAM_TYPE_TEL, TriggerParam: triggerParam, TriggerValues: triggerValues}); err != nil {
+					f.logger.WithError(err).Error("Automation execute failed")
+				}
+			}()
+		}
+	}
 	select {
 	case f.storageInput <- stored:
 	case <-f.ctx.Done():
 		return
 	}
 
-	if trusted {
-		return
-	}
-	// Legacy WebSocket/scene behavior is intentionally unchanged.
-	go f.checkAndPublishToWS(device.ID, device.TenantID, triggerValues)
-
-	// 6. 场景联动（异步）
-	go func() {
-		err := DispatchAutomation(device, service.AutomateFromExt{
-			TriggerParamType: model.TRIGGER_PARAM_TYPE_TEL,
-			TriggerParam:     triggerParam,
-			TriggerValues:    triggerValues,
-		})
-		if err != nil {
-			f.logger.WithFields(logrus.Fields{
-				"device_id": device.ID,
-				"error":     err,
-			}).Error("Automation execute failed")
-		}
-	}()
 }
 
 // convertToTelemetryPoints 将 JSON 数据转换为 TelemetryDataPoint 列表

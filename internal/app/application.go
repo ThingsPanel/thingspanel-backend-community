@@ -6,6 +6,8 @@ import (
 	"project/internal/query"
 	"project/internal/storage"
 	"project/internal/uplink"
+	"project/internal/uplinkcontract"
+	"sync"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -26,7 +28,9 @@ type Application struct {
 	storageInputChan chan *storage.Message
 
 	// Flow 相关
-	uplinkService *UplinkServiceWrapper
+	uplinkService       *UplinkServiceWrapper
+	uplinkContracts     *uplinkcontract.Client
+	uplinkContractsOnce sync.Once
 
 	// MQTT 相关
 	mqttService *MQTTService

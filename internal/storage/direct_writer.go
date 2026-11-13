@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -85,6 +86,9 @@ func newDirectWriter(db *gorm.DB, logger Logger, metrics *metricsCollector) *dir
 }
 
 func (w *directWriter) writeAttribute(msg *Message) error {
+	if len(msg.Bindings) > 0 {
+		return w.writeFenced(msg)
+	}
 	points, ok := msg.Data.([]AttributeDataPoint)
 	if !ok {
 		if dataSlice, ok := msg.Data.([]interface{}); ok {
@@ -100,16 +104,18 @@ func (w *directWriter) writeAttribute(msg *Message) error {
 		}
 	}
 
+	var writeErr error
 	for _, point := range points {
 		if err := w.insertAttribute(msg, point); err != nil {
 			w.logger.Errorf("insert attribute failed: %v", err)
 			w.metrics.incAttributeFailed()
+			writeErr = errors.Join(writeErr, err)
 		} else {
 			w.metrics.incAttributeWritten()
 		}
 	}
 
-	return nil
+	return writeErr
 }
 
 func (w *directWriter) insertAttribute(msg *Message, point AttributeDataPoint) error {
@@ -135,6 +141,9 @@ func (w *directWriter) insertAttribute(msg *Message, point AttributeDataPoint) e
 }
 
 func (w *directWriter) writeEvent(msg *Message) error {
+	if len(msg.Bindings) > 0 {
+		return w.writeFenced(msg)
+	}
 	eventData, ok := msg.Data.(EventData)
 	if !ok {
 		return fmt.Errorf("invalid event data format")

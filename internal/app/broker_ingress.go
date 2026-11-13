@@ -248,6 +248,17 @@ func (w *brokerIngressWorker) run(ctx context.Context, done chan struct{}) {
 }
 
 func (w *brokerIngressWorker) processOne(ctx context.Context) (bool, error) {
+	if processor, ok := w.processor.(interface {
+		Prepare(context.Context, *gorm.DB, brokerledger.Message) (*brokerledger.PreparedOperation, error)
+	}); ok {
+		store, supported := w.store.(interface {
+			ProcessOnePrepared(context.Context, string, brokerledger.PrepareHandler) (bool, error)
+		})
+		if !supported {
+			return false, errors.New("reliable ingress store does not support lock-free preparation")
+		}
+		return store.ProcessOnePrepared(ctx, w.cell, processor.Prepare)
+	}
 	if w.cell == "" {
 		return w.store.ProcessOne(ctx, w.processor.Process)
 	}
@@ -328,7 +339,7 @@ func (s *MQTTService) configureBrokerIngress(ctx context.Context, adapter *mqtta
 		return err
 	}
 	store := brokerledger.New(s.app.DB)
-	processor := uplink.NewReliableProcessor(s.logger())
+	processor := uplink.NewReliableProcessor(s.logger()).WithContracts(s.app.uplinkContractClient())
 	worker := &brokerIngressWorker{cell: viper.GetString("mqtt.broker_cell"), store: store, processor: processor, logger: s.logger()}
 	runtimeSync, err := brokerRuntimeSync(s.app.DB, "adapter", "effects")
 	if err != nil {

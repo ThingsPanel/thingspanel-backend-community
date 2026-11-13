@@ -16,14 +16,16 @@ import (
 	"project/internal/model"
 	"project/internal/processor"
 	"project/internal/storage"
+	"project/internal/uplinkbinding"
 )
 
 // ReliableProcessor reuses the community decoder and domain storage, but writes
 // business rows and automation intents synchronously inside the receipt's DB
 // transaction. It does not send a bus message or start an untracked goroutine.
 type ReliableProcessor struct {
-	decoder processor.DataProcessor
-	logger  *logrus.Logger
+	decoder   processor.DataProcessor
+	logger    *logrus.Logger
+	contracts uplinkbinding.ContractReader
 }
 
 func NewReliableProcessor(logger *logrus.Logger) *ReliableProcessor {

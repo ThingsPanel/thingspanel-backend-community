@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -11,15 +12,32 @@ import (
 
 // Metrics Redis 操作封装
 type Metrics struct {
-	redisClient *redis.Client
-	ctx         context.Context
+	redisClient   *redis.Client
+	logicalClient *redis.Client
+	ctx           context.Context
 }
 
 // NewMetrics 创建 Metrics 实例
 func NewMetrics(redisClient *redis.Client) *Metrics {
+	var logical *redis.Client
+	if redisClient != nil {
+		opts := *redisClient.Options()
+		opts.ContextTimeoutEnabled = true
+		opts.DialTimeout = 500 * time.Millisecond
+		opts.ReadTimeout = 500 * time.Millisecond
+		opts.WriteTimeout = 500 * time.Millisecond
+		opts.PoolTimeout = 500 * time.Millisecond
+		opts.MaxRetries = -1
+		opts.PoolSize = 2
+		opts.MinIdleConns = 0
+		opts.MaxIdleConns = 2
+		opts.MaxActiveConns = 2
+		logical = redis.NewClient(&opts)
+	}
 	return &Metrics{
-		redisClient: redisClient,
-		ctx:         context.Background(),
+		redisClient:   redisClient,
+		logicalClient: logical,
+		ctx:           context.Background(),
 	}
 }
 
@@ -111,6 +129,17 @@ func (m *Metrics) GetStats(deviceID string) (*Stats, error) {
 	if val, ok := vals["downlink_failed"]; ok && val != "" {
 		fmt.Sscanf(val, "%d", &stats.DownlinkFailed)
 	}
+	// Do not reinterpret old per-point counters as logical-message success.
+	logical, err := m.redisClient.HGetAll(m.ctx, m.logicalKeys(deviceID)[0]).Result()
+	if err != nil {
+		return nil, err
+	}
+	stats.UplinkTotal, stats.UplinkFailed, stats.StorageFailed = 0, 0, 0
+	for field, target := range map[string]*int64{"uplink_total": &stats.UplinkTotal, "uplink_failed": &stats.UplinkFailed, "uplink_success": &stats.UplinkSuccess, "storage_total": &stats.StorageTotal, "storage_failed": &stats.StorageFailed, "storage_success": &stats.StorageSuccess} {
+		if value := logical[field]; value != "" {
+			fmt.Sscanf(value, "%d", target)
+		}
+	}
 
 	return stats, nil
 }
@@ -124,6 +153,11 @@ func (m *Metrics) GetFailures(deviceID string, limit int) ([]FailureRecord, erro
 	if err != nil {
 		return nil, err
 	}
+	logical, err := m.redisClient.LRange(m.ctx, m.logicalKeys(deviceID)[3], 0, int64(limit-1)).Result()
+	if err != nil {
+		return nil, err
+	}
+	vals = append(vals, logical...)
 
 	failures := make([]FailureRecord, 0, len(vals))
 	for _, val := range vals {
@@ -134,5 +168,9 @@ func (m *Metrics) GetFailures(deviceID string, limit int) ([]FailureRecord, erro
 		failures = append(failures, record)
 	}
 
+	sort.Slice(failures, func(i, j int) bool { return failures[i].Timestamp.After(failures[j].Timestamp) })
+	if len(failures) > limit {
+		failures = failures[:limit]
+	}
 	return failures, nil
 }

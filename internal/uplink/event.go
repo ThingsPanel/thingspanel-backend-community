@@ -4,15 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"project/initialize"
 	"time"
 
-	"project/initialize"
+	"gorm.io/gorm"
 	"project/internal/dal"
 	"project/internal/diagnostics"
 	"project/internal/model"
 	"project/internal/processor"
 	"project/internal/service"
 	"project/internal/storage"
+	"project/internal/uplinkbinding"
 	"project/pkg/global"
 
 	"github.com/sirupsen/logrus"
@@ -20,6 +22,8 @@ import (
 
 // EventUplink 事件数据流处理器
 type EventUplink struct {
+	db        *gorm.DB
+	contracts uplinkbinding.ContractReader
 	// 依赖注入
 	processor        processor.DataProcessor
 	storageInput     chan<- *storage.Message
@@ -33,6 +37,8 @@ type EventUplink struct {
 
 // EventUplinkConfig 事件流程配置
 type EventUplinkConfig struct {
+	DB               *gorm.DB
+	Contracts        uplinkbinding.ContractReader
 	Processor        processor.DataProcessor
 	StorageInput     chan<- *storage.Message
 	HeartbeatService *service.HeartbeatService
@@ -47,7 +53,11 @@ func NewEventUplink(config EventUplinkConfig) *EventUplink {
 		config.Logger = logrus.StandardLogger()
 	}
 
+	if config.DB == nil {
+		config.DB = global.DB
+	}
 	return &EventUplink{
+		db: config.DB, contracts: config.Contracts,
 		processor:        config.Processor,
 		storageInput:     config.StorageInput,
 		heartbeatService: config.HeartbeatService,
@@ -86,89 +96,23 @@ func (f *EventUplink) Stop() {
 
 // processMessage 处理单条事件消息
 func (f *EventUplink) processMessage(msg *DeviceMessage) {
-	// 从 metadata 获取设备ID
-	deviceIDObj, ok := msg.GetMetadata("device_id")
-	if !ok {
-		f.logger.Error("Device ID not found in message metadata")
-		return
-	}
-
-	deviceID, ok := deviceIDObj.(string)
-	if !ok {
-		f.logger.Error("Invalid device ID type in metadata")
-		return
-	}
-
-	// 从缓存获取设备信息
-	device, err := initialize.GetDeviceCacheById(deviceID)
+	batch, err := prepareBusMessage(f.ctx, f.db, f.contracts, f.processor, msg, f.logger)
 	if err != nil {
-		f.logger.WithFields(logrus.Fields{
-			"device_id": deviceID,
-			"error":     err,
-		}).Error("Failed to get device from cache")
+
+		f.logger.WithError(err).Warn("uplink validation rejected")
 		return
 	}
-
-	// 1. 数据脚本处理（如果配置了）
-	processedPayload := msg.Payload
-	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
-		output, err := f.processor.Decode(f.ctx, &processor.DecodeInput{
-			DeviceConfigID: *device.DeviceConfigID,
-			Type:           processor.DataTypeEvent,
-			RawData:        msg.Payload,
-			Timestamp:      msg.Timestamp,
-		})
-
-		if err != nil {
-			f.logger.WithFields(logrus.Fields{
-				"device_id": device.ID,
-				"error":     err,
-			}).Error("Processor decode failed, terminate processing")
-			return // 脚本失败直接终止
-		}
-
-		if !output.Success {
-			f.logger.WithFields(logrus.Fields{
-				"device_id": device.ID,
-				"error":     output.Error,
-			}).Error("Processor execution failed, terminate processing")
-			return // 脚本失败直接终止
-		}
-
-		processedPayload = output.Data
-	}
-
-	// 2. 根据消息类型判断是否为网关消息
-	// 使用 Type 字段而不是解析 Payload,支持协议无关的判断
-	if msg.Type == "gateway_event" {
-		f.processGatewayMessage(device, processedPayload, msg)
-	} else {
-		// 直连设备消息 - 需要先解析为 EventInfo
-		var eventInfo model.EventInfo
-		if err := json.Unmarshal(processedPayload, &eventInfo); err != nil {
-			// JSON 解析失败，包装成 {"method": "_raw", "params": {"value": 原始值}}
-			f.logger.WithFields(logrus.Fields{
-				"device_id": device.ID,
-				"payload":   string(processedPayload),
-				"error":     err,
-			}).Warn("【事件上行】payload is not valid EventInfo, wrapping as {\"method\": \"_raw\", \"params\": {\"value\": ...}}")
-
-			// 尝试将 payload 作为 JSON 值解析（可能是字符串、数字、布尔等）
-			var rawValue interface{}
-			if jsonErr := json.Unmarshal(processedPayload, &rawValue); jsonErr != nil {
-				// 如果连 JSON 值都不是，直接作为字符串包装
-				rawValue = string(processedPayload)
+	for _, entry := range batch.entries {
+		prepared := preparedBusMessage(msg, batch, entry.device.ID)
+		var event model.EventInfo
+		if json.Unmarshal(entry.payload, &event) != nil {
+			var raw any
+			if json.Unmarshal(entry.payload, &raw) != nil {
+				raw = string(entry.payload)
 			}
-
-			// 构造包装后的事件数据
-			eventInfo = model.EventInfo{
-				Method: "_raw",
-				Params: map[string]interface{}{
-					"value": rawValue,
-				},
-			}
+			event = model.EventInfo{Method: "_raw", Params: map[string]interface{}{"value": raw}}
 		}
-		f.processDirectDeviceEvent(device, &eventInfo, msg)
+		f.processDirectDeviceEvent(&entry.device, &event, prepared)
 	}
 }
 
@@ -311,11 +255,13 @@ func (f *EventUplink) processDirectDeviceEvent(device *model.Device, eventInfo *
 	}
 
 	// 3. 发送到 Storage（通过channel）
-	f.storageInput <- &storage.Message{
-		DeviceID:  device.ID,
-		TenantID:  device.TenantID,
-		DataType:  storage.DataTypeEvent,
-		Timestamp: time.Now().UnixMilli(),
+	stored := &storage.Message{
+		Bindings:    originalMsg.preparedBindings,
+		Observation: &diagnostics.LogicalMessage{TenantID: device.TenantID, DeviceID: device.ID, ID: originalMsg.observationID, Family: "event"},
+		DeviceID:    device.ID,
+		TenantID:    device.TenantID,
+		DataType:    storage.DataTypeEvent,
+		Timestamp:   time.Now().UnixMilli(),
 		Data: storage.EventData{
 			Identify: eventInfo.Method,
 			Data:     paramsJSON,
@@ -323,21 +269,29 @@ func (f *EventUplink) processDirectDeviceEvent(device *model.Device, eventInfo *
 	}
 
 	// 4. 场景联动（异步）
-	go func() {
-		err := DispatchAutomation(device, service.AutomateFromExt{
-			TriggerParamType: model.TRIGGER_PARAM_TYPE_EVT,
-			TriggerParam:     []string{eventInfo.Method},
-			TriggerValues: map[string]interface{}{
-				eventInfo.Method: string(paramsJSON),
-			},
-		})
-		if err != nil {
-			f.logger.WithFields(logrus.Fields{
-				"device_id": device.ID,
-				"error":     err,
-			}).Error("Automation execute failed")
-		}
-	}()
+	stored.AfterCommit = func() {
+		go func() {
+			err := DispatchAutomation(device, service.AutomateFromExt{
+				TriggerParamType: model.TRIGGER_PARAM_TYPE_EVT,
+				TriggerParam:     []string{eventInfo.Method},
+				TriggerValues: map[string]interface{}{
+					eventInfo.Method: string(paramsJSON),
+				},
+			})
+			if err != nil {
+				f.logger.WithFields(logrus.Fields{
+					"device_id": device.ID,
+					"error":     err,
+				}).Error("Automation execute failed")
+			}
+		}()
+	}
+	select {
+	case f.storageInput <- stored:
+	case <-f.ctx.Done():
+		return
+	}
+
 }
 
 // refreshHeartbeat 刷新设备心跳

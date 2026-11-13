@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"project/internal/diagnostics"
 	"sort"
 	"time"
 
@@ -43,6 +44,19 @@ func (w *telemetryWriter) doFlushTrusted(batch []*telemetryBatchItem) {
 	}
 	if err != nil {
 		w.logger.Warnf("trusted telemetry batch failed; no successful commit: %v", err)
+	}
+	acceptedSet := map[*telemetryBatchItem]bool{}
+	if err == nil {
+		for _, item := range accepted {
+			acceptedSet[item] = true
+		}
+	}
+	for _, item := range batch {
+		if acceptedSet[item] {
+			item.observation.Record(diagnostics.LogicalCommitted, "")
+		} else {
+			item.observation.Record(diagnostics.LogicalStorageFailed, "数据写入未提交或接入状态已变化")
+		}
 	}
 	w.metrics.addTelemetryWritten(int64(written))
 	w.metrics.addTelemetryFailed(int64(failed))
@@ -106,6 +120,9 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 				current[key] = binding
 			}
 		}
+		if e := checkBatchModelBindings(ctx, tx, batch); e != nil {
+			return e
+		}
 		for _, item := range batch {
 			if validTrustedTelemetry(item) != nil {
 				continue
@@ -122,6 +139,7 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 			} else if e != nil {
 				return e
 			}
+
 			accepted = append(accepted, item)
 		}
 		if len(accepted) == 0 {

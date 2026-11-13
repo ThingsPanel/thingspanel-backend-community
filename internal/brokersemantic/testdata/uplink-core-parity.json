@@ -1,0 +1,243 @@
+{
+  "model": {"name":"QA published uplink parity","fields":[{"kind":"ATTRIBUTE","identifier":"flag","nameI18n":{"default":"flag"},"valueType":{"kind":"BOOL","constraint":{"trueText":"开","falseText":"关"}},"access":{"read":true,"write":false,"observe":false}},{"kind":"ATTRIBUTE","identifier":"large_enum","nameI18n":{"default":"large_enum"},"valueType":{"kind":"ENUM","baseKind":"NUMBER","enumValues":[{"code":1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,"label":{"default":"large"}},{"code":0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001,"label":{"default":"small"}},{"code":9007199254740992,"label":{"default":"exact"}}]},"access":{"read":true,"write":false,"observe":false}},{"kind":"ATTRIBUTE","identifier":"mode","nameI18n":{"default":"mode"},"valueType":{"kind":"ENUM","baseKind":"NUMBER","constraint":{"min":10,"max":20},"enumValues":[{"code":0,"label":{"default":"Off"}},{"code":1,"label":{"default":"On"}}]},"access":{"read":true,"write":false,"observe":false}},{"kind":"ATTRIBUTE","identifier":"text","nameI18n":{"default":"text"},"valueType":{"kind":"STRING","constraint":{"pattern":"^ok","maxLength":1000000}},"access":{"read":true,"write":false,"observe":false}},{"kind":"ATTRIBUTE","identifier":"unicode","nameI18n":{"default":"unicode"},"valueType":{"kind":"STRING","constraint":{"pattern":"^温","maxLength":4}},"access":{"read":true,"write":false,"observe":false}},{"kind":"COMMAND","identifier":"  Vendor.Temp-Celsius/°C  ","nameI18n":{"default":"  Vendor.Temp-Celsius/°C  "},"access":{"read":false,"write":true,"observe":false},"parameters":{"schemaVersion":1,"items":[]}},{"kind":"EVENT","identifier":"changed","nameI18n":{"default":"changed"},"access":{"read":false,"write":false,"observe":true},"parameters":{"schemaVersion":1,"items":[{"identifier":" enabled ","nameI18n":{"default":"Enabled"},"valueType":{"kind":"BOOL","constraint":{"trueText":"开","falseText":"关"}}}]}},{"kind":"TELEMETRY","identifier":"  Vendor.Temp-Celsius/°C  ","nameI18n":{"default":"  Vendor.Temp-Celsius/°C  "},"valueType":{"kind":"NUMBER","constraint":{"min":0,"max":50,"step":0.5,"precision":100}},"access":{"read":true,"write":false,"observe":false}},{"kind":"TELEMETRY","identifier":"float","nameI18n":{"default":"float"},"valueType":{"kind":"FLOAT"},"access":{"read":true,"write":false,"observe":false}},{"kind":"TELEMETRY","identifier":"int","nameI18n":{"default":"int"},"valueType":{"kind":"INT"},"access":{"read":true,"write":false,"observe":false}},{"kind":"TELEMETRY","identifier":"int_limited","nameI18n":{"default":"int_limited"},"valueType":{"kind":"INT","constraint":{"min":0,"max":10}},"access":{"read":true,"write":false,"observe":false}},{"kind":"TELEMETRY","identifier":"limited","nameI18n":{"default":"limited"},"valueType":{"kind":"NUMBER","constraint":{"max":9007199254740992}},"access":{"read":true,"write":false,"observe":false}},{"kind":"TELEMETRY","identifier":"n","nameI18n":{"default":"n"},"valueType":{"kind":"NUMBER"},"access":{"read":true,"write":false,"observe":false}}]},
+  "cases": [
+    {
+      "family": "telemetry",
+      "payload": {
+        "  Vendor.Temp-Celsius/°C  ": 23.12345
+      },
+      "valid": true
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "  Vendor.Temp-Celsius/°C  ": 51
+      },
+      "valid": false
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "  Vendor.Temp-Celsius/°C  ": "23"
+      },
+      "valid": false
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "flag": false
+      },
+      "valid": true
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "flag": 0
+      },
+      "valid": false
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "mode": 0
+      },
+      "valid": true
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "mode": 10
+      },
+      "valid": false
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "mode": "0"
+      },
+      "valid": false
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "text": "okay"
+      },
+      "valid": true
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "text": "bad"
+      },
+      "valid": false
+    },
+    {
+      "family": "event",
+      "payload": {
+        "method": "changed",
+        "params": {
+          " enabled ": true
+        },
+        "ts": 1
+      },
+      "valid": true
+    },
+    {
+      "family": "event",
+      "payload": {
+        "method": "changed",
+        "params": {
+          " enabled ": "true"
+        }
+      },
+      "valid": false
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "n": 1e+129
+      },
+      "valid": true
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "n": 1e-129
+      },
+      "valid": true
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "n": 1.7976931348623157e+308
+      },
+      "valid": true
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "n": 1e309
+      },
+      "valid": false
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "n": 1e-400
+      },
+      "valid": true
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "n": null
+      },
+      "valid": false
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "float": -0.0
+      },
+      "valid": true
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "float": 1e309
+      },
+      "valid": false
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "int": 2
+      },
+      "valid": true
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "int": 2.0
+      },
+      "valid": false
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "int": 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+      },
+      "valid": true
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "int_limited": 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+      },
+      "valid": false
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "int_limited": 11
+      },
+      "valid": false
+    },
+    {
+      "family": "telemetry",
+      "payload": {
+        "limited": 9007199254740993
+      },
+      "valid": true
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "unicode": "温"
+      },
+      "valid": true
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "unicode": "温度"
+      },
+      "valid": false
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "unicode": "abc"
+      },
+      "valid": false
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "large_enum": 1e+129
+      },
+      "valid": true
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "large_enum": 1e-129
+      },
+      "valid": true
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "large_enum": 9007199254740993
+      },
+      "valid": false
+    },
+    {
+      "family": "attribute",
+      "payload": {
+        "large_enum": "1e129"
+      },
+      "valid": false
+    }
+  ]
+}

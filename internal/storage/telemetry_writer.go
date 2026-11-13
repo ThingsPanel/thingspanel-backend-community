@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"project/internal/diagnostics"
+	"project/internal/uplinkbinding"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -36,6 +37,8 @@ type telemetryBatchItem struct {
 	points      []TelemetryDataPoint // 遥测数据点列表
 	route       *TrustedTelemetryRoute
 	afterCommit func()
+	observation *diagnostics.LogicalMessage
+	bindings    []uplinkbinding.Snapshot
 }
 
 // newTelemetryWriter 创建遥测数据写入器
@@ -124,6 +127,8 @@ func (w *telemetryWriter) write(msg *Message) error {
 		points:      points,
 		route:       msg.BrokerRoute,
 		afterCommit: msg.AfterCommit,
+		bindings:    append([]uplinkbinding.Snapshot(nil), msg.Bindings...),
+		observation: msg.Observation,
 	}
 
 	// 加入缓冲区，检查是否需要刷新
@@ -171,9 +176,11 @@ func (w *telemetryWriter) flushRemaining() {
 
 // doFlush 执行实际的刷新操作
 func (w *telemetryWriter) doFlush(batch []*telemetryBatchItem) {
-	var legacy, trusted []*telemetryBatchItem
+	var legacy, trusted, fencedLegacy []*telemetryBatchItem
 	for _, item := range batch {
-		if item.route == nil {
+		if item.route == nil && len(item.bindings) > 0 {
+			fencedLegacy = append(fencedLegacy, item)
+		} else if item.route == nil {
 			legacy = append(legacy, item)
 		} else {
 			trusted = append(trusted, item)
@@ -184,6 +191,9 @@ func (w *telemetryWriter) doFlush(batch []*telemetryBatchItem) {
 	}
 	if len(trusted) > 0 {
 		w.doFlushTrusted(trusted)
+	}
+	if len(fencedLegacy) > 0 {
+		w.doFlushFencedLegacy(fencedLegacy)
 	}
 }
 

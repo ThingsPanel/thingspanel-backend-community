@@ -26,11 +26,14 @@ type Collector struct {
 	logger  *logrus.Logger
 
 	// 异步缓冲
-	buffer      []failureItem
-	bufferMu    sync.Mutex
-	stopCh      chan struct{}
-	doneCh      chan struct{}
-	flushTicker *time.Ticker
+	buffer         []failureItem
+	logicalBuffer  []LogicalUpdate
+	logicalDropped uint64
+	logicalMu      sync.Mutex
+	bufferMu       sync.Mutex
+	stopCh         chan struct{}
+	doneCh         chan struct{}
+	flushTicker    *time.Ticker
 
 	// 初始化标志
 	initialized bool
@@ -103,8 +106,12 @@ func (c *Collector) Init(config Config, redisClient interface{}) error {
 		c.initialized = true
 
 		// 启动后台刷新协程
-		if config.BatchFlushInterval > 0 {
-			c.flushTicker = time.NewTicker(config.BatchFlushInterval)
+		{
+			interval := config.BatchFlushInterval
+			if interval <= 0 {
+				interval = time.Second
+			}
+			c.flushTicker = time.NewTicker(interval)
 			go c.run()
 		}
 
@@ -116,6 +123,11 @@ func (c *Collector) Init(config Config, redisClient interface{}) error {
 // run 后台刷新协程
 func (c *Collector) run() {
 	defer close(c.doneCh)
+	defer func() {
+		if c.metrics != nil && c.metrics.logicalClient != nil {
+			c.metrics.logicalClient.Close()
+		}
+	}()
 
 	for {
 		select {
@@ -130,6 +142,7 @@ func (c *Collector) run() {
 
 // flush 刷新缓冲区
 func (c *Collector) flush() {
+	c.flushLogical()
 	c.bufferMu.Lock()
 	if len(c.buffer) == 0 {
 		c.bufferMu.Unlock()
@@ -333,10 +346,11 @@ func (c *Collector) GetDiagnostics(deviceID string) (*DiagnosticsResponse, error
 	response := &DiagnosticsResponse{
 		DeviceID:       deviceID,
 		RecentFailures: failures,
+		Observation:    ObservationMetadata{SchemaVersion: 2, CountUnit: "logical_device_message", AppliesTo: []string{"uplink", "storage"}, CounterWindow: "since_last_idle_expiry", IdentityWindow: 4096, IdleTTLSeconds: 604800, BestEffort: true},
 		Stats: &StatsResponse{
-			Uplink:   calculateMetric(stats.UplinkTotal, stats.UplinkTotal-stats.UplinkFailed),
+			Uplink:   calculateMetric(stats.UplinkTotal, stats.UplinkSuccess, stats.UplinkFailed),
 			Downlink: calculateMetric(stats.DownlinkTotal, stats.DownlinkTotal-stats.DownlinkFailed),
-			Storage:  calculateMetric(stats.UplinkTotal, stats.UplinkTotal-stats.StorageFailed),
+			Storage:  calculateMetric(stats.StorageTotal, stats.StorageSuccess),
 		},
 	}
 
@@ -344,7 +358,15 @@ func (c *Collector) GetDiagnostics(deviceID string) (*DiagnosticsResponse, error
 }
 
 // calculateMetric 计算指标响应
-func calculateMetric(total, success int64) *MetricResponse {
+func calculateMetric(total, success int64, failures ...int64) *MetricResponse {
+	failed := total - success
+	if len(failures) > 0 {
+		failed = failures[0]
+	}
+	pending := total - success - failed
+	if pending < 0 {
+		pending = 0
+	}
 	var rate float64
 	if total > 0 {
 		rate = float64(success) / float64(total) * 100
@@ -354,6 +376,8 @@ func calculateMetric(total, success int64) *MetricResponse {
 		SuccessRate: rate,
 		Total:       total,
 		Success:     success,
+		Failed:      failed,
+		Pending:     pending,
 	}
 }
 
