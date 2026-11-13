@@ -123,6 +123,7 @@ def compose(repo, owner, dest):
 
 def test_gate(paths):
     passed, failures, skipped = set(), [], []
+    package_skips, empty_packages, packages_with_tests = set(), set(), set()
     for path in paths:
         for line in Path(path).read_text(encoding='utf-8-sig').splitlines():
             try:
@@ -130,14 +131,28 @@ def test_gate(paths):
             except ValueError:
                 continue
             action, name = row.get('Action'), row.get('Test', '')
+            package = row.get('Package', '')
+            if name:
+                packages_with_tests.add(package)
+            if action == 'output' and not name and any(marker in row.get('Output', '') for marker in ('[no test files]', '[no tests to run]')):
+                empty_packages.add(package)
             if action == 'fail':
                 failures.append(name or row.get('Package'))
             if action == 'skip':
-                skipped.append(name or row.get('Package'))
+                if name:
+                    skipped.append(name)
+                else:
+                    package_skips.add(package)
             if action == 'pass' and name and '/' not in name:
                 passed.add(name)
     missing = sorted(REQUIRED_TESTS - passed)
-    report = {'passed_tests': sorted(passed), 'missing': missing, 'failed': failures, 'skipped': skipped}
+    # go test -json represents a package with no test files as Action=skip.
+    # Accept only the explicit package diagnostic without any Test event;
+    # genuine Test/Subtest skips and unexplained package skips remain errors.
+    allowed_empty = (package_skips & empty_packages) - packages_with_tests
+    skipped.extend(sorted(package_skips - allowed_empty))
+    report = {'passed_tests': sorted(passed), 'missing': missing, 'failed': failures,
+              'skipped': skipped, 'packages_without_matching_tests': sorted(allowed_empty)}
     if missing or failures or skipped:
         raise ValueError('candidate test gate failed: ' + json.dumps(report))
     return report
