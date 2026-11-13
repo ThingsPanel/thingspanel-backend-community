@@ -10,7 +10,8 @@ import (
 type authenticatedReadKey struct{}
 
 type authenticatedRead struct {
-	token string
+	token   string
+	command bool
 }
 
 // ErrRequestAuthentication is intentionally independent of service credentials:
@@ -75,4 +76,25 @@ func validRequestToken(token string) bool {
 		}
 	}
 	return true
+}
+
+// WithAuthenticatedCommandRequest is restricted to synchronous native command
+// submission after native tenant, device and command-capability validation.
+// The credential lives only in the request context and is never persisted for workers.
+func WithAuthenticatedCommandRequest(ctx context.Context, r *http.Request) context.Context {
+	credential := authenticatedRead{command: true}
+	if r != nil {
+		credential.token = readRequestToken(r.Header)
+	}
+	return context.WithValue(ctx, authenticatedReadKey{}, credential)
+}
+
+func (a authenticatedRead) permits(method, path string) bool {
+	if a.token == "" {
+		return false
+	}
+	if !a.command {
+		return method == http.MethodGet
+	}
+	return method == http.MethodPost && (path == "/api/v1/command/datas/pub" || path == "/api/v1/expected/data")
 }

@@ -796,7 +796,7 @@ func (s *Service) SubmitNativeDeviceCommand(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if accepted != nil {
-		if err := dispatchNativeCommand(r.Context(), identity, deviceID, accepted); err != nil {
+		if err := dispatchNativeCommand(communityclient.WithAuthenticatedCommandRequest(r.Context(), r), identity, deviceID, accepted); err != nil {
 			writeNativeDeviceOperationError(w, r, requestID, err)
 			return
 		}

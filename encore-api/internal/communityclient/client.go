@@ -109,7 +109,7 @@ func (c *Client) doJSON(ctx context.Context, method, path, token string, reqBody
 
 func (c *Client) doRaw(ctx context.Context, method, path, token string, reqBody any) (json.RawMessage, error) {
 	read, callerRead := ctx.Value(authenticatedReadKey{}).(authenticatedRead)
-	if callerRead && (read.token == "" || method != http.MethodGet) {
+	if callerRead && !read.permits(method, path) {
 		return nil, ErrRequestAuthentication
 	}
 	var bodyReader *bytes.Reader
