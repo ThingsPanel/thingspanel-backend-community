@@ -1,170 +1,94 @@
-name: Community Encore test deploy
+# Candidate-branch dispatch adapter using an already registered workflow path.
+# Build and GitHub artifact upload only. No SSH, deployment or migrations.
+name: Build integrated Gin CAS and command candidate
 on:
-  workflow_call:
-    inputs:
-      deploy_backend:
-        type: boolean
-        default: false
-      deploy_runtime:
-        type: boolean
-        default: false
   workflow_dispatch:
-    inputs:
-      deploy_runtime:
-        description: 'Deploy only after coordinated runtime and data migration acceptance'
-        type: boolean
-        default: false
 permissions:
   contents: read
 concurrency:
-  group: community-main-encore-deploy
+  group: community-gin-integrated-candidate-${{ github.ref }}
   cancel-in-progress: false
 jobs:
-  deploy:
+  candidate:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    env:
-      GOMAXPROCS: '2'
-      GOFLAGS: '-p=2'
-      NOTIFICATION_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
-      TP_AUTH_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: notification_test
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: notification_test
+        ports: ['25543:5432']
+        options: >-
+          --health-cmd "pg_isready -U notification_test -d notification_test"
+          --health-interval 2s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v4
-      - name: Require main for runtime deployment
-        if: inputs.deploy_runtime
-        env:
-          DEPLOY_REF: ${{ github.ref }}
-        run: test "$DEPLOY_REF" = refs/heads/main
-      - name: Verify migration history guard
-        run: |
-          python3 -m venv "$RUNNER_TEMP/upgrade-checks"
-          "$RUNNER_TEMP/upgrade-checks/bin/python" -m pip install --quiet PyYAML==6.0.3
-          "$RUNNER_TEMP/upgrade-checks/bin/python" -m unittest discover -s deploy/community-test -p 'test_upgrade_platform_config.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_deployment_guard.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_rollout_preflight.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_metadata_upgrade_inventory.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_quarantine.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_identity_plan.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_rehearsal.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_acceptance.py'
-      - name: Install pinned Encore CLI
-        run: |
-          set -euo pipefail
-          curl -fsSL --retry 3 https://d2f391esomvqpi.cloudfront.net/encore-1.58.6-linux_amd64.tar.gz -o "$RUNNER_TEMP/encore-cli.tar.gz"
-          echo "46add1a88eb02349e4ce51269fdade91c52e8fc044c972cc0ae40129a1eb91b2  $RUNNER_TEMP/encore-cli.tar.gz" | sha256sum --check
-          mkdir -p "$RUNNER_TEMP/encore"
-          tar -xzf "$RUNNER_TEMP/encore-cli.tar.gz" -C "$RUNNER_TEMP/encore"
-          echo "ENCORE_INSTALL=$RUNNER_TEMP/encore" >> "$GITHUB_ENV"
-          echo "$RUNNER_TEMP/encore/bin" >> "$GITHUB_PATH"
-      - name: Start isolated notification test database
-        run: |
-          docker run -d --name notification-test -p 127.0.0.1:25543:5432 -e POSTGRES_USER=notification_test -e POSTGRES_PASSWORD=fixture-only-password -e POSTGRES_DB=notification_test postgres:16-alpine
-          for attempt in $(seq 1 20); do
-            if docker exec notification-test pg_isready -U notification_test -d notification_test; then exit 0; fi
-            sleep 1
-          done
-          exit 1
-      - name: Compile and test native services
-        working-directory: encore-api
-        run: |
-          encore test -p=1 ./automation/... ./thingmodel/... ./devicemetadata/... ./fileassets/... ./l1-access/authn ./internal/authz ./internal/authcore/... ./internal/tenantidentity ./pkg/... ./internal/communityclient ./internal/luasandbox ./l3-core/connectorcatalog/... ./l3-core/notification/... ./marketinstall/... ./platformconfig/...
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.9'
-          cache-dependency-path: encore-api/go.sum
-      - name: Verify offline conversion transaction against native schema
-        working-directory: encore-api
-        env:
-          UPGRADE_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/tp_upgrade_rehearsal_20000101000001?sslmode=disable
-        run: |
-          docker exec notification-test createdb -U notification_test tp_upgrade_rehearsal_20000101000001
-          go test -count=1 ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-groups ./cmd/metadata-upgrade-devices ./cmd/metadata-upgrade-relations
-      - name: Verify scheduler transport
-        run: |
-          python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py
-          python3 -m unittest discover -s deploy/community-test -p test_encore_artifacts.py
-          python3 -m unittest discover -s deploy/community-test -p test_encore_image.py
-          python3 -m unittest discover -s deploy/community-test -p test_notification_identity.py
-      - name: Build complete native image away from the live server
-        working-directory: encore-api
-        run: |
-          for attempt in 1 2 3; do
-            if encore build docker "tp-community-encore:source-$GITHUB_SHA" --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,platformconfig --skip-config; then
-              exit 0
-            fi
-            if [ "$attempt" -eq 3 ]; then exit 1; fi
-            sleep 5
-          done
-      - name: Package immutable tracked source and verified image
+          cache: true
+      - name: Verify fixed source scope and compose the deployed owner
         run: |
           set -euo pipefail
-          mkdir -p candidate
-          git archive --format=tar HEAD encore-api pkg/relational | tar -xf - -C candidate
-          docker save "tp-community-encore:source-$GITHUB_SHA" | gzip -1 > candidate/image.tar.gz
+          test -z "$(git status --porcelain)"
+          git fetch origin 47405bfd51eba9f436231744de9a123d4278152d
+          python3 -m unittest discover -s deploy/community-test -p test_gin_integrated_candidate.py
+          python3 deploy/community-test/build_gin_integrated_candidate.py compose "$RUNNER_TEMP/gin-integrated"
+      - name: Validate actual combined Gin and real PostgreSQL boundaries
+        env:
+          Q02_METADATA_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test?sslmode=disable
+          TEST_BROKER_DATABASE_DSN: host=127.0.0.1 port=25543 user=notification_test password=fixture-only-password dbname=notification_test sslmode=disable
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/gin-integrated/source/backend"
+          go test ./internal/model ./internal/dal ./internal/api ./internal/service ./internal/brokersemantic ./internal/brokercontrol ./internal/adapter/mqttadapter ./router -run 'Test(DeviceConfigCondition|DeviceConfigMetadataPostgres|TemplateMetadataAPI|NativeCommand|PostgresNativeCommandOwnerValidation|ExpectedCommandRetains|ValidateCommand|CommandFingerprintSnapshotLegacyJSONIsStable|PostgresPluginPublisherAuthenticatesWhileDispatchHoldsRoute|DeviceDiagnosticsAuthenticatedTenantBoundary|HTTPCommandWireUsesAcceptedDeadlineOnly)' -count=1 -json | tee "$RUNNER_TEMP/gin-integrated/tests.jsonl"
+          python3 "$GITHUB_WORKSPACE/deploy/community-test/build_gin_integrated_candidate.py" verify-tests "$RUNNER_TEMP/gin-integrated/tests.jsonl"
+      - name: Retain mainline ownership and validate stage transform guards
+        env:
+          Q02_METADATA_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test?sslmode=disable
+        run: |
+          set -euo pipefail
+          # The composed baseline, not the mainline checkout, owns stage hashes.
+          # Transform guards are validated against a fresh pre-transform composition.
+          python3 "$RUNNER_TEMP/gin-integrated/_baseline_checkout/deploy/community-test/mqtt_publisher_release.py" sources "$RUNNER_TEMP/gin-stage-guard"
+          TEMPLATE_CAS_STAGE_SOURCE="$RUNNER_TEMP/gin-stage-guard/backend" python3 -m unittest discover -s deploy/community-test -p test_template_metadata_cas.py
+          go test ./internal/dal -run '^TestDeviceConfigMetadataKeepsMainOwnerPostgres$' -count=1 -json | tee "$RUNNER_TEMP/gin-integrated/main-owner-tests.jsonl"
           python3 - <<'PY'
-          import pathlib,json,hashlib,os,tarfile,subprocess
-          root=pathlib.Path('candidate')
-          image=json.loads(subprocess.check_output(['docker','image','inspect','tp-community-encore:source-'+os.environ['GITHUB_SHA']]))[0]
-          (root/'image.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'image_id':image['Id'],'uncompressed_bytes':image['Size'],'services':['authn','thingmodel','devicemetadata','fileassets','connectorcatalog','automation','notification','marketinstall','platformconfig']}))
-          def checksum(path):
-              digest=hashlib.sha256()
-              with path.open('rb') as stream:
-                  for block in iter(lambda:stream.read(1024*1024),b''):digest.update(block)
-              return digest.hexdigest()
-          manifest={'commit':os.environ['GITHUB_SHA'],'sha256':{str(p.relative_to(root)):checksum(p) for p in root.rglob('*') if p.is_file()}}
-          (root/'manifest.json').write_text(json.dumps(manifest,indent=2))
-          with tarfile.open('encore-'+os.environ['GITHUB_SHA']+'.tar.gz','w:gz') as archive:
-              for path in root.iterdir(): archive.add(str(path),arcname=path.name)
+          import importlib.util,os,pathlib
+          path=pathlib.Path('deploy/community-test/build_gin_integrated_candidate.py')
+          s=importlib.util.spec_from_file_location('candidate',path);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+          m.verify_tests(pathlib.Path(os.environ['RUNNER_TEMP'])/'gin-integrated/main-owner-tests.jsonl',('TestDeviceConfigMetadataKeepsMainOwnerPostgres',))
           PY
-      - name: Preserve deployable native bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-candidate-${{ github.sha }}
-          path: encore-${{ github.sha }}.tar.gz
-          retention-days: 3
-      - name: Download already verified backend bundle
-        if: inputs.deploy_backend
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-candidate-${{ github.sha }}
-      - name: Configure authenticated SSH
-        if: inputs.deploy_runtime
+      - name: Build the Linux Gin artifact from verified composed source
         env:
-          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: amd64
         run: |
           set -euo pipefail
-          test -n "$DEPLOY_KEY"
-          umask 077
-          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-deploy-key"
-          ssh -i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'install -d -m 700 /opt/tp-community-actions/incoming'
-      - name: Check coordinated runtime before replacing any service
-        if: inputs.deploy_runtime
-        run: |
-          set -euo pipefail
-          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
-          scp "${args[@]}" deploy/community-test/rollout_preflight.py root@47.92.253.145:/opt/tp-community-actions/incoming/
-          scp "${args[@]}" deploy/community-test/upgrade_acceptance.py root@47.92.253.145:/opt/tp-community-actions/incoming/
-          ssh "${args[@]}" root@47.92.253.145 'python3 /opt/tp-community-actions/incoming/rollout_preflight.py'
-      - name: Deploy verified backend after all code checks pass
-        if: inputs.deploy_runtime && inputs.deploy_backend
-        run: |
-          set -euo pipefail
-          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
-          scp "${args[@]}" "backend-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_backend.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
-          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_backend.py '$GITHUB_SHA'"
-      - name: Upload source and deploy native services
-        if: inputs.deploy_runtime
-        run: |
-          set -euo pipefail
-          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts -o ServerAliveInterval=20 -o ServerAliveCountMax=9)
-          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_encore.py deploy/community-test/deployment_guard.py deploy/community-test/encore_migrations.py deploy/community-test/encore_artifacts.py deploy/community-test/automation_tick.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
-          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_encore.py '$GITHUB_SHA'"
-      - name: Preserve source identity
-        uses: actions/upload-artifact@v4
-        with:
-          name: encore-deployment-${{ github.sha }}
-          path: candidate/manifest.json
-      - name: Remove runner SSH key
+          cd "$RUNNER_TEMP/gin-integrated/source/backend"
+          go build -trimpath -buildvcs=false -ldflags "-s -w -X project/pkg/global.SYSTEM_VERSION=gin-cas-command-$GITHUB_SHA" -o "$RUNNER_TEMP/ThingsPanel-Go" .
+          cd "$GITHUB_WORKSPACE"
+          python3 deploy/community-test/build_gin_integrated_candidate.py package "$RUNNER_TEMP/gin-integrated" "$RUNNER_TEMP/ThingsPanel-Go" "gin-integrated-$GITHUB_SHA.tar.gz" "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
         if: always()
-        run: rm -f "$RUNNER_TEMP/community-deploy-key"
+        with:
+          name: gin-integrated-evidence-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/gin-integrated/SOURCE_PROVENANCE.json
+            ${{ runner.temp }}/gin-integrated/SOURCE_FILES.json
+            ${{ runner.temp }}/gin-integrated/tests.jsonl
+            ${{ runner.temp }}/gin-integrated/main-owner-tests.jsonl
+            ${{ runner.temp }}/gin-integrated/manifest.json
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gin-integrated-${{ github.sha }}
+          path: gin-integrated-${{ github.sha }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7

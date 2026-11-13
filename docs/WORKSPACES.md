@@ -136,3 +136,5 @@
 ### 2026-11-13 Q02 metadata CAS
 
 qa_model: .claude/worktrees/q02-template-metadata-cas, branch wp/q02-template-metadata-cas-20261113, base1af19294; parent授权基于实际stage双路径实现，保留main owner锁语义。仅模板元数据CAS/API/定向测试/精确stage转换；不部署。配对frontend同名worktree base b6a5f9be。证据F:/coding/artifacts/20261111-coordinated-rollout/Q02-*，验收后保留，删除前确认。
+
+Q02续行：同一后端worktree转wp/gin-integrated-candidate-20261113，仅统一Gin构建工具/候选workflow，固定1af+CAS05a6+命令474；不合整stage锚点、不改Encore或Broker、不部署。外置Q02-unified-gin-*源与证据验收后保留，删除前确认。
