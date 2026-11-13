@@ -1,4 +1,4 @@
-name: Activate reviewed Encore candidate
+name: Approved phase operation
 on:
   workflow_dispatch:
     inputs:
@@ -7,7 +7,6 @@ on:
         type: string
 permissions:
   contents: read
-  actions: read
 concurrency:
   group: community-phase-acceptance
   cancel-in-progress: false
@@ -16,20 +15,20 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - name: Verify exact operation revision
+      - name: Require the reviewed operation revision
         env:
-          EXPECTED: ${{ inputs.expected_head }}
-        run: test "$EXPECTED" = "$GITHUB_SHA"
-      - name: Apply exact previously staged candidate
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+          ACTUAL_HEAD: ${{ github.sha }}
+        run: test "$EXPECTED_HEAD" = "$ACTUAL_HEAD"
+      - uses: actions/checkout@v4
+      - name: Run approved phase operation
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/phase-key"
-          ssh_args=(-i "$RUNNER_TEMP/phase-key" -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
-          ssh "${ssh_args[@]}" root@47.92.253.145 '/usr/bin/python3.11 -' < deploy/community-test/phase-operation.py > phase-result.json
+          ssh -i "$RUNNER_TEMP/phase-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 '/usr/bin/python3.11 -' < deploy/community-test/phase-operation.py > phase-result.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
