@@ -31,3 +31,7 @@
 - [R5a, 2026-11-12] 安装器 `tests/test_plugin_bundle_activation.py` 有 7 个测试在安装器 develop 上就失败（"Downloaded plugin helper does not match the installer pin: tools/plugin_catalog.py"），与 R5a 无关，未修。
 - [R5a, 2026-11-12] `deploy/community-test/deploy_encore.py` 的 `native_services` 清单不含 `brokerscope`（R2G 说明里已提；CI 工作流和 `scripts/build-encore-image.sh` 已补）。
 - [R5a, 2026-11-12] Agent 的 `system.json` 由 Agent 二进制生成：升级 Agent 后需重新 `agent_host.py up --system` 才会刷新配置；R5b 的升级编排要包含这一步。
+- [R5b, 2026-11-13] `system upgrade` 的 `verifying` 阶段 kill -9 和 `needs_human` 路径只有单元测试，没在真实栈上演练（原因见 `docs/tasks/R5b-DONE.md`）；要真实覆盖，需要一个“健康但不被 compose 依赖”的慢组件，或在健康门里加最小停留时间。
+- [R5b, 2026-11-13] `update.py` 没有把 `--release-source/--release-trust-root` 传给 `agent_host.py`；升级发布源和信任根如何接进 install/upgrade 脚本待负责人决定。
+- [R5b, 2026-11-13] 后端 `CleanSystemDataByCron`（数据保留，默认 15 天）会删除旧时间戳的遥测，做备份/恢复/升级演练的合成数据必须用当前时间戳。
+
