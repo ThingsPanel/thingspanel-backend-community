@@ -68,7 +68,7 @@ class UplinkCandidateGuards(unittest.TestCase):
         self.assertEqual(len(gate.UPLINK_REQUIRED),97)
         self.assertEqual(len(gate.ASSEMBLY_REQUIRED),10)
         text=(Path(__file__).resolve().parents[2]/'.github/workflows/deploy-encore.yml').read_text(encoding='utf-8')
-        for needed in ('redis:7-alpine','TP_BROKER_LEDGER_TEST_DSN','TP_TELEMETRY_BROKER_TEST_DSN','TEST_DIAGNOSTICS_REDIS_ADDR',candidate.OWNER_SOURCE,candidate.UPLINK_SOURCE,'set -euo pipefail'):
+        for needed in ('redis:7-alpine','apt-get install --no-install-recommends -y redis-server','command -v redis-server','TP_BROKER_LEDGER_TEST_DSN','TP_TELEMETRY_BROKER_TEST_DSN','TEST_DIAGNOSTICS_REDIS_ADDR',candidate.OWNER_SOURCE,candidate.UPLINK_SOURCE,'set -euo pipefail'):
             self.assertIn(needed,text)
         for forbidden in ('secrets.','scp ','ssh ','docker restart','migrate '):self.assertNotIn(forbidden,text)
 
