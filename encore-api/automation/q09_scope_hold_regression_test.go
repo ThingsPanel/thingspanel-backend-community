@@ -24,7 +24,10 @@ func TestQ09NewTemplateMemberAndDirectoryFailure(t *testing.T) {
 	}
 	e.rt.InvalidateBindings(e.tenant, "")
 	e.dir.err = errors.New("QA directory unavailable")
-	e.ingest(runtime.NewID(), e.dev1, "temperature", 38.0, "")
+	_, err := e.rt.Ingest(e.ctx(), store.IngestEvent{EventID: runtime.NewID(), TenantID: e.tenant, DeviceID: e.dev1, Signal: domain.SignalTelemetry, Key: "temperature", Value: 38.0, Quality: domain.QualityGood, ObservedAt: e.now})
+	if err == nil {
+		t.Fatal("directory failure must leave the receipt unprocessed for retry")
+	}
 	if n := len(e.runs(r.ID)); n != 1 {
 		t.Fatalf("directory failure widened template membership got%d", n)
 	}

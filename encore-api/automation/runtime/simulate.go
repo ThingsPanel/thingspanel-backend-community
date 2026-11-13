@@ -80,7 +80,11 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 		if b, ok := bodies[deviceID]; ok {
 			return b, nil
 		}
-		bound, berr := bindRule(rule, r.bindingsFor(ctx, tenantID, deviceID)[rule.ID])
+		resolved, resolveErr := r.bindingsFor(ctx, tenantID, deviceID)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		bound, berr := bindRule(rule, resolved[rule.ID])
 		if berr != nil {
 			return nil, berr
 		}

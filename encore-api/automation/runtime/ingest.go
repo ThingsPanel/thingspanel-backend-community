@@ -93,8 +93,15 @@ func (r *Runtime) evaluateForDevice(ctx context.Context, e *store.IngestEvent, s
 	// actually uses template bindings; asking the directory on every uplink
 	// would be a cost with no benefit for the common case.
 	configID := ""
-	if r.usesTemplateBindings(ctx, e.TenantID) {
-		configID = r.deviceConfigOf(ctx, e.TenantID, e.DeviceID)
+	usesTemplates, err := r.usesTemplateBindings(ctx, e.TenantID)
+	if err != nil {
+		return err
+	}
+	if usesTemplates {
+		configID, err = r.deviceConfigOf(ctx, e.TenantID, e.DeviceID)
+		if err != nil {
+			return err
+		}
 	}
 	rules, err := r.store.CandidateRules(ctx, e.TenantID, e.DeviceID, configID, string(e.Signal), e.Key)
 	if err != nil {
@@ -102,9 +109,17 @@ func (r *Runtime) evaluateForDevice(ctx context.Context, e *store.IngestEvent, s
 	}
 	// One lookup per event, not one per rule: a device bound to twelve rules
 	// still costs a single query.
-	bound := r.bindingsFor(ctx, e.TenantID, e.DeviceID)
+	bound, err := r.bindingsFor(ctx, e.TenantID, e.DeviceID)
+	if err != nil {
+		// Leave the durable receipt unprocessed for recovery. Never execute a
+		// parameter default or mark the event consumed after a failed lookup.
+		return err
+	}
 	for _, rule := range rules {
 		if bound[rule.ID] == nil {
+			if rule.RequiresBinding {
+				continue // Revoked between candidate selection and resolution.
+			}
 			allowed, scopeErr := r.unboundSourceAllowed(ctx, rule, e.DeviceID, string(e.Signal), e.Key)
 			if scopeErr != nil {
 				r.recordEvaluationError(ctx, rule, e, scopeErr)

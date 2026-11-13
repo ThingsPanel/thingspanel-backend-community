@@ -73,6 +73,10 @@ type Rule struct {
 	BindingID     string
 	BindingSource string
 	BindingParams map[string]string
+	// RequiresBinding is admission metadata captured by CandidateRules in the
+	// same SQL snapshot as rule selection. A later empty resolution must not
+	// reinterpret a bound candidate as an unbound rule.
+	RequiresBinding bool
 }
 
 // NextSeq returns a monotonic sequence number used for ordering and dedupe.
@@ -213,15 +217,16 @@ const ruleColumns = `id, tenant_id, name, kind, enabled, revision, definition, d
                      version, coalesce(legacy_id,''), coalesce(resource_key,''),
                      coalesce(bundle_hash,''), created_at, updated_at`
 
-func scanRule(sc interface{ Scan(...any) error }) (*Rule, error) {
+func scanRule(sc interface{ Scan(...any) error }, extra ...any) (*Rule, error) {
 	var (
 		r    Rule
 		kind string
 		raw  []byte
 	)
-	if err := sc.Scan(&r.ID, &r.TenantID, &r.Name, &kind, &r.Enabled, &r.Revision,
+	dest := []any{&r.ID, &r.TenantID, &r.Name, &kind, &r.Enabled, &r.Revision,
 		&raw, &r.DefinitionHash, &r.Version, &r.LegacyID, &r.ResourceKey, &r.BundleHash,
-		&r.CreatedAt, &r.UpdatedAt); err != nil {
+		&r.CreatedAt, &r.UpdatedAt}
+	if err := sc.Scan(append(dest, extra...)...); err != nil {
 		return nil, err
 	}
 	r.Kind = domain.RuleKind(kind)
@@ -393,7 +398,9 @@ func ruleWhere(tenantID string, f RuleFilter, mysql bool) (string, []any) {
 // for it on every uplink.
 func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, deviceConfigID, signal, key string) ([]*Rule, error) {
 	candidateQuery := `
-        SELECT DISTINCT ` + ruleColumns + `
+		SELECT DISTINCT ` + ruleColumns + `,
+		       EXISTS (SELECT 1 FROM auto_bindings owned
+		               WHERE owned.tenant_id=r.tenant_id AND owned.rule_id=r.id)
           FROM auto_rules r
          WHERE r.tenant_id = $1
            AND r.deleted_at IS NULL
@@ -418,7 +425,9 @@ func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, deviceCo
            )`
 	if s.MySQL {
 		candidateQuery = `
-        SELECT ` + ruleColumns + `
+		SELECT ` + ruleColumns + `,
+		       EXISTS (SELECT 1 FROM auto_bindings owned
+		               WHERE owned.tenant_id=r.tenant_id AND owned.rule_id=r.id)
           FROM auto_rules r
          WHERE r.tenant_id = $1
            AND r.deleted_at IS NULL
@@ -449,10 +458,12 @@ func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, deviceCo
 	defer rows.Close()
 	var out []*Rule
 	for rows.Next() {
-		r, err := scanRule(rows)
+		var requiresBinding bool
+		r, err := scanRule(rows, &requiresBinding)
 		if err != nil {
 			return nil, err
 		}
+		r.RequiresBinding = requiresBinding
 		out = append(out, r)
 	}
 	return out, rows.Err()

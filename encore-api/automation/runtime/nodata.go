@@ -38,7 +38,11 @@ func (r *Runtime) SweepNoData(ctx context.Context, now time.Time, limit int) (in
 		// A bound policy may carry a per-device freshness window. Using the
 		// template body here would measure silence against the default and
 		// report "no data" for a device the customer explicitly gave more time.
-		params := paramsForRule(r.bindingsFor(ctx, ep.TenantID, ep.SubjectID), ep.PolicyID)
+		resolved, resolveErr := r.bindingsFor(ctx, ep.TenantID, ep.SubjectID)
+		if resolveErr != nil {
+			continue // Temporary lookup failure is not evidence of silence.
+		}
+		params := paramsForRule(resolved, ep.PolicyID)
 		rule, err := r.ruleForRun(ctx, ep.PolicyID, ep.Revision, params)
 		if err != nil {
 			// A policy that cannot be read is not a reason to touch its alarm.

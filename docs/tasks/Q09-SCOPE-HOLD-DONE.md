@@ -22,3 +22,12 @@
 - 通用 self 成员判断复用目标解析，会增加目录读取；部署前应评审高频/大量目标性能。
 - 单个新入口事件偶发产生一个成功运行及一个 ignored 运行已单独留证。同步 Ingest 与 RecoverAfterRestart 间没有共同 claim 是待验证路径，本修复不包含并发去重改造，不以之后成功重试掩盖该异常。
 - 不改 SQL 迁移、数据库所有权、通知、设备协议、发布脚本或另一路 owner 上报合同。
+
+## 复审：查询失败与解绑竞争
+
+- CandidateRules 在同一 SQL 读取规则与绑定历史标志 RequiresBinding；随后绑定被撤销时不得将该候选解释成未绑定规则。
+- 绑定目录、模板存在性、有效绑定查询分别返回错误；接收事件保留未处理状态，恢复任务可重试。pending 的临时解析故障计入 deferred，保留原 StartedAt/Deadline；确认解绑、删除、停用仍丢弃 pending。
+- 真实 PostgreSQL 故障注入在候选读取后实施解绑/一次查询失败。夹具仍执行真实 SQL、事务和 prepared statement；无故障对照确实产生运行。166320be 基线对照通过而四项缺陷断言失败，修复后五项通过。追加验证失败 receipt 恢复恰好一个运行，再恢复不重复。
+- 相关绑定、计时、模拟、无数据和租户入口共 47 个顶层测试有通过证据，0 跳过。合并回归运行 46 通过、1 因同时启动同工作树 Encore 测试导致测试数据库连接失败；停止并发后该项及增强的 receipt 恢复测试串行通过。原始日志保留，未将基础设施失败改写成成功。
+- 最初故障夹具缺 Prepare 透传，会使负向断言假绿；该版本日志明确作废，不作为红绿依据。有效证据为 Q09-binding-review-before-v2.jsonl、after-v3.jsonl、regression.jsonl、sequential-recheck.jsonl。
+- 本次不解决 previewScope 的目录查询错误被吞掉问题：模板影响范围可能不完整却生成确认 token，须另行 fail-closed 审查。同步 Ingest / RecoverAfterRestart 的共同处理竞争同样另列。

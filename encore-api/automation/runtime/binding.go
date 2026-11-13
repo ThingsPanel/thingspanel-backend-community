@@ -113,43 +113,45 @@ func (r *Runtime) InvalidateBindings(tenantID, deviceID string) {
 
 // deviceConfigOf resolves the template a device belongs to.
 //
-// It returns "" when the answer is unknown, and the caller must treat that as
-// "no template bindings apply" rather than "this device has no template": a
-// directory that is down must not silently detach a device from its rules.
-// Skipping is safe because a device-level binding still matches by id; only
-// inherited rules are missed, and the next report will pick them up once the
-// directory answers again.
-func (r *Runtime) deviceConfigOf(ctx context.Context, tenantID, deviceID string) string {
+// An authoritative missing device/template is empty without error. A directory
+// failure is different: admission must fail closed and pending work must wait.
+func (r *Runtime) deviceConfigOf(ctx context.Context, tenantID, deviceID string) (string, error) {
 	if r.dir == nil || deviceID == "" {
-		return ""
+		return "", errors.New("binding device directory unavailable")
 	}
 	now := r.Now()
 	if v, ok := r.bindings.getDevice(tenantID+"|"+deviceID, now); ok {
-		return v
+		return v, nil
 	}
 	devices, err := r.dir.ByIDs(ctx, tenantID, []string{deviceID})
-	if err != nil || len(devices) == 0 {
-		return ""
+	if err != nil {
+		return "", err
+	}
+	if len(devices) == 0 {
+		return "", nil
+	}
+	if len(devices) != 1 || devices[0].ID != deviceID || (devices[0].TenantID != "" && devices[0].TenantID != tenantID) {
+		return "", errors.New("binding directory identity mismatch")
 	}
 	r.bindings.putDevice(tenantID+"|"+deviceID, devices[0].DeviceConfigID, now)
-	return devices[0].DeviceConfigID
+	return devices[0].DeviceConfigID, nil
 }
 
 // usesTemplateBindings reports whether the tenant has any template-level
 // binding. Tenants that only bind rules to individual devices skip the
 // device→template lookup entirely, which keeps the uplink path unchanged for
 // them.
-func (r *Runtime) usesTemplateBindings(ctx context.Context, tenantID string) bool {
+func (r *Runtime) usesTemplateBindings(ctx context.Context, tenantID string) (bool, error) {
 	now := r.Now()
 	if v, ok := r.bindings.getTenant(tenantID, now); ok {
-		return v
+		return v, nil
 	}
 	has, err := r.store.HasTemplateBindings(ctx, tenantID)
 	if err != nil {
-		return false
+		return false, err
 	}
 	r.bindings.putTenant(tenantID, has, now)
-	return has
+	return has, nil
 }
 
 // paramsForRule returns the parameter values a device has for one rule.
@@ -177,14 +179,21 @@ type bindingResolution struct {
 // bindingsFor returns, per rule, the parameter values that apply to this
 // device. Template rows are merged first, device rows second, so a device-level
 // override wins without a second table.
-func (r *Runtime) bindingsFor(ctx context.Context, tenantID, deviceID string) map[string]*bindingResolution {
+func (r *Runtime) bindingsFor(ctx context.Context, tenantID, deviceID string) (map[string]*bindingResolution, error) {
 	configID := ""
-	if r.usesTemplateBindings(ctx, tenantID) {
-		configID = r.deviceConfigOf(ctx, tenantID, deviceID)
+	usesTemplates, err := r.usesTemplateBindings(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if usesTemplates {
+		configID, err = r.deviceConfigOf(ctx, tenantID, deviceID)
+		if err != nil {
+			return nil, err
+		}
 	}
 	bindings, err := r.store.BindingsForDevice(ctx, tenantID, deviceID, configID)
-	if err != nil || len(bindings) == 0 {
-		return nil
+	if err != nil {
+		return nil, err
 	}
 	out := make(map[string]*bindingResolution, len(bindings))
 	for _, b := range bindings {
@@ -198,7 +207,7 @@ func (r *Runtime) bindingsFor(ctx context.Context, tenantID, deviceID string) ma
 		}
 		cur.Binding = b
 	}
-	return out
+	return out, nil
 }
 
 // bindRule returns a copy of the rule with this device's parameter values filled
@@ -284,7 +293,11 @@ func (r *Runtime) pendingScopeActive(ctx context.Context, p *store.Pending) (boo
 		return false, err
 	}
 	if len(bindings) != 0 {
-		return r.bindingsFor(ctx, p.TenantID, p.DeviceID)[p.RuleID] != nil, nil
+		resolved, err := r.bindingsFor(ctx, p.TenantID, p.DeviceID)
+		if err != nil {
+			return false, err
+		}
+		return resolved[p.RuleID] != nil, nil
 	}
 	return r.unboundSourceAllowed(ctx, current, p.DeviceID, "", "")
 }
