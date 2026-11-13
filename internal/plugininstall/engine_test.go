@@ -20,6 +20,7 @@ import (
 const secretValue = "SECRET-TOKEN-VALUE-123"
 
 type fakeAgent struct {
+	version   string // catalog version offered (default 1.0.0)
 	mu        sync.Mutex
 	calls     []string
 	secrets   map[string]string
@@ -52,7 +53,11 @@ func (a *fakeAgent) Catalog(context.Context) ([]CatalogEntry, error) {
 	if err := a.rec("catalog"); err != nil {
 		return nil, err
 	}
-	return []CatalogEntry{{ID: "homeassistant", DisplayName: "Home Assistant", Version: "1.0.0", ServiceIdentifier: "homeassistant",
+	version := a.version
+	if version == "" {
+		version = "1.0.0"
+	}
+	return []CatalogEntry{{ID: "homeassistant", DisplayName: "Home Assistant", Version: version, ServiceIdentifier: "homeassistant",
 		NetworkAlias: "tp-plugin-homeassistant", HTTPPort: 9001, Health: &HealthSpec{Port: 9001, Path: "/health"},
 		ServicePlugin: &ServicePluginSpec{Name: "Home Assistant", ServiceType: 2, Config: map[string]string{"http_address": "{alias}:{http_port}"}},
 		EnvUser: map[string]FieldSpec{
@@ -604,3 +609,89 @@ func TestGormServicesRegistersOnceAndKeepsOtherKeys(t *testing.T) {
 }
 
 func (a *fakeAgent) mustEntry() CatalogEntry { l, _ := a.Catalog(context.Background()); return l[0] }
+
+// ---- R7: plugin upgrade through the generation mechanism ----
+
+func TestUpgradeIssuesANewGenerationRevokesTheOldOneAndRecordsTheNewVersion(t *testing.T) {
+	v := newEnv(t)
+	ctx := context.Background()
+	row, _ := v.e.Submit(ctx, "", "homeassistant", "", fullConfig())
+	row = v.settle(t, "", row.ID, StateEnabled)
+	if row.CatalogVersion != "1.0.0" || row.Generation != 1 {
+		t.Fatalf("%+v", row)
+	}
+	items, _ := v.e.Catalog(ctx, "")
+	if items[0].UpdateAvailable {
+		t.Fatal("no update is available while the catalog offers the installed version")
+	}
+	if _, err := v.e.Upgrade(ctx, "", row.ID); !errors.Is(err, ErrUpToDate) {
+		t.Fatalf("an upgrade without a newer catalog version must be refused: %v", err)
+	}
+
+	v.agent.version = "1.1.0" // a new signed catalog arrives
+	items, _ = v.e.Catalog(ctx, "")
+	if !items[0].UpdateAvailable || items[0].Version != "1.1.0" || items[0].Installation.CatalogVersion != "1.0.0" {
+		t.Fatalf("update not offered: %+v", items[0])
+	}
+	if _, err := v.e.Upgrade(ctx, "", row.ID); err != nil {
+		t.Fatal(err)
+	}
+	up := v.settle(t, "", row.ID, StateEnabled)
+	if up.Generation != 2 || up.CatalogVersion != "1.1.0" {
+		t.Fatalf("generation %d version %s", up.Generation, up.CatalogVersion)
+	}
+	if v.agent.count("revoke-1") != 1 || v.agent.count("retire-1") != 1 || v.agent.count("activate-2") != 1 {
+		t.Fatalf("old generation must be revoked and retired, the new one activated: %v", v.agent.calls)
+	}
+	if v.agent.secrets["homeassistant/HA_ACCESS_TOKEN"] != secretValue {
+		t.Fatal("the site configuration must survive an upgrade")
+	}
+	if items, _ = v.e.Catalog(ctx, ""); items[0].UpdateAvailable {
+		t.Fatal("still offered after the upgrade")
+	}
+}
+
+func TestUpgradeIsOnlyAllowedForARunningPlugin(t *testing.T) {
+	v := newEnv(t)
+	ctx := context.Background()
+	row, _ := v.e.Submit(ctx, "", "homeassistant", "", fullConfig())
+	if _, err := v.e.Upgrade(ctx, "", row.ID); !errors.Is(err, ErrBadState) { // still installing
+		t.Fatalf("%v", err)
+	}
+	row = v.settle(t, "", row.ID, StateEnabled)
+	v.e.Disable(ctx, "", row.ID)
+	v.settle(t, "", row.ID, StateInstalled)
+	v.agent.version = "1.1.0"
+	if _, err := v.e.Upgrade(ctx, "", row.ID); !errors.Is(err, ErrBadState) { // stopped: enable it first
+		t.Fatalf("%v", err)
+	}
+	if items, _ := v.e.Catalog(ctx, ""); !items[0].UpdateAvailable {
+		t.Fatal("a stopped plugin still shows that a newer version exists")
+	}
+	if _, err := v.e.Upgrade(ctx, "nobody", row.ID); err == nil {
+		t.Fatal("another tenant must not reach the row")
+	}
+}
+
+func TestFailedUpgradeKeepsTheOldVersionRecordedAndRetryFinishesIt(t *testing.T) {
+	v := newEnv(t)
+	ctx := context.Background()
+	row, _ := v.e.Submit(ctx, "", "homeassistant", "", fullConfig())
+	row = v.settle(t, "", row.ID, StateEnabled)
+	v.agent.version = "1.1.0"
+	v.agent.failStep = "prepare-2" // the new container cannot be prepared (for example its image is missing)
+	if _, err := v.e.Upgrade(ctx, "", row.ID); err != nil {
+		t.Fatal(err)
+	}
+	failed := v.settle(t, "", row.ID, StateFailed)
+	if failed.CatalogVersion != "1.0.0" || failed.ErrorCode == "" || v.ids.live {
+		t.Fatalf("a failed upgrade must not claim the new version or leave a live identity: %+v live=%v", failed, v.ids.live)
+	}
+	v.agent.failStep = ""
+	if _, err := v.e.Retry(ctx, "", row.ID); err != nil {
+		t.Fatal(err)
+	}
+	if done := v.settle(t, "", row.ID, StateEnabled); done.CatalogVersion != "1.1.0" {
+		t.Fatalf("%+v", done)
+	}
+}

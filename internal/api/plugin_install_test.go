@@ -75,6 +75,7 @@ func installRouterWithClaims(t *testing.T, claims utils.UserClaims) (*gin.Engine
 	r.POST("/plugin/installs", PluginInstallCreate)
 	r.GET("/plugin/installs/:id", PluginInstallGet)
 	r.DELETE("/plugin/installs/:id", PluginInstallUninstall)
+	r.POST("/plugin/installs/:id/upgrade", PluginInstallUpgrade)
 	return r, agent
 }
 
@@ -139,5 +140,31 @@ func TestPluginInstallDoesNotCollectTenantCredentials(t *testing.T) {
 	}
 	if g := doJSON(r, "GET", "/plugin/installs/"+out.Data.ID, ""); g.Code != 200 || strings.Contains(g.Body.String(), "TOPSECRET-1") {
 		t.Fatalf("%d %s", g.Code, g.Body)
+	}
+}
+
+func TestPluginUpgradeRouteIsPlatformAdminOnlyAndMapsStates(t *testing.T) {
+	for _, authority := range []string{"TENANT_ADMIN", "TENANT_USER"} {
+		r, _ := installRouter(t, authority)
+		if w := doJSON(r, "POST", "/plugin/installs/x/upgrade", ""); w.Code != http.StatusForbidden {
+			t.Fatalf("%s: %d", authority, w.Code)
+		}
+	}
+	r, _ := installRouter(t, "SYS_ADMIN")
+	if w := doJSON(r, "POST", "/plugin/installs/does-not-exist/upgrade", ""); w.Code != http.StatusNotFound {
+		t.Fatalf("an unknown installation is 404: %d %s", w.Code, w.Body)
+	}
+	created := doJSON(r, "POST", "/plugin/installs", `{"plugin_id":"homeassistant"}`)
+	var out struct {
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &out); err != nil || out.Data.ID == "" {
+		t.Fatalf("%v %s", err, created.Body)
+	}
+	// not running yet (waiting for configuration): the state does not allow an upgrade
+	if w := doJSON(r, "POST", "/plugin/installs/"+out.Data.ID+"/upgrade", ""); w.Code != http.StatusConflict {
+		t.Fatalf("%d %s", w.Code, w.Body)
 	}
 }

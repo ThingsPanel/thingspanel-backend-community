@@ -98,6 +98,8 @@ func installFail(c *gin.Context, err error) {
 		status, code, msg = http.StatusNotFound, "NOT_FOUND", "not found"
 	case errors.Is(err, plugininstall.ErrInvalidConfig):
 		status, code, msg = http.StatusBadRequest, "INVALID_CONFIG", err.Error()
+	case errors.Is(err, plugininstall.ErrUpToDate):
+		status, code, msg = http.StatusConflict, "UP_TO_DATE", "the plugin already runs the catalog version"
 	case errors.Is(err, plugininstall.ErrBadState):
 		status, code, msg = http.StatusConflict, "BAD_STATE", "not allowed in the current state"
 	case errors.Is(err, plugininstall.ErrAgentDown):
@@ -140,7 +142,8 @@ func PluginInstallCatalog(c *gin.Context) {
 	out := make([]gin.H, 0, len(items))
 	for _, it := range items {
 		out = append(out, gin.H{"id": it.ID, "display_name": it.DisplayName, "version": it.Version, "description": it.Description,
-			"service_identifier": it.ServiceIdentifier, "fields": it.EnvUser, "installation": toInstallView(it.Installation, nil)})
+			"service_identifier": it.ServiceIdentifier, "fields": it.EnvUser, "update_available": it.UpdateAvailable,
+			"installation": toInstallView(it.Installation, nil)})
 	}
 	c.Set("data", out)
 }
@@ -243,5 +246,6 @@ var (
 	PluginInstallEnable    = installAction((*plugininstall.Engine).Enable)
 	PluginInstallDisable   = installAction((*plugininstall.Engine).Disable)
 	PluginInstallRetry     = installAction((*plugininstall.Engine).Retry)
+	PluginInstallUpgrade   = installAction((*plugininstall.Engine).Upgrade)
 	PluginInstallUninstall = installAction((*plugininstall.Engine).Uninstall)
 )
