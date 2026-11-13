@@ -42,4 +42,43 @@ class CandidateGuards(unittest.TestCase):
   self.assertEqual(len(candidate.EXCLUDED_ENCORE_FILES),4)
   self.assertFalse(set(candidate.COMMAND_FILES)&set(candidate.EXCLUDED_ENCORE_FILES))
 
+ def test_directory_overlay_checks_all_preimages_before_write(self):
+  with tempfile.TemporaryDirectory(prefix='directory-overlay-') as tmp:
+   root=Path(tmp);owner=root/candidate.DIRECTORY_FILES[0];owner.parent.mkdir(parents=True);owner.write_bytes(b'old-owner')
+   entries={name:(b'old-owner' if name==candidate.DIRECTORY_FILES[0] else None,b'new-'+name.encode()) for name in candidate.DIRECTORY_FILES}
+   unexpected=root/candidate.DIRECTORY_FILES[2];unexpected.write_bytes(b'unexpected-existing-test')
+   with self.assertRaisesRegex(ValueError,'baseline mismatch'):candidate.apply_directory_files(root,entries)
+   self.assertEqual(owner.read_bytes(),b'old-owner')
+   self.assertFalse((root/candidate.DIRECTORY_FILES[1]).exists())
+   unexpected.unlink()
+   changed=candidate.apply_directory_files(root,entries)
+   self.assertEqual({x['path'] for x in changed},set(candidate.DIRECTORY_FILES))
+   self.assertEqual(owner.read_bytes(),entries[candidate.DIRECTORY_FILES[0]][1])
+ def test_directory_overlay_refuses_added_unreviewed_file(self):
+  with tempfile.TemporaryDirectory(prefix='directory-scope-') as tmp:
+   entries={name:(None,b'new') for name in candidate.DIRECTORY_FILES}
+   entries['internal/app/bootstrap.go']=(None,b'new')
+   with self.assertRaisesRegex(ValueError,'exactly the three'):candidate.apply_directory_files(Path(tmp),entries)
+   self.assertEqual(list(Path(tmp).rglob('*')),[])
+ def test_directory_tests_are_required_and_package_skip_is_not_test_skip(self):
+  with tempfile.TemporaryDirectory(prefix='directory-gate-') as tmp:
+   path=Path(tmp)/'log.jsonl'
+   rows=[{'Action':'skip','Package':'unused-package'}]+[{'Package':'project/internal/api','Test':n,'Action':'pass'} for n in candidate.REQUIRED_PG_TESTS]
+   path.write_text('\n'.join(json.dumps(x) for x in rows));candidate.verify_tests(path)
+   for name in candidate.REQUIRED_DIRECTORY_TESTS:
+    filtered=[x for x in rows if x.get('Test')!=name]
+    path.write_text('\n'.join(json.dumps(x) for x in filtered))
+    with self.assertRaisesRegex(ValueError,'missing, skipped or failed'):candidate.verify_tests(path)
+    filtered.append({'Test':name,'Action':'skip'});path.write_text('\n'.join(json.dumps(x) for x in filtered))
+    with self.assertRaisesRegex(ValueError,'missing, skipped or failed'):candidate.verify_tests(path)
+   rows.append({'Test':'TestUnexpected/child','Action':'skip'});path.write_text('\n'.join(json.dumps(x) for x in rows))
+   with self.assertRaisesRegex(ValueError,'skipped test'):candidate.verify_tests(path)
+ def test_deployed_snapshot_mismatch_is_closed(self):
+  with self.assertRaisesRegex(ValueError,'deployed 1702'):candidate.verify_deployed_source({'internal/api/automation_owner.go':'changed'})
+ def test_directory_scope_has_no_uplink_or_compat_patch(self):
+  self.assertEqual(len(candidate.DIRECTORY_FILES),3)
+  self.assertEqual(candidate.DIRECTORY_SOURCE,'c4197017533974a624a3fa0982a0f79cd6443ec7')
+  self.assertEqual(len(candidate.REQUIRED_DIRECTORY_TESTS),3)
+  self.assertFalse(set(candidate.DIRECTORY_FILES)&set(candidate.COMMAND_FILES))
+
 if __name__=='__main__':unittest.main()

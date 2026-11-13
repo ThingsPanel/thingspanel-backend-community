@@ -1,6 +1,6 @@
 # Candidate-branch dispatch adapter using an already registered workflow path.
 # Build and GitHub artifact upload only. No SSH, deployment or migrations.
-name: Build integrated Gin CAS and command candidate
+name: Build additive Gin bounded directory candidate
 on:
   workflow_dispatch:
 permissions:
@@ -36,16 +36,18 @@ jobs:
           set -euo pipefail
           test -z "$(git status --porcelain)"
           git fetch origin 47405bfd51eba9f436231744de9a123d4278152d
+          git fetch origin c4197017533974a624a3fa0982a0f79cd6443ec7
           python3 -m unittest discover -s deploy/community-test -p test_gin_integrated_candidate.py
           python3 deploy/community-test/build_gin_integrated_candidate.py compose "$RUNNER_TEMP/gin-integrated"
       - name: Validate actual combined Gin and real PostgreSQL boundaries
         env:
           Q02_METADATA_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test?sslmode=disable
+          TEST_AUTOMATION_DIRECTORY_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test?sslmode=disable
           TEST_BROKER_DATABASE_DSN: host=127.0.0.1 port=25543 user=notification_test password=fixture-only-password dbname=notification_test sslmode=disable
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/gin-integrated/source/backend"
-          go test ./internal/model ./internal/dal ./internal/api ./internal/service ./internal/brokersemantic ./internal/brokercontrol ./internal/adapter/mqttadapter ./router -run 'Test(DeviceConfigCondition|DeviceConfigMetadataPostgres|TemplateMetadataAPI|NativeCommand|PostgresNativeCommandOwnerValidation|ExpectedCommandRetains|ValidateCommand|CommandFingerprintSnapshotLegacyJSONIsStable|PostgresPluginPublisherAuthenticatesWhileDispatchHoldsRoute|DeviceDiagnosticsAuthenticatedTenantBoundary|HTTPCommandWireUsesAcceptedDeadlineOnly)' -count=1 -json | tee "$RUNNER_TEMP/gin-integrated/tests.jsonl"
+          go test ./internal/model ./internal/dal ./internal/api ./internal/service ./internal/brokersemantic ./internal/brokercontrol ./internal/adapter/mqttadapter ./router -run 'Test(DeviceConfigCondition|DeviceConfigMetadataPostgres|TemplateMetadataAPI|NativeCommand|PostgresNativeCommandOwnerValidation|ExpectedCommandRetains|ValidateCommand|CommandFingerprintSnapshotLegacyJSONIsStable|PostgresPluginPublisherAuthenticatesWhileDispatchHoldsRoute|DeviceDiagnosticsAuthenticatedTenantBoundary|HTTPCommandWireUsesAcceptedDeadlineOnly|AutomationDeviceLookup|AutomationOwnerAuth)' -count=1 -json | tee "$RUNNER_TEMP/gin-integrated/tests.jsonl"
           python3 "$GITHUB_WORKSPACE/deploy/community-test/build_gin_integrated_candidate.py" verify-tests "$RUNNER_TEMP/gin-integrated/tests.jsonl"
       - name: Retain mainline ownership and validate stage transform guards
         env:
