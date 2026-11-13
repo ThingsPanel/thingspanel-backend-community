@@ -371,3 +371,121 @@ func TestTenantImportPostgresGatewayClosure(t *testing.T) {
 		t.Fatal("missing source runtime identity")
 	}
 }
+
+func reviewedSelfGatewayFixture() TenantImportInput {
+	in := tenantImportFixture()
+	parent := in.Members[0].DeviceID
+	child := uuid.NewString()
+	in.Devices[0] = fixtureDevice(parent, in.SourceTenantID, "reviewed-self-gateway", parent)
+	var row map[string]any
+	_ = json.Unmarshal(fixtureDevice(child, in.SourceTenantID, "valid-child", parent), &row)
+	row["sub_device_addr"] = "valid01"
+	raw, _ := json.Marshal(row)
+	in.Devices = append(in.Devices, raw)
+	// Only child is a direct member; parent must survive the dependency closure.
+	in.Members[0].DeviceID = child
+	in.ExcludedGateways = []DeviceRelation{{DeviceID: parent, TargetID: parent}}
+	return in
+}
+
+func TestTenantImportArchiveReviewedGatewayExclusions(t *testing.T) {
+	in := reviewedSelfGatewayFixture()
+	src, dst, rules := archiveFixture(&in, TenantImportResolutions{ExcludedGateways: in.ExcludedGateways})
+	if e := ValidateTenantImportArchives(in, src, dst, rules); e != nil {
+		t.Fatal(e)
+	}
+	for name, change := range map[string]func(*TenantImportInput){
+		"omit approved pair": func(x *TenantImportInput) { x.ExcludedGateways = nil },
+		"forged pair":        func(x *TenantImportInput) { x.ExcludedGateways[0].TargetID = uuid.NewString() },
+		"extra exclusion": func(x *TenantImportInput) {
+			x.ExcludedGateways = append(x.ExcludedGateways, DeviceRelation{DeviceID: uuid.NewString(), TargetID: uuid.NewString()})
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			b, _ := json.Marshal(in)
+			var x TenantImportInput
+			_ = json.Unmarshal(b, &x)
+			change(&x)
+			if e := ValidateTenantImportArchives(x, src, dst, rules); e == nil {
+				t.Fatal("unauthorized gateway exclusion accepted")
+			}
+		})
+	}
+	// Even a resolution file cannot call a valid same-tenant child edge erroneous.
+	bad := reviewedSelfGatewayFixture()
+	parent := bad.ExcludedGateways[0].DeviceID
+	child := bad.Members[0].DeviceID
+	bad.ExcludedGateways = append(bad.ExcludedGateways, DeviceRelation{DeviceID: child, TargetID: parent})
+	s, d, r := archiveFixture(&bad, TenantImportResolutions{ExcludedGateways: bad.ExcludedGateways})
+	if e := ValidateTenantImportArchives(bad, s, d, r); e == nil {
+		t.Fatal("valid child edge was discarded")
+	}
+	// A real cross-tenant original edge can be quarantined without pulling the
+	// foreign parent into the target tenant or rewriting the child's raw row.
+	cross := tenantImportFixture()
+	child = cross.Members[0].DeviceID
+	foreign := uuid.NewString()
+	cross.Devices[0] = fixtureDevice(child, cross.SourceTenantID, "cross-child", foreign)
+	cross.ExcludedGateways = []DeviceRelation{{DeviceID: child, TargetID: foreign}}
+	s, d, r = archiveFixture(&cross, TenantImportResolutions{ExcludedGateways: cross.ExcludedGateways})
+	var source map[string]json.RawMessage
+	_ = json.Unmarshal(s, &source)
+	all := append(append([]json.RawMessage{}, cross.Devices...), fixtureDevice(foreign, "foreign-tenant", "foreign-parent", ""))
+	source["devices"], _ = json.Marshal(all)
+	s, _ = json.Marshal(source)
+	cross.SourceArchiveSHA256 = rawHash(s)
+	if e := ValidateTenantImportArchives(cross, s, d, r); e != nil {
+		t.Fatal(e)
+	}
+}
+
+func TestTenantImportPostgresReviewedSelfGatewayKeepsChild(t *testing.T) {
+	db := tenantImportPG(t)
+	in := reviewedSelfGatewayFixture()
+	if e := db.Raw("SELECT current_database()").Scan(&in.TargetDatabase).Error; e != nil {
+		t.Fatal(e)
+	}
+	s, d, r := archiveFixture(&in, TenantImportResolutions{ExcludedGateways: in.ExcludedGateways})
+	if e := ValidateTenantImportArchives(in, s, d, r); e != nil {
+		t.Fatal(e)
+	}
+	original := string(in.Devices[0])
+	parent := in.ExcludedGateways[0].DeviceID
+	child := in.Members[0].DeviceID
+	receipt, e := ApplyTenantImportPG(context.Background(), db, in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if receipt.Devices != 2 || receipt.Members != 1 || receipt.Gateways != 1 || receipt.QuarantinedGateways != 1 {
+		t.Fatalf("incomplete closure: %+v", receipt)
+	}
+	if string(in.Devices[0]) != original {
+		t.Fatal("original self-parent source row rewritten")
+	}
+	var links []GatewayMember
+	if e := db.Table("gateway_memberships").Where("tenant_id=?", receipt.TenantID).Find(&links).Error; e != nil {
+		t.Fatal(e)
+	}
+	if len(links) != 1 || links[0].ChildDeviceID != child || links[0].GatewayDeviceID != parent || links[0].SubdeviceAddress != "valid01" {
+		t.Fatal("valid child edge lost or self-loop imported")
+	}
+	var identities []DeviceIdentity
+	if e := db.Table("devices").Where("tenant_id=?", receipt.TenantID).Find(&identities).Error; e != nil {
+		t.Fatal(e)
+	}
+	if len(identities) != 2 {
+		t.Fatal("quarantined edge removed a device")
+	}
+	for _, identity := range identities {
+		if identity.ID == parent && identity.DeviceKind != "gateway" {
+			t.Fatal("valid child no longer belongs to gateway")
+		}
+	}
+	var o ImportedOrigin
+	if e := db.Table("imported_device_origins").Where("tenant_id=? AND device_id=?", receipt.TenantID, parent).Take(&o).Error; e != nil {
+		t.Fatal(e)
+	}
+	if o.SourceRowSHA256 != rawHash([]byte(original)) {
+		t.Fatal("original source provenance lost")
+	}
+}

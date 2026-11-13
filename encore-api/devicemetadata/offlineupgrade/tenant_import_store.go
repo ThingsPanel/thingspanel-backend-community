@@ -26,6 +26,7 @@ type TenantImportReceipt struct {
 	SourceTemplates         int    `json:"source_templates"`
 	Members                 int    `json:"members"`
 	Gateways                int    `json:"gateways"`
+	QuarantinedGateways     int    `json:"quarantined_gateways"`
 	RuntimeOwnershipChanged bool   `json:"runtime_ownership_changed"`
 	Scope                   string `json:"scope"`
 }
@@ -42,6 +43,7 @@ func ApplyTenantImportPG(ctx context.Context, db *gorm.DB, in TenantImportInput)
 	r := TenantImportReceipt{State: "imported", TenantID: p.TenantID, InputSHA256: p.Digest, SourceArchiveSHA256: in.SourceArchiveSHA256, Groups: len(p.Groups), Devices: len(p.Devices), SourceTemplates: len(in.Templates), Members: len(p.Members), Gateways: len(p.Gateways), Scope: "tenant metadata and memberships; source runtime, credentials and access templates preserved"}
 	r.TargetArchiveSHA256 = in.TargetArchiveSHA256
 	r.ResolutionsSHA256 = in.ResolutionsSHA256
+	r.QuarantinedGateways = len(in.ExcludedGateways)
 	if db == nil || db.Dialector.Name() != "postgres" {
 		return TenantImportReceipt{}, fmt.Errorf("PostgreSQL owner required")
 	}

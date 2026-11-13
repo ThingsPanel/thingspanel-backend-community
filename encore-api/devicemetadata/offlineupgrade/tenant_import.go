@@ -32,6 +32,7 @@ type TenantImportInput struct {
 	ParentResolutions   []GroupParentResolution `json:"parent_resolutions,omitempty"`
 	NameFromNumber      []string                `json:"name_from_number,omitempty"`
 	ExcludedMembers     []MemberExclusion       `json:"excluded_members,omitempty"`
+	ExcludedGateways    []DeviceRelation        `json:"excluded_gateways,omitempty"`
 }
 
 // ImportedOrigin contains no access parameters, credentials or fabricated
@@ -116,7 +117,7 @@ func PlanTenantImport(in TenantImportInput) (TenantImportPlan, error) {
 	if e != nil {
 		return p, e
 	}
-	devices, e := planDeviceIdentityRows(DeviceIdentityInput{SourceArchiveSHA256: in.SourceArchiveSHA256, Devices: in.Devices, Templates: in.Templates, NameFromNumber: in.NameFromNumber})
+	devices, e := planDeviceIdentityRows(DeviceIdentityInput{SourceArchiveSHA256: in.SourceArchiveSHA256, Devices: in.Devices, Templates: in.Templates, NameFromNumber: in.NameFromNumber, ExcludedGatewayRelations: in.ExcludedGateways})
 	if e != nil {
 		return p, e
 	}
@@ -137,7 +138,7 @@ func PlanTenantImport(in TenantImportInput) (TenantImportPlan, error) {
 			return p, fmt.Errorf("membership lies outside tenant closure")
 		}
 	}
-	relations, e := planRelationRows(RelationsInput{SourceArchiveSHA256: in.SourceArchiveSHA256, RecordedAt: in.RecordedAt, Members: in.Members, Gateways: gateways, ExcludedMembers: in.ExcludedMembers})
+	relations, e := planRelationRows(RelationsInput{SourceArchiveSHA256: in.SourceArchiveSHA256, RecordedAt: in.RecordedAt, Members: in.Members, Gateways: gateways, ExcludedMembers: in.ExcludedMembers, ExcludedGateways: in.ExcludedGateways})
 	if e != nil {
 		return p, e
 	}

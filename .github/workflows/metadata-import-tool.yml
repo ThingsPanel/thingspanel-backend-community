@@ -1,0 +1,65 @@
+name: Verified metadata import tool
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: community-metadata-import-tool
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require main
+        env:
+          SOURCE_REF: ${{ github.ref }}
+        run: test "$SOURCE_REF" = refs/heads/main
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.9'
+          cache-dependency-path: encore-api/go.sum
+      - name: Start isolated PostgreSQL
+        run: |
+          docker run -d --name import-test -p 127.0.0.1:25543:5432 -e POSTGRES_USER=import_test -e POSTGRES_PASSWORD=fixture-only -e POSTGRES_DB=import_test postgres:16-alpine
+          for attempt in $(seq 1 30); do
+            if docker exec import-test pg_isready -U import_test -d import_test; then
+              docker exec import-test createdb -U import_test tp_upgrade_rehearsal_20000101000001
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+      - name: Verify actual-schema import and build standalone tool
+        working-directory: encore-api
+        env:
+          TENANT_IMPORT_TEST_DSN: postgres://import_test:fixture-only@127.0.0.1:25543/import_test?sslmode=disable
+          UPGRADE_TEST_DSN: postgres://import_test:fixture-only@127.0.0.1:25543/tp_upgrade_rehearsal_20000101000001?sslmode=disable
+        run: |
+          go test -count=1 ./devicemetadata/offlineupgrade ./cmd/metadata-import-tenant
+          mkdir -p ../import-tool
+          CGO_ENABLED=0 go build -trimpath -o ../import-tool/metadata-import-tenant ./cmd/metadata-import-tenant
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          root=pathlib.Path('../import-tool')
+          (root/'manifest.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'sha256':{'metadata-import-tenant':hashlib.sha256((root/'metadata-import-tenant').read_bytes()).hexdigest()}}))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metadata-import-tool-${{ github.sha }}
+          path: import-tool/
+          retention-days: 7
+      - name: Stage verified tool without changing services or data
+        env:
+          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/import-key"
+          args=(-i "$RUNNER_TEMP/import-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          ssh "${args[@]}" root@47.92.253.145 "install -d -m 700 /opt/tp-community-actions/migration-tools/$GITHUB_SHA"
+          scp "${args[@]}" import-tool/metadata-import-tenant import-tool/manifest.json "root@47.92.253.145:/opt/tp-community-actions/migration-tools/$GITHUB_SHA/"
+      - name: Remove runner key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/import-key"

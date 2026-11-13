@@ -12,6 +12,7 @@ type TenantImportResolutions struct {
 	ParentResolutions []GroupParentResolution `json:"parent_resolutions"`
 	NameFromNumber    []string                `json:"name_from_number"`
 	ExcludedMembers   []MemberExclusion       `json:"excluded_members"`
+	ExcludedGateways  []DeviceRelation        `json:"excluded_gateways"`
 }
 
 // ValidateTenantImportArchives binds every proposed row and resolution to the
@@ -108,6 +109,11 @@ func ValidateTenantImportArchives(in TenantImportInput, source, target, resoluti
 		}
 	}
 	deviceIDs := map[string]bool{}
+	approvedGateways, e := uniqueRelations(approved.ExcludedGateways)
+	if e != nil {
+		return fmt.Errorf("invalid duplicate gateway exclusion approval")
+	}
+	var gatewayExclusions []DeviceRelation
 	queue := []string{}
 	for _, m := range members {
 		if !excluded[m.GroupID+"/"+m.DeviceID] {
@@ -129,9 +135,21 @@ func ValidateTenantImportArchives(in TenantImportInput, source, target, resoluti
 		if json.Unmarshal(raw, &row) != nil {
 			return fmt.Errorf("invalid archived device")
 		}
-		if text(row.ParentID) != "" {
+		if approvedParent, excluded := approvedGateways[id]; excluded {
+			if text(row.ParentID) != approvedParent {
+				return fmt.Errorf("reviewed gateway parent changed")
+			}
+			parent, exists := devices[approvedParent]
+			if id != approvedParent && (!exists || rawTenant(parent) == in.SourceTenantID) {
+				return fmt.Errorf("gateway exclusion is not an original self or cross-tenant edge")
+			}
+			gatewayExclusions = append(gatewayExclusions, DeviceRelation{DeviceID: id, TargetID: approvedParent})
+		} else if text(row.ParentID) != "" {
 			queue = append(queue, text(row.ParentID))
 		}
+	}
+	if !sameUnordered(in.ExcludedGateways, gatewayExclusions) {
+		return fmt.Errorf("gateway quarantine differs from reviewed closure")
 	}
 	if !sameSourceRows(in.Devices, devices, deviceIDs) {
 		return fmt.Errorf("input devices differ from exact membership/ancestor closure")
