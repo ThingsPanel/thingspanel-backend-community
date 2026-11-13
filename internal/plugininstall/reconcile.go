@@ -190,6 +190,7 @@ func (e *Engine) install(ctx context.Context, row *Installation) *time.Duration 
 	}
 	now := e.now()
 	row.State, row.Health, row.OpStep, row.ErrorCode, row.OpAttempts, row.MaintainedAt = StateEnabled, "ok", "", "", 0, &now
+	row.CatalogVersion = entry.Version // what actually runs now; an upgrade that failed leaves the old version recorded
 	e.event(row, "health", "ok", "")
 	_ = e.Repo.Save(row)
 	return nil

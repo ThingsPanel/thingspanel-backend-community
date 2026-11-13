@@ -52,6 +52,8 @@ type CatalogEntry struct {
 	Health            *HealthSpec          `json:"health,omitempty"`
 	ServicePlugin     *ServicePluginSpec   `json:"service_plugin,omitempty"`
 	EnvUser           map[string]FieldSpec `json:"env_user"`
+	// ImagePresent is the Agent's answer to "is the pinned image on this host"; nil when it did not say.
+	ImagePresent *bool `json:"image_present,omitempty"`
 }
 
 // PrepareRequest carries the only inputs the Agent accepts to build a container: the catalog id, non-secret site

@@ -188,3 +188,12 @@ R3、R4、R4S 已合并推送到两个仓库的 develop；`wp-r3-done`、`wp-r4s
 ## R5b、R6 合并推送（2026-11-13）
 R5b、R6 已合并推送：安装器 develop `f7e9212`、后端 develop `53a7032f`、前端 develop `d7dbeae3`。后端 `wp-r5b-done`、`wp-r6-system-api`，安装器 `wp-r5b-upgrade`、`wp-r6-agent`，前端 `wp-r6-frontend` 的 worktree 与分支已删除（上面 R5b、R6 两节里这些行的“待清理”以此为准）。镜像 `r6-encore:dev`、`r6-frontend:dev` 保留给 R7。
 
+## R7（2026-11-13 登记）
+| 路径/对象 | 分支 | 任务 | 预计清理 |
+|---|---|---|---|
+| `.claude/worktrees/wp-r7-plugin-upgrade`（后端） | `wp/R7-plugin-upgrade` | R7 插件升级 + 交付说明 | 审查合并后当天清理 |
+| `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r7-agent`（安装器） | `wp/R7-agent` | R7 Agent 镜像存在性 | 审查合并后当天清理 |
+| `~/Downloads/code/thingspanel-frontend-community/.claude/worktrees/wp-r7-frontend`（前端，单独会话） | `wp/R7-frontend` | R7 更新对话框的插件行 | 审查合并后当天清理 |
+| 镜像 `r6-encore:dev`、`r7-frontend:dev`/`r6-frontend:dev` | — | 计划已做完，**R7 结束后删除**（见下） | 已清理（见 R7-DONE） |
+| 演练栈 `r7-*`、`r7-backend:*`、`r7-ha-standin:*`、`/Volumes/KIOXIA/tmp/r7-work` | — | 已于 R7 结束时删除，证据在 `/Volumes/KIOXIA/archive/evidence/2026-11-13-R7` | 已清理 |
+

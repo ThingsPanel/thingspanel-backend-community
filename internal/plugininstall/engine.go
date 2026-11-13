@@ -29,6 +29,13 @@ const (
 	CodePluginUnknown      = "plugin_unknown"
 )
 
+// ErrUpToDate: the signed catalog offers no newer version than the one installed.
+var ErrUpToDate = errors.New("plugin is already at the catalog version")
+
+// ErrImageMissing: the new version's image is not on the host. An upgrade would revoke the running generation before
+// the new one could start, so it is refused instead of taking a working plugin down.
+var ErrImageMissing = errors.New("the new plugin image is not available on this host")
+
 var (
 	ErrUnknownPlugin = errors.New("plugin is not in the signed catalog")
 	ErrInvalidConfig = errors.New("invalid plugin configuration")
@@ -115,6 +122,15 @@ func (e *Engine) Tick(ctx context.Context) {
 type CatalogItem struct {
 	CatalogEntry
 	Installation *Installation `json:"installation,omitempty"`
+	// UpdateAvailable: an installed (enabled or stopped) plugin runs another version than the signed catalog now offers.
+	UpdateAvailable bool `json:"update_available"`
+}
+
+func updateAvailable(row *Installation, entry *CatalogEntry) bool {
+	if row == nil || (row.State != StateEnabled && row.State != StateInstalled) {
+		return false
+	}
+	return row.CatalogVersion != "" && row.CatalogVersion != entry.Version
 }
 
 func (e *Engine) entry(ctx context.Context, plugin string) (*CatalogEntry, error) {
@@ -145,7 +161,8 @@ func (e *Engine) Catalog(ctx context.Context, tenant string) ([]CatalogItem, err
 	}
 	out := make([]CatalogItem, 0, len(list))
 	for _, c := range list {
-		out = append(out, CatalogItem{CatalogEntry: c, Installation: byPlugin[c.ID]})
+		c := c
+		out = append(out, CatalogItem{CatalogEntry: c, Installation: byPlugin[c.ID], UpdateAvailable: updateAvailable(byPlugin[c.ID], &c)})
 	}
 	return out, nil
 }
@@ -280,6 +297,39 @@ func (e *Engine) Retry(ctx context.Context, tenant, id string) (*Installation, e
 		} else {
 			r.State = StateInstalling
 		}
+		return true
+	})
+}
+
+// Upgrade moves an enabled plugin to the version the signed catalog now offers. It is the plugin generation
+// mechanism, not a second one: a higher generation is issued, the Agent accepts it (which revokes and retires the
+// old generation), prepares the container from the current catalog entry, grants and activates it, and the
+// platform waits for it to be healthy. The recorded version changes only when that succeeded. There is no
+// automatic way back to the previous version (the Agent only knows the current catalog): a failed upgrade ends in
+// the "failed" state with a fixed code, and Retry runs the same operation again.
+func (e *Engine) Upgrade(ctx context.Context, tenant, id string) (*Installation, error) {
+	row, err := e.Repo.Get(tenant, id)
+	if err != nil {
+		return nil, err
+	}
+	if row.State != StateEnabled {
+		return nil, ErrBadState
+	}
+	entry, err := e.entry(ctx, row.PluginID)
+	if err != nil {
+		return nil, err
+	}
+	if !updateAvailable(row, entry) {
+		return nil, ErrUpToDate
+	}
+	if entry.ImagePresent != nil && !*entry.ImagePresent {
+		return nil, ErrImageMissing
+	}
+	return e.transition(tenant, id, func(r *Installation) bool {
+		if r.State != StateEnabled {
+			return false
+		}
+		r.Desired, r.State = DesiredEnabled, StateInstalling
 		return true
 	})
 }
