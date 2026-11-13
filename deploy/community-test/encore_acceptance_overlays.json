@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "bootstrap_owner_commit": "47405bfd51eba9f436231744de9a123d4278152d",
+  "bootstrap_anchor": "9d42e1195451bfbb358859817596552315430d7f",
+  "overlays": [
+    {
+      "name": "command_namespace",
+      "base": "47405bfd51eba9f436231744de9a123d4278152d",
+      "source": "34d6e18971f15b74c0b02fb7f69fae2fc87f876a",
+      "files": {
+        "encore-api/thingmodel/app/command_namespace_test.go": {
+          "before": null,
+          "after": "dca55dec360504732fc5ceca3eac4bb1bf0d850575b35e4b52c02ad13ceaf6cb"
+        },
+        "encore-api/thingmodel/core/command.go": {
+          "before": "16ba99143172748604fb50875b2126ba00bc2091b3bf80802bb2627b958bf169",
+          "after": "680ec2f6657086a5e139dadc80f0eb9ac7806d13bdf7a5edb86f970a709263f8"
+        }
+      }
+    },
+    {
+      "name": "preview_failclosed",
+      "base": "9d42e1195451bfbb358859817596552315430d7f",
+      "source": "489344333e79ff28e71ad72c1f3a33fa99621b20",
+      "files": {
+        "encore-api/automation/change_preview.go": {
+          "before": "6538328da03fcdaf2c88c6f4645fcda4a88e2203012ddaddb4d717da2cdef396",
+          "after": "f02e36030985f5d4621841066a672e077e7d0f867dd1903a5c04a1c80046cbd4"
+        },
+        "encore-api/automation/q09_preview_directory_failure_test.go": {
+          "before": null,
+          "after": "f9d0d4ab0b803812acd5cca9c72c4cdf85ca8ca854980abf698ffef54828f69c"
+        }
+      }
+    },
+    {
+      "name": "scope_hold_identity_directory",
+      "base": "9d42e1195451bfbb358859817596552315430d7f",
+      "source": "a603aa0d0631c312dd57125ed1a84c726e53566b",
+      "files": {
+        "encore-api/automation/a19_binding_test.go": {
+          "before": "48f18c50163be737de7246a54c90f39f1d5094dea550561804e471c48c15eeb5",
+          "after": "5ecacde7e9500144dee2ca26fb4fd190d8deaf72753266555ede778eea6f4a02"
+        },
+        "encore-api/automation/ports/directory_lookup_test.go": {
+          "before": null,
+          "after": "954fe258c5e6159c23d36337e577afefa4ad87284faba84e12bf3c3ceef04f76"
+        },
+        "encore-api/automation/ports/owner_transport_test.go": {
+          "before": "104c620562141af8f3c3bab7c15140b7613a78236388d8af455138ce437160b1",
+          "after": "503eb7b42323fcf2a77659d9ae6dd3321b80e61b7314bdacf356714c1a4eadb4"
+        },
+        "encore-api/automation/ports/ports.go": {
+          "before": "3b0372fcea78695e5b2aa8744cf4e272502618bacf10b24e7d3a3761a937a1e1",
+          "after": "2140994583fab39f54243538f6c6effc2a519bd06b1d18708e5cfab0b3fd7bea"
+        },
+        "encore-api/automation/q09_binding_fault_test.go": {
+          "before": null,
+          "after": "d66fae8e9916ffe6036879b73830df4dc9bd3d0ed04c2912308683d951993523"
+        },
+        "encore-api/automation/q09_receipt_race_test.go": {
+          "before": null,
+          "after": "10e2ce2c00975700bbf919e895633b67952776bf22f0cd2b65a0891cf1c80187"
+        },
+        "encore-api/automation/q09_scope_hold_regression_test.go": {
+          "before": null,
+          "after": "7ad8c1f7ece8e27de0b21fd727aef33662dbe8bb17371241c790cb6394187278"
+        },
+        "encore-api/automation/q09_source_membership_cost_test.go": {
+          "before": null,
+          "after": "7ededba8b96c1255bebd71773ddad26a258442ea652a22460653dbcff42bfc65"
+        },
+        "encore-api/automation/runtime/alarm.go": {
+          "before": "ad49e14a114272cefac3af76f74910220ba7b28c17b60a5410dfe27174f1bb56",
+          "after": "29ffcf6167e64a738ee702784dc656bb221fcbab7ca3b561ca477a7f9ef0b855"
+        },
+        "encore-api/automation/runtime/binding.go": {
+          "before": "9260b5ed0de6a54bf8d8f5b3befe32718132e27d92a58ca4ae0c1785535911d1",
+          "after": "40eaad2791fef04d665a1f55dd23b40aad9e6327439a5b64eef65cfba4d85489"
+        },
+        "encore-api/automation/runtime/execute.go": {
+          "before": "5ef4967f91a6855adac72b10230fb026c472d91ec9a88766ce20ca72ee65148a",
+          "after": "e35ddf739afee3d499e18270f19d53036dacf6e3dedb013105c85573f4bebe57"
+        },
+        "encore-api/automation/runtime/ingest.go": {
+          "before": "2da38bba5e9209948457f0ea2e09c1dfcabc2e392b7116de6777ec4ece4e7f26",
+          "after": "a727bdf409e710137bc6789a30223eb0607610bb7e9ca469490eb577aa2c788b"
+        },
+        "encore-api/automation/runtime/nodata.go": {
+          "before": "2f9a2e346c2b88536d87cfc623cc7e4ab53003512a418fa636e6e1b6dd5c71e4",
+          "after": "48fb86e5335b3786563cbc02b2d05bfded5273a251edc990cf595152c7c16db6"
+        },
+        "encore-api/automation/runtime/scene.go": {
+          "before": "5338e285ac28522e0f4eb2f7ea6d80818f0dc727aef728d388e0980bc25ca3af",
+          "after": "a6989e1eb5002476a6c34893153c451a7c3404c52a52776b2375369d1f832ec2"
+        },
+        "encore-api/automation/runtime/simulate.go": {
+          "before": "67d8c09d08e4ae18494104a85c78215298e94e4958478f634a3939921f710929",
+          "after": "9f2d4d40729f17ff9758b1c6a9de7f184fc9f66615d89b8c794493c97059c58f"
+        },
+        "encore-api/automation/runtime/source_membership_test.go": {
+          "before": null,
+          "after": "3c74cfff8ffe9bbb50d50a826cf8599766fb20010b2e0314da3e9e53828c5647"
+        },
+        "encore-api/automation/runtime/timer.go": {
+          "before": "5e3990f8d750bed3ed205f88f33d1b38446581b899d551200e3abc626e73be52",
+          "after": "c1f373f2ed56516f4c43bc9f1a2fcc1e2d65782af39c2f65aab57f9b18ed2ebc"
+        },
+        "encore-api/automation/store/run_admission.go": {
+          "before": "b6dc4c3b1cbc45ce90a9948aa52a8a519c44a224531b5cd8de6acaf3fdcd8f39",
+          "after": "17387302d057d0a8fda4eae00d313c2cfa9c5aeea27624679d2dd5e20b421b82"
+        },
+        "encore-api/automation/store/runtime_store.go": {
+          "before": "0d01d5716126677762c2e43da4cab3c8d2582945ee343f1cd12fc726977ab019",
+          "after": "4eab784f08c893fb8bfa156920140ce29e2eb691a6f3be3891e4415da1a3f675"
+        },
+        "encore-api/automation/store/store.go": {
+          "before": "6878a9756ec44cdacf36cac5df412c90c923f73634aa37430d97dd6f6d750766",
+          "after": "7337c1569a6be2b4911e5242a368e7f2cf9da968274b68780a1916cd7495351f"
+        }
+      }
+    },
+    {
+      "name": "invocation_lease",
+      "base": "3c1fd25260d06b251f7bbb824047b561c400c2af",
+      "source": "7d2b277bd0cb3747c106978ef8929fc600bb2abb",
+      "files": {
+        "encore-api/automation/q09_run_lease_invocation_test.go": {
+          "before": null,
+          "after": "737a0f79abacd6c00eed6a7e9bcfd3503decdd8bf4803ec8244dc91328ba8b3d"
+        },
+        "encore-api/automation/runtime/execute.go": {
+          "before": "e35ddf739afee3d499e18270f19d53036dacf6e3dedb013105c85573f4bebe57",
+          "after": "f182fd3a38f7167ca40f8889353a7b3d97b9c227511e78c7076492cd4cf49dfe"
+        }
+      }
+    },
+    {
+      "name": "uplink_owner",
+      "base": "1334f9a120b1d90b0a4fca7ffc09576f35c05121",
+      "source": "cbb627f5423919e09ba9c1442d382a869b7cb3d1",
+      "files": {
+        "encore-api/thingmodel/owner_uplink_contract.go": {
+          "before": null,
+          "after": "68f31ba8acc54240901f294f27fa9850cb37d1dee5424caf028eb0322991527d"
+        },
+        "encore-api/thingmodel/owner_uplink_contract_test.go": {
+          "before": null,
+          "after": "47365d0b58ebf4df276b63619b05c2a9dec32714e37a3bc30e781abe2f4fb97d"
+        },
+        "encore-api/thingmodel/owner_uplink_parity_test.go": {
+          "before": null,
+          "after": "89ac4a3a99299e11f6b8009ae18a047c41703b56a7e3994dd7da90562effc311"
+        },
+        "encore-api/thingmodel/testdata/uplink-core-parity.json": {
+          "before": null,
+          "after": "3d2446b719cbe47f38e5f4f846a138a4984af98e8742dac8fb2c929336037819"
+        }
+      }
+    }
+  ],
+  "required_tests": {
+    "TestABadParameterValueIsRefusedBeforeItIsStored": "encore.app/automation",
+    "TestADetachedBindingStopsFutureTriggersButKeepsItsRecord": "encore.app/automation",
+    "TestAPendingWindowKeepsTheValuesItOpenedWith": "encore.app/automation",
+    "TestATemplateRuleRunsOnEveryDeviceOfTheTemplate": "encore.app/automation",
+    "TestAnInvalidValueIsRefusedAtTheBindingEndpoint": "encore.app/automation",
+    "TestBindingTheSameScopeTwiceDoesNotCreateASecondRule": "encore.app/automation",
+    "TestCommandUsesServiceChannelAndCarriesTenant": "encore.app/automation/ports",
+    "TestDeviceConditionRuleIsVisibleOnlyForItsTriggerDeviceAndTenant": "encore.app/automation",
+    "TestDirectoryExactLookupMissingIDIsEmpty": "encore.app/automation/ports",
+    "TestDirectoryExactLookupRejectsInvalidResponses": "encore.app/automation/ports",
+    "TestDirectoryExactLookupUsesBoundedBatches": "encore.app/automation/ports",
+    "TestDirectoryLookupOldOwner404HasNoFullListFallback": "encore.app/automation/ports",
+    "TestDirectoryRejectsCrossTenantResponse": "encore.app/automation/ports",
+    "TestEveryDeclaredStepKindHasARealImplementation": "encore.app/automation",
+    "TestOneDevicesOverrideDoesNotChangeTheOther": "encore.app/automation",
+    "TestOwnerCommandValidationIdentityPinsAndResultOnly": "encore.app/thingmodel",
+    "TestOwnerUplinkContractOnlyPinnedPublication": "encore.app/thingmodel",
+    "TestPostgresOwnerCommandValidationUsesCommunityTenantMapping": "encore.app/thingmodel",
+    "TestPostgresOwnerUplinkContractUsesPublishedSnapshotAndTenant": "encore.app/thingmodel",
+    "TestPostgresOwnerUplinkPublishedCoreParity": "encore.app/thingmodel",
+    "TestPublishedCommandKindNamespaceAndVerbatimIdentifiers": "encore.app/thingmodel/app",
+    "TestPublishedCommandParameterContract": "encore.app/thingmodel/core",
+    "TestPublishedCommandTypedEnumsAndExactNumber": "encore.app/thingmodel/core",
+    "TestQ09BindingDefinesMembershipAndDetachStopsNewRuns": "encore.app/automation",
+    "TestQ09BindingFaultConnectorExecutesRealRun": "encore.app/automation",
+    "TestQ09ConcurrentTenantsMayReuseClientEventID": "encore.app/automation",
+    "TestQ09ContinuousAlarmHoldKeepsFirstDeadline": "encore.app/automation",
+    "TestQ09ContinuousRecoveryKeepsFirstDeadline": "encore.app/automation",
+    "TestQ09DeletedRulePendingIsDropped": "encore.app/automation",
+    "TestQ09DetachBetweenCandidateAndResolutionDoesNotFallback": "encore.app/automation",
+    "TestQ09DetachedAndDisabledPendingCannotFire": "encore.app/automation",
+    "TestQ09EventRunReplayPreservesEveryModeDecision": "encore.app/automation",
+    "TestQ09EventRunReplaysAfterActionBeforeProcessed": "encore.app/automation",
+    "TestQ09ExplicitSourceCanControlDifferentTarget": "encore.app/automation",
+    "TestQ09ForeignBindingCannotSupplyProvenance": "encore.app/automation",
+    "TestQ09InterruptedAlarmHoldStartsFreshWindow": "encore.app/automation",
+    "TestQ09InvocationReleaseDoesNotClearSuccessorLease": "encore.app/automation",
+    "TestQ09LegacyRandomRunReusedAcrossUpgrade": "encore.app/automation",
+    "TestQ09LiveAndRecoveryMustNotEvaluateOneReceiptTwice": "encore.app/automation",
+    "TestQ09ManyRulesReadOneSourceDevicePerEvent": "encore.app/automation",
+    "TestQ09MultipleLegacyEventRunsDoNotCreateAnother": "encore.app/automation",
+    "TestQ09NeutralInterruptsRecoveryWindow": "encore.app/automation",
+    "TestQ09NewTemplateMemberAndDirectoryFailure": "encore.app/automation",
+    "TestQ09PartialMultiRuleReceiptDoesNotRepeatCompletedAction": "encore.app/automation",
+    "TestQ09PendingBindingDBFailureDefersAndKeepsDeadline": "encore.app/automation",
+    "TestQ09PendingDirectoryFailureDefersAndKeepsDeadline": "encore.app/automation",
+    "TestQ09PendingWindowsRetainIndependentRunIdentities": "encore.app/automation",
+    "TestQ09PreviewDirectoryFailureNeverIssuesOrAcceptsToken": "encore.app/automation",
+    "TestQ09PreviewHealthyDirectoryPreservesCountsAndFiftyLimit": "encore.app/automation",
+    "TestQ09PreviewNilDirectoryRequiresOnlyTemplateExpansion": "encore.app/automation",
+    "TestQ09PublicUplinkChecksDeviceAndGatewayOwnership": "encore.app/automation",
+    "TestQ09RawIngressKeepsOwnedLegacyReceiptIdempotent": "encore.app/automation",
+    "TestQ09RawIngressRejectsForeignDeviceBeforeStateMutation": "encore.app/automation",
+    "TestQ09RawIngressSameSourceIDDoesNotCrossTenantDeduplication": "encore.app/automation",
+    "TestQ09RecoveryEnforcesCausalHopLimit": "encore.app/automation",
+    "TestQ09ResolutionDBFailureDoesNotFallback": "encore.app/automation",
+    "TestQ09SameRuntimeLiveRecoveryCannotShareExecutionLease": "encore.app/automation",
+    "TestQ09ScopeChangeStableIdentityAdmissionCanRetry": "encore.app/automation",
+    "TestQ09SelfScopeDoesNotWatchUnselectedDevice": "encore.app/automation",
+    "TestQ09StoreRejectsForeignReceiptCollision": "encore.app/automation",
+    "TestQ09TemplateSelfScopeWithoutBinding": "encore.app/automation",
+    "TestQ09TrustedOwnerGatewayPathRetainsReceiptAndReplay": "encore.app/automation",
+    "TestQ09UserIngressFailsClosedWhenOwnershipCannotBeVerified": "encore.app/automation",
+    "TestResumeAfterCrashContinuesFromTheCheckpoint": "encore.app/automation",
+    "TestSourceMembershipDirectoryFailuresStayClosed": "encore.app/automation/runtime",
+    "TestSourceMembershipPreservesUnionAndCapabilityWithoutExpansion": "encore.app/automation/runtime",
+    "TestSourceMembershipRequestCacheExpiresWithContext": "encore.app/automation/runtime",
+    "TestTheDevicePageListsTemplateDeviceAndConditionRules": "encore.app/automation",
+    "TestTheDevicePageShowsWhereEachValueCameFrom": "encore.app/automation",
+    "TestTheTemplatePageCountsAttachedAndDetached": "encore.app/automation",
+    "TestTwoWorkersCannotWalkTheSameRun": "encore.app/automation",
+    "TestWaitRecoveryUsesFiredTimerWithoutRearming": "encore.app/automation",
+    "TestWaitResumesAfterTheWaitWithoutReplayingEarlierSteps": "encore.app/automation"
+  },
+  "expected_composition_sha256": "5aab47c93d824fd7c3a70a744c2c34ca60ffca795c84c2ebd0c26407a93c3475"
+}

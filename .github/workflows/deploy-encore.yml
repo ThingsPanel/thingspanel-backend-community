@@ -1,18 +1,13 @@
-name: Encore Isolation Candidate (build only)
+name: Encore Acceptance Candidate (build only)
 
 on:
   workflow_dispatch:
-    inputs:
-      owner_commit:
-        description: Reviewed immutable owner command-validation commit (40 hex characters)
-        required: true
-        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: encore-isolation-candidate-${{ github.ref }}
+  group: encore-acceptance-candidate-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -22,19 +17,20 @@ jobs:
     env:
       GOMAXPROCS: '2'
       GOFLAGS: '-p=2'
-      OWNER_COMMIT: ${{ inputs.owner_commit }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Check release tooling safety gates
-        run: python3 -m unittest discover -s deploy/community-test -p test_encore_isolation_candidate.py -v
+        run: python3 -m unittest discover -s deploy/community-test -p "test_encore_*candidate.py" -v
       - name: Compose only the deployed Encore base and reviewed patches
         run: |
           set -euo pipefail
-          [[ "$OWNER_COMMIT" =~ ^[0-9a-f]{40}$ ]]
-          git cat-file -e "$OWNER_COMMIT^{commit}" || git fetch --no-tags origin "$OWNER_COMMIT"
-          python3 deploy/community-test/encore_isolation_candidate.py compose --owner-commit "$OWNER_COMMIT" --dest "$RUNNER_TEMP/encore-candidate"
+          while IFS= read -r source_commit; do
+            [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]]
+            git cat-file -e "$source_commit^{commit}" || git fetch --no-tags origin "$source_commit"
+          done < <(python3 deploy/community-test/encore_acceptance_candidate.py source-commits)
+          python3 deploy/community-test/encore_acceptance_candidate.py compose --dest "$RUNNER_TEMP/encore-candidate"
           mkdir -p candidate-output
           cp "$RUNNER_TEMP/encore-candidate/composition.json" candidate-output/
       - uses: actions/setup-go@v5
@@ -56,30 +52,31 @@ jobs:
         working-directory: ${{ runner.temp }}/encore-candidate/encore-api
         run: |
           set -euo pipefail
-          encore test -p=1 -json ./automation/... -run '^(TestQ09|TestEveryDeclaredStepKindHasARealImplementation)' | tee "$GITHUB_WORKSPACE/candidate-output/automation-tests.jsonl"
-          encore test -p=1 -json ./thingmodel ./thingmodel/core -run '^(TestOwnerCommandValidation|TestPublishedCommand|TestPostgresOwnerCommandValidationUsesCommunityTenantMapping)' | tee "$GITHUB_WORKSPACE/candidate-output/owner-contract-tests.jsonl"
+          TEST_REGEX=$(python3 "$GITHUB_WORKSPACE/deploy/community-test/encore_acceptance_candidate.py" test-regex)
+          encore test -p=1 -count=1 -json ./automation/... -run "$TEST_REGEX" | tee "$GITHUB_WORKSPACE/candidate-output/automation-tests.jsonl"
+          encore test -p=1 -count=1 -json ./thingmodel ./thingmodel/core ./thingmodel/app -run "$TEST_REGEX" | tee "$GITHUB_WORKSPACE/candidate-output/owner-contract-tests.jsonl"
       - name: Reject missing, skipped or failed required tests
         run: |
-          python3 deploy/community-test/encore_isolation_candidate.py test-gate candidate-output/automation-tests.jsonl candidate-output/owner-contract-tests.jsonl --report candidate-output/test-gate.json
-          python3 deploy/community-test/encore_isolation_candidate.py verify-source --dest "$RUNNER_TEMP/encore-candidate"
+          python3 deploy/community-test/encore_acceptance_candidate.py test-gate candidate-output/automation-tests.jsonl candidate-output/owner-contract-tests.jsonl --report candidate-output/test-gate.json
+          python3 deploy/community-test/encore_acceptance_candidate.py verify-source --dest "$RUNNER_TEMP/encore-candidate"
       - name: Build matching nine services without deployment configuration
         working-directory: ${{ runner.temp }}/encore-candidate/encore-api
         run: |
           set -euo pipefail
-          encore build docker "tp-community-encore:qa-isolation-$GITHUB_SHA" --arch=amd64 --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,platformconfig --skip-config
+          encore build docker "tp-community-encore:qa-acceptance-$GITHUB_SHA" --arch=amd64 --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,platformconfig --skip-config
       - name: Package immutable build-only artifact
         run: |
           set -euo pipefail
-          python3 deploy/community-test/encore_isolation_candidate.py verify-source --dest "$RUNNER_TEMP/encore-candidate"
-          docker save "tp-community-encore:qa-isolation-$GITHUB_SHA" | gzip -1 > candidate-output/image.tar.gz
+          python3 deploy/community-test/encore_acceptance_candidate.py verify-source --dest "$RUNNER_TEMP/encore-candidate"
+          docker save "tp-community-encore:qa-acceptance-$GITHUB_SHA" | gzip -1 > candidate-output/image.tar.gz
           python3 - <<'PY'
           import hashlib,json,os,pathlib,subprocess,tarfile
           output=pathlib.Path('candidate-output')
           source=pathlib.Path(os.environ['RUNNER_TEMP'])/'encore-candidate'
           composition=json.loads((source/'composition.json').read_text())
-          image=json.loads(subprocess.check_output(['docker','image','inspect','tp-community-encore:qa-isolation-'+os.environ['GITHUB_SHA']]))[0]
+          image=json.loads(subprocess.check_output(['docker','image','inspect','tp-community-encore:qa-acceptance-'+os.environ['GITHUB_SHA']]))[0]
           assert image['Architecture']=='amd64' and image['Os']=='linux'
-          (output/'image.json').write_text(json.dumps({'docker_image_id':image['Id'],'image_size':image['Size'],'os':image['Os'],'architecture':image['Architecture'],'tooling_commit':os.environ['GITHUB_SHA'],'owner_commit':os.environ['OWNER_COMMIT'],'composition_sha256':composition['composition_sha256'],'services':composition['services'],'deployed':False},indent=2))
+          (output/'image.json').write_text(json.dumps({'docker_image_id':image['Id'],'image_size':image['Size'],'os':image['Os'],'architecture':image['Architecture'],'tooling_commit':os.environ['GITHUB_SHA'],'bootstrap_owner_commit':composition['owner_commit'],'overlays':composition['overlays'],'composition_sha256':composition['composition_sha256'],'services':composition['services'],'deployed':False},indent=2))
           with tarfile.open(output/'source.tar.gz','w:gz') as archive:
               for name in sorted(composition['source_sha256']):archive.add(source/name,arcname=name,recursive=False)
           def sha(path):
@@ -93,7 +90,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: encore-isolation-${{ github.sha }}-${{ inputs.owner_commit }}
+          name: encore-acceptance-${{ github.sha }}
           path: candidate-output/
           if-no-files-found: error
           retention-days: 7
