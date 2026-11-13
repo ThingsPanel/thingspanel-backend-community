@@ -43,6 +43,11 @@ func TestImportedAccessProjectionAndBindingGuard(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "source owner") {
 		t.Fatalf("binding not blocked: %v", err)
 	}
+	t.Setenv(connectionInfoEndpointEnv, "mqtt://must-not-leak.example:1883")
+	info, err := readNativeConnectionInfo(ctx, nativeDeviceReadIdentity{tenantID: tenant}, device.ID, "read-import-connection")
+	if err != nil || info.Data.Protocol != "CTWING" || info.Data.Endpoint != nil || info.Data.ImportedAccess == nil {
+		t.Fatalf("source connection incorrectly projected: %+v %v", info, err)
+	}
 	// Origin evidence cannot silently be changed or removed after import.
 	if _, err = db.Exec(ctx, `UPDATE imported_device_origins SET source_protocol='mqtt' WHERE tenant_id=$1 AND device_id=$2`, tenant, device.ID); err == nil {
 		t.Fatal("origin mutation allowed")

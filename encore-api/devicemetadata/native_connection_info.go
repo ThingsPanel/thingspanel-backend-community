@@ -21,12 +21,13 @@ import (
 const connectionInfoEndpointEnv = "TP_DEVICE_CONNECTION_ENDPOINT"
 
 type NativeConnectionInfo struct {
-	DeviceID         string  `json:"deviceId"`
-	Protocol         string  `json:"protocol"`
-	Endpoint         *string `json:"endpoint"`
-	ClientIdentifier *string `json:"clientIdentifier"`
-	GatewayID        *string `json:"gatewayId"`
-	ObservedAt       *string `json:"observedAt"`
+	ImportedAccess   *NativeImportedAccess `json:"importedAccess,omitempty"`
+	DeviceID         string                `json:"deviceId"`
+	Protocol         string                `json:"protocol"`
+	Endpoint         *string               `json:"endpoint"`
+	ClientIdentifier *string               `json:"clientIdentifier"`
+	GatewayID        *string               `json:"gatewayId"`
+	ObservedAt       *string               `json:"observedAt"`
 }
 
 type NativeConnectionInfoResponse struct {
@@ -74,6 +75,20 @@ func readNativeConnectionInfo(ctx context.Context, identity nativeDeviceReadIden
 	device, err := getNativeDeviceRecordTx(ctx, tx, identity.tenantID, deviceID)
 	if err != nil {
 		return nil, err
+	}
+	origin, err := scanNativeImportedAccess(tx.QueryRowContext(ctx, nativeImportedAccessQuery, identity.tenantID, deviceID))
+	if err != nil {
+		return nil, err
+	}
+	if origin != nil {
+		protocol := "unknown"
+		if origin.Protocol != nil && strings.TrimSpace(*origin.Protocol) != "" {
+			protocol = *origin.Protocol
+		}
+		// Source endpoints have not been verified by this import. In particular a
+		// global MQTT endpoint is not evidence for CTWING/HTTP/Modbus devices.
+		info := NativeConnectionInfo{DeviceID: deviceID, Protocol: protocol, GatewayID: device.GatewayID, ImportedAccess: origin}
+		return &NativeConnectionInfoResponse{Data: info, Meta: RequestMeta{RequestID: requestID}}, nil
 	}
 	var direct, templateConfig []byte
 	err = tx.QueryRowContext(ctx, `SELECT b.direct_access::text, t.configuration::text

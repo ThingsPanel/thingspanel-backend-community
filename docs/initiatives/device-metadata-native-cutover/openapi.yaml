@@ -8003,6 +8003,8 @@ components:
       type: object
       additionalProperties: false
       properties:
+        importedAccess:
+          $ref: '#/components/schemas/ImportedDeviceAccess'
         deviceId:
           $ref: '#/components/schemas/Id'
         protocol:
