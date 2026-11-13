@@ -73,5 +73,5 @@ func (*SystemApi) HealthCheck(c *gin.Context) {
 
 // 获取系统版本 /api/v1/sys_version
 func (*SystemApi) HandleSysVersion(c *gin.Context) {
-	c.Set("data", map[string]interface{}{"version": global.SYSTEM_VERSION})
+	c.Set("data", map[string]interface{}{"version": global.SystemVersion()})
 }

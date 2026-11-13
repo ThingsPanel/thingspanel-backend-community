@@ -135,7 +135,7 @@ func successInfo() {
 	fmt.Println("        TingsPanel 启动成功!")
 	fmt.Println("----------------------------------------")
 	fmt.Printf("启动时间: %s\n", startTime)
-	fmt.Printf("版本: %s\n", global.SYSTEM_VERSION)
+	fmt.Printf("版本: %s\n", global.SystemVersion())
 	fmt.Println("----------------------------------------")
 	fmt.Println("欢迎使用 TingsPanel！")
 	fmt.Println("如需帮助，请访问: http://docs.thingspanel.cn")

@@ -7,6 +7,7 @@ package system
 import (
 	"context"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 	"encore.dev/beta/auth"
 	"encore.dev/beta/errs"
+	"encore.dev/rlog"
 )
 
 var startedAt = time.Now().UTC()
@@ -35,7 +37,22 @@ func Info(ctx context.Context) (*InfoResponse, error) {
 	return &InfoResponse{PlatformVersion: platformVersion(), StartedAt: startedAt}, nil
 }
 
+var versionOverridePattern = regexp.MustCompile(`^v?\d+\.\d+\.\d+(-beta\.\d+)?$`)
+
+// warnInvalidOverride is replaced in tests: rlog needs the Encore runtime.
+var warnInvalidOverride = func(raw string) {
+	rlog.Warn("TP_VERSION_OVERRIDE is not a valid version; ignoring it", "value", raw)
+}
+
+// platformVersion prefers a valid TP_VERSION_OVERRIDE (same rule as the Go
+// monolith's pkg/global.SystemVersion), then TP_PLATFORM_VERSION, then "dev".
 func platformVersion() string {
+	if raw := strings.TrimSpace(os.Getenv("TP_VERSION_OVERRIDE")); raw != "" {
+		if versionOverridePattern.MatchString(raw) {
+			return raw
+		}
+		warnInvalidOverride(raw)
+	}
 	if v := strings.TrimSpace(os.Getenv("TP_PLATFORM_VERSION")); v != "" {
 		return v
 	}
