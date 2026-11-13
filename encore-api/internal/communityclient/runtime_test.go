@@ -2,6 +2,7 @@ package communityclient
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -37,6 +38,51 @@ func TestGetOnlineFlag(t *testing.T) {
 	})
 	if _, err := failed.GetOnlineFlag(context.Background(), "d1"); err == nil {
 		t.Fatal("non-200 envelope code must be an error")
+	}
+}
+
+func TestGetConnectivityRequiresCurrentOwnerEvidence(t *testing.T) {
+	for _, tc := range []struct {
+		name, status, want string
+		fresh              bool
+		change             func(map[string]any)
+		invalid            bool
+	}{
+		{name: "fresh online", status: "online", fresh: true, want: "online"},
+		{name: "fresh offline", status: "offline", fresh: true, want: "offline"},
+		{name: "stale online", status: "online", want: "unknown"},
+		{name: "stale offline", status: "offline", want: "unknown"},
+		{name: "indeterminate", status: "unknown", want: "unknown"},
+		{name: "activity online without socket", status: "online", fresh: true, want: "online", change: func(m map[string]any) { m["connections"] = 0 }},
+		{name: "foreign identity", status: "online", fresh: true, invalid: true, change: func(m map[string]any) { m["device_id"] = "foreign" }},
+		{name: "missing freshness", status: "online", invalid: true, change: func(m map[string]any) { delete(m, "fresh") }},
+		{name: "missing as of", status: "online", invalid: true, change: func(m map[string]any) { delete(m, "as_of") }},
+		{name: "legacy not evidence", status: "online", invalid: true, change: func(m map[string]any) { m["source"] = "legacy" }},
+		{name: "invalid enum", status: "connected", invalid: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data := map[string]any{"device_id": "d1", "status": tc.status, "fresh": tc.fresh, "connections": 1, "source": "ingress_v1", "as_of": time.Now().UTC()}
+			if tc.change != nil {
+				tc.change(data)
+			}
+			c := runtimeTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != "GET" || r.URL.Path != "/api/v1/device/status/evidence/d1" {
+					t.Error("unexpected path or legacy fallback")
+				}
+				json.NewEncoder(w).Encode(map[string]any{"code": 200, "data": data})
+			})
+			got, err := c.GetConnectivity(context.Background(), "d1")
+			if (err != nil) != tc.invalid || !tc.invalid && got != tc.want {
+				t.Fatalf("got %q err=%v", got, err)
+			}
+		})
+	}
+	for _, status := range []int{403, 503} {
+		calls := 0
+		c := runtimeTestClient(t, func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(status) })
+		if _, err := c.GetConnectivity(context.Background(), "d1"); err == nil || calls != 1 {
+			t.Fatal("failed evidence guessed connectivity or retried legacy flag")
+		}
 	}
 }
 

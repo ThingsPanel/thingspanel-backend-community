@@ -123,7 +123,7 @@ func decodeNativeDiagnosticsQuery(values map[string][]string, now time.Time) (na
 
 func incompleteCounter() NativeDiagnosticCounter { return NativeDiagnosticCounter{} }
 
-// nativeConnectivity returns "online" or "offline"; an error means unknown.
+// nativeConnectivity returns "online", "offline" or "unknown"; errors are unavailable.
 type nativeConnectivity func(ctx context.Context) (string, error)
 
 func readNativeDiagnostics(ctx context.Context, identity nativeDeviceReadIdentity, query nativeDiagnosticsQuery, deviceID, requestID string, now time.Time, connectivity nativeConnectivity) (*NativeDeviceDiagnosticResponse, error) {
@@ -208,8 +208,10 @@ func readNativeDiagnostics(ctx context.Context, identity nativeDeviceReadIdentit
 		checks = append(checks, NativeDiagnosticCheck{Stage: "connection", State: "unknown", Code: "RUNTIME_UNAVAILABLE", Message: "the runtime did not report connectivity"})
 	} else if state == "online" {
 		checks = append(checks, NativeDiagnosticCheck{Stage: "connection", State: "pass", Code: "DEVICE_ONLINE", Message: "the runtime reports the device online"})
-	} else {
+	} else if state == "offline" {
 		checks = append(checks, NativeDiagnosticCheck{Stage: "connection", State: "fail", Code: "DEVICE_OFFLINE", Message: "the runtime reports the device offline"})
+	} else {
+		checks = append(checks, NativeDiagnosticCheck{Stage: "connection", State: "unknown", Code: "CONNECTIVITY_UNKNOWN", Message: "the runtime has no fresh determinate connectivity evidence"})
 	}
 	checks = append(checks, NativeDiagnosticCheck{Stage: "ingestion", State: "unknown", Code: "NO_INGESTION_STATS", Message: "the runtime does not provide deduplicated ingestion results"})
 	if device.ModelBinding != nil {
@@ -260,18 +262,7 @@ func (s *Service) GetNativeDeviceDiagnostics(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	connectivity := func(ctx context.Context) (string, error) {
-		legacyID, err := loadRuntimeDeviceID(ctx, identity, deviceID)
-		if err != nil {
-			return "", err
-		}
-		flag, err := nativeRuntimeClient().GetOnlineFlag(ctx, legacyID)
-		if err != nil {
-			return "", err
-		}
-		if flag == 1 {
-			return "online", nil
-		}
-		return "offline", nil
+		return readNativeConnectivity(ctx, identity, deviceID, nativeRuntimeClient())
 	}
 	response, err := readNativeDiagnostics(nativeRuntimeReadContext(r), identity, query, deviceID, requestID, now, connectivity)
 	if err != nil {

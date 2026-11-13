@@ -117,26 +117,34 @@ type NativeRuntimeStateResponse struct {
 }
 
 func readNativeRuntimeState(ctx context.Context, identity nativeDeviceReadIdentity, deviceID, requestID string) (*NativeRuntimeStateResponse, error) {
+	return readNativeRuntimeStateWithClient(ctx, identity, deviceID, requestID, nativeRuntimeClient())
+}
+
+func readNativeConnectivity(ctx context.Context, identity nativeDeviceReadIdentity, deviceID string, client *communityclient.Client) (string, error) {
+	legacyID, err := loadRuntimeDeviceID(ctx, identity, deviceID)
+	if err != nil {
+		return "", err
+	}
+	return client.GetConnectivity(ctx, legacyID)
+}
+
+func readNativeRuntimeStateWithClient(ctx context.Context, identity nativeDeviceReadIdentity, deviceID, requestID string, client *communityclient.Client) (*NativeRuntimeStateResponse, error) {
 	binding, err := readNativeDeviceTemplateBinding(ctx, identity, deviceID, requestID)
 	if err != nil {
 		return nil, err
 	}
-	legacyID, err := loadRuntimeDeviceID(ctx, identity, deviceID)
-	if err != nil {
-		return nil, err
-	}
-	flag, err := nativeRuntimeClient().GetOnlineFlag(ctx, legacyID)
+	connectivity, err := readNativeConnectivity(ctx, identity, deviceID, client)
 	if err != nil {
 		return nil, runtimeUpstreamError(err)
 	}
 	state := NativeRuntimeState{
 		DeviceID:                       deviceID,
-		Connectivity:                   "offline",
+		Connectivity:                   connectivity,
 		DesiredConfigurationGeneration: binding.Data.ConfigurationGeneration,
-		Reason:                         stringPointer("Community is_online flag; no observation time or applied generation is available"),
+		Reason:                         stringPointer("Current broker state evidence; device observation time and applied generation are unavailable"),
 	}
-	if flag == 1 {
-		state.Connectivity = "online"
+	if connectivity == "unknown" {
+		state.Reason = stringPointer("Current broker state evidence is stale or indeterminate")
 	}
 	return &NativeRuntimeStateResponse{Data: state, Meta: RequestMeta{RequestID: requestID}}, nil
 }

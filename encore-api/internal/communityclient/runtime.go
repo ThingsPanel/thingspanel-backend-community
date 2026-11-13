@@ -50,6 +50,42 @@ func (c *Client) GetOnlineFlag(ctx context.Context, deviceID string) (int, error
 	return flag, nil
 }
 
+// GetConnectivity reads the state owner's current evidence, not the legacy
+// binary projection. A stale observation never proves online or offline. The
+// owner also supports activity-based devices, whose fresh online evidence need
+// not have a physical MQTT connection. Do not reinterpret its connection count.
+func (c *Client) GetConnectivity(ctx context.Context, deviceID string) (string, error) {
+	token, err := c.Login(ctx)
+	if err != nil {
+		return "", err
+	}
+	raw, err := c.doRaw(ctx, "GET", "/api/v1/device/status/evidence/"+url.PathEscape(deviceID), token, nil)
+	if err != nil {
+		return "", err
+	}
+	data, err := decodeEnvelope(raw)
+	if err != nil {
+		return "", err
+	}
+	var evidence struct {
+		DeviceID    string    `json:"device_id"`
+		Status      string    `json:"status"`
+		Fresh       *bool     `json:"fresh"`
+		Connections *int64    `json:"connections"`
+		Source      string    `json:"source"`
+		AsOf        time.Time `json:"as_of"`
+	}
+	if json.Unmarshal(data, &evidence) != nil || evidence.DeviceID != deviceID || evidence.Source != "ingress_v1" ||
+		evidence.Fresh == nil || evidence.Connections == nil || *evidence.Connections < 0 || evidence.AsOf.IsZero() ||
+		(evidence.Status != "online" && evidence.Status != "offline" && evidence.Status != "unknown") {
+		return "", errors.New("runtime connectivity evidence is invalid")
+	}
+	if !*evidence.Fresh {
+		return "unknown", nil
+	}
+	return evidence.Status, nil
+}
+
 // CurrentReading is one latest-telemetry row. Value is the original JSON token
 // (number, boolean or string), or "null" when the legacy row carried no value.
 type CurrentReading struct {
