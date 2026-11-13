@@ -49,6 +49,24 @@ type Receipt struct {
 	Duplicate bool
 }
 
+// FindOwnedAPIEventReceipt preserves retries of API receipts accepted before
+// public event IDs became tenant/device scoped. A foreign/global key collision
+// must never disclose a receipt or suppress this tenant's independent event.
+func (s *Store) FindOwnedAPIEventReceipt(ctx context.Context, tenantID, deviceID, eventID string) (*Receipt, error) {
+	var receipt Receipt
+	err := s.DB.QueryRowContext(ctx, `SELECT event_id, seq FROM auto_inbox
+        WHERE event_id=$1 AND tenant_id=$2 AND device_id=$3 AND source='api'`,
+		eventID, tenantID, deviceID).Scan(&receipt.EventID, &receipt.Seq)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	receipt.Duplicate = true
+	return &receipt, nil
+}
+
 // InsertEvent persists the event. A duplicate event_id returns Duplicate=true
 // with the original sequence. Allocated sequence values may have gaps.
 func (s *Store) InsertEvent(ctx context.Context, e *IngestEvent) (*Receipt, error) {
@@ -99,7 +117,9 @@ func (s *Store) InsertEvent(ctx context.Context, e *IngestEvent) (*Receipt, erro
 	}
 	if n == 0 {
 		var existing int64
-		if err := s.DB.QueryRowContext(ctx, `SELECT seq FROM auto_inbox WHERE event_id=$1`, e.EventID).Scan(&existing); err != nil {
+		// Even a legacy caller-supplied or incorrectly normalized key must not
+		// turn another tenant/device's receipt into an accepted duplicate.
+		if err := s.DB.QueryRowContext(ctx, `SELECT seq FROM auto_inbox WHERE event_id=$1 AND tenant_id=$2 AND device_id=$3`, e.EventID, e.TenantID, e.DeviceID).Scan(&existing); err != nil {
 			return nil, receiptOutcomeUnavailable(ctx, err)
 		}
 		if existing <= 0 {
