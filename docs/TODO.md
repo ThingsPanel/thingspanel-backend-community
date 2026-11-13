@@ -29,12 +29,12 @@
 - [R-series, 2026-11-12] `go test ./internal/api/` 里 `TestTelemetryHTTPDeviceAuthorization` 在 develop 0b618560（R0 之前）就失败，与 R0–R2 无关，未修。
 - [R4S, 2026-11-12] schema 校验的 CHECK 文本规范化只覆盖 PG 14.5 观察到的 varchar `IN` 数组还原形态；换 PG 15/16 后若出现新的还原形态，需要在 `canonicalizeRestoredArrayAny` 补充并加测试。更稳的长期做法是用语义比较（如试探性插入或 `pg_constraint.conbin` 解析），不在本卡范围。
 - [R5a, 2026-11-12] 安装器 `tests/test_plugin_bundle_activation.py` 有 7 个测试在安装器 develop 上就失败（"Downloaded plugin helper does not match the installer pin: tools/plugin_catalog.py"），与 R5a 无关，未修。
-- [R5a, 2026-11-12] `deploy/community-test/deploy_encore.py` 的 `native_services` 清单不含 `brokerscope`（R2G 说明里已提；CI 工作流和 `scripts/build-encore-image.sh` 已补）。
+- [R5a, 2026-11-12] [已由 R8 修复，另补了 `system`] `deploy/community-test/deploy_encore.py` 的 `native_services` 清单不含 `brokerscope`（R2G 说明里已提；CI 工作流和 `scripts/build-encore-image.sh` 已补）。
 - [R5a, 2026-11-12] Agent 的 `system.json` 由 Agent 二进制生成：升级 Agent 后需重新 `agent_host.py up --system` 才会刷新配置；R5b 的升级编排要包含这一步。
 - [R5b, 2026-11-13] `system upgrade` 的 `verifying` 阶段 kill -9 和 `needs_human` 路径只有单元测试，没在真实栈上演练（原因见 `docs/tasks/R5b-DONE.md`）；要真实覆盖，需要一个“健康但不被 compose 依赖”的慢组件，或在健康门里加最小停留时间。
 - [R5b, 2026-11-13] `update.py` 没有把 `--release-source/--release-trust-root` 传给 `agent_host.py`；升级发布源和信任根如何接进 install/upgrade 脚本待负责人决定。
 - [R5b, 2026-11-13] 后端 `CleanSystemDataByCron`（数据保留，默认 15 天）会删除旧时间戳的遥测，做备份/恢复/升级演练的合成数据必须用当前时间戳。
-- [R6, 2026-11-13] `.github/workflows/encore-image-build.yml` 的 `--services` 只有 authn、thingmodel、devicemetadata、fileassets、connectorcatalog，缺 automation、notification、marketinstall、northbound、platformconfig、brokerscope、system；CI 发布的 Encore 镜像里没有这些服务（本地脚本 `scripts/build-encore-image.sh` 是全的）。R2G 说明里“工作流已补 brokerscope”与 develop 上的实际内容不符。
+- [已由 R8 修复] [R6, 2026-11-13] `.github/workflows/encore-image-build.yml` 的 `--services` 只有 authn、thingmodel、devicemetadata、fileassets、connectorcatalog，缺 automation、notification、marketinstall、northbound、platformconfig、brokerscope、system；CI 发布的 Encore 镜像里没有这些服务（本地脚本 `scripts/build-encore-image.sh` 是全的）。R2G 说明里“工作流已补 brokerscope”与 develop 上的实际内容不符。
 - [R6, 2026-11-13] Encore 管理 API（`/api/system/*`）没有审计表；现在只有 Encore 日志里的 “system action” 一行。
 - [R6, 2026-11-13] 备份“下载”、自动备份设置、上传备份恢复（第二期）。
 - [R7, 2026-11-13] 插件安装/升级的 `agent_prepare` 失败（例如镜像缺失、Agent 返回非“拒绝”类错误）被归为“Agent 离线”并重试最多 40 轮，期间升级场景下旧代次已吊销，插件停着；R7 只用镜像预检挡住最常见原因，重试规则本身没改。
