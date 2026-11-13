@@ -7363,10 +7363,36 @@ components:
       - ungrouped
       - alarms
       description: 同一权限/过滤范围。运行时计数标时间与 unknown；依赖失败不得回 0 假冒离线。
+    ImportedDeviceAccess:
+      type: object
+      additionalProperties: false
+      description: Non-secret reference to existing source-managed access. It is not an editable native access configuration.
+      properties:
+        sourceOwner:
+          type: string
+          const: community
+        sourceDeviceId:
+          $ref: '#/components/schemas/Id'
+        readOnly:
+          type: boolean
+          const: true
+        sourceTemplateId:
+          type: [string, 'null']
+        sourceTemplateName:
+          type: [string, 'null']
+        protocol:
+          type: [string, 'null']
+        accessWay:
+          type: [string, 'null']
+        serviceAccessId:
+          type: [string, 'null']
+      required: [sourceOwner, sourceDeviceId, sourceTemplateId, sourceTemplateName, protocol, accessWay, serviceAccessId, readOnly]
     DeviceTemplateBinding:
       type: object
       additionalProperties: false
       properties:
+        importedAccess:
+          $ref: '#/components/schemas/ImportedDeviceAccess'
         deviceId:
           $ref: '#/components/schemas/Id'
         templateId:

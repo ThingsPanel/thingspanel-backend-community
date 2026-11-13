@@ -201,7 +201,10 @@ func createNativeDeviceCredential(ctx context.Context, identity nativeCredential
 			if errors.Is(err, sqldb.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 				return &errs.Error{Code: errs.NotFound, Message: "device not found"}
 			}
-			return err
+			if err != nil {
+				return err
+			}
+			return requireNativeCredentialOwnershipTx(ctx, tx, identity.tenantID, deviceID)
 		},
 		func(tx dbx.Tx, aad CredentialAAD, expiresAt time.Time) (metadataWriteResponse, metadataWriteAudit, error) {
 			mode := "encrypted"

@@ -19,13 +19,14 @@ import (
 // projection. ThingModelBinding is the associated template's current selection
 // of a published ThingModel snapshot; publishing a model alone does not change it.
 type NativeDeviceTemplateBinding struct {
-	DeviceID                string             `json:"deviceId"`
-	TemplateID              *string            `json:"templateId"`
-	ModelBinding            *ThingModelBinding `json:"modelBinding"`
-	ConfigurationGeneration int64              `json:"configurationGeneration"`
-	ResourceVersion         int64              `json:"resourceVersion"`
-	DirectAccess            *json.RawMessage   `json:"directAccess"`
-	DeviceParameters        json.RawMessage    `json:"deviceParameters"`
+	ImportedAccess          *NativeImportedAccess `json:"importedAccess,omitempty"`
+	DeviceID                string                `json:"deviceId"`
+	TemplateID              *string               `json:"templateId"`
+	ModelBinding            *ThingModelBinding    `json:"modelBinding"`
+	ConfigurationGeneration int64                 `json:"configurationGeneration"`
+	ResourceVersion         int64                 `json:"resourceVersion"`
+	DirectAccess            *json.RawMessage      `json:"directAccess"`
+	DeviceParameters        json.RawMessage       `json:"deviceParameters"`
 }
 
 type NativeDeviceTemplateBindingResponse struct {
@@ -141,6 +142,10 @@ func loadNativeDeviceTemplateBindingTx(
 		ModelBinding: device.ModelBinding, ConfigurationGeneration: generation,
 		ResourceVersion: device.ResourceVersion, DirectAccess: direct,
 		DeviceParameters: append(json.RawMessage(nil), parameters...),
+	}
+	binding.ImportedAccess, err = scanNativeImportedAccess(tx.QueryRowContext(ctx, nativeImportedAccessQuery, tenantID, deviceID))
+	if err != nil {
+		return nil, err
 	}
 	etag, err := nativeDeviceTemplateBindingETag(binding)
 	if err != nil {

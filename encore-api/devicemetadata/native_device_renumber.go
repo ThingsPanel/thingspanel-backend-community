@@ -85,6 +85,9 @@ func renumberNativeDevice(ctx context.Context, identity nativeDeviceWriteIdentit
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
+		if err := requireNativeRuntimeManagementTx(ctx, tx, identity.tenantID, deviceID, "device renumbering"); err != nil {
+			return metadataWriteResponse{}, metadataWriteAudit{}, err
+		}
 		if version != input.ExpectedDeviceVersion {
 			return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.FailedPrecondition, Message: "device has changed; read it again before changing its number"}
 		}

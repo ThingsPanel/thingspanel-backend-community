@@ -134,6 +134,10 @@ func loadNativeDeviceTemplateBindingEncoreTx(ctx context.Context, tx dbx.Tx, ten
 		ResourceVersion: device.ResourceVersion, DirectAccess: direct,
 		DeviceParameters: append(json.RawMessage(nil), parameters...),
 	}
+	binding.ImportedAccess, err = scanNativeImportedAccess(tx.QueryRow(ctx, nativeImportedAccessQuery, tenantID, deviceID))
+	if err != nil {
+		return nil, err
+	}
 	etag, err := nativeDeviceTemplateBindingETag(binding)
 	if err != nil {
 		return nil, &errs.Error{Code: errs.Internal, Message: "failed to encode device template binding"}
@@ -185,6 +189,9 @@ func setNativeDeviceTemplateBinding(
 		current, err := loadNativeDeviceTemplateBindingEncoreTx(ctx, tx, identity.tenantID, deviceID, requestID)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
+		}
+		if current.Data.ImportedAccess != nil {
+			return metadataWriteResponse{}, metadataWriteAudit{}, nativeDeviceConflict("access configuration remains managed by the existing source owner")
 		}
 		if current.ETag != ifMatch {
 			return metadataWriteResponse{}, metadataWriteAudit{}, nativeDeviceStaleValidator("template binding has changed; read it again before updating")

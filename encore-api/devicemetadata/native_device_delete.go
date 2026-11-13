@@ -54,6 +54,9 @@ func requestNativeDeviceDeletion(
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
+		if err := requireNativeRuntimeManagementTx(ctx, tx, identity.tenantID, deviceID, "device deletion"); err != nil {
+			return metadataWriteResponse{}, metadataWriteAudit{}, err
+		}
 		currentETag, err := nativeDeviceETag(device)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.Internal, Message: "failed to encode device"}

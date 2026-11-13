@@ -164,6 +164,9 @@ func rotateNativeDeviceCredential(ctx context.Context, identity nativeCredential
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
+		if err := requireNativeCredentialOwnershipTx(ctx, tx, identity.tenantID, deviceID); err != nil {
+			return metadataWriteResponse{}, metadataWriteAudit{}, err
+		}
 		// Lock in a stable order so concurrent rotations cannot deadlock.
 		first, second := credentialID, input.ReplacementCredentialID
 		if second < first {

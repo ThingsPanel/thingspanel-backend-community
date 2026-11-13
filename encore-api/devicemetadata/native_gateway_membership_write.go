@@ -146,6 +146,9 @@ func setNativeGatewayMembership(
 			}
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
+		if err := requireNativeRuntimeManagementTx(ctx, tx, identity.tenantID, deviceID, "gateway membership"); err != nil {
+			return metadataWriteResponse{}, metadataWriteAudit{}, err
+		}
 		device, err := loadNativeDeviceEncoreTx(ctx, tx, identity.tenantID, deviceID)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
@@ -175,6 +178,9 @@ func setNativeGatewayMembership(
 				if errors.Is(err, sqldb.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 					return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.NotFound, Message: "gateway not found"}
 				}
+				return metadataWriteResponse{}, metadataWriteAudit{}, err
+			}
+			if err := requireNativeRuntimeManagementTx(ctx, tx, identity.tenantID, *input.GatewayID, "gateway membership"); err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, err
 			}
 			if gatewayKind != "gateway" {

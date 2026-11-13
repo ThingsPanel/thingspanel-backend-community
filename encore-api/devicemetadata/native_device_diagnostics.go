@@ -155,6 +155,11 @@ func readNativeDiagnostics(ctx context.Context, identity nativeDeviceReadIdentit
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, wrapDBErr(err, "read access binding failed")
 	}
+	if isImportedCommunityRuntimeRef(device.RuntimeRef) && !configured {
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM imported_device_origins WHERE tenant_id=$1 AND device_id=$2 AND source_owner='community' AND source_device_id=$3)`, identity.tenantID, deviceID, device.RuntimeRef.ExternalID).Scan(&configured); err != nil {
+			return nil, wrapDBErr(err, "read imported configuration origin failed")
+		}
+	}
 	var lastCommand sql.NullString
 	if err := tx.QueryRowContext(ctx, `SELECT state FROM device_command_executions WHERE tenant_id=$1 AND device_id=$2
 		AND accepted_at>=$3 AND accepted_at<$4 ORDER BY accepted_at DESC, id DESC LIMIT 1`, identity.tenantID, deviceID, query.from, query.to).Scan(&lastCommand); err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -195,7 +200,11 @@ func readNativeDiagnostics(ctx context.Context, identity nativeDeviceReadIdentit
 	}
 
 	checks := []NativeDiagnosticCheck{{Stage: "metadata", State: "pass", Code: "DEVICE_FOUND", Message: "device metadata is readable in this tenant"}}
-	checks = append(checks, credentialDiagnosticCheck(credentials))
+	if isImportedCommunityRuntimeRef(device.RuntimeRef) {
+		checks = append(checks, NativeDiagnosticCheck{Stage: "credential", State: "unknown", Code: "CREDENTIAL_EXTERNALLY_MANAGED", Message: "access credentials remain managed by the original Community connection; native credential ownership has not been transferred"})
+	} else {
+		checks = append(checks, credentialDiagnosticCheck(credentials))
+	}
 	switch {
 	case !configured:
 		checks = append(checks, NativeDiagnosticCheck{Stage: "configuration", State: "fail", Code: "CONFIGURATION_INCOMPLETE", Message: "device access configuration is not set"})

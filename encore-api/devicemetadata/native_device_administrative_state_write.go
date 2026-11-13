@@ -104,6 +104,9 @@ func setNativeDeviceAdministrativeState(
 				RedactedChanges: changes,
 			}, nil
 		}
+		if err := requireNativeRuntimeManagementTx(ctx, tx, identity.tenantID, deviceID, "administrative state"); err != nil {
+			return metadataWriteResponse{}, metadataWriteAudit{}, err
+		}
 		if before >= 9007199254740991 {
 			return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.FailedPrecondition, Message: "device version is exhausted"}
 		}
