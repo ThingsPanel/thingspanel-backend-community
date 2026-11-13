@@ -1,0 +1,30 @@
+name: Community broker artifact
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require main
+        run: test "$GITHUB_REF" = refs/heads/main
+      - name: Build pinned broker
+        run: docker build -f deploy/mosquitto-community/Dockerfile.production -t "tp-community-broker:source-$GITHUB_SHA" .
+      - name: Package verified image
+        run: |
+          mkdir -p artifact
+          docker save "tp-community-broker:source-$GITHUB_SHA" | gzip -1 > artifact/broker-image.tar.gz
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,subprocess
+          p=pathlib.Path('artifact/broker-image.tar.gz')
+          image=json.loads(subprocess.check_output(['docker','inspect','tp-community-broker:source-'+os.environ['GITHUB_SHA']]))[0]
+          pathlib.Path('artifact/manifest.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'image_id':image['Id'],'sha256':{'broker-image.tar.gz':hashlib.sha256(p.read_bytes()).hexdigest()}},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: community-broker-${{ github.sha }}
+          path: artifact/
+          retention-days: 14
