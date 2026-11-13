@@ -429,7 +429,12 @@ func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int)
 		return false, nil
 	}
 	now := r.Now()
-	claimed, err := r.store.ClaimRun(ctx, run.ID, r.workerID, now, now.Add(store.RunLeaseDuration))
+	// One Runtime serves concurrent live, recovery and timer calls. A process
+	// identity is therefore not an execution lease: ClaimRun permits the owner
+	// to renew its lease. Give each invocation its own owner so another call in
+	// this Runtime cannot enter (or release) the in-flight execution's lease.
+	leaseOwner := r.workerID + ":" + NewID()
+	claimed, err := r.store.ClaimRun(ctx, run.ID, leaseOwner, now, now.Add(store.RunLeaseDuration))
 	if err != nil {
 		return false, err
 	}
@@ -439,7 +444,7 @@ func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int)
 	// The lease is released on every exit path, including a panic in a port. A
 	// leftover lease would only delay the next resume by one lease period, but
 	// releasing eagerly keeps "who is working on this" accurate.
-	defer func() { _ = r.store.ReleaseRun(ctx, run.ID, r.workerID) }()
+	defer func() { _ = r.store.ReleaseRun(ctx, run.ID, leaseOwner) }()
 
 	rule, err := r.ruleForRun(ctx, run.RuleID, run.Revision, runBindingParams(run))
 	if err != nil {
