@@ -33,7 +33,7 @@ func main() {
 	checkConfig := flag.Bool("check-config", false, "只检查配置（配置文件、环境变量、RSA 密钥），不连接数据库、不启动服务；通过返回 0，否则返回 1")
 	flag.Parse()
 	if *showVersion {
-		fmt.Println(global.SYSTEM_VERSION)
+		fmt.Println(global.SystemVersion())
 		return
 	}
 	if *checkConfig {

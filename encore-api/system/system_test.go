@@ -24,3 +24,29 @@ func TestOnlySystemAdminPasses(t *testing.T) {
 		}
 	}
 }
+
+func TestPlatformVersionOverride(t *testing.T) {
+	warned := 0
+	old := warnInvalidOverride
+	warnInvalidOverride = func(string) { warned++ }
+	defer func() { warnInvalidOverride = old }()
+	cases := []struct {
+		name, override, platform, want string
+		warn                           int
+	}{
+		{"unset", "", "", "dev", 0},
+		{"platform only", "", "v1.4.0-beta.2", "v1.4.0-beta.2", 0},
+		{"override wins", "v1.4.0", "v1.4.0-beta.2", "v1.4.0", 0},
+		{"beta override", "v1.4.0-beta.3", "", "v1.4.0-beta.3", 0},
+		{"invalid ignored", "latest", "v1.3.0", "v1.3.0", 1},
+		{"invalid, nothing else", "v1.4", "", "dev", 1},
+	}
+	for _, c := range cases {
+		warned = 0
+		t.Setenv("TP_VERSION_OVERRIDE", c.override)
+		t.Setenv("TP_PLATFORM_VERSION", c.platform)
+		if got := platformVersion(); got != c.want || warned != c.warn {
+			t.Errorf("%s: got %q warned=%d, want %q warned=%d", c.name, got, warned, c.want, c.warn)
+		}
+	}
+}
