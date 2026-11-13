@@ -30,3 +30,5 @@ END;
 $$;
 CREATE TRIGGER imported_device_origins_immutable BEFORE UPDATE OR DELETE ON imported_device_origins
  FOR EACH ROW EXECUTE FUNCTION reject_imported_device_origin_mutation();
+CREATE TRIGGER trg_tenant_id_immutable BEFORE UPDATE OF tenant_id ON imported_device_origins
+ FOR EACH ROW EXECUTE FUNCTION reject_tenant_id_reassignment();
