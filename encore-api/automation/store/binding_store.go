@@ -96,16 +96,23 @@ func (s *Store) UpsertBinding(ctx context.Context, b *Binding) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.DB.ExecContext(ctx, `
+	stored, err := scanBinding(s.DB.QueryRowContext(ctx, `
         INSERT INTO auto_bindings (id, binding_key, tenant_id, rule_id, revision, source,
                                    device_id, device_config_id, template_id, params, enabled)
         VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),NULLIF($8,''),NULLIF($9,''),$10,$11)
         ON CONFLICT (binding_key) DO UPDATE
            SET revision=EXCLUDED.revision, params=EXCLUDED.params, enabled=EXCLUDED.enabled,
-               source=EXCLUDED.source, detached_at=NULL, updated_at=now()`,
+               source=EXCLUDED.source, detached_at=NULL, updated_at=now()
+        RETURNING `+bindingColumns,
 		b.ID, b.BindingKey, b.TenantID, b.RuleID, b.Revision, b.Source,
-		b.DeviceID, b.DeviceConfigID, b.TemplateID, params, b.Enabled)
-	return err
+		b.DeviceID, b.DeviceConfigID, b.TemplateID, params, b.Enabled))
+	if err != nil {
+		return err
+	}
+	// A conflict retains the original row ID and creation time. Return that
+	// committed identity, not the caller's unused candidate ID.
+	*b = *stored
+	return nil
 }
 
 // GetBinding loads one binding inside a tenant.

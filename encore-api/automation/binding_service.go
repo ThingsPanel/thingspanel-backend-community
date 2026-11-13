@@ -189,14 +189,10 @@ func (s *Service) AttachBinding(ctx context.Context, id string, req *AttachBindi
 	// not in five minutes.
 	rt.InvalidateBindings(tenantID, b.DeviceID)
 
-	stored, err := rt.Store().GetBinding(ctx, tenantID, b.ID)
-	if err != nil {
-		// Upsert may have hit an existing row with a different id (re-attach of
-		// a detached binding keeps the original id). Re-read by key.
-		stored = b
-	}
-	resp := toBindingResponse(stored, rule)
-	resp.EffectiveParams, _ = effectiveParams(rule, stored.Params)
+	// UpsertBinding returns the durable row from the same SQL statement,
+	// including the original identity when this attachment already existed.
+	resp := toBindingResponse(b, rule)
+	resp.EffectiveParams, _ = effectiveParams(rule, b.Params)
 	resp.Issues = issues
 	return resp, nil
 }
