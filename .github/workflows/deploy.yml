@@ -51,6 +51,7 @@ jobs:
           go test ./... -run '^$'
           go test ./internal/... ./pkg/... ./initialize/... ./router/... ./sql/... ./cmd/... ./mqtt/... ./third_party/...
           python3 -m unittest discover -s deploy/community-test -p test_notification_identity.py
+          python3 -m unittest discover -s deploy/community-test -p test_provision_native_runtime.py
       - name: Build immutable backend bundle
         env:
           CGO_ENABLED: '0'

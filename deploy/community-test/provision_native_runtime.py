@@ -4,7 +4,6 @@ Existing databases and credentials are never reset. SQL is read from the verifie
 main release archive; secrets remain in private server files and stdin to psql.
 """
 import base64
-import fcntl
 import hashlib
 import json
 import os
@@ -58,7 +57,47 @@ def migrations(archive, manifest, directory):
     return result
 
 
+def align_target_publisher(platform, services):
+    mqtt = platform.get('mqtt', {})
+    if mqtt.get('input_profile') != 'ingress_v1':
+        return
+    if not mqtt.get('username') or not mqtt.get('password') or not mqtt.get('client_id'):
+        raise RuntimeError('MQTT service identity is incomplete')
+    matching = [entry for entry in services if entry.get('username') == mqtt['username']
+                and entry.get('password') == mqtt['password']
+                and mqtt['client_id'] in entry.get('allowed_client_ids', [])]
+    if len(matching) != 1 or matching[0].get('plugin_socket'):
+        raise RuntimeError('MQTT publisher identity does not uniquely match broker owner')
+    # Follow the owner's existing authority; never expand an allowlist or invent credentials.
+    mqtt['target_scoped_publisher'] = matching[0].get('target_scoped_publisher') is True
+
+
+def provision_target_publisher(platform):
+    if platform.get('mqtt', {}).get('input_profile') != 'ingress_v1':
+        return
+    process = subprocess.run(['docker', 'inspect', 'tp-community-main-47-broker-owner-1'],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+    if process.returncode:
+        raise RuntimeError('Broker owner configuration is unavailable')
+    info = json.loads(process.stdout)[0]
+    mounts = []
+    for mount in info.get('Mounts', []):
+        if mount.get('Destination') == '/run/secrets/broker-services.json':
+            mounts.append(mount['Source'])
+        elif mount.get('Destination') == '/run/secrets':
+            mounts.append(str(pathlib.Path(mount['Source']) / 'broker-services.json'))
+    if len(mounts) != 1:
+        raise RuntimeError('Expected one broker service identity mount')
+    services = json.loads(pathlib.Path(mounts[0]).read_text())
+    if isinstance(services, dict):
+        services = services.get('services')
+    if not isinstance(services, list):
+        raise RuntimeError('Invalid broker service identity document')
+    align_target_publisher(platform, services)
+
+
 def main(sha):
+    import fcntl
     import yaml
     if not re.fullmatch('[0-9a-f]{40}', sha):
         raise ValueError('Invalid revision')
@@ -146,6 +185,7 @@ def main(sha):
         env.setdefault('TP_DEVICE_CONNECTION_ENDPOINT', 'mqtt://c.thingspanel.cn:1883')
         env['TP_BACKGROUND_WORKERS'] = 'on'
         env['TP_RUNTIME_OUTBOX_DISPATCH'] = 'on'
+        provision_target_publisher(platform)
         previous = [path.read_bytes() for path in paths]
         next_values = [json.dumps(runtime, indent=2).encode(), json.dumps(compose, indent=2).encode(),
                        yaml.safe_dump(platform, allow_unicode=True, default_flow_style=False).encode()]
