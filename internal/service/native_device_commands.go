@@ -8,7 +8,6 @@ import (
 	"math"
 	"math/big"
 	"strconv"
-	"strings"
 
 	"project/internal/model"
 )
@@ -106,7 +105,7 @@ func nativeCommandListFromModel(rawModel json.RawMessage) ([]model.GetCommandLis
 			continue
 		}
 		path := fmt.Sprintf("fields[%d]", index)
-		if strings.TrimSpace(field.Identifier) == "" {
+		if field.Identifier == "" {
 			return nil, fmt.Errorf("%s.identifier: required", path)
 		}
 		if field.Parameters == nil {
@@ -122,7 +121,7 @@ func nativeCommandListFromModel(rawModel json.RawMessage) ([]model.GetCommandLis
 		params := make([]legacyCommandParameter, 0, len(field.Parameters.Items))
 		for paramIndex, parameter := range field.Parameters.Items {
 			paramPath := fmt.Sprintf("%s.parameters.items[%d]", path, paramIndex)
-			if strings.TrimSpace(parameter.Identifier) == "" {
+			if parameter.Identifier == "" {
 				return nil, fmt.Errorf("%s.identifier: required", paramPath)
 			}
 			mapped, err := mapNativeCommandParameter(parameter, paramPath)

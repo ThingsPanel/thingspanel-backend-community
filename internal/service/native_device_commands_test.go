@@ -87,6 +87,33 @@ func TestNativeDeviceCommandsReadsPinnedSnapshotAndMapsLegacyUIContract(t *testi
 	}
 }
 
+func TestNativeCommandListPreservesPublishedIdentifierBytes(t *testing.T) {
+	for _, identifier := range []string{"Mode-Wire", "  Vendor.Mode/°C  ", " "} {
+		for _, parameter := range []string{"  target/value  ", " "} {
+			raw := json.RawMessage(fmt.Sprintf(`{"name":"Namespace contract","fields":[
+				{"kind":"TELEMETRY","identifier":%q,"nameI18n":{"default":"Reported"},"access":{"read":true,"write":false,"observe":true},"valueType":{"kind":"NUMBER"}},
+				{"kind":"COMMAND","identifier":%q,"nameI18n":{"default":"Set"},"access":{"read":false,"write":true,"observe":false},"parameters":{"schemaVersion":1,"items":[{"identifier":%q,"nameI18n":{"default":"Target"},"valueType":{"kind":"BOOL"}}]}}
+			]}`, identifier, identifier, parameter))
+			commands, err := nativeCommandListFromModel(raw)
+			if err != nil || len(commands) != 1 || commands[0].Identifier != identifier {
+				t.Fatalf("identifier %q command projection: %+v %v", identifier, commands, err)
+			}
+			var params []legacyCommandParameter
+			if err := json.Unmarshal([]byte(commands[0].Params), &params); err != nil || len(params) != 1 || params[0].ID != parameter || params[0].DataIdentifier != parameter {
+				t.Fatalf("parameter %q changed: %+v %v", parameter, params, err)
+			}
+		}
+	}
+	for _, raw := range []string{
+		`{"fields":[{"kind":"COMMAND","identifier":"","parameters":{"schemaVersion":1,"items":[]}}]}`,
+		`{"fields":[{"kind":"COMMAND","identifier":"set","parameters":{"schemaVersion":1,"items":[{"identifier":"","valueType":{"kind":"BOOL"}}]}}]}`,
+	} {
+		if _, err := nativeCommandListFromModel(json.RawMessage(raw)); err == nil {
+			t.Fatal("empty identifier accepted")
+		}
+	}
+}
+
 func TestHistoricalBindingRevisionDoesNotSelectNativeReadAfterUnbind(t *testing.T) {
 	config := &model.DeviceConfig{NativeBindingRevision: 4}
 	if hasNativeDeviceConfigBinding(config) {

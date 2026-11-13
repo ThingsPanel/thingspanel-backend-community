@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"encore.app/thingmodel/core"
@@ -17,6 +18,12 @@ func TestPublishedCommandKindNamespaceAndVerbatimIdentifiers(t *testing.T) {
 			service := New(newMemoryRepository(), sequenceIDs())
 			principal := writerPrincipal("tenant-a", "user-a")
 			parameter := "  target/value  "
+			if identifier == " " {
+				parameter = " "
+			}
+			payload := func(value string) json.RawMessage {
+				return json.RawMessage(strings.ReplaceAll(value, "  target/value  ", parameter))
+			}
 			params := &core.Parameters{SchemaVersion: 1, Items: []core.Parameter{{Identifier: parameter, Name: core.I18nString{Default: "Target"}, ValueType: core.ValueType{Kind: core.ScalarBool}}}}
 			model := core.Model{Name: "Namespace contract", Fields: []core.Field{
 				{Kind: core.FieldTelemetry, Identifier: identifier, Name: core.I18nString{Default: "Reported mode"}, Access: core.Access{Read: true, Observe: true}, ValueType: &core.ValueType{Kind: core.ScalarNumber}},
@@ -37,16 +44,16 @@ func TestPublishedCommandKindNamespaceAndVerbatimIdentifiers(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, value := range []string{`{"  target/value  ":false}`, `{"  target/value  ":true}`} {
-				if err := core.ValidateCommandParameters(version.Snapshot, identifier, json.RawMessage(value)); err != nil {
+				if err := core.ValidateCommandParameters(version.Snapshot, identifier, payload(value)); err != nil {
 					t.Errorf("published command rejected: %s: %v", value, err)
 				}
 			}
 			for _, value := range []string{`{}`, `{"target/value":true}`, `{"  target/value  ":"true"}`, `{"  target/value  ":1}`, `{"  target/value  ":true,"extra":1}`} {
-				if err := core.ValidateCommandParameters(version.Snapshot, identifier, json.RawMessage(value)); err == nil {
+				if err := core.ValidateCommandParameters(version.Snapshot, identifier, payload(value)); err == nil {
 					t.Errorf("invalid parameters accepted: %s", value)
 				}
 			}
-			if core.ValidateCommandParameters(version.Snapshot, identifier+"missing", json.RawMessage(`{"  target/value  ":true}`)) == nil {
+			if core.ValidateCommandParameters(version.Snapshot, identifier+"missing", payload(`{"  target/value  ":true}`)) == nil {
 				t.Fatal("unknown command accepted")
 			}
 			// Removing the COMMAND kind must not resolve to another same-name kind.
@@ -57,7 +64,7 @@ func TestPublishedCommandKindNamespaceAndVerbatimIdentifiers(t *testing.T) {
 				}
 			}
 			version.Snapshot.Fields = fields
-			if core.ValidateCommandParameters(version.Snapshot, identifier, json.RawMessage(`{"  target/value  ":true}`)) == nil {
+			if core.ValidateCommandParameters(version.Snapshot, identifier, payload(`{"  target/value  ":true}`)) == nil {
 				t.Fatal("non-command namespace used")
 			}
 		})
