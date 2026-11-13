@@ -198,46 +198,50 @@ func (s *Service) previewScope(ctx context.Context, tenantID, ruleID string,
 		add(id)
 	}
 	dir := rt.Directory()
-	if dir != nil {
-		if len(def.Targets.DeviceConfigIDs) > 0 {
-			out.TemplateIDs = append(out.TemplateIDs, def.Targets.DeviceConfigIDs...)
-			devices, derr := dir.ByDeviceConfig(ctx, tenantID, def.Targets.DeviceConfigIDs)
-			if derr != nil {
-				return ScopePreview{}, internal(derr)
-			}
-			for _, d := range devices {
-				add(d.ID)
-				out.TemplateDeviceCount++
-			}
+	if len(def.Targets.DeviceConfigIDs) > 0 {
+		if dir == nil {
+			return ScopePreview{}, internal(fmt.Errorf("device directory unavailable for template scope"))
 		}
-		// Bindings add devices the definition itself does not name: a template
-		// rule with forty bindings affects forty devices while its target list
-		// says nothing at all.
-		bindings, berr := rt.Store().ListBindingsForRule(ctx, tenantID, ruleID)
-		if berr != nil {
-			return out, internal(berr)
+		out.TemplateIDs = append(out.TemplateIDs, def.Targets.DeviceConfigIDs...)
+		devices, derr := dir.ByDeviceConfig(ctx, tenantID, def.Targets.DeviceConfigIDs)
+		if derr != nil {
+			return ScopePreview{}, internal(derr)
 		}
-		for _, b := range bindings {
-			if !b.Enabled {
-				continue
-			}
-			if b.DeviceID != "" {
-				add(b.DeviceID)
-				continue
-			}
-			if b.DeviceConfigID == "" {
-				continue
-			}
-			if !containsString(out.TemplateIDs, b.DeviceConfigID) {
-				out.TemplateIDs = append(out.TemplateIDs, b.DeviceConfigID)
-			}
-			devices, derr := dir.ByDeviceConfig(ctx, tenantID, []string{b.DeviceConfigID})
-			if derr != nil {
-				return ScopePreview{}, internal(derr)
-			}
-			for _, d := range devices {
-				add(d.ID)
-			}
+		for _, d := range devices {
+			add(d.ID)
+			out.TemplateDeviceCount++
+		}
+	}
+	// Bindings add devices the definition itself does not name: a template
+	// rule with forty bindings affects forty devices while its target list
+	// says nothing at all.
+	bindings, berr := rt.Store().ListBindingsForRule(ctx, tenantID, ruleID)
+	if berr != nil {
+		return out, internal(berr)
+	}
+	for _, b := range bindings {
+		if !b.Enabled {
+			continue
+		}
+		if b.DeviceID != "" {
+			add(b.DeviceID)
+			continue
+		}
+		if b.DeviceConfigID == "" {
+			continue
+		}
+		if dir == nil {
+			return ScopePreview{}, internal(fmt.Errorf("device directory unavailable for template binding scope"))
+		}
+		if !containsString(out.TemplateIDs, b.DeviceConfigID) {
+			out.TemplateIDs = append(out.TemplateIDs, b.DeviceConfigID)
+		}
+		devices, derr := dir.ByDeviceConfig(ctx, tenantID, []string{b.DeviceConfigID})
+		if derr != nil {
+			return ScopePreview{}, internal(derr)
+		}
+		for _, d := range devices {
+			add(d.ID)
 		}
 	}
 	sort.Strings(out.DeviceIDs)

@@ -96,3 +96,47 @@ func TestQ09PreviewHealthyDirectoryPreservesCountsAndFiftyLimit(t *testing.T) {
 		t.Fatalf("healthy preview invalid: %+v", preview)
 	}
 }
+
+func TestQ09PreviewNilDirectoryRequiresOnlyTemplateExpansion(t *testing.T) {
+	for _, kind := range []string{"template_target", "template_binding", "direct_devices", "disabled_template_binding"} {
+		t.Run(kind, func(t *testing.T) {
+			e := newEnv(t)
+			dev := e.templateDevice("dev-nil-preview-" + runtime.NewID())
+			other := e.templateDevice("dev-nil-binding-" + runtime.NewID())
+			cfg := "cfg-nil-preview-" + runtime.NewID()
+			body := thresholdRule(dev, "30", 0)
+			body.Targets = domain.TargetSpec{DeviceIDs: []string{dev}}
+			if kind == "template_target" {
+				body.Targets.DeviceConfigIDs = []string{cfg}
+			}
+			rule := e.createNamedRuleIn(serviceTestTenant, "Nil directory preview", body)
+			if kind == "template_binding" || kind == "disabled_template_binding" {
+				b := e.bind(rule, "device_config", cfg, nil)
+				if kind == "disabled_template_binding" {
+					b.Enabled = false
+					if err := e.st.UpsertBinding(e.ctx(), b); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if kind == "direct_devices" {
+				e.bind(rule, "device", other, nil)
+			}
+			e.rt = runtime.New(e.st, e.cmds, e.notif, nil, func() time.Time { return e.now })
+			preview, err := e.svc().PreviewRuleChange(e.ctx(), rule.ID, &ChangePreviewRequest{Definition: body})
+			if kind == "template_target" || kind == "template_binding" {
+				if err == nil || preview != nil {
+					t.Fatalf("missing directory generated template scope token: %+v %v", preview, err)
+				}
+				return
+			}
+			count := 1
+			if kind == "direct_devices" {
+				count = 2
+			}
+			if err != nil || preview == nil || preview.Token == "" || preview.Scope.DeviceCount != count || len(preview.Scope.DeviceIDs) != count {
+				t.Fatalf("direct scope unexpectedly needs directory or loses binding: %+v %v", preview, err)
+			}
+		})
+	}
+}
