@@ -15,7 +15,7 @@ func Cors() gin.HandlerFunc {
 		requestHeaders := c.Request.Header.Get("Access-Control-Request-Headers")
 		c.Header("Access-Control-Allow-Headers", requestHeaders) //"Content-Type,Content-Length,AccessToken,X-CSRF-Token, Authorization, Token,X-Token,X-User-Id,apifoxtoken"
 		c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS,DELETE,PUT")
-		c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type, New-Token, New-Expires-At")
+		c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type, New-Token, New-Expires-At, ETag")
 		c.Header("Access-Control-Allow-Credentials", "true")
 
 		// 放行所有OPTIONS方法

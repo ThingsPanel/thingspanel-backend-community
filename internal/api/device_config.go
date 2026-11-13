@@ -1,6 +1,9 @@
 package api
 
 import (
+	"errors"
+	"net/http"
+	"strings"
 	model "project/internal/model"
 	service "project/internal/service"
 	utils "project/pkg/utils"
@@ -36,12 +39,29 @@ func (*DeviceConfigApi) UpdateDeviceConfig(c *gin.Context) {
 	}
 
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceConfig.UpdateDeviceConfig(c, req, userClaims, c.GetHeader("x-token"))
+	matchHeaders := c.Request.Header.Values("If-Match")
+	match := strings.Join(matchHeaders, ",")
+	condition, err := model.ParseDeviceConfigCondition(match)
+	if len(matchHeaders) > 0 && strings.TrimSpace(match) == "" {
+		err = model.ErrInvalidDeviceConfigCondition
+	}
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": 100002, "message": "Invalid If-Match condition"})
+		return
+	}
+	data, err := service.GroupApp.DeviceConfig.UpdateDeviceConfig(c, req, userClaims, c.GetHeader("x-token"), condition)
+	if errors.Is(err, model.ErrDeviceConfigVersionConflict) {
+		c.AbortWithStatusJSON(http.StatusPreconditionFailed, gin.H{"code": 201002, "message": "Template changed; reload before saving", "data": gin.H{"reason": "template_revision_conflict"}})
+		return
+	}
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
+	if !setDeviceConfigVersion(c, data) {
+		return
+	}
 	c.Set("data", data)
 }
 
@@ -66,6 +86,9 @@ func (*DeviceConfigApi) HandleDeviceConfigById(c *gin.Context) {
 	info, err := service.GroupApp.DeviceConfig.GetDeviceConfigByID(c, id, userClaims)
 	if err != nil {
 		c.Error(err)
+		return
+	}
+	if !setDeviceConfigVersion(c, info) {
 		return
 	}
 	c.Set("data", info)
@@ -181,4 +204,21 @@ func (*DeviceConfigApi) HandleConditionByDeviceConfigID(c *gin.Context) {
 		return
 	}
 	c.Set("data", list)
+}
+
+
+func setDeviceConfigVersion(c *gin.Context, value any) bool {
+	config, ok := value.(*model.DeviceConfig)
+	if !ok {
+		c.AbortWithStatusJSON(500, gin.H{"code": 100000, "message": "Template version unavailable"})
+		return false
+	}
+	tag, err := model.DeviceConfigETag(config)
+	if err != nil {
+		c.Error(err)
+		return false
+	}
+	c.Header("ETag", tag)
+	c.Header("Cache-Control", "no-store")
+	return true
 }
