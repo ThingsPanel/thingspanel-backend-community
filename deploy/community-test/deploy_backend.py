@@ -50,6 +50,31 @@ if run([str(binary),'--version'])!=version:raise RuntimeError('Build version mis
 config=APP/'configs/conf.yml'
 if not config.is_file():raise RuntimeError('Existing private runtime configuration required')
 config_sha=hashlib.sha256(config.read_bytes()).hexdigest()
+# Native ingress startup validates these additive schema changes. Apply the
+# verified release SQL before replacing the process, not after startup fails.
+import yaml
+platform_config=yaml.safe_load(config.read_text())
+relational=platform_config.get('relational',{})
+if relational.get('driver')=='postgres':
+ database=relational.get('postgres',{}).get('platform',{}).get('database')
+ if not isinstance(database,str) or not re.fullmatch('[A-Za-z0-9_]+',database):
+  raise RuntimeError('Explicit platform database name required for broker upgrade')
+ command=['docker','exec','-i','timescaledb','psql','-X','-q','-At','-v','ON_ERROR_STOP=1','-U','postgres','-d',database]
+ def broker_sql(body):
+  result=subprocess.run(command,input=body.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=60)
+  if result.returncode:
+   (release/'broker-upgrade.failure.private.log').write_bytes(result.stderr)
+   raise RuntimeError('Broker schema upgrade failed; existing process was not replaced')
+  return result.stdout.decode().strip()
+ present=broker_sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('broker_connection_observations','broker_telemetry_activity');")
+ if present not in ('0','2'):raise RuntimeError('Incomplete broker schema requires repair')
+ if present=='2':
+  upgrades=[]
+  for name in ['017_delegated_routes.sql','018_native_runtime_registrations.sql']:
+   migration=release/'sql/broker'/name
+   if migration.is_file():upgrades.append(migration.read_text())
+  if upgrades:broker_sql("BEGIN; SET LOCAL lock_timeout='10s'; SET LOCAL statement_timeout='30s';\n"+'\n'.join(upgrades)+'\nCOMMIT;')
+
 target=APP/'thingspanel-backend-community'
 shutil.copy2(str(target),str(release/'backend.before'))
 resources=['sql','static','configs/casbin.conf','configs/messages.yaml','configs/messages_str.yaml']

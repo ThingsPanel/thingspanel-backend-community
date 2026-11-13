@@ -23,6 +23,31 @@ func RegisterAutomationOwnerRoutes(router *gin.Engine, db *gorm.DB) {
 		c.Set("automation_owner_tenant", tenant)
 		c.Next()
 	})
+	group.POST("/runtime-devices/register", func(c *gin.Context) {
+		var body service.NativeRuntimeRegistration
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+		if c.ShouldBindJSON(&body) != nil {
+			c.JSON(400, gin.H{"code": 400})
+			return
+		}
+		if db == nil {
+			c.JSON(503, gin.H{"code": 503})
+			return
+		}
+		err := service.RegisterNativeRuntime(c.Request.Context(), db, c.GetString("automation_owner_tenant"), automationbridge.Deployment(), body)
+		if err != nil {
+			status := 500
+			if errors.Is(err, service.ErrNativeRegistrationInvalid) {
+				status = 400
+			}
+			if errors.Is(err, service.ErrNativeRegistrationConflict) {
+				status = 409
+			}
+			c.JSON(status, gin.H{"code": status, "message": "runtime registration not confirmed"})
+			return
+		}
+		c.JSON(200, gin.H{"code": 200, "data": gin.H{"deviceId": body.DeviceID}})
+	})
 	group.GET("/devices", func(c *gin.Context) {
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 		size, _ := strconv.Atoi(c.DefaultQuery("page_size", "200"))

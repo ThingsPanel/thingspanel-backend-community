@@ -144,6 +144,8 @@ def main(sha):
         if not env.get('TP_FILE_ASSET_KEYRING'):
             env['TP_FILE_ASSET_KEYRING'] = json.dumps({'activeKeyId': 'main', 'keys': {'main': base64.b64encode(secrets.token_bytes(32)).decode()}})
         env.setdefault('TP_DEVICE_CONNECTION_ENDPOINT', 'mqtt://c.thingspanel.cn:1883')
+        env['TP_BACKGROUND_WORKERS'] = 'on'
+        env['TP_RUNTIME_OUTBOX_DISPATCH'] = 'on'
         previous = [path.read_bytes() for path in paths]
         next_values = [json.dumps(runtime, indent=2).encode(), json.dumps(compose, indent=2).encode(),
                        yaml.safe_dump(platform, allow_unicode=True, default_flow_style=False).encode()]

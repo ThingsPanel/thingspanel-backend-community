@@ -12,9 +12,9 @@ func TestAutomationOwnerAuthRunsBeforeDeviceOrCommandProcessing(t *testing.T) {
 	t.Setenv("GOTP_AUTOMATION_DEPLOYMENT_ID", "deployment-a")
 	router := gin.New()
 	RegisterAutomationOwnerRoutes(router, nil)
-	for _, path := range []string{"/internal/automation/devices", "/internal/automation/api/v1/telemetry/datas/pub"} {
+	for _, path := range []string{"/internal/automation/devices", "/internal/automation/runtime-devices/register", "/internal/automation/api/v1/telemetry/datas/pub"} {
 		method := "GET"
-		if strings.Contains(path, "/pub") {
+		if strings.Contains(path, "/pub") || strings.Contains(path, "/register") {
 			method = "POST"
 		}
 		r := httptest.NewRequest(method, path, strings.NewReader(`{"device_id":"forged"}`))

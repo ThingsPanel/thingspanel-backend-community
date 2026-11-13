@@ -139,6 +139,28 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 	}
 	legacyID, err := lookupRuntimeDeviceID(ctx, item.TenantID, item.DeviceID)
 	if err != nil {
+		if item.Kind == operationKindDeviceDeletion {
+			completed, deletionErr := completeUnprovisionedDeviceDeletion(ctx, item)
+			if deletionErr != nil {
+				return runtimeApplyOutcome{FailureCode: "UNPROVISIONED_DELETION_UNCONFIRMED", Retryable: true}
+			}
+			if completed {
+				return runtimeApplyOutcome{Applied: true}
+			}
+		}
+		if item.Kind == operationKindCredentialChange {
+			var change credentialChangeDesired
+			if json.Unmarshal(item.Desired, &change) == nil && change.Change == "activation" {
+				plan := planCredentialVoucher(ctx, item.TenantID, item.DeviceID, change)
+				if plan.FailureCode != "" {
+					return runtimeApplyOutcome{FailureCode: plan.FailureCode, Retryable: plan.Retryable}
+				}
+				if err := registerNativeMQTTRuntime(ctx, item, change, plan.Voucher); err == nil {
+					return runtimeApplyOutcome{Applied: true}
+				}
+				return runtimeApplyOutcome{FailureCode: "RUNTIME_REGISTRATION_UNCONFIRMED", Retryable: true}
+			}
+		}
 		return runtimeApplyOutcome{FailureCode: "RUNTIME_IDENTITY_UNKNOWN", Retryable: true}
 	}
 	switch item.Kind {
@@ -162,6 +184,12 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 		plan := planCredentialVoucher(ctx, item.TenantID, item.DeviceID, change)
 		if plan.FailureCode != "" {
 			return runtimeApplyOutcome{FailureCode: plan.FailureCode, Retryable: plan.Retryable}
+		}
+		if change.Change == "activation" && isOwnedNativeRuntime(ctx, item.TenantID, item.DeviceID) {
+			if err := registerNativeMQTTRuntime(ctx, item, change, plan.Voucher); err != nil {
+				return runtimeApplyOutcome{FailureCode: "RUNTIME_REGISTRATION_UNCONFIRMED", Retryable: true}
+			}
+			return runtimeApplyOutcome{Applied: true}
 		}
 		err = a.client.SetDeviceVoucher(ctx, legacyID, plan.Voucher)
 	case operationKindGatewayBinding:
