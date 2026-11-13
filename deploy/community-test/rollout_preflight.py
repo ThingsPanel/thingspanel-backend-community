@@ -15,6 +15,29 @@ REQUIRED_DATABASES = {'device_metadata', 'automation', 'notification',
                       'file_storage', 'connector_runtime'}
 REQUIRED_SERVICES = {'authn', 'thingmodel', 'devicemetadata', 'fileassets',
                      'connectorcatalog', 'automation'}
+ROLLOUT_MODE_PATH = pathlib.Path('/opt/tp-community-actions/rollout-mode.private.json')
+
+
+def validate_rollout_mode(value, native_database):
+    expected = {'mode': 'new-devices-preserve-legacy',
+                'source_database': 'ThingsPanel', 'native_database': native_database,
+                'legacy_data_preserved': True}
+    if (not isinstance(value, dict) or set(value) != set(expected)
+            or value != expected or value.get('legacy_data_preserved') is not True
+            or not native_database or native_database == 'ThingsPanel'):
+        raise ValueError('invalid explicit rollout mode or database identity')
+    return value['mode']
+
+
+def load_rollout_mode(native_database):
+    path = ROLLOUT_MODE_PATH
+    if path.is_symlink():
+        raise ValueError('rollout mode must be a private regular file')
+    if not path.exists():
+        return None
+    if not path.is_file() or path.stat().st_mode & 0o077 or path.stat().st_size > 4096:
+        raise ValueError('rollout mode must be a bounded private regular file')
+    return validate_rollout_mode(json.loads(path.read_text()), native_database)
 
 
 def configuration_issues(platform, runtime):
@@ -42,11 +65,11 @@ def configuration_issues(platform, runtime):
     return issues
 
 
-def metadata_issues(source, target):
+def metadata_issues(source, target, preserve_legacy=False):
     issues = []
     # Counts are only an early blocker, never evidence of content reconciliation.
     for name in ('devices', 'templates', 'groups', 'group_members'):
-        if source[name] > 0 and target[name] == 0:
+        if not preserve_legacy and source[name] > 0 and target[name] == 0:
             issues.append('legacy ' + name + ' exist but native ' + name + ' are empty')
     if target['incomplete_devices']:
         issues.append('native devices have incomplete identity or access bindings')
@@ -95,7 +118,15 @@ def inspect_host():
           SELECT 1 FROM device_access_bindings b WHERE b.tenant_id=d.tenant_id AND b.device_id=d.id))),
       'incomplete_templates',(SELECT count(*) FROM device_access_templates WHERE deleted_at IS NULL AND (
         configuration IS NULL OR created_by IS NULL OR updated_by IS NULL)))""")
-    issues.extend(metadata_issues(source, target))
+    mode = load_rollout_mode(matches[0])
+    issues.extend(metadata_issues(source, target, preserve_legacy=mode is not None))
+    if mode is not None:
+        # Explicit new-device cutover keeps the legacy database in place. It is
+        # not a claim that its historical resources were converted or reconciled.
+        return {'ready': not issues, 'scope': mode,
+                'source_database': 'ThingsPanel', 'native_database': matches[0],
+                'legacy_data_preserved': True, 'legacy_data_migrated': False,
+                'source_counts': source, 'native_counts': target, 'issues': issues}
     acceptance_path = pathlib.Path('/opt/tp-community-actions/upgrade-acceptance.private.json')
     if not acceptance_path.is_file():
         issues.extend(acceptance_issues(None, None, None, matches[0]))

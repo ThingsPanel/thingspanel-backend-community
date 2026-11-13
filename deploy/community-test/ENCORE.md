@@ -4,6 +4,8 @@
 
 运行服务替换前先执行只读 `rollout_preflight.py`，检查新的 `relational.*` 配置、原生服务托管、资源库映射和存量设备迁移的必要条件。失败时不停止业务进程，也不切换前端。前端使用同一服务器检查器；检查器通过不代表完整迁移对账已经完成。
 
+仅启用新设备、保留旧库且暂不迁移旧设备时，服务器可显式配置私密文件 `/opt/tp-community-actions/rollout-mode.private.json`（普通文件，权限 `0600`）：`{"mode":"new-devices-preserve-legacy","source_database":"ThingsPanel","native_database":"实际 device_metadata 映射的物理库名","legacy_data_preserved":true}`。此模式仍检查所有服务、资源库配置和原生记录完整性，但不要求旧记录数量匹配或全量迁移验收；报告明确标记 `legacy_data_migrated=false`，旧数据保持原库，不代表新界面可访问旧设备。缺失该文件时仍执行原有严格全量迁移检查；无效文件、错误数据库身份或非私密权限均阻止发布。
+
 `upgrade_rehearsal.py` 用导出的一致性快照备份源库，并恢复到新建的隔离库核对表记录数及关键表摘要；归档和敏感日志只保存在服务器私密目录。`metadata_upgrade_inventory.py` 核对身份和引用，`upgrade_identity_plan.py` 对照已有物模型标识生成租户对应表，`upgrade_quarantine.py` 仅归档明确批准的异常。以上步骤均不修改源业务记录、不切换应用，也不等于设备转换完成。所有遗留非 UUID 租户都必须核对完整标识映射，不得使用字符截取或兼容双查。
 
 `upgrade_platform_config.py` 将 `db.psql` 转换为新资源配置的私密候选文件，同时保留原文件。数据库、凭据、连接池及其他业务配置保持原值，`dbname` 和毫秒单位的 `slow_threshold` 分别映射到 `database` 和 `slow_threshold_ms`。已有新配置或未知旧选项会停止转换；该工具不替换生效文件、不重启服务。切换前还要核对进程环境变量覆盖及连接连通性。
