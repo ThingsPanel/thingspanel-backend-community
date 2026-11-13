@@ -35,7 +35,7 @@ const (
 )
 
 var (
-	runtimeClientOnce     sync.Once
+	runtimeClientOnce   sync.Once
 	runtimeClientInstance *communityclient.Client
 )
 

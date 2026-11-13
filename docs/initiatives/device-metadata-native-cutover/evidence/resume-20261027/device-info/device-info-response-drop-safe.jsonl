@@ -1,2 +1,0 @@
-{"kind":"deviceInfo","method":"PATCH","upstreamStatus":200,"responseDropped":true,"keyFormatValid":true}
-{"kind":"deviceInfo","method":"PATCH","upstreamStatus":200,"responseDropped":false,"sameIdempotencyKey":true,"samePayload":true,"sameEtag":true,"retryHadNoGetBeforeWrite":true}

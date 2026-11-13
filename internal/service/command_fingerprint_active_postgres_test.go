@@ -96,7 +96,6 @@ func commandFingerprintPG(t *testing.T) *gorm.DB {
 			t.Fatal("seed command-path device")
 		}
 	}
-	installServiceCommandIdentityFixture(t, db)
 	return db
 }
 

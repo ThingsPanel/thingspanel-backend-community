@@ -1,22 +1,16 @@
-# 社区 Encore 测试服构建与部署
+# 社区 Encore 测试服自动部署
 
-推送 `main` 只运行校验和构建，不会更新测试服。完成配套配置与数据迁移验收后，手动运行 `deploy.yml`，选择 `main` 并启用 `deploy_to_test`，才会部署社区后端及 Encore/通知核心。原生服务单独发布使用 `deploy-encore.yml` 的 `deploy_runtime`；不能用它代替需要同时更新 Gin 的发布。
-
-运行服务替换前先执行只读 `rollout_preflight.py`，检查新的 `relational.*` 配置、原生服务托管、资源库映射和存量设备迁移的必要条件。失败时不停止业务进程，也不切换前端。前端使用同一服务器检查器；检查器通过不代表完整迁移对账已经完成。
-
-`upgrade_rehearsal.py` 用导出的一致性快照备份源库，并恢复到新建的隔离库核对表记录数及关键表摘要；归档和敏感日志只保存在服务器私密目录。`metadata_upgrade_inventory.py` 核对身份和引用，`upgrade_identity_plan.py` 对照已有物模型标识生成租户对应表，`upgrade_quarantine.py` 仅归档明确批准的异常。以上步骤均不修改源业务记录、不切换应用，也不等于设备转换完成。所有遗留非 UUID 租户都必须核对完整标识映射，不得使用字符截取或兼容双查。
-
-`upgrade_platform_config.py` 将 `db.psql` 转换为新资源配置的私密候选文件，同时保留原文件。数据库、凭据、连接池及其他业务配置保持原值，`dbname` 和毫秒单位的 `slow_threshold` 分别映射到 `database` 和 `slow_threshold_ms`。已有新配置或未知旧选项会停止转换；该工具不替换生效文件、不重启服务。切换前还要核对进程环境变量覆盖及连接连通性。
+推送 `main` 后由 `deploy.yml` 先验证、部署社区后端，再调用 `deploy-encore.yml` 更新 `47.92.253.145` 的 Encore 和通知核心。两步使用同一提交，避免内部身份协议升级时只更新一端。
 
 CI 使用固定 Encore CLI 1.58.6，先执行迁移校验测试、原生服务编译和回归，再上传带提交号及校验值的纯源码包。服务器限制构建并发并复用编译缓存，镜像只保存在测试服，不发布镜像仓库。
 
 迁移 SQL 在仓库中固定使用 LF 换行，历史记录已核对实际 SQL 内容后统一校验值。发布中断后可直接重跑 Action，同一提交重新校验源码并执行发布。
 
-服务器从 `/opt/tp-community-main-20261028/compose.encore.private.json` 读取现有环境，自动接线安装级通知身份，并更新 `encore-api` 与 `notification-core` 的镜像。资源库 `device_metadata`、`automation`、`notification`、`file_storage`、`connector_runtime` 先检查历史迁移校验和与版本，再执行新增 up 迁移。启用市场安装时另需 `market_install`。应用 schema 迁移不会自动把旧社区设备、模板和分组转换进原生库。
+服务器从 `/opt/tp-community-main-20261028/compose.encore.private.json` 读取现有环境，自动接线安装级通知身份，并更新 `encore-api` 与 `notification-core` 的镜像。三个资源库先检查历史迁移校验和与版本，再执行新增 up 迁移。不会重建数据库，也不会更新 Mosquitto。
 
 发布后核验运行镜像、健康接口、匿名请求拦截，以及独立验收租户登录和物模型、通知组、规则列表。成功记录位于 `/opt/tp-community-actions/encore-releases/<提交号>/deployment.json`；编译和命令错误保留在该目录的私有日志中。
 
-发布器保留既有私有配置及自动化执行模式；服务或页面切换失败使用各部署器已有的恢复逻辑。已提交的数据库迁移不会自动撤销，因此旧数据转换必须先完成独立预检和验收。服务器维护入口见工作区 `AGENTS.md` 链接的部署文档。
+按用户对纯测试环境的要求，不新增兼容层，不额外备份，不自动回退；失败直接停止并修复。已有私有配置及自动化执行模式不变。服务器维护入口见工作区 `AGENTS.md` 链接的部署文档。
 
 ## 自动化执行接线
 

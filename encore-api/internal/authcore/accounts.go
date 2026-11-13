@@ -4,20 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"github.com/google/uuid"
-	"unicode/utf8"
 )
 
 // SQLAccounts uses the existing community account schema. Only the community
 // SQL migration runner owns this schema; Encore must not create a second users DB.
-type SQLAccounts struct {
-	DB *sql.DB
-	// Dialect selects the SQL translation; the zero value is PostgreSQL.
-	Dialect Dialect
-}
-
-func (a *SQLAccounts) dx() dialectDB { return dialectDB{inner: a.DB, db: a.DB, dialect: a.Dialect} }
+type SQLAccounts struct{ DB *sql.DB }
 
 const userColumns = `id,email,COALESCE(name,''),COALESCE(tenant_id,''),COALESCE(authority,''),COALESCE(status,''),password,auth_version`
 
@@ -37,7 +29,7 @@ func scanUser(row scanner) (User, error) {
 func (a *SQLAccounts) User(ctx context.Context, key string, login bool) (User, error) {
 	if login {
 		// Ambiguous phone aliases must not choose an arbitrary account.
-		rows, e := a.dx().QueryContext(ctx, `SELECT `+userColumns+` FROM users WHERE email=$1 OR phone_number=$1 OR ($1 ~ '^[0-9]{6,20}$' AND split_part(phone_number,' ',2)=$1) LIMIT 2`, key)
+		rows, e := a.DB.QueryContext(ctx, `SELECT `+userColumns+` FROM users WHERE email=$1 OR phone_number=$1 OR ($1 ~ '^[0-9]{6,20}$' AND split_part(phone_number,' ',2)=$1) LIMIT 2`, key)
 		if e != nil {
 			return User{}, ErrUnavailable
 		}
@@ -60,11 +52,11 @@ func (a *SQLAccounts) User(ctx context.Context, key string, login bool) (User, e
 		}
 		return u, nil
 	}
-	return scanUser(a.dx().QueryRowContext(ctx, `SELECT `+userColumns+` FROM users WHERE id=$1`, key))
+	return scanUser(a.DB.QueryRowContext(ctx, `SELECT `+userColumns+` FROM users WHERE id=$1`, key))
 }
 func (a *SQLAccounts) Flag(ctx context.Context, name string) (bool, error) {
 	var flag string
-	e := a.dx().QueryRowContext(ctx, `SELECT enable_flag FROM sys_function WHERE name=$1`, name).Scan(&flag)
+	e := a.DB.QueryRowContext(ctx, `SELECT enable_flag FROM sys_function WHERE name=$1`, name).Scan(&flag)
 	if errors.Is(e, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -75,7 +67,7 @@ func (a *SQLAccounts) Flag(ctx context.Context, name string) (bool, error) {
 }
 func (a *SQLAccounts) FindIdentity(ctx context.Context, i Identity) (User, error) {
 	var uid string
-	e := a.dx().QueryRowContext(ctx, `SELECT user_id FROM auth_external_bindings WHERE issuer=$1 AND subject=$2 AND provider=$3 AND client_id=$4 AND enabled`, i.Issuer, i.Subject, i.Provider, i.ClientID).Scan(&uid)
+	e := a.DB.QueryRowContext(ctx, `SELECT user_id FROM auth_external_bindings WHERE issuer=$1 AND subject=$2 AND provider=$3 AND client_id=$4 AND enabled`, i.Issuer, i.Subject, i.Provider, i.ClientID).Scan(&uid)
 	if errors.Is(e, sql.ErrNoRows) {
 		return User{}, ErrUnauthorized
 	}
@@ -88,12 +80,7 @@ func (a *SQLAccounts) Bind(ctx context.Context, u User, i Identity) error {
 	if e := IdentityValid(i); e != nil {
 		return e
 	}
-	// MySQL caps the columns at 512 (issuer) and 255 (subject) characters; reject a longer value as
-	// an invalid identity here instead of letting the database report a generic failure.
-	if a.Dialect == DialectMySQL && (utf8.RuneCountInString(i.Issuer) > 512 || utf8.RuneCountInString(i.Subject) > 255) {
-		return fmt.Errorf("%w: invalid identity", ErrUnauthorized)
-	}
-	tx, e := a.dx().BeginTx(ctx, nil)
+	tx, e := a.DB.BeginTx(ctx, nil)
 	if e != nil {
 		return ErrUnavailable
 	}
@@ -134,7 +121,7 @@ func (a *SQLAccounts) Bind(ctx context.Context, u User, i Identity) error {
 	return nil
 }
 func (a *SQLAccounts) Bindings(ctx context.Context, actor User) ([]Binding, error) {
-	rows, e := a.dx().QueryContext(ctx, `SELECT id,provider,enabled,created_at,self_unlinked FROM auth_external_bindings WHERE user_id=$1 ORDER BY created_at`, actor.ID)
+	rows, e := a.DB.QueryContext(ctx, `SELECT id,provider,enabled,created_at,self_unlinked FROM auth_external_bindings WHERE user_id=$1 ORDER BY created_at`, actor.ID)
 	if e != nil {
 		return nil, ErrUnavailable
 	}
@@ -166,7 +153,7 @@ func (a *SQLAccounts) disable(ctx context.Context, actor User, bindingID string,
 	if actor.Delegated {
 		return ErrForbidden
 	}
-	tx, e := a.dx().BeginTx(ctx, nil)
+	tx, e := a.DB.BeginTx(ctx, nil)
 	if e != nil {
 		return ErrUnavailable
 	}
@@ -229,7 +216,7 @@ func (a *SQLAccounts) AllowRebind(ctx context.Context, actor User, bindingID str
 	if actor.Delegated {
 		return ErrForbidden
 	}
-	tx, e := a.dx().BeginTx(ctx, nil)
+	tx, e := a.DB.BeginTx(ctx, nil)
 	if e != nil {
 		return ErrUnavailable
 	}

@@ -13,11 +13,9 @@ import (
 	"time"
 
 	"project/initialize"
-	"project/internal/automationbridge"
 	"project/internal/dal"
 	"project/internal/model"
 	"project/pkg/common"
-	"project/pkg/errcode"
 
 	"github.com/go-basic/uuid"
 	pkgerrors "github.com/pkg/errors"
@@ -46,23 +44,6 @@ type Automate struct {
 	mu      sync.Mutex
 	// 用于跟踪在单次设备上报过程中已经执行过的场景ID
 	executedSceneIDs map[string]bool
-}
-
-// legacyAutomationUnavailable uses the existing localized service-unavailable code.
-const legacyAutomationUnavailable = 100001
-
-var invalidLegacyAutomationConfigLogged sync.Once
-
-func requireLegacyAutomation() error {
-	config, err := automationbridge.ReadConfig()
-	if err != nil {
-		invalidLegacyAutomationConfigLogged.Do(func() { logrus.Error("legacy automation paused: invalid automation configuration") })
-		return errcode.New(legacyAutomationUnavailable)
-	}
-	if config.Mode != "legacy" {
-		return errcode.New(legacyAutomationUnavailable)
-	}
-	return nil
 }
 
 var conditionAfterDecoration = []ConditionAfterFunc{
@@ -120,9 +101,6 @@ func (*Automate) ErrorRecover() func() {
 // @params deviceInfo *model.Device
 // @return error
 func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) error {
-	if err := requireLegacyAutomation(); err != nil {
-		return err
-	}
 	defer a.ErrorRecover()
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -248,9 +226,6 @@ func (*Automate) LimiterAllow(id string) bool {
 // @params info initialize.AutomateExecteParams
 // @return error
 func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
-	if err := requireLegacyAutomation(); err != nil {
-		return err
-	}
 	logrus.Debugf("执行动作开始，获取锁--------------------------------")
 	for _, v := range info.AutomateExecteSceeInfos {
 		// 检查该场景是否已经执行过，如果执行过则跳过
@@ -301,9 +276,6 @@ func (*Automate) CheckSceneAutomationHasClose(sceneAutomationId string) bool {
 // @params info initialize.AutomateExecteParams
 // @return error
 func (a *Automate) SceneAutomateExecute(sceneAutomationId string, deviceIds []string, actions []model.ActionInfo) error {
-	if err := requireLegacyAutomation(); err != nil {
-		return err
-	}
 	tenantID := dal.GetSceneAutomationTenantID(context.Background(), sceneAutomationId)
 
 	// 执行动作
@@ -319,9 +291,6 @@ func (a *Automate) SceneAutomateExecute(sceneAutomationId string, deviceIds []st
 // @params info initialize.AutomateExecteParams
 // @return error
 func (a *Automate) ActiveSceneExecute(scene_id, tenantID string) error {
-	if err := requireLegacyAutomation(); err != nil {
-		return err
-	}
 	actions, err := dal.GetActionInfoListBySceneId([]string{scene_id})
 	if err != nil {
 		return nil
@@ -1065,9 +1034,6 @@ func (*Automate) automateConditionCheckByOperatorWithString(operator string, con
 // @params actions []model.ActionInf
 // @return void
 func (*Automate) AutomateActionExecute(_ string, deviceIds []string, actions []model.ActionInfo, tenantID string) (string, error) {
-	if err := requireLegacyAutomation(); err != nil {
-		return "", err
-	}
 	logrus.Debug("动作开始执行:")
 	var (
 		result    string

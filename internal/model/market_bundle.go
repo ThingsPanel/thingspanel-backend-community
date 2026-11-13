@@ -166,7 +166,6 @@ type PublishDashboardBundleRequest struct {
 	Description   string                `json:"description"`
 	CoverAssetKey string                `json:"coverAssetKey,omitempty"`
 	MarketToken   string                `json:"marketToken" validate:"required"`
-	OperationKey  string                `json:"operationKey,omitempty"`
 	DeviceRoles   []DashboardBundleRole `json:"deviceRoles" validate:"omitempty,dive"`
 }
 
@@ -206,9 +205,6 @@ type PublishDraftResponse struct {
 	Version        string                      `json:"version"`
 	ContentHash    string                      `json:"contentHash"`
 	Status         string                      `json:"status"`
-	VersionID      string                      `json:"versionId,omitempty"`
-	TargetState    string                      `json:"targetState,omitempty"`
-	OperationKey   string                      `json:"operationKey,omitempty"`
 	PrecheckReport *PublishDraftPrecheckReport `json:"precheckReport,omitempty"`
 }
 
@@ -237,23 +233,6 @@ type HorizonPublishData struct {
 	Version     string `json:"version"`
 	ContentHash string `json:"contentHash"`
 	Status      string `json:"status"`
-	VersionID   string `json:"versionId,omitempty"`
-	TargetState string `json:"targetState,omitempty"`
-}
-
-// PublicationReceiptResponse observes the original operation. Confirmed means
-// its receipt exists; targetState separately describes the current target.
-type PublicationReceiptResponse struct {
-	State        string              `json:"state"`
-	OperationKey string              `json:"operationKey,omitempty"`
-	TargetState  string              `json:"targetState,omitempty"`
-	Result       *HorizonPublishData `json:"result,omitempty"`
-}
-
-type HorizonPublicationReceiptResponse struct {
-	Code    int                         `json:"code"`
-	Message string                      `json:"message"`
-	Data    *PublicationReceiptResponse `json:"data,omitempty"`
 }
 
 // MarketBundleListQuery contains safe public catalog filters.

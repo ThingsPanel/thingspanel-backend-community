@@ -21,10 +21,6 @@ func (s *Store) Dispatch(ctx context.Context, id string, guard func(context.Cont
 		if err := tx.Where("id=?", id).Take(&candidate).Error; err != nil {
 			return err
 		}
-		transportErr := lockPreparedRoute(tx, candidate.TenantID, candidate.TargetDeviceID, candidate.Payload)
-		if transportErr != nil && !errors.Is(transportErr, ErrFenced) {
-			return transportErr
-		}
 		binding, bindingErr := activeBinding(tx, candidate.TenantID, candidate.TargetDeviceID)
 		if bindingErr != nil && !errors.Is(bindingErr, ErrFenced) {
 			return bindingErr
@@ -42,7 +38,7 @@ func (s *Store) Dispatch(ctx context.Context, id string, guard func(context.Cont
 		if !row.ExpiresAt.After(time.Now()) {
 			return finish(StateExpired, "expired before dispatch")
 		}
-		if transportErr != nil || bindingErr != nil || binding.BrokerCell != row.RouteCell || binding.RouteEpoch != row.RouteEpoch {
+		if bindingErr != nil || binding.BrokerCell != row.RouteCell || binding.RouteEpoch != row.RouteEpoch {
 			return finish(StateFenced, "route changed before dispatch")
 		}
 		if err := checkDevicePair(tx, row.TenantID, row.DeviceID, row.TargetDeviceID); err != nil {

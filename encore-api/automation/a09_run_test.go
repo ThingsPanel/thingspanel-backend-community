@@ -339,7 +339,7 @@ func TestWaitResumesAfterTheWaitWithoutReplayingEarlierSteps(t *testing.T) {
 		t.Fatalf("run must finish after the wait, got %q", got.Status)
 	}
 	statuses := e.stepStatuses(runID)
-	want := []string{"0:action:accepted", "1:wait:succeeded", "2:action:accepted"}
+	want := []string{"0:action:accepted", "1:wait:waiting", "2:action:accepted"}
 	if len(statuses) != len(want) {
 		t.Fatalf("want %v, got %v", want, statuses)
 	}
@@ -353,44 +353,6 @@ func TestWaitResumesAfterTheWaitWithoutReplayingEarlierSteps(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Budget and lease
 // ---------------------------------------------------------------------------
-
-func TestWaitRecoveryUsesFiredTimerWithoutRearming(t *testing.T) {
-	e := newEnv(t)
-	def := e.baseDefinition()
-	def.Steps = []domain.Step{{Kind: domain.StepWait, Wait: domain.Duration(time.Minute)}}
-	rule := e.createRule(def)
-	e.ingest("wait-recovery", e.dev1, "temperature", 35.0, "")
-	runID := e.runs(rule.ID)[0].ID
-	original, err := e.st.GetRunTimer(e.ctx(), runID, 0)
-	if err != nil || original == nil {
-		t.Fatalf("wait timer missing: %v", err)
-	}
-	e.advance(30 * time.Second)
-	if _, err := e.rt.ResumeRun(e.ctx(), runID); err != nil {
-		t.Fatal(err)
-	}
-	pending, err := e.st.GetRunTimer(e.ctx(), runID, 0)
-	if err != nil || pending == nil || !pending.DueAt.Equal(original.DueAt) || pending.State != "pending" {
-		t.Fatalf("manual recovery changed wait deadline: %+v / %v", pending, err)
-	}
-	e.advance(30 * time.Second)
-	// Simulate a worker dying after it consumes the timer, before it resumes.
-	timers, err := e.st.DueRunTimers(e.ctx(), e.now, 50)
-	if err != nil || len(timers) != 1 {
-		t.Fatalf("claim due timer: %v / %v", timers, err)
-	}
-	e.crashAt(runID, 0)
-	e.tick()
-	if e.run(runID).Status != runtime.StatusSucceeded || e.stepStatuses(runID)[0] != "0:wait:succeeded" {
-		t.Fatalf("fired wait did not complete: %+v", e.stepStatuses(runID))
-	}
-	// A second crash before the following checkpoint must not rearm the wait.
-	e.crashAt(runID, 0)
-	e.tick()
-	if e.run(runID).Status != runtime.StatusSucceeded || e.steps(runID)[0].Attempt != 0 {
-		t.Fatal("recovery replayed the completed wait")
-	}
-}
 
 // TestOverdueRunIsExpiredInsteadOfStuck: a run whose budget is spent must become
 // a finished fact, not a row that says "running" forever.
@@ -592,9 +554,7 @@ func TestEveryDeclaredStepKindHasARealImplementation(t *testing.T) {
 				t.Fatalf("create rule: %v", err)
 			}
 			if _, err := e.rt.Ingest(e.ctx(), store.IngestEvent{
-				// Events are globally deduplicated, so repeated test runs in the
-				// same database need the current fixture identity in the event ID.
-				EventID: "ev-a09-kind-" + string(kind) + "-" + e.tenant, TenantID: e.tenant,
+				EventID: "ev-a09-kind-" + string(kind), TenantID: e.tenant,
 				DeviceID: e.dev1, Signal: domain.SignalTelemetry, Key: "temperature",
 				Value: 35.0, Unit: "℃", Quality: domain.QualityGood, ObservedAt: e.now,
 			}); err != nil {

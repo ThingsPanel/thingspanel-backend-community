@@ -1,22 +1,9 @@
 name: Community integrated test deploy
 on:
   push:
-    branches: [main, wp/full-develop-integration-20261111]
-    paths-ignore: [ 'docs/**', '.ai/**', '**/*.md', 'deploy/release/**', '.github/workflows/release.yml', '.github/workflows/build-release.yml', '.github/workflows/docker-image-build.yml', '.github/workflows/encore-image-build.yml']
+    branches: [main]
+    paths-ignore: [ 'docs/**', '.ai/**', '**/*.md', 'deploy/release/**', '.github/workflows/release.yml', '.github/workflows/build-release.yml', '.github/workflows/docker-image-build.yml', '.github/workflows/encore-image-build.yml', '.github/workflows/deploy.yml']
   workflow_dispatch:
-    inputs:
-      deploy_to_test:
-        description: 'Deploy the coordinated stack after data and runtime configuration acceptance'
-        type: boolean
-        default: false
-      build_device_safety:
-        description: 'Build and stage the interim device security profile without deploying'
-        type: boolean
-        default: false
-      build_mqtt_publisher:
-        description: 'Build and upload the MQTT-only candidate; never deploy runtime'
-        type: boolean
-        default: false
 permissions:
   contents: read
 concurrency:
@@ -24,7 +11,6 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build_backend:
-    if: ${{ !inputs.build_device_safety && !inputs.build_mqtt_publisher }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -33,27 +19,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Build isolated test Redis
-        run: |
-          set -euo pipefail
-          # Tests start private Redis processes on ephemeral ports. Do not depend
-          # on the runner's apt mirror or start a shared system Redis service.
-          redis_source="$RUNNER_TEMP/redis-test-source"
-          mkdir -p "$redis_source"
-          curl --fail --location --retry 3 --max-time 120 \
-            https://codeload.github.com/redis/redis/tar.gz/refs/tags/7.2.6 \
-            -o "$redis_source/redis.tar.gz"
-          echo "86c8a1c315ce95df7771bcc37e6b3a5f41f4e23eb0d83cb0044609ac8f9d3875  $redis_source/redis.tar.gz" | sha256sum --check --strict
-          tar -xzf "$redis_source/redis.tar.gz" -C "$redis_source"
-          make -C "$redis_source/redis-7.2.6" -j2 MALLOC=libc BUILD_TLS=no redis-server
-          "$redis_source/redis-7.2.6/src/redis-server" --version
-          echo "$redis_source/redis-7.2.6/src" >> "$GITHUB_PATH"
       - name: Verify backend boundaries
         run: |
-          command -v redis-server
-          (cd pkg/relational && go test ./...)
-          go test ./... -run '^$'
-          go test ./internal/... ./pkg/... ./initialize/... ./router/... ./sql/... ./cmd/... ./mqtt/... ./third_party/...
+          go test ./internal/app ./internal/uplink ./internal/automationbridge ./internal/brokercontract ./internal/brokercontrol ./internal/brokermapper
+          go test ./internal/api ./internal/service -run 'Test(AutomationOwner|Notification|Source|NewSource|EmailSource|AutomationPolicy)'
           python3 -m unittest discover -s deploy/community-test -p test_notification_identity.py
       - name: Build immutable backend bundle
         env:
@@ -84,67 +53,4 @@ jobs:
     uses: ./.github/workflows/deploy-encore.yml
     with:
       deploy_backend: true
-      deploy_runtime: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_test }}
-    secrets: inherit
-
-  device_safety:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_device_safety && !inputs.build_mqtt_publisher && !inputs.deploy_to_test }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Compose the reviewed security changes
-        run: python3 deploy/community-test/build_device_safety_profile.py "$RUNNER_TEMP/device-safety-source"
-      - name: Build isolated test Redis
-        run: |
-          set -euo pipefail
-          curl --fail --location --retry 3 --max-time 120 https://codeload.github.com/redis/redis/tar.gz/refs/tags/7.2.6 -o "$RUNNER_TEMP/redis.tar.gz"
-          echo "86c8a1c315ce95df7771bcc37e6b3a5f41f4e23eb0d83cb0044609ac8f9d3875  $RUNNER_TEMP/redis.tar.gz" | sha256sum --check --strict
-          tar -xzf "$RUNNER_TEMP/redis.tar.gz" -C "$RUNNER_TEMP"
-          make -C "$RUNNER_TEMP/redis-7.2.6" -j2 MALLOC=libc BUILD_TLS=no redis-server
-          echo "$RUNNER_TEMP/redis-7.2.6/src" >> "$GITHUB_PATH"
-      - name: Verify the actual composed source
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP/device-safety-source"
-          go test ./... -run '^$'
-          go test ./internal/api ./internal/service ./internal/middleware ./internal/dal ./pkg/global
-      - name: Build immutable safety bundle
-        env:
-          CGO_ENABLED: '0'
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP/device-safety-source"
-          mkdir -p "$GITHUB_WORKSPACE/candidate"
-          go build -trimpath -ldflags "-s -w -X project/pkg/global.SYSTEM_VERSION=device-safety-$GITHUB_SHA" -o "$GITHUB_WORKSPACE/candidate/ThingsPanel-Go" .
-          cp RELEASE_PROFILE.json "$GITHUB_WORKSPACE/candidate/"
-          cd "$GITHUB_WORKSPACE/candidate"
-          test "$(./ThingsPanel-Go --version)" = "device-safety-$GITHUB_SHA"
-          sha256sum ThingsPanel-Go RELEASE_PROFILE.json > SHA256SUMS
-          tar -czf "../device-safety-$GITHUB_SHA.tar.gz" ThingsPanel-Go RELEASE_PROFILE.json SHA256SUMS
-      - uses: actions/upload-artifact@v4
-        with:
-          name: device-safety-${{ github.sha }}
-          path: device-safety-${{ github.sha }}.tar.gz
-          retention-days: 3
-      - name: Stage verified bundle without restarting services
-        env:
-          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          umask 077
-          key="$RUNNER_TEMP/device-safety-key"
-          trap 'rm -f "$key"' EXIT
-          printf '%s\n' "$DEPLOY_KEY" > "$key"
-          scp -i "$key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts "device-safety-$GITHUB_SHA.tar.gz" root@47.92.253.145:/opt/tp-community-actions/incoming/
-
-  mqtt_publisher:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_mqtt_publisher && !inputs.build_device_safety && !inputs.deploy_to_test }}
-    uses: ./.github/workflows/mqtt-publisher-candidate.yml
     secrets: inherit

@@ -592,10 +592,9 @@ func (s *Service) SimulateRule(ctx context.Context, id string, req *SimulateRequ
 // Ingress
 // ---------------------------------------------------------------------------
 
-// IngestEvent accepts one normalized event for a device owned by the caller's
-// tenant. event_id is the client's source identity; new receipt IDs are scoped
-// by tenant and device. Retrying the original source ID returns duplicate=true
-// and produces no second physical action.
+// IngestEvent accepts one normalized uplink event. The event_id is the dedupe
+// identity: a replayed broker message returns duplicate=true and produces no
+// second physical action.
 //
 //encore:api auth method=POST path=/v1/ingress/events
 func (s *Service) IngestEvent(ctx context.Context, req *IngestRequest) (*IngestResponse, error) {
@@ -609,9 +608,6 @@ func (s *Service) IngestEvent(ctx context.Context, req *IngestRequest) (*IngestR
 	}
 	if strings.TrimSpace(req.EventID) == "" || strings.TrimSpace(req.DeviceID) == "" {
 		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "event_id 与 device_id 均为必填"}
-	}
-	if err := requireUserIngressDevices(ctx, rt, tenantID, req.DeviceID); err != nil {
-		return nil, err
 	}
 	signal := domain.SignalKind(req.Signal)
 	if signal == "" {
@@ -627,18 +623,8 @@ func (s *Service) IngestEvent(ctx context.Context, req *IngestRequest) (*IngestR
 			return nil, &errs.Error{Code: errs.InvalidArgument, Message: "params 不是合法 JSON 对象"}
 		}
 	}
-	// Old versions stored API-supplied event IDs verbatim. Keep an already
-	// accepted retry idempotent only when its tenant, device and API source match.
-	if prior, err := rt.Store().FindOwnedAPIEventReceipt(ctx, tenantID, req.DeviceID, req.EventID); err != nil {
-		return nil, internal(err)
-	} else if prior != nil {
-		return &IngestResponse{EventID: prior.EventID, Seq: prior.Seq, Duplicate: true}, nil
-	}
-	// A caller-controlled source ID is not a globally trusted receipt ID.
-	// Keep the global inbox key, but namespace public input like the owner adapter.
-	eventID := ingress.StableID("api", tenantID, req.DeviceID, req.EventID)
 	rec, err := rt.Ingest(ctx, store.IngestEvent{
-		EventID: eventID, TenantID: tenantID, DeviceID: req.DeviceID,
+		EventID: req.EventID, TenantID: tenantID, DeviceID: req.DeviceID,
 		Signal: signal, Key: req.Key, Value: req.Value, Unit: req.Unit,
 		Quality: quality, ObservedAt: req.ObservedAt, Params: params, Source: "api",
 	})
@@ -659,19 +645,6 @@ func (s *Service) IngestEvent(ctx context.Context, req *IngestRequest) (*IngestR
 func (s *Service) IngestUplink(ctx context.Context, req *UplinkRequest) (*UplinkResponse, error) {
 	tenantID, err := mustTenant()
 	if err != nil {
-		return nil, err
-	}
-	// Browser sessions cannot attest gateway routing. A tenant-owned gateway
-	// is not proof that this device is its child; only the owner ingress has
-	// the authenticated transport's validated relationship and durable receipt.
-	if req.GatewayID != "" || strings.HasPrefix(req.Class, "gateway_") {
-		return nil, &errs.Error{Code: errs.PermissionDenied, Message: "网关上报必须通过设备接入服务"}
-	}
-	rt, err := s.rtOrErr()
-	if err != nil {
-		return nil, err
-	}
-	if err := requireUserIngressDevices(ctx, rt, tenantID, req.DeviceID); err != nil {
 		return nil, err
 	}
 	return s.ingestUplink(ctx, tenantID, req)
@@ -887,15 +860,11 @@ func (s *Service) ListAlarms(ctx context.Context, req *ListAlarmsRequest) (*List
 	if err != nil {
 		return nil, err
 	}
-	filter, err := alarmPageFilter(req)
-	if err != nil {
-		return nil, err
-	}
-	eps, total, err := rt.Store().ListEpisodesPage(ctx, tenantID, filter)
+	eps, err := rt.Store().ListEpisodes(ctx, tenantID, req.PolicyID, req.SubjectID, req.State, req.Limit)
 	if err != nil {
 		return nil, internal(err)
 	}
-	out := &ListAlarmsResponse{Alarms: make([]AlarmResponse, 0, len(eps)), Total: total}
+	out := &ListAlarmsResponse{Alarms: make([]AlarmResponse, 0, len(eps))}
 	for _, e := range eps {
 		out.Alarms = append(out.Alarms, alarmResponse(e))
 	}

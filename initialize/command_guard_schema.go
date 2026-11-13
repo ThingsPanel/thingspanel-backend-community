@@ -1,6 +1,8 @@
 package initialize
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	commandguardsql "project/sql"
@@ -23,13 +25,47 @@ func ApplyCommandGuardSchema(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	files := make([]commandguardsql.NativeBindingMigration, 0, len(migrations))
-	for _, migration := range migrations {
-		files = append(files, commandguardsql.NativeBindingMigration{FileName: migration.FileName, Contents: migration.Contents})
-	}
-	return applyComponentMigrations(db, componentMigration{
-		module: commandGuardMigrationModule, description: "command guard", lockKey: commandGuardLockKey,
-		files: files, verify: verifyCommandGuardSchema,
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", commandGuardLockKey).Error; err != nil {
+			return fmt.Errorf("acquire command guard migration lock: %w", err)
+		}
+		if err := tx.Exec(`CREATE TABLE IF NOT EXISTS ` + commandGuardLedgerTable + ` (
+			module_name text NOT NULL,
+			file_name text NOT NULL,
+			checksum char(64) NOT NULL,
+			applied_at timestamp with time zone NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (module_name, file_name)
+		)`).Error; err != nil {
+			return fmt.Errorf("create command guard migration ledger: %w", err)
+		}
+
+		for _, migration := range migrations {
+			digest := sha256.Sum256(migration.Contents)
+			checksum := hex.EncodeToString(digest[:])
+			var recorded string
+			result := tx.Table(commandGuardLedgerTable).
+				Select("checksum").
+				Where("module_name = ? AND file_name = ?", commandGuardMigrationModule, migration.FileName).
+				Take(&recorded)
+			if result.Error == nil {
+				if recorded != checksum {
+					return fmt.Errorf("command guard migration checksum drift for %s: recorded %s, source %s",
+						migration.FileName, recorded, checksum)
+				}
+				continue
+			}
+			if result.Error != gorm.ErrRecordNotFound {
+				return fmt.Errorf("read command guard migration ledger for %s: %w", migration.FileName, result.Error)
+			}
+			if err := tx.Exec(string(migration.Contents)).Error; err != nil {
+				return fmt.Errorf("execute command guard migration %s: %w", migration.FileName, err)
+			}
+			if err := tx.Exec("INSERT INTO "+commandGuardLedgerTable+" (module_name, file_name, checksum) VALUES (?, ?, ?)",
+				commandGuardMigrationModule, migration.FileName, checksum).Error; err != nil {
+				return fmt.Errorf("record command guard migration %s: %w", migration.FileName, err)
+			}
+		}
+		return verifyCommandGuardSchema(tx)
 	})
 }
 

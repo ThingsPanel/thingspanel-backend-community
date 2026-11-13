@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	"project/internal/model"
 	"project/pkg/global"
 
@@ -30,26 +29,6 @@ type SourceRouteSnapshot struct {
 	NotificationGroupID string
 	GroupRevision       int64
 	RouteVersion        int64
-}
-
-type sourceGroupRouteSeed struct {
-	SourceDeploymentID string    `gorm:"column:source_deployment_id;primaryKey"`
-	TenantID           string    `gorm:"column:tenant_id;primaryKey"`
-	LegacyGroupID      string    `gorm:"column:legacy_group_id;primaryKey"`
-	Engine             string    `gorm:"column:engine"`
-	GroupRevision      int64     `gorm:"column:group_revision"`
-	RouteVersion       int64     `gorm:"column:route_version"`
-	UpdatedAt          time.Time `gorm:"column:updated_at"`
-}
-
-func (sourceGroupRouteSeed) TableName() string { return "notification_source_group_routes" }
-
-func ensureSourceGroupRoute(tx *gorm.DB, key SourceRouteKey) error {
-	_, err := InsertIfAbsent(tx, &sourceGroupRouteSeed{
-		SourceDeploymentID: key.DeploymentID, TenantID: key.TenantID, LegacyGroupID: key.LegacyGroup,
-		Engine: "legacy", UpdatedAt: time.Now().UTC(),
-	})
-	return err
 }
 
 func sourceRouteAdvisoryKey(key SourceRouteKey) string {
@@ -114,7 +93,7 @@ func WithLockedSourceRoute(ctx context.Context, key SourceRouteKey, fn func(*gor
 	var readErr error
 	err := global.DB.WithContext(ctx).Session(&gorm.Session{Logger: logger.Discard}).Transaction(func(tx *gorm.DB) error {
 		lockKey := sourceRouteAdvisoryKey(key)
-		if err := relational.LockTx(ctx, tx, lockKey); err != nil {
+		if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, lockKey).Error; err != nil {
 			readErr = ErrSourceRouteUnavailable
 			return readErr
 		}
@@ -224,7 +203,7 @@ func SwitchSourceRouteToLegacy(ctx context.Context, key SourceRouteKey, expected
 	}
 	return global.DB.WithContext(ctx).Session(&gorm.Session{Logger: logger.Discard}).Transaction(func(tx *gorm.DB) error {
 		lockKey := sourceRouteAdvisoryKey(key)
-		if err := relational.LockTx(ctx, tx, lockKey); err != nil {
+		if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, lockKey).Error; err != nil {
 			return ErrSourceRouteUnavailable
 		}
 		var current struct {
@@ -265,10 +244,12 @@ func switchSourceRoute(ctx context.Context, key SourceRouteKey, expectedVersion,
 	}
 	return global.DB.WithContext(ctx).Session(&gorm.Session{Logger: logger.Discard}).Transaction(func(tx *gorm.DB) error {
 		lockKey := sourceRouteAdvisoryKey(key)
-		if err := relational.LockTx(ctx, tx, lockKey); err != nil {
+		if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, lockKey).Error; err != nil {
 			return ErrSourceRouteUnavailable
 		}
-		if err := ensureSourceGroupRoute(tx, key); err != nil {
+		if err := tx.Exec(`INSERT INTO notification_source_group_routes
+			(source_deployment_id, tenant_id, legacy_group_id, engine, group_revision, route_version, bound_notification_group_id)
+			VALUES (?, ?, ?, 'legacy', 0, 0, NULL) ON CONFLICT DO NOTHING`, key.DeploymentID, key.TenantID, key.LegacyGroup).Error; err != nil {
 			return ErrSourceRouteUnavailable
 		}
 		var current struct {
@@ -352,9 +333,6 @@ func ClaimSourceOutbox(ctx context.Context, limit int, lease time.Duration, maxA
 			WHERE state = 'leased' AND lease_until < ? AND attempts >= ?`, now, now, maxAttempts).Error; err != nil {
 			return err
 		}
-		if tx.Dialector.Name() == "mysql" {
-			return claimSourceOutboxMySQL(tx, &claimed, limit, lease, maxAttempts, now)
-		}
 		return tx.Raw(`WITH picked AS (
 			SELECT id FROM notification_source_outbox
 			WHERE ((state IN ('pending', 'retry_wait') AND next_attempt_at <= ?)
@@ -373,35 +351,15 @@ func ClaimSourceOutbox(ctx context.Context, limit int, lease time.Duration, maxA
 	return claimed, nil
 }
 
-// claimSourceOutboxMySQL locks candidate ids, updates those rows, and reads
-// them back within the transaction. The ordered index keeps competing workers
-// on disjoint rows without relying on PostgreSQL UPDATE ... RETURNING syntax.
-func claimSourceOutboxMySQL(tx *gorm.DB, claimed *[]SourceOutboxRecord, limit int, lease time.Duration, maxAttempts int, now time.Time) error {
-	var ids []string
-	if err := tx.Raw(`SELECT id FROM notification_source_outbox FORCE INDEX (idx_notification_source_outbox_claim)
-		WHERE ((state IN ('pending', 'retry_wait') AND next_attempt_at <= ?)
-			OR (state = 'leased' AND lease_until < ?)) AND attempts < ?
-		ORDER BY next_attempt_at, created_at
-		LIMIT ? FOR UPDATE SKIP LOCKED`, now, now, maxAttempts, limit).Scan(&ids).Error; err != nil {
-		return err
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	if err := tx.Exec(`UPDATE notification_source_outbox
-		SET state = 'leased', attempts = attempts + 1, lease_token = UUID(), lease_until = ?, updated_at = ?
-		WHERE id IN ?`, now.Add(lease), now, ids).Error; err != nil {
-		return err
-	}
-	return tx.Raw(`SELECT * FROM notification_source_outbox WHERE id IN ? ORDER BY next_attempt_at, created_at`, ids).Scan(claimed).Error
-}
-
 func ValidateSourceBridgeStartup(enabled bool, deploymentID string) error {
 	if global.DB == nil || (enabled && deploymentID == "") {
 		return errors.New("source bridge startup unavailable")
 	}
-	tableCount, err := countSourceBridgeTables(global.DB.Session(&gorm.Session{Logger: logger.Discard}))
-	if err != nil {
+	var tableCount int
+	if err := global.DB.Session(&gorm.Session{Logger: logger.Discard}).Raw(`SELECT count(*) FROM unnest(ARRAY[
+		to_regclass('notification_source_group_routes'),
+		to_regclass('notification_source_group_route_revisions'),
+		to_regclass('notification_source_outbox')]) AS t(rel) WHERE rel IS NOT NULL`).Scan(&tableCount).Error; err != nil {
 		return errors.New("source bridge startup unavailable")
 	}
 	if tableCount == 0 && !enabled {

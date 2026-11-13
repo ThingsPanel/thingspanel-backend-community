@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"fmt"
 	"strings"
 	"testing"
 
 	"encore.dev/beta/errs"
+	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -154,7 +154,7 @@ func TestNativeTemplateModelSelectionIsInheritedByExistingAndNewDevices(t *testi
 	}
 }
 
-func seedNativeTemplateBindingModel(t *testing.T, ctx context.Context, tx dbx.Tx, tenantID, namePrefix string, firstVersion int) (string, map[int]string) {
+func seedNativeTemplateBindingModel(t *testing.T, ctx context.Context, tx *sqldb.Tx, tenantID, namePrefix string, firstVersion int) (string, map[int]string) {
 	t.Helper()
 	snapshots := []revisionSchemaSnapshot{}
 	for version := firstVersion; version <= firstVersion+1; version++ {

@@ -1,58 +1,20 @@
 package service
 
 import (
-	"errors"
 	"project/initialize"
 	"project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/errcode"
 	utils "project/pkg/utils"
-	"strings"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 )
 
 type SceneAutomation struct{}
 
-func sceneType10DeviceSources(groups [][]model.Condition) ([]string, error) {
-	var ids []string
-	for _, group := range groups {
-		for _, condition := range group {
-			if condition.TriggerConditionsType == model.DEVICE_TRIGGER_CONDITION_TYPE_ONE {
-				if condition.TriggerSource == nil || strings.TrimSpace(*condition.TriggerSource) == "" {
-					return nil, dal.ErrInvalidDeviceTriggerSource
-				}
-				ids = append(ids, *condition.TriggerSource)
-			}
-		}
-	}
-	return ids, nil
-}
-
-func validateSceneAutomationClaims(u *utils.UserClaims) error {
-	if u == nil || strings.TrimSpace(u.ID) == "" || strings.TrimSpace(u.TenantID) == "" {
-		return errcode.New(errcode.CodeNoPermission)
-	}
-	return nil
-}
-
-func sceneReferenceError(err error) error {
-	if errors.Is(err, dal.ErrInvalidDeviceTriggerSource) {
-		return errcode.New(errcode.CodeParamError)
-	}
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return errcode.New(errcode.CodeNotFound)
-	}
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
-}
-
 func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomationReq, u *utils.UserClaims) (string, error) {
 	var scene_automation_id string
-	if err := validateSceneAutomationClaims(u); err != nil {
-		return "", err
-	}
 
 	// 开启事物
 	logrus.Info("开启事物")
@@ -61,15 +23,6 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 		return scene_automation_id, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
-	}
-	newSources, err := sceneType10DeviceSources(req.TriggerConditionGroups)
-	if err != nil {
-		_ = dal.Rollback(tx)
-		return "", sceneReferenceError(err)
-	}
-	if err = dal.LockTenantDeviceTriggerSources(u.TenantID, newSources, tx); err != nil {
-		_ = dal.Rollback(tx)
-		return "", sceneReferenceError(err)
 	}
 
 	// 写入 scene_automations
@@ -231,9 +184,7 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 
 	}
 
-	if err := dal.Commit(tx); err != nil {
-		return scene_automation_id, errcode.NewWithMessage(errcode.CodeDBError, "scene automation commit outcome unknown; reconcile before retry")
-	}
+	dal.Commit(tx)
 	// 保存自动化缓存信息
 	go func() {
 		if req.Enabled == "Y" {
@@ -537,9 +488,6 @@ func (*SceneAutomation) GetSceneAutomationWithAlarmByPageReq(req *model.GetScene
 
 func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationReq, u *utils.UserClaims) (string, error) {
 	var scene_automation_id string
-	if err := validateSceneAutomationClaims(u); err != nil {
-		return "", err
-	}
 
 	// 开启事物
 	tx, err := dal.StartTransaction()
@@ -550,27 +498,6 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 	}
 
 	scene_automation_id = req.ID
-	// Serialize replacements of this scene's trigger references before reading
-	// the old set. The scene row is always locked before device rows.
-	if _, err := dal.LockTenantSceneAutomationForUpdate(scene_automation_id, u.TenantID, tx); err != nil {
-		_ = dal.Rollback(tx)
-		return "", sceneReferenceError(err)
-	}
-	oldSources, err := dal.ListDeviceTriggerSources(scene_automation_id, tx)
-	if err != nil {
-		_ = dal.Rollback(tx)
-		return "", sceneReferenceError(err)
-	}
-	newSources, err := sceneType10DeviceSources(req.TriggerConditionGroups)
-	if err != nil {
-		_ = dal.Rollback(tx)
-		return "", sceneReferenceError(err)
-	}
-	deviceSources := append(oldSources, newSources...)
-	if err := dal.LockTenantDeviceTriggerSources(u.TenantID, deviceSources, tx); err != nil {
-		_ = dal.Rollback(tx)
-		return "", sceneReferenceError(err)
-	}
 	t := utils.GetUTCTime()
 	// 更新 scene_automations
 	sceneAutomation := model.SceneAutomation{}
@@ -583,20 +510,11 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 	sceneAutomation.UpdatedAt = &t
 	sceneAutomation.Remark = &req.Remark
 
-	var affected int64
-	affected, err = dal.UpdateTenantSceneAutomation(scene_automation_id, u.TenantID, map[string]interface{}{
-		"name": req.Name, "description": sceneAutomation.Description, "enabled": req.Enabled,
-		"updator": u.ID, "updated_at": t, "remark": sceneAutomation.Remark,
-	}, tx)
+	err = dal.SaveSceneAutomation(&sceneAutomation, tx)
 	if err != nil {
-		_ = dal.Rollback(tx)
 		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
-	}
-	if affected != 1 {
-		_ = dal.Rollback(tx)
-		return "", errcode.New(errcode.CodeNotFound)
 	}
 
 	// 删除
@@ -765,9 +683,7 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 
 	}
 
-	if err := dal.Commit(tx); err != nil {
-		return scene_automation_id, errcode.NewWithMessage(errcode.CodeDBError, "scene automation commit outcome unknown; reconcile before retry")
-	}
+	dal.Commit(tx)
 
 	// 更新后清除缓存并重建（如果启用）
 	go func() {

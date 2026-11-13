@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 
 	"gorm.io/gen/field"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"gorm.io/gen"
 
@@ -23,9 +21,6 @@ import (
 )
 
 func CreateDevice(device *model.Device) error {
-	if device != nil && device.ParentID != nil {
-		return CreateDeviceWithLockedParent(device)
-	}
 	return createDevicesWithDefaultRootGroup([]*model.Device{device})
 }
 
@@ -43,325 +38,66 @@ func createDevicesWithDefaultRootGroup(devices []*model.Device) error {
 		return nil
 	}
 
-	tx := query.Use(global.DB).Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	if err := createDevicesWithDefaultRootGroupTx(tx.Query, devices); err != nil {
-		if tx.Rollback() != nil {
-			return ErrDeviceCreateOutcomeUnknown
-		}
-		return err
-	}
-	if tx.Commit() != nil {
-		return ErrDeviceCreateOutcomeUnknown
-	}
-	return nil
-}
-
-var ErrParentDeviceUnavailable = errors.New("parent device unavailable")
-var ErrDeviceCreateOutcomeUnknown = errors.New("device creation outcome unknown")
-
-// CreateDeviceWithLockedParent holds the parent lock through the device and
-// default group writes; callers must not retry an unknown outcome blindly.
-func CreateDeviceWithLockedParent(device *model.Device) error {
-	if device == nil || device.ParentID == nil || strings.TrimSpace(*device.ParentID) == "" || *device.ParentID == device.ID || strings.TrimSpace(device.TenantID) == "" {
-		return ErrParentDeviceUnavailable
-	}
-	tx := query.Use(global.DB).Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	q := tx.Device
-	parent, err := q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(*device.ParentID), q.TenantID.Eq(device.TenantID)).First()
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		err = ErrParentDeviceUnavailable
-	}
-	if err == nil {
-		err = validateNewChildConfigurations(tx.Query, parent, device)
-	}
-	if err == nil {
-		err = createDevicesWithDefaultRootGroupTx(tx.Query, []*model.Device{device})
-	}
-	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return ErrDeviceCreateOutcomeUnknown
-		}
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return ErrDeviceCreateOutcomeUnknown
-	}
-	return nil
-}
-
-func createDevicesWithDefaultRootGroupTx(tx *query.Query, devices []*model.Device) error {
-	if len(devices) == 0 {
-		return nil
-	}
-	if err := reserveDeviceIDs(tx, devices); err != nil {
-		return err
-	}
-	if err := lockNewDeviceConfigurations(tx, devices); err != nil {
-		return err
-	}
 	tenantID := devices[0].TenantID
-	if err := tx.Device.Create(devices...); err != nil {
-		return err
-	}
-
-	if tenantID == "" {
-		return nil
-	}
-
-	groupID, err := GetAutoBindRootDeviceGroupID(tx, tenantID)
-	if err != nil || groupID == "" {
-		return err
-	}
-
-	relations := make([]*model.RGroupDevice, 0, len(devices))
-	for _, device := range devices {
-		if device == nil || device.ID == "" || device.TenantID != tenantID {
-			continue
+	return query.Q.Transaction(func(tx *query.Query) error {
+		if err := tx.Device.Create(devices...); err != nil {
+			return err
 		}
-		relations = append(relations, &model.RGroupDevice{
-			GroupID:  groupID,
-			DeviceID: device.ID,
-			TenantID: tenantID,
-		})
-	}
 
-	if len(relations) == 0 {
-		return nil
-	}
+		if tenantID == "" {
+			return nil
+		}
 
-	return tx.RGroupDevice.Create(relations...)
+		groupID, err := GetAutoBindRootDeviceGroupID(tx, tenantID)
+		if err != nil || groupID == "" {
+			return err
+		}
+
+		relations := make([]*model.RGroupDevice, 0, len(devices))
+		for _, device := range devices {
+			if device == nil || device.ID == "" || device.TenantID != tenantID {
+				continue
+			}
+			relations = append(relations, &model.RGroupDevice{
+				GroupID:  groupID,
+				DeviceID: device.ID,
+				TenantID: tenantID,
+			})
+		}
+
+		if len(relations) == 0 {
+			return nil
+		}
+
+		return tx.RGroupDevice.Create(relations...)
+	})
 }
 
-// UpdateDevice is used by activation: write only activation's intended fields,
-// never a stale parent/configuration snapshot read before a concurrent bind.
 func UpdateDevice(device *model.Device) (*model.Device, error) {
-	q := query.Device
-	updates := map[string]interface{}{"name": device.Name, "activate_flag": device.ActivateFlag, "update_at": device.UpdateAt, "activate_at": device.ActivateAt}
-	// Fill an absent initial state in the same write without overwriting a
-	// concurrent explicit disable.
-	if device.IsEnabled == "enabled" {
-		updates["is_enabled"] = gorm.Expr("CASE WHEN is_enabled = '' THEN ? ELSE is_enabled END", "enabled")
-	}
-	info, err := q.Where(q.ID.Eq(device.ID), q.TenantID.Eq(device.TenantID)).Updates(updates)
+	info, err := query.Device.Where(query.Device.ID.Eq(device.ID)).Updates(device)
 	if err != nil {
+		logrus.Error(err)
 		return nil, err
+	} else if info.RowsAffected == 0 {
+		return nil, fmt.Errorf("update device failed, no rows affected")
 	}
-	if info.RowsAffected != 1 {
-		return nil, gorm.ErrRecordNotFound
-	}
-	return q.Where(q.ID.Eq(device.ID), q.TenantID.Eq(device.TenantID)).First()
+	return device, err
 }
 
-var ErrDeviceBindingInvalid = errors.New("invalid device parent binding")
-var ErrDeviceBindingOutcomeUnknown = errors.New("device parent binding outcome unknown")
-
-// lockDeviceParentSet locks every referenced device in ID order. The ancestry
-// snapshot is only a lock plan: after waiting we validate the current chain from
-// the locked rows, rejecting any newly introduced ancestor outside that plan.
-func lockDeviceParentSet(tx *query.Query, tenantID, parentID string, childIDs []string, unbound bool, configOverrides map[string]string) (map[string]*model.Device, error) {
-	if strings.TrimSpace(tenantID) == "" || strings.TrimSpace(parentID) == "" {
-		return nil, ErrDeviceBindingInvalid
-	}
-	planned := map[string]bool{}
-	for _, id := range childIDs {
-		if id == parentID || strings.TrimSpace(id) == "" {
-			return nil, ErrDeviceBindingInvalid
-		}
-		planned[id] = true
-	}
-	ancestors := map[string]bool{}
-	q := tx.Device
-	for id := parentID; id != ""; {
-		if ancestors[id] {
-			return nil, ErrDeviceBindingInvalid
-		}
-		ancestors[id], planned[id] = true, true
-		d, err := q.Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).First()
-		if err != nil {
-			return nil, err
-		}
-		if d.ParentID == nil {
-			break
-		}
-		id = *d.ParentID
-	}
-	ids := make([]string, 0, len(planned))
-	for id := range planned {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	locked := make(map[string]*model.Device, len(ids))
-	for _, id := range ids {
-		d, err := q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).First()
-		if err != nil {
-			return nil, err
-		}
-		locked[id] = d
-	}
-	ancestors = map[string]bool{}
-	for id := parentID; id != ""; {
-		if ancestors[id] || locked[id] == nil {
-			return nil, ErrDeviceBindingInvalid
-		}
-		ancestors[id] = true
-		d := locked[id]
-		if d.ParentID == nil {
-			break
-		}
-		id = *d.ParentID
-	}
-	for _, id := range childIDs {
-		if ancestors[id] || (unbound && locked[id].ParentID != nil) {
-			return nil, ErrDeviceBindingInvalid
-		}
-	}
-	// Configuration rows are locked after devices, in a consistent order as well.
-	configIDs := map[string]bool{}
-	for _, id := range append([]string{parentID}, childIDs...) {
-		d := locked[id]
-		if configID, ok := configOverrides[id]; ok {
-			d.DeviceConfigID = &configID
-		}
-		if d.DeviceConfigID == nil || *d.DeviceConfigID == "" {
-			return nil, ErrDeviceBindingInvalid
-		}
-		configIDs[*d.DeviceConfigID] = true
-	}
-	ids = ids[:0]
-	for id := range configIDs {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	configs := map[string]*model.DeviceConfig{}
-	c := tx.DeviceConfig
-	for _, id := range ids {
-		config, err := c.Clauses(clause.Locking{Strength: "SHARE"}).Where(c.ID.Eq(id), c.TenantID.Eq(tenantID)).First()
-		if err != nil {
-			return nil, err
-		}
-		configs[id] = config
-	}
-	if configs[*locked[parentID].DeviceConfigID].DeviceType != "2" {
-		return nil, ErrDeviceBindingInvalid
-	}
-	for _, id := range childIDs {
-		typ := configs[*locked[id].DeviceConfigID].DeviceType
-		if typ != "2" && typ != "3" {
-			return nil, ErrDeviceBindingInvalid
-		}
-		children, err := q.Where(q.ParentID.Eq(id)).Count()
-		if err != nil {
-			return nil, err
-		}
-		if children > 0 && typ != "2" {
-			return nil, ErrDeviceBindingInvalid
-		}
-	}
-	return locked, nil
-}
-
-func finishDeviceBinding(tx *query.QueryTx, err error) error {
+func UpdateDeviceByMap(deviceID string, deviceMap map[string]interface{}) (*model.Device, error) {
+	info, err := query.Device.Where(query.Device.ID.Eq(deviceID)).Updates(deviceMap)
 	if err != nil {
-		if tx.Rollback() != nil {
-			return ErrDeviceBindingOutcomeUnknown
-		}
-		return err
-	}
-	if tx.Commit() != nil {
-		return ErrDeviceBindingOutcomeUnknown
-	}
-	return nil
-}
-
-// BindExistingSubDevices commits the whole request or none of it. DeleteDevice
-// and ordinary child creation use the same tenant-scoped parent row barrier.
-func BindExistingSubDevices(ctx context.Context, tenantID, parentID string, childIDs []string) error {
-	if len(childIDs) == 0 {
-		return ErrDeviceBindingInvalid
-	}
-	tx := query.Use(global.DB.WithContext(ctx)).Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	_, err := lockDeviceParentSet(tx.Query, tenantID, parentID, childIDs, true, nil)
-	if err == nil {
-		q := tx.Device
-		for _, id := range childIDs {
-			info, updateErr := q.Where(q.ID.Eq(id), q.TenantID.Eq(tenantID), q.ParentID.IsNull()).Updates(map[string]interface{}{"parent_id": parentID, "sub_device_addr": id})
-			if updateErr != nil {
-				err = updateErr
-				break
-			}
-			if info.RowsAffected != 1 {
-				err = ErrDeviceBindingInvalid
-				break
-			}
-		}
-	}
-	return finishDeviceBinding(tx, err)
-}
-
-func UpdateDeviceByMap(deviceID, tenantID string, deviceMap map[string]interface{}) (*model.Device, error) {
-	tx := query.Use(global.DB).Begin()
-	if tx.Error != nil {
-		return nil, tx.Error
-	}
-	var err error
-	if value, hasParent := deviceMap["parent_id"]; hasParent {
-		parent, ok := value.(*string)
-		if !ok || parent == nil {
-			err = ErrDeviceBindingInvalid
-		} else {
-			overrides := map[string]string{}
-			if value, exists := deviceMap["device_config_id"]; exists {
-				config, valid := value.(*string)
-				if !valid || config == nil {
-					err = ErrDeviceBindingInvalid
-				} else {
-					overrides[deviceID] = *config
-				}
-			}
-			if err == nil {
-				_, err = lockDeviceParentSet(tx.Query, tenantID, *parent, []string{deviceID}, false, overrides)
-			}
-		}
-	}
-	q := tx.Device
-	if err == nil {
-		if value, changesConfig := deviceMap["device_config_id"]; changesConfig {
-			configID, valid := value.(*string)
-			if !valid {
-				err = ErrDeviceBindingInvalid
-			} else {
-				var current *model.Device
-				current, err = q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(deviceID), q.TenantID.Eq(tenantID)).First()
-				if err == nil {
-					err = validateDeviceConfigurationRole(tx.Query, tenantID, current, configID)
-				}
-			}
-		}
-	}
-	if err == nil {
-		info, updateErr := q.Where(q.ID.Eq(deviceID), q.TenantID.Eq(tenantID)).Updates(deviceMap)
-		err = updateErr
-		if err == nil && info.RowsAffected != 1 {
-			err = gorm.ErrRecordNotFound
-		}
-	}
-	var device *model.Device
-	if err == nil {
-		device, err = q.Where(q.ID.Eq(deviceID), q.TenantID.Eq(tenantID)).First()
-	}
-	if err = finishDeviceBinding(tx, err); err != nil {
+		logrus.Error(err)
 		return nil, err
+	} else if info.RowsAffected == 0 {
+		return nil, fmt.Errorf("update device failed, no rows affected")
 	}
-	return device, nil
+	// 查询更新后的数据
+	device, err := query.Device.Where(query.Device.ID.Eq(deviceID)).First()
+	if err != nil {
+		logrus.Error(err)
+	}
+	return device, err
 }
 
 // 更新设备状态
@@ -421,47 +157,21 @@ func UpdateDeviceStatus(deviceId string, status int16) (bool, error) {
 	return true, nil
 }
 
-// DeleteDevice keeps the legacy DAL entry point inside the same identity
-// transaction as service deletions. Callers needing dependency cleanup use
-// DeleteDeviceWithTx inside their wider transaction.
 func DeleteDevice(id string, tenantID string) error {
-	return query.Use(global.DB).Transaction(func(tx *query.Query) error {
-		q := tx.Device
-		if _, err := q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).First(); err != nil {
-			return err
-		}
-		if err := tombstoneDeviceID(tx, id, tenantID); err != nil {
-			return err
-		}
-		_, err := q.Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).Delete()
-		return err
-	})
-}
-
-// LockTenantDeviceForDelete establishes ownership before any dependent data is touched.
-func LockTenantDeviceForDelete(id, tenantID string, tx *query.QueryTx) (*model.Device, error) {
-	q := tx.Device
-	return q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).First()
-}
-
-func HasDeviceDeleteDependencies(id string, tx *query.QueryTx) (bool, bool, error) {
-	d := tx.Device
-	children, err := d.Where(d.ParentID.Eq(id)).Count()
+	_, err := query.Device.Where(query.Device.ID.Eq(id), query.Device.TenantID.Eq(tenantID)).Delete()
 	if err != nil {
-		return false, false, err
+		logrus.Error(err)
 	}
-	c := tx.DeviceTriggerCondition
-	triggers, err := c.Where(c.TriggerSource.Eq(id)).Count()
-	return children > 0, triggers > 0, err
+	return err
 }
 
-func DeleteDeviceWithTx(id, tenantID string, tx *query.QueryTx) (int64, error) {
-	if err := tombstoneDeviceID(tx.Query, id, tenantID); err != nil {
-		return 0, err
+// 删除设备，带事务
+func DeleteDeviceWithTx(id string, tenantID string, tx *query.QueryTx) error {
+	_, err := tx.Device.Where(query.Device.ID.Eq(id), query.Device.TenantID.Eq(tenantID)).Delete()
+	if err != nil {
+		logrus.Error(err)
 	}
-	q := tx.Device
-	result, err := q.Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).Delete()
-	return result.RowsAffected, err
+	return err
 }
 
 // 根据子设备id获取父设备信息
@@ -955,8 +665,17 @@ func (DeviceQuery) Update(ctx context.Context, info *model.Device, option ...fie
 }
 
 // 更新设备配置
-func (DeviceQuery) ChangeDeviceConfig(deviceID, tenantID string, deviceConfigID *string) error {
-	return ReplaceTenantDeviceConfigurations(context.Background(), tenantID, []string{deviceID}, deviceConfigID, false)
+func (DeviceQuery) ChangeDeviceConfig(deviceID string, deviceConfigID *string) error {
+	device := query.Device
+	info, err := device.Where(device.ID.Eq(deviceID)).Update(device.DeviceConfigID, deviceConfigID)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	if info.RowsAffected == 0 {
+		return fmt.Errorf("update device config failed, no rows affected")
+	}
+	return err
 }
 
 func (DeviceQuery) GetSubList(ctx context.Context, parent_id string, pageSize, page int64, tenantID string) ([]model.GetSubListResp, int64, error) {

@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"project/internal/brokercommands"
 	"project/internal/brokerledger"
 	"project/internal/model"
@@ -104,14 +103,7 @@ func (p *ReliableProcessor) expand(ctx context.Context, tx *gorm.DB, device *mod
 	}{{frame.SubDeviceData, false}, {frame.SubGatewayData, true}} {
 		for address, payload := range group.children {
 			var child model.Device
-			childQuery := tx.WithContext(ctx)
-			if _, delegated := msg.Metadata["delegated_route"]; delegated {
-				// Keep the selected subtree stable through the receipt commit.
-				// A same-root reparent must not move this device out of the
-				// authenticated target after expansion has selected its row.
-				childQuery = childQuery.Clauses(clause.Locking{Strength: "SHARE"})
-			}
-			if e := childQuery.Where("parent_id=? AND tenant_id=? AND sub_device_addr=? AND is_enabled='enabled'", device.ID, msg.TenantID, address).Take(&child).Error; e != nil {
+			if e := tx.WithContext(ctx).Where("parent_id=? AND tenant_id=? AND sub_device_addr=? AND is_enabled='enabled'", device.ID, msg.TenantID, address).Take(&child).Error; e != nil {
 				return e
 			}
 			if e := p.expand(ctx, tx, &child, msg, family, payload, group.isGateway, depth+1, count); e != nil {
@@ -161,11 +153,7 @@ func (p *ReliableProcessor) write(ctx context.Context, tx *gorm.DB, device *mode
 		}
 		trigger = model.TRIGGER_PARAM_TYPE_ATTR
 	}
-	intentData := map[string]interface{}{"trigger_param_type": trigger, "trigger_values": values, "route_epoch": msg.RouteEpoch, "broker_cell": msg.BrokerCell}
-	if proof, ok := msg.Metadata["delegated_route"]; ok {
-		intentData["delegated_route"] = proof
-	}
-	intent, e := json.Marshal(intentData)
+	intent, e := json.Marshal(map[string]interface{}{"trigger_param_type": trigger, "trigger_values": values, "route_epoch": msg.RouteEpoch, "broker_cell": msg.BrokerCell})
 	if e != nil {
 		return e
 	}

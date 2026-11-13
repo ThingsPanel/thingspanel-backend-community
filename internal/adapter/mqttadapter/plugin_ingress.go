@@ -135,12 +135,6 @@ func (a *Adapter) normalizePluginIngress(env bc.Envelope) (bc.Envelope, string, 
 	out.Metadata.PrincipalKind = selected.Kind
 	out.Metadata.RouteEpoch = selected.RouteEpoch
 	out.Metadata.MappingVersion = selected.MappingVersion
-	if isService {
-		root, epoch := selected.Transport()
-		out.Metadata.Delegation = &bc.Delegation{ContextID: ctx.ID, Actor: ctx.Principal, ConnectionID: ctx.ConnectionID,
-			BrokerCell: ctx.BrokerCell, BrokerInstance: ctx.BrokerInstance, TargetDeviceID: selected.DeviceID, TargetRouteEpoch: selected.RouteEpoch,
-			TransportDeviceID: root, TransportRouteEpoch: epoch, MappingVersion: selected.MappingVersion, ObservedAt: env.Metadata.ObservedAt}
-	}
 	// Keep the service connection and original wire topic for trusted audit.
 	// The caller uses canonicalTopic for classification/dispatch.
 	return out, canonicalTopic, true, nil
@@ -206,13 +200,11 @@ func decodePluginWirePayload(payload []byte) (pluginWirePayload, error) {
 	}
 	var encoded string
 	if json.Unmarshal(rawValues, &encoded) == nil {
-		// Use the shared SDK contract so a wrapped payload is decoded exactly
-		// once, with canonical Base64, bounded bytes and a valid target hint.
-		decoded, err := bc.ParseProtocolTelemetry(payload)
-		if err != nil {
+		decoded, err := base64.StdEncoding.Strict().DecodeString(encoded)
+		if err != nil || len(decoded) > bc.MaxPayloadBytes {
 			return out, errPluginIngressDenied
 		}
-		out.Values = decoded.Values
+		out.Values = decoded
 		out.Wrapped = true
 		return out, nil
 	}
@@ -335,7 +327,7 @@ func (a *Adapter) handleNormalizedPluginStatus(env bc.Envelope, canonicalTopic s
 	if err != nil {
 		return errPluginIngressDenied
 	}
-	observation := bc.StateObservation{ContractVersion: bc.ContractVersion, Delegation: env.Metadata.Delegation,
+	observation := bc.StateObservation{ContractVersion: bc.ContractVersion,
 		Principal:  bc.Principal{TenantID: env.Metadata.TenantID, DeviceID: env.DeviceID, Kind: kind},
 		BrokerCell: env.Metadata.BrokerCell, BrokerInstance: env.Metadata.BrokerInstance, NodeBootID: bootID,
 		ConnectionID: env.Metadata.ConnectionID, RouteEpoch: env.Metadata.RouteEpoch, EventSeq: eventSeq,

@@ -15,7 +15,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
-	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	"project/initialize"
 	dal "project/internal/dal"
 	"project/internal/logic"
@@ -1020,7 +1019,10 @@ func (u *User) InitSuperAdmin(ctx context.Context, req *model.SuperAdminInitReq)
 	// 该接口未鉴权，只允许首次安装调用。事务级锁避免并发请求创建多个 SYS_ADMIN。
 	err = global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		operation = "lock_initialization"
-		if err := relational.LockTx(tx.Statement.Context, tx, "thingspanel_super_admin_init"); err != nil {
+		if err := tx.Exec(
+			"SELECT pg_advisory_xact_lock(hashtext(?))",
+			"thingspanel_super_admin_init",
+		).Error; err != nil {
 			return err
 		}
 

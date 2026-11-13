@@ -71,29 +71,12 @@ func (d *Driver) pluginFrameTarget(g bc.Grant, frame bc.CommandFrame) bool {
 			target.TopicPrefix != prefix {
 			continue
 		}
-		root, epoch := target.Transport()
-		frameRoot, frameEpoch := frame.TransportDeviceID, frame.TransportRouteEpoch
-		if frameRoot == "" && frameEpoch == 0 {
-			frameRoot = frame.TargetDeviceID
-			frameEpoch = frame.RouteEpoch
-		}
-		if frameRoot != root || frameEpoch != epoch {
-			continue
-		}
-		selectedParts := parts
-		if frame.LegacyTelemetryID {
-			prefix, canonical, ok := bc.SplitControlledDownlinkTopic(frame.CanonicalTopic)
-			if !target.LegacyTelemetryID || !ok || prefix != target.TopicPrefix || frame.WireTopic != target.TopicPrefix+"devices/telemetry/control/"+target.DeviceID {
-				continue
-			}
-			selectedParts = strings.Split(canonical, "/")
-		}
-		if !controlledTopicTargetsNumber(selectedParts, target.DeviceNumber) {
+		if !controlledTopicTargetsNumber(parts, target.DeviceNumber) {
 			continue
 		}
 		if d.cfg.RuntimeFencing {
 			d.mu.Lock()
-			valid := time.Now().Before(d.runtimeValidUntil) && frame.RouteEpoch > d.runtimeFences[runtimeScope(frame.TenantID, frame.TargetDeviceID)] && epoch > d.runtimeFences[runtimeScope(frame.TenantID, root)]
+			valid := time.Now().Before(d.runtimeValidUntil) && frame.RouteEpoch > d.runtimeFences[runtimeScope(frame.TenantID, frame.TargetDeviceID)]
 			d.mu.Unlock()
 			if !valid {
 				continue
@@ -121,11 +104,6 @@ func controlledTopicTargetsNumber(parts []string, number string) bool {
 
 func pluginSubscribeFilterAllowed(g bc.Grant, filter string) bool {
 	for _, target := range g.PluginTargets {
-		// This admits only the subscription request. READ/MESSAGE_OUT still
-		// checks finite owner target topics and the durable private frame.
-		if target.LegacyTelemetryID && filter == target.TopicPrefix+"#" {
-			return true
-		}
 		prefix := target.TopicPrefix
 		candidate := filter
 		if strings.HasPrefix(candidate, prefix) {
@@ -289,12 +267,7 @@ func (d *Driver) nextPluginStatusLocked(s *session, now time.Time) (topic string
 					break
 				}
 			}
-			transportFenced := true
-			if target != nil {
-				root, epoch := target.Transport()
-				transportFenced = epoch <= d.runtimeFences[runtimeScope(target.TenantID, root)]
-			}
-			if target == nil || transportFenced || target.RouteEpoch <= d.runtimeFences[runtimeScope(target.TenantID, target.DeviceID)] {
+			if target == nil || target.RouteEpoch <= d.runtimeFences[runtimeScope(target.TenantID, target.DeviceID)] {
 				status.disconnectPending = false
 				s.pluginStatuses[deviceID] = status
 				continue

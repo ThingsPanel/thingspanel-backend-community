@@ -10,7 +10,6 @@ import (
 
 	"project/internal/api"
 	"project/internal/app"
-	"project/internal/automationbridge"
 	"project/pkg/global"
 
 	"github.com/sirupsen/logrus"
@@ -34,10 +33,6 @@ func main() {
 	if *showVersion {
 		fmt.Println(global.SYSTEM_VERSION)
 		return
-	}
-	if err := automationbridge.Initialize(); err != nil {
-		fmt.Fprintf(os.Stderr, "automation configuration invalid: %v\n", err)
-		os.Exit(1)
 	}
 
 	// 根据是否指定配置文件选择配置加载方式

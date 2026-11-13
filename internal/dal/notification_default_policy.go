@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	"project/internal/model"
 	"project/pkg/global"
 
@@ -38,7 +37,7 @@ func lockDefaultPolicyTenant(tx *gorm.DB, deploymentID, tenantID string) error {
 	if deploymentID == "" || tenantID == "" {
 		return ErrDefaultPolicyUnavailable
 	}
-	if err := relational.LockTx(tx.Statement.Context, tx, defaultPolicyLockKey(deploymentID, tenantID)); err != nil {
+	if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, defaultPolicyLockKey(deploymentID, tenantID)).Error; err != nil {
 		return ErrDefaultPolicyUnavailable
 	}
 	return nil
@@ -48,7 +47,7 @@ func lockDefaultPolicyAlias(tx *gorm.DB, key SourceRouteKey) error {
 	if key.DeploymentID == "" || key.TenantID == "" || key.LegacyGroup == "" {
 		return ErrDefaultPolicyUnavailable
 	}
-	if err := relational.LockTx(tx.Statement.Context, tx, sourceRouteAdvisoryKey(key)); err != nil {
+	if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, sourceRouteAdvisoryKey(key)).Error; err != nil {
 		return ErrDefaultPolicyUnavailable
 	}
 	return nil
@@ -147,20 +146,13 @@ func SetTenantDefaultPolicy(ctx context.Context, deploymentID, tenantID, nativeG
 			nativeValue, aliasValue = nativeGroupID, aliasGroupID
 		}
 		now := time.Now().UTC()
-		upsert := `INSERT INTO notification_tenant_default_policies
+		if err := tx.Exec(`INSERT INTO notification_tenant_default_policies
 			(source_deployment_id, tenant_id, native_group_id, alias_group_id, group_revision, version, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (source_deployment_id, tenant_id) DO UPDATE SET
 			native_group_id = EXCLUDED.native_group_id, alias_group_id = EXCLUDED.alias_group_id,
-			group_revision = EXCLUDED.group_revision, version = EXCLUDED.version, updated_at = EXCLUDED.updated_at`
-		if tx.Dialector.Name() == "mysql" {
-			upsert = `INSERT INTO notification_tenant_default_policies
-				(source_deployment_id, tenant_id, native_group_id, alias_group_id, group_revision, version, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?)
-				ON DUPLICATE KEY UPDATE native_group_id = VALUES(native_group_id), alias_group_id = VALUES(alias_group_id),
-				group_revision = VALUES(group_revision), version = VALUES(version), updated_at = VALUES(updated_at)`
-		}
-		if err := tx.Exec(upsert, deploymentID, tenantID, nativeValue, aliasValue, revision, nextVersion, now).Error; err != nil {
+			group_revision = EXCLUDED.group_revision, version = EXCLUDED.version, updated_at = EXCLUDED.updated_at`,
+			deploymentID, tenantID, nativeValue, aliasValue, revision, nextVersion, now).Error; err != nil {
 			return ErrDefaultPolicyUnavailable
 		}
 		out = TenantDefaultPolicyRecord{SourceDeploymentID: deploymentID, TenantID: tenantID, Version: nextVersion, GroupRevision: revision, UpdatedAt: now}
@@ -335,13 +327,9 @@ func ValidateDefaultPolicyMigration() error {
 		return ErrDefaultPolicyUnavailable
 	}
 	var exists bool
-	db := global.DB.Session(&gorm.Session{Logger: logger.Discard})
-	query := `SELECT to_regclass('notification_tenant_default_policies') IS NOT NULL`
-	if db.Dialector.Name() == "mysql" {
-		query = `SELECT COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'notification_tenant_default_policies'`
-	}
-	if err := db.Raw(query).Scan(&exists).Error; err != nil || !exists {
+	if err := global.DB.Session(&gorm.Session{Logger: logger.Discard}).Raw(`SELECT to_regclass('notification_tenant_default_policies') IS NOT NULL`).Scan(&exists).Error; err != nil || !exists {
 		return ErrDefaultPolicyUnavailable
 	}
 	return nil
 }
+

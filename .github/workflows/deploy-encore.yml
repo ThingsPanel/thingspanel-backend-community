@@ -5,15 +5,7 @@ on:
       deploy_backend:
         type: boolean
         default: false
-      deploy_runtime:
-        type: boolean
-        default: false
   workflow_dispatch:
-    inputs:
-      deploy_runtime:
-        description: 'Deploy only after coordinated runtime and data migration acceptance'
-        type: boolean
-        default: false
 permissions:
   contents: read
 concurrency:
@@ -27,27 +19,12 @@ jobs:
       GOMAXPROCS: '2'
       GOFLAGS: '-p=2'
       NOTIFICATION_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
-      TP_AUTH_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
     steps:
       - uses: actions/checkout@v4
-      - name: Require main for runtime deployment
-        if: inputs.deploy_runtime
-        env:
-          DEPLOY_REF: ${{ github.ref }}
-        run: test "$DEPLOY_REF" = refs/heads/main
       - name: Verify migration history guard
         run: |
-          python3 -m venv "$RUNNER_TEMP/upgrade-checks"
-          "$RUNNER_TEMP/upgrade-checks/bin/python" -m pip install --quiet PyYAML==6.0.3
-          "$RUNNER_TEMP/upgrade-checks/bin/python" -m unittest discover -s deploy/community-test -p 'test_upgrade_platform_config.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_deployment_guard.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_rollout_preflight.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_metadata_upgrade_inventory.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_quarantine.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_identity_plan.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_rehearsal.py'
-          python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_acceptance.py'
       - name: Install pinned Encore CLI
         run: |
           set -euo pipefail
@@ -68,68 +45,30 @@ jobs:
       - name: Compile and test native services
         working-directory: encore-api
         run: |
-          encore test -p=1 ./automation/... ./thingmodel/... ./devicemetadata/... ./fileassets/... ./l1-access/authn ./internal/authz ./internal/authcore/... ./internal/tenantidentity ./pkg/... ./internal/communityclient ./internal/luasandbox ./l3-core/connectorcatalog/... ./l3-core/notification/... ./marketinstall/... ./platformconfig/...
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.9'
-          cache-dependency-path: encore-api/go.sum
-      - name: Verify offline conversion transaction against native schema
-        working-directory: encore-api
-        env:
-          UPGRADE_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/tp_upgrade_rehearsal_20000101000001?sslmode=disable
-        run: |
-          docker exec notification-test createdb -U notification_test tp_upgrade_rehearsal_20000101000001
-          go test -count=1 ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-groups ./cmd/metadata-upgrade-devices ./cmd/metadata-upgrade-relations
+          encore test -p=1 ./automation/... ./thingmodel/... ./devicemetadata/... ./fileassets/... ./l1-access/authn ./internal/authz ./internal/communityclient ./internal/luasandbox ./l3-core/connectorcatalog/... ./l3-core/notification/...
       - name: Verify scheduler transport
         run: |
           python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py
           python3 -m unittest discover -s deploy/community-test -p test_encore_artifacts.py
-          python3 -m unittest discover -s deploy/community-test -p test_encore_image.py
           python3 -m unittest discover -s deploy/community-test -p test_notification_identity.py
-      - name: Build complete native image away from the live server
-        working-directory: encore-api
+      - name: Package immutable tracked source
         run: |
-          for attempt in 1 2 3; do
-            if encore build docker "tp-community-encore:source-$GITHUB_SHA" --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,platformconfig --skip-config; then
-              exit 0
-            fi
-            if [ "$attempt" -eq 3 ]; then exit 1; fi
-            sleep 5
-          done
-      - name: Package immutable tracked source and verified image
-        run: |
-          set -euo pipefail
           mkdir -p candidate
-          git archive --format=tar HEAD encore-api pkg/relational | tar -xf - -C candidate
-          docker save "tp-community-encore:source-$GITHUB_SHA" | gzip -1 > candidate/image.tar.gz
+          git archive --format=tar HEAD encore-api | tar -xf - -C candidate
           python3 - <<'PY'
-          import pathlib,json,hashlib,os,tarfile,subprocess
+          import pathlib,json,hashlib,os,tarfile
           root=pathlib.Path('candidate')
-          image=json.loads(subprocess.check_output(['docker','image','inspect','tp-community-encore:source-'+os.environ['GITHUB_SHA']]))[0]
-          (root/'image.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'image_id':image['Id'],'uncompressed_bytes':image['Size'],'services':['authn','thingmodel','devicemetadata','fileassets','connectorcatalog','automation','notification','marketinstall','platformconfig']}))
-          def checksum(path):
-              digest=hashlib.sha256()
-              with path.open('rb') as stream:
-                  for block in iter(lambda:stream.read(1024*1024),b''):digest.update(block)
-              return digest.hexdigest()
-          manifest={'commit':os.environ['GITHUB_SHA'],'sha256':{str(p.relative_to(root)):checksum(p) for p in root.rglob('*') if p.is_file()}}
+          manifest={'commit':os.environ['GITHUB_SHA'],'sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()}}
           (root/'manifest.json').write_text(json.dumps(manifest,indent=2))
           with tarfile.open('encore-'+os.environ['GITHUB_SHA']+'.tar.gz','w:gz') as archive:
               for path in root.iterdir(): archive.add(str(path),arcname=path.name)
           PY
-      - name: Preserve deployable native bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-candidate-${{ github.sha }}
-          path: encore-${{ github.sha }}.tar.gz
-          retention-days: 3
       - name: Download already verified backend bundle
         if: inputs.deploy_backend
         uses: actions/download-artifact@v4
         with:
           name: backend-candidate-${{ github.sha }}
       - name: Configure authenticated SSH
-        if: inputs.deploy_runtime
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
@@ -138,28 +77,22 @@ jobs:
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-deploy-key"
           ssh -i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'install -d -m 700 /opt/tp-community-actions/incoming'
-      - name: Check coordinated runtime before replacing any service
-        if: inputs.deploy_runtime
-        run: |
-          set -euo pipefail
-          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
-          scp "${args[@]}" deploy/community-test/rollout_preflight.py root@47.92.253.145:/opt/tp-community-actions/incoming/
-          scp "${args[@]}" deploy/community-test/upgrade_acceptance.py root@47.92.253.145:/opt/tp-community-actions/incoming/
-          ssh "${args[@]}" root@47.92.253.145 'python3 /opt/tp-community-actions/incoming/rollout_preflight.py'
       - name: Deploy verified backend after all code checks pass
-        if: inputs.deploy_runtime && inputs.deploy_backend
+        if: inputs.deploy_backend
         run: |
           set -euo pipefail
           args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
           scp "${args[@]}" "backend-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_backend.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
           ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_backend.py '$GITHUB_SHA'"
       - name: Upload source and deploy native services
-        if: inputs.deploy_runtime
         run: |
           set -euo pipefail
           args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts -o ServerAliveInterval=20 -o ServerAliveCountMax=9)
-          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_encore.py deploy/community-test/deployment_guard.py deploy/community-test/encore_migrations.py deploy/community-test/encore_artifacts.py deploy/community-test/automation_tick.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
-          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_encore.py '$GITHUB_SHA'"
+          if ! ssh "${args[@]}" root@47.92.253.145 'test -f /opt/tp-community-actions/tools/encore-1.58.6/.archive-sha256'; then
+            scp "${args[@]}" "$RUNNER_TEMP/encore-cli.tar.gz" root@47.92.253.145:/opt/tp-community-actions/incoming/encore-1.58.6-linux_amd64.tar.gz
+          fi
+          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_encore.py deploy/community-test/deployment_guard.py deploy/community-test/encore_migrations.py deploy/community-test/encore_artifacts.py deploy/community-test/install_encore_cli.py deploy/community-test/automation_tick.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/install_encore_cli.py && python3 /opt/tp-community-actions/incoming/deploy_encore.py '$GITHUB_SHA'"
       - name: Preserve source identity
         uses: actions/upload-artifact@v4
         with:

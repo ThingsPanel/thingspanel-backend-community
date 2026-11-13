@@ -205,7 +205,7 @@ func mustJSON(v any) []byte {
 // table stops the same intent from being replayed after a re-registration reset
 // the sequence.
 func (s *Store) RecordExecutorMessage(ctx context.Context, m *ExecutorMessage) (bool, error) {
-	res, err := s.execOnce(ctx, nil, `
+	res, err := s.DB.ExecContext(ctx, `
         INSERT INTO auto_executor_messages
             (tenant_id, executor_id, idempotency_key, direction, epoch, seq, outcome, reason_code, subject)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)

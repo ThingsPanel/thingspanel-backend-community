@@ -2,11 +2,12 @@ package devicemetadata
 
 import (
 	"context"
-	"encore.app/pkg/dbx"
-	"github.com/google/uuid"
 	"strings"
 	"testing"
 	"time"
+
+	"encore.dev/storage/sqldb"
+	"github.com/google/uuid"
 )
 
 func TestDeviceAccessBindingsSchemaAndTenantReferences(t *testing.T) {
@@ -397,7 +398,7 @@ func validDeviceAccessBindingSchemaRow(tenantID, deviceID string) deviceAccessBi
 	}
 }
 
-func insertDeviceAccessBindingSchemaRow(ctx context.Context, tx dbx.Tx, row deviceAccessBindingSchemaRow) error {
+func insertDeviceAccessBindingSchemaRow(ctx context.Context, tx *sqldb.Tx, row deviceAccessBindingSchemaRow) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO device_access_bindings(
 			tenant_id, device_id, template_id, direct_access,
@@ -414,7 +415,7 @@ func insertDeviceAccessBindingSchemaRow(ctx context.Context, tx dbx.Tx, row devi
 	return err
 }
 
-func insertDeviceAccessBindingSchemaDevice(t *testing.T, ctx context.Context, tx dbx.Tx, tenantID string) string {
+func insertDeviceAccessBindingSchemaDevice(t *testing.T, ctx context.Context, tx *sqldb.Tx, tenantID string) string {
 	t.Helper()
 	row := validDeviceIdentitySchemaRow(tenantID)
 	row.deviceNumber = deviceIdentityString("binding-device-" + uuid.NewString())

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"encore.app/internal/tenantidentity"
 	"encore.app/l1-access/authn"
 	"encore.app/thingmodel/app"
 	"encore.app/thingmodel/core"
@@ -287,7 +286,10 @@ func principalForData(d *authn.Data) (core.Principal, error) {
 // Full source identity is retained in a stable namespace hash; never strip
 // characters or pad/truncate short IDs, which can collapse distinct tenants.
 func canonicalIdentity(kind, raw string) string {
-	return tenantidentity.CanonicalIdentity(kind, raw)
+	if id, e := uuid.Parse(raw); e == nil {
+		return id.String()
+	}
+	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("thingspanel/community/"+kind+"/"+raw)).String()
 }
 func apiError(e error) error {
 	switch {

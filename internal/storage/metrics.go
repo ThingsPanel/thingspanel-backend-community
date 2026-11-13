@@ -8,12 +8,8 @@ import (
 // Metrics 监控指标
 type Metrics struct {
 	// 遥测数据
-	TelemetryReceived int64 // 接收的遥测消息数
-	// Legacy counts processed unique batch points, including historical conflicts;
-	// trusted counts newly inserted historical rows. Do not sum as accepted receipts.
-	TelemetryWritten int64
-	// Unknown counts points in transactions whose final outcome was not confirmed.
-	TelemetryUnknown           int64
+	TelemetryReceived          int64     // 接收的遥测消息数
+	TelemetryWritten           int64     // 成功写入的遥测数据点数
 	TelemetryFailed            int64     // 写入失败的遥测数据点数
 	TelemetryDuplicatesInBatch int64     // 批次内重复数
 	TelemetryBatchCount        int64     // flush次数
@@ -33,7 +29,6 @@ type Metrics struct {
 type metricsCollector struct {
 	telemetryReceived          int64
 	telemetryWritten           int64
-	telemetryUnknown           int64
 	telemetryFailed            int64
 	telemetryDuplicatesInBatch int64
 	telemetryBatchCount        int64
@@ -59,10 +54,6 @@ func (m *metricsCollector) incTelemetryReceived() {
 
 func (m *metricsCollector) addTelemetryWritten(count int64) {
 	atomic.AddInt64(&m.telemetryWritten, count)
-}
-
-func (m *metricsCollector) addTelemetryUnknown(count int64) {
-	atomic.AddInt64(&m.telemetryUnknown, count)
 }
 
 func (m *metricsCollector) addTelemetryFailed(count int64) {
@@ -118,7 +109,6 @@ func (m *metricsCollector) GetMetrics() Metrics {
 	return Metrics{
 		TelemetryReceived:          atomic.LoadInt64(&m.telemetryReceived),
 		TelemetryWritten:           atomic.LoadInt64(&m.telemetryWritten),
-		TelemetryUnknown:           atomic.LoadInt64(&m.telemetryUnknown),
 		TelemetryFailed:            atomic.LoadInt64(&m.telemetryFailed),
 		TelemetryDuplicatesInBatch: atomic.LoadInt64(&m.telemetryDuplicatesInBatch),
 		TelemetryBatchCount:        batchCount,

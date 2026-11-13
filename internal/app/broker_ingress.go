@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -266,9 +267,9 @@ var ingressRequiredColumns = map[string][]string{
 	"broker_state_projection_queue":       {"tenant_id", "device_id", "updated_at"},
 	"broker_transport_bindings":           {"tenant_id", "device_id", "broker_cell", "route_epoch", "phase"},
 	"broker_ingress_receipts":             {"id", "tenant_id", "device_id", "stream", "source_event_id", "broker_cell", "route_epoch", "payload", "metadata", "canonical_sha256", "state", "attempts", "retry_after", "last_error", "created_at", "processed_at"},
-	"broker_connection_observations":      {"tenant_id", "device_id", "broker_cell", "broker_instance", "node_boot_id", "connection_id", "route_epoch", "event_seq", "online", "observed_at", "received_at", "delegated_route"},
+	"broker_connection_observations":      {"tenant_id", "device_id", "broker_cell", "broker_instance", "node_boot_id", "connection_id", "route_epoch", "event_seq", "online", "observed_at", "received_at"},
 	"broker_ingress_effects":              {"id", "receipt_id", "tenant_id", "device_id", "effect_kind", "payload", "state", "last_error", "created_at", "updated_at", "attempts", "retry_after"},
-	"broker_telemetry_activity":           {"tenant_id", "device_id", "transport_device_id", "broker_cell", "route_epoch", "receipt_id", "observed_at", "next_check_at", "delegated_route"},
+	"broker_telemetry_activity":           {"tenant_id", "device_id", "transport_device_id", "broker_cell", "route_epoch", "receipt_id", "observed_at", "next_check_at"},
 	"broker_automation_policy_snapshots":  {"tenant_id", "scene_id", "policy_sha256", "snapshot"},
 	"broker_automation_actions":           {"id", "effect_id", "tenant_id", "scene_id", "action_id", "target_device_id", "policy_sha256", "state", "command_id", "detail"},
 }
@@ -307,10 +308,6 @@ func validateBrokerIngressSchema(db *gorm.DB) error {
 }
 
 func (s *MQTTService) configureBrokerIngress(ctx context.Context, adapter *mqttadapter.Adapter) error {
-	modeConfig, err := automationbridge.ReadConfig()
-	if err != nil {
-		return err
-	}
 	profile := "legacy"
 	if configured := viper.GetString("mqtt.input_profile"); configured != "" {
 		profile = configured
@@ -323,9 +320,6 @@ func (s *MQTTService) configureBrokerIngress(ctx context.Context, adapter *mqtta
 	}
 	if s.app == nil || s.app.DB == nil || global.DB == nil {
 		return errors.New("ingress_v1 requires both application and global database connections")
-	}
-	if err := requirePostgresBrokerControlPlane(s.app.DB); err != nil {
-		return err
 	}
 	if s.app.DB != global.DB {
 		return errors.New("ingress_v1 requires application and global database to share the same connection")
@@ -344,7 +338,7 @@ func (s *MQTTService) configureBrokerIngress(ctx context.Context, adapter *mqtta
 	worker.processEffects = func(ctx context.Context) (bool, error) {
 		return service.ProcessBrokerAutomationEffect(ctx, s.app.DB, worker.cell)
 	}
-	if modeConfig.Mode == "native" {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_MODE")), "native") {
 		client, err := automationbridge.NewClient()
 		if err != nil {
 			return err

@@ -55,7 +55,6 @@ func brokerEvidenceTestDB(t *testing.T) *gorm.DB {
 	`).Error; err != nil {
 		t.Fatal("create isolated broker state fixture")
 	}
-	installDeviceIdentityFixture(t, db)
 	device := model.Device{ID: "device-a", TenantID: "tenant-a", DeviceNumber: "device-number-a", IsEnabled: "enabled", ActivateFlag: "active", Voucher: `{}`}
 	if err := db.Create(&device).Error; err != nil {
 		t.Fatal("insert isolated device")

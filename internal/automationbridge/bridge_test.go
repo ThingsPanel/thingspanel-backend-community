@@ -5,30 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"os/exec"
 	"strings"
 	"testing"
 )
 
-func isolatedConfigTest(t *testing.T) bool {
-	t.Helper()
-	if os.Getenv("TP_TEST_BRIDGE_CHILD") == t.Name() {
-		return false
-	}
-	cmd := exec.Command(os.Args[0], "-test.run=^"+t.Name()+"$")
-	cmd.Env = append(os.Environ(), "TP_TEST_BRIDGE_CHILD="+t.Name())
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("child: %v: %s", err, out)
-	}
-	return true
-}
-
 func TestServiceIdentityRequiresCredentialDeploymentAndTenant(t *testing.T) {
-	if isolatedConfigTest(t) {
-		return
-	}
-	t.Setenv("GOTP_AUTOMATION_MODE", "legacy")
 	token := strings.Repeat("t", 32)
 	t.Setenv("GOTP_AUTOMATION_TOKEN", token)
 	t.Setenv("GOTP_AUTOMATION_DEPLOYMENT_ID", "deployment-a")
@@ -48,10 +29,6 @@ func TestServiceIdentityRequiresCredentialDeploymentAndTenant(t *testing.T) {
 }
 
 func TestDeliverCarriesTrustedTenantOutsideTheBody(t *testing.T) {
-	if isolatedConfigTest(t) {
-		return
-	}
-	t.Setenv("GOTP_AUTOMATION_MODE", "legacy")
 	token := strings.Repeat("s", 32)
 	t.Setenv("GOTP_AUTOMATION_TOKEN", token)
 	t.Setenv("GOTP_AUTOMATION_DEPLOYMENT_ID", "deployment-a")
@@ -82,10 +59,6 @@ func TestDeliverCarriesTrustedTenantOutsideTheBody(t *testing.T) {
 }
 
 func TestDeliverDoesNotTreatHTML200AsAccepted(t *testing.T) {
-	if isolatedConfigTest(t) {
-		return
-	}
-	t.Setenv("GOTP_AUTOMATION_MODE", "legacy")
 	t.Setenv("GOTP_AUTOMATION_TOKEN", strings.Repeat("s", 32))
 	t.Setenv("GOTP_AUTOMATION_DEPLOYMENT_ID", "deployment-a")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("<html>frontend</html>")) }))
@@ -101,10 +74,6 @@ func TestDeliverDoesNotTreatHTML200AsAccepted(t *testing.T) {
 }
 
 func TestNativeConfigurationDoesNotSilentlySelectLegacy(t *testing.T) {
-	if isolatedConfigTest(t) {
-		return
-	}
-	t.Setenv("GOTP_AUTOMATION_MODE", "native")
 	t.Setenv("GOTP_AUTOMATION_BASE_URL", "")
 	t.Setenv("GOTP_AUTOMATION_TOKEN", "")
 	t.Setenv("GOTP_AUTOMATION_DEPLOYMENT_ID", "")

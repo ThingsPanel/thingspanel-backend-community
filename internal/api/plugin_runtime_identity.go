@@ -134,7 +134,7 @@ func legacyPluginRequest(c *gin.Context) bool {
 }
 
 func allowLegacyPluginService(c *gin.Context, service string) bool {
-	if service == "" || strings.EqualFold(strings.TrimSpace(service), "homeassistant") {
+	if service == "" || strings.EqualFold(strings.TrimSpace(service), "homeassistant") || legacyHTTPClaimed(service) {
 		_, _ = pluginRuntimeIdentity(c)
 		return false
 	}
@@ -151,6 +151,10 @@ func requirePluginService(c *gin.Context, serviceIdentifier string) (*middleware
 		return nil, false
 	}
 	if serviceIdentifier != identity.ServiceIdentifier {
+		scopeDenied(c)
+		return nil, false
+	}
+	if identity.TenantID == "" && identity.ServiceIdentifier == "HTTP" && !sharedHTTPInstallationLive(identity) {
 		scopeDenied(c)
 		return nil, false
 	}
@@ -179,6 +183,10 @@ func pluginMayReadDevice(c *gin.Context, req model.GetDeviceConfigReq) bool {
 		device, err = dal.GetDeviceByDeviceNumber(req.DeviceNumber)
 	}
 	if err != nil || device == nil {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			scopeDenied(c)
+			return false
+		}
 		return true
 	}
 	if identity == nil {
@@ -206,6 +214,13 @@ func pluginMayReadDevice(c *gin.Context, req model.GetDeviceConfigReq) bool {
 			}
 		}
 		return true
+	}
+	if identity.TenantID == "" && identity.ServiceIdentifier == "HTTP" {
+		allowed := sharedHTTPDeviceAllowed(identity, device)
+		if !allowed {
+			scopeDenied(c)
+		}
+		return allowed
 	}
 	allowed := device.TenantID == identity.TenantID
 	if allowed && device.DeviceConfigID != nil {

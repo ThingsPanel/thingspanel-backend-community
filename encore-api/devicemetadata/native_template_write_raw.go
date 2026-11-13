@@ -55,7 +55,7 @@ func (s *Service) CreateNativeDeviceAccessTemplate(w http.ResponseWriter, r *htt
 		writeGroupCreateProblem(w, requestID, r.URL.Path, &errs.Error{Code: errs.InvalidArgument, Message: "template request body is too large or unreadable"}, http.StatusBadRequest)
 		return
 	}
-	result, err := createNativeTemplate(r.Context(), identity, key, body, requestID, validateNativeTemplateAccessConfiguration, validateNativeTemplateAsset)
+	result, err := createNativeTemplate(r.Context(), identity, key, body, requestID, validateNativeDeviceConfiguration, validateNativeTemplateAsset)
 	if err != nil {
 		writeNativeTemplateMutationError(w, r, requestID, err, false)
 		return
@@ -99,7 +99,7 @@ func (s *Service) UpdateNativeDeviceAccessTemplate(w http.ResponseWriter, r *htt
 		writeGroupUpdateProblem(w, requestID, r.URL.Path, &errs.Error{Code: errs.InvalidArgument, Message: "template request body is too large or unreadable"}, http.StatusBadRequest)
 		return
 	}
-	result, err := updateNativeTemplate(r.Context(), identity, id, key, ifMatch[0], body, requestID, validateNativeTemplateAccessConfiguration, validateNativeTemplateAsset)
+	result, err := updateNativeTemplate(r.Context(), identity, id, key, ifMatch[0], body, requestID, validateNativeDeviceConfiguration, validateNativeTemplateAsset)
 	if err != nil {
 		writeNativeTemplateMutationError(w, r, requestID, err, true)
 		return

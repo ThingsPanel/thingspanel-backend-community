@@ -3,11 +3,11 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"fmt"
 	"strings"
 
 	"encore.dev/beta/errs"
+	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -23,7 +23,7 @@ type nativeTemplateListQuery struct {
 // page-wide device aggregation in the caller's transaction.
 func listNativeDeviceAccessTemplatesTx(
 	ctx context.Context,
-	tx dbx.Tx,
+	tx *sqldb.Tx,
 	tenantID string,
 	authorizedDeviceIDs []string,
 	query nativeTemplateListQuery,

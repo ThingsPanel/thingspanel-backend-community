@@ -2,9 +2,7 @@ package store
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -30,9 +28,6 @@ import (
 // matched: it is the telemetry key an action writes, so a customer who happens
 // to use a uuid-shaped key would otherwise make their own rule undeletable.
 func (s *Store) ReferencingRules(ctx context.Context, tenantID, targetID string) ([]*Rule, error) {
-	if s.MySQL {
-		return s.referencingRulesMySQL(ctx, tenantID, targetID)
-	}
 	rows, err := s.DB.QueryContext(ctx, `
         SELECT DISTINCT `+ruleColumns+`
           FROM auto_rules r
@@ -353,76 +348,4 @@ func (s *Store) PendingRefs(ctx context.Context, tenantID string, limit int) ([]
 		out = append(out, p)
 	}
 	return out, rows.Err()
-}
-
-// referencingRulesMySQL has no recursive JSON path, so it asks MySQL for the rules that hold the id as any
-// string value (a superset) and applies the exact PostgreSQL predicate to those candidates in Go.
-func (s *Store) referencingRulesMySQL(ctx context.Context, tenantID, targetID string) ([]*Rule, error) {
-	pattern := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(targetID)
-	rows, err := s.DB.QueryContext(ctx, `
-        SELECT r.id, r.definition FROM auto_rules r
-         WHERE r.tenant_id = $1 AND r.deleted_at IS NULL AND r.id <> $2
-           AND JSON_SEARCH(r.definition, 'one', $3) IS NOT NULL`, tenantID, targetID, pattern)
-	if err != nil {
-		return nil, err
-	}
-	var ids []string
-	for rows.Next() {
-		var id string
-		var raw []byte
-		if err := rows.Scan(&id, &raw); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		var doc any
-		if json.Unmarshal(raw, &doc) == nil && refersTo(doc, targetID) {
-			ids = append(ids, id)
-		}
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if len(ids) == 0 {
-		return nil, nil
-	}
-	marks, args := placeholders([]any{tenantID}, ids)
-	found, err := s.DB.QueryContext(ctx, `
-        SELECT `+ruleColumns+` FROM auto_rules r
-         WHERE r.tenant_id = $1 AND r.id IN (`+marks+`)
-         ORDER BY r.name`, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer found.Close()
-	var out []*Rule
-	for found.Next() {
-		r, err := scanRule(found)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, r)
-	}
-	return out, found.Err()
-}
-
-// refersTo walks a definition the way the jsonpath `$.**` does.
-func refersTo(node any, id string) bool {
-	switch v := node.(type) {
-	case map[string]any:
-		if v["alarm_policy_id"] == id || (v["kind"] == "activate_scene" && v["value"] == id) {
-			return true
-		}
-		for _, child := range v {
-			if refersTo(child, id) {
-				return true
-			}
-		}
-	case []any:
-		for _, child := range v {
-			if refersTo(child, id) {
-				return true
-			}
-		}
-	}
-	return false
 }

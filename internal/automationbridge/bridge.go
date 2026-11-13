@@ -10,102 +10,26 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"time"
 )
 
 const TenantHeader = "X-Automation-Tenant"
 const DeploymentHeader = "X-Automation-Deployment"
 
-type Config struct{ Mode, BaseURL, Token, Deployment string }
-
-var configMu sync.RWMutex
-var frozenConfig *Config
-
-// ReadConfig freezes the first valid configuration for every entry point.
-// An invalid attempt does not freeze state and may be retried after correction.
-func ReadConfig() (Config, error) {
-	configMu.Lock()
-	defer configMu.Unlock()
-	if frozenConfig != nil {
-		return *frozenConfig, nil
-	}
-	c, err := parseConfig()
-	if err != nil {
-		return Config{}, err
-	}
-	frozenConfig = &c
-	return c, nil
-}
-
-func parseConfig() (Config, error) {
-	c := Config{Mode: strings.ToLower(strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_MODE"))), BaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_BASE_URL")), "/"), Token: strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_TOKEN")), Deployment: strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_DEPLOYMENT_ID"))}
-	if c.Mode == "" {
-		c.Mode = "legacy"
-	}
-	if c.Mode != "legacy" && c.Mode != "native" {
-		return Config{}, errors.New("invalid automation mode")
-	}
-	if c.Mode == "native" {
-		if err := validateNative(c); err != nil {
-			return Config{}, err
-		}
-	}
-	return c, nil
-}
-
-func validateNative(c Config) error {
-	u, err := url.Parse(c.BaseURL)
-	if err != nil || u == nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return errors.New("invalid native automation service URL")
-	}
-	if len(c.Token) < 32 || c.Deployment == "" || !headerSafe(c.Token) || !headerSafe(c.Deployment) {
-		return errors.New("native automation requires service token and deployment ID")
-	}
-	return nil
-}
-
-func headerSafe(value string) bool {
-	for _, r := range value {
-		if r < 0x20 || r == 0x7f {
-			return false
-		}
-	}
-	return true
-}
-
-// Initialize freezes one valid configuration before application initialization.
-func Initialize() error {
-	_, err := ReadConfig()
-	return err
-}
-
 func NativeEnabled() bool {
-	c, err := ReadConfig()
-	return err == nil && c.Mode == "native"
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_MODE")), "native")
 }
 
-func Deployment() string {
-	c, err := ReadConfig()
-	if err != nil {
-		return ""
-	}
-	return c.Deployment
-}
+func Deployment() string { return strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_DEPLOYMENT_ID")) }
 
 func Authenticate(r *http.Request) (string, error) {
-	c, err := ReadConfig()
-	if err != nil {
-		return "", err
-	}
-	token, deployment := c.Token, c.Deployment
-	if len(token) < 32 || deployment == "" {
+	token := strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_TOKEN"))
+	if len(token) < 32 || Deployment() == "" {
 		return "", errors.New("automation service credentials are not configured")
 	}
-	if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+token)) != 1 || r.Header.Get(DeploymentHeader) != deployment {
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+token)) != 1 || r.Header.Get(DeploymentHeader) != Deployment() {
 		return "", errors.New("invalid automation service identity")
 	}
 	tenant := strings.TrimSpace(r.Header.Get(TenantHeader))
@@ -131,14 +55,12 @@ type Client struct {
 }
 
 func NewClient() (*Client, error) {
-	c, err := ReadConfig()
-	if err != nil {
-		return nil, err
+	url := strings.TrimRight(strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_BASE_URL")), "/")
+	token := strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_TOKEN"))
+	if url == "" || len(token) < 32 || Deployment() == "" {
+		return nil, errors.New("native automation requires service URL, service token and deployment ID")
 	}
-	if err := validateNative(c); err != nil {
-		return nil, err
-	}
-	return &Client{url: c.BaseURL, token: c.Token, deployment: c.Deployment, http: &http.Client{Timeout: 5 * time.Second}}, nil
+	return &Client{url: url, token: token, deployment: Deployment(), http: &http.Client{Timeout: 5 * time.Second}}, nil
 }
 
 func (c *Client) Deliver(ctx context.Context, event Uplink) error {

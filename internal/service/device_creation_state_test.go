@@ -9,7 +9,6 @@ import (
 	"gorm.io/gorm/logger"
 	"project/internal/model"
 	"project/internal/query"
-	"project/pkg/global"
 	"project/pkg/utils"
 )
 
@@ -29,10 +28,6 @@ func TestCreateDevicePersistsEnabledCredentials(t *testing.T) {
 	if err := db.AutoMigrate(&model.Device{}, &model.Group{}); err != nil {
 		t.Fatal(err)
 	}
-	installDeviceIdentityFixture(t, db)
-	oldDB := global.DB
-	global.DB = db
-	t.Cleanup(func() { global.DB = oldDB })
 	previousQuery := *query.Q
 	*query.Q = *query.Use(db)
 	t.Cleanup(func() { *query.Q = previousQuery })

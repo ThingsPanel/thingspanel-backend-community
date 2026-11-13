@@ -114,7 +114,7 @@ func (*DeviceConfigApi) BatchUpdateDeviceConfig(c *gin.Context) {
 		return
 	}
 
-	err := service.GroupApp.DeviceConfig.BatchUpdateDeviceConfig(&req, c.MustGet("claims").(*utils.UserClaims))
+	err := service.GroupApp.DeviceConfig.BatchUpdateDeviceConfig(&req)
 	if err != nil {
 		c.Error(err)
 		return

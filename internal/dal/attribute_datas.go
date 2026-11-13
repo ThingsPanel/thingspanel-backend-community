@@ -1,9 +1,6 @@
 package dal
 
 import (
-	"errors"
-	"strings"
-
 	model "project/internal/model"
 	query "project/internal/query"
 
@@ -30,21 +27,7 @@ where devices.id = 'ca33926c-5ee5-3e9f-147e-94e188fde65b'
 // 根据设备ID获取设备属性数据列表并关联查到数据名称如以上sql
 func GetAttributeDataListWithDeviceName(deviceId string) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
-	config, err := getDeviceConfigForRawDataRead(deviceId)
-	if err != nil {
-		return nil, err
-	}
-	if hasNativeDeviceConfigBinding(config) {
-		err = query.AttributeData.
-			Where(query.AttributeData.DeviceID.Eq(deviceId)).
-			Select(query.AttributeData.ALL).
-			Scan(&data)
-		if err != nil {
-			return nil, err
-		}
-		return data, nil
-	}
-	err = query.AttributeData.
+	err := query.AttributeData.
 		Select(query.AttributeData.ALL, query.DeviceModelAttribute.DataName, query.DeviceModelAttribute.Unit, query.DeviceModelAttribute.ReadWriteFlag, query.DeviceModelAttribute.DataType, query.DeviceModelAttribute.AdditionalInfo.As("enum")).
 		LeftJoin(query.Device, query.AttributeData.DeviceID.EqCol(query.Device.ID)).
 		LeftJoin(query.DeviceConfig, query.Device.DeviceConfigID.EqCol(query.DeviceConfig.ID)).
@@ -55,32 +38,6 @@ func GetAttributeDataListWithDeviceName(deviceId string) ([]map[string]interface
 		return nil, err
 	}
 	return data, nil
-}
-
-func hasNativeDeviceConfigBinding(config *model.DeviceConfig) bool {
-	return config != nil && (config.NativeThingModelID != nil || config.NativeThingModelSnapshotID != nil ||
-		config.NativeThingModelRevision != nil)
-}
-
-func getDeviceConfigForRawDataRead(deviceID string) (*model.DeviceConfig, error) {
-	device, err := query.Device.Where(query.Device.ID.Eq(deviceID)).First()
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	if device == nil || device.DeviceConfigID == nil || strings.TrimSpace(*device.DeviceConfigID) == "" {
-		return nil, nil
-	}
-	config, err := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(*device.DeviceConfigID)).First()
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return config, nil
 }
 
 func DeleteAttributeData(id string) error {

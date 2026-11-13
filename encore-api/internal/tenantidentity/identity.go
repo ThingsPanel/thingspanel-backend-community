@@ -1,11 +1,13 @@
-// Package tenantidentity shares the established ThingModel identity namespace
-// across native owners. Existing padded/truncated identities require an offline
-// ownership migration; they must never be tried as a fallback during a request.
+// Package tenantidentity shares the existing verified Community tenant mapping.
+// The historical non-UUID mapping is preserved for compatibility; collision-safe
+// migration remains a separate release gate, not a new identity scheme here.
 package tenantidentity
 
 import (
+	"encoding/hex"
 	"encore.app/l1-access/authn"
 	"encore.dev/beta/errs"
+	"fmt"
 	"github.com/google/uuid"
 	"strings"
 )
@@ -33,18 +35,47 @@ func RequiredTenantID(data *authn.Data) (string, error) {
 }
 
 func NormalizePrincipalID(raw string) string {
-	return CanonicalIdentity("tenant", raw)
-}
-
-// CanonicalIdentity retains the whole source identity and separates tenant and
-// subject namespaces. This is the same mapping already used by ThingModel v2.
-// Callers must validate the authenticated identity before resolving it.
-func CanonicalIdentity(kind, raw string) string {
-	if strings.TrimSpace(raw) == "" {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
 		return uuid.Nil.String()
 	}
-	if parsed, err := uuid.Parse(raw); err == nil {
+	if parsed, err := uuid.Parse(trimmed); err == nil {
 		return parsed.String()
 	}
-	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("thingspanel/community/"+kind+"/"+raw)).String()
+
+	hexOnly := strings.Map(func(r rune) rune {
+		switch {
+		case r >= '0' && r <= '9':
+			return r
+		case r >= 'a' && r <= 'f':
+			return r
+		case r >= 'A' && r <= 'F':
+			return r + ('a' - 'A')
+		default:
+			return -1
+		}
+	}, trimmed)
+
+	if len(hexOnly) > 0 {
+		return formatHexAsUUID(padOrTrimHex(hexOnly))
+	}
+
+	return formatHexAsUUID(padOrTrimHex(hex.EncodeToString([]byte(trimmed))))
+}
+
+func padOrTrimHex(value string) string {
+	if len(value) >= 32 {
+		return value[:32]
+	}
+	return value + strings.Repeat("0", 32-len(value))
+}
+
+func formatHexAsUUID(value string) string {
+	return fmt.Sprintf("%s-%s-%s-%s-%s",
+		value[0:8],
+		value[8:12],
+		value[12:16],
+		value[16:20],
+		value[20:32],
+	)
 }

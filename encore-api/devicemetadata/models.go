@@ -257,7 +257,7 @@ func mustTenantID() (string, error) {
 // mustRawTenantID returns the tenant_id exactly as it appears in the JWT token,
 // without UUID normalization. Use this for queries against the legacy ThingsPanel
 // database, which stores tenant_id as the raw short hex string (e.g. "d616bcbb")
-// rather than the native owner's namespaced UUID.
+// rather than a padded UUID.
 func mustRawTenantID() (string, error) {
 	return requiredTenantID(authn.CurrentData())
 }

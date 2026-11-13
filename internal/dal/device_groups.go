@@ -18,14 +18,6 @@ func CreateDeviceGroup(r *model.Group) error {
 	return query.Group.Create(r)
 }
 
-// quotedGroupsTable applies the active SQL dialect's identifier quoting to the
-// legacy table name, which is a reserved word in MySQL.
-func quotedGroupsTable() string {
-	var quoted strings.Builder
-	global.DB.Dialector.QuoteTo(&quoted, model.TableNameGroup)
-	return quoted.String()
-}
-
 func DeleteDeviceGroup(id, tenantID string) error {
 	_, err := query.Group.Where(
 		query.Group.ID.Eq(id),
@@ -98,18 +90,17 @@ type deviceGroupCountRow struct {
 // descendant groups is counted once per ancestor group.
 func GetDeviceGroupDeviceCounts(tenantID string) (map[string]int64, error) {
 	rows := make([]deviceGroupCountRow, 0)
-	groupTable := quotedGroupsTable()
-	sql := fmt.Sprintf(`
+	err := global.DB.Raw(`
 		WITH RECURSIVE group_tree AS (
 			SELECT id AS ancestor_id, id AS group_id
-			FROM %s
+			FROM groups
 			WHERE tenant_id = ?
 
 			UNION ALL
 
 			SELECT gt.ancestor_id, child.id
 			FROM group_tree gt
-			JOIN %s child
+			JOIN groups child
 			  ON child.parent_id = gt.group_id
 			 AND child.tenant_id = ?
 		), grouped_devices AS (
@@ -127,8 +118,7 @@ func GetDeviceGroupDeviceCounts(tenantID string) (map[string]int64, error) {
 		SELECT group_id, COUNT(*) AS device_count
 		FROM grouped_devices
 		GROUP BY group_id
-	`, groupTable, groupTable)
-	err := global.DB.Raw(sql, tenantID, tenantID, tenantID).Scan(&rows).Error
+	`, tenantID, tenantID, tenantID).Scan(&rows).Error
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
@@ -252,53 +242,43 @@ func GetDeviceGroupStatistics(groupID string, tenantID string) (*model.DeviceGro
 
 func GetDeviceGroupTierById(id, tenantID string) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
-	// The path is joined here instead of with string_agg/GROUP_CONCAT: both are dialect specific, and
-	// GROUP_CONCAT silently truncates at group_concat_max_len.
-	groupTable := quotedGroupsTable()
-	sql := fmt.Sprintf(`
+	sql := `
 	WITH RECURSIVE group_chain AS (
 		SELECT id, parent_id, name, 1 as level
-		FROM %s
+		FROM groups
 		WHERE id = ? AND tenant_id = ?
 		UNION ALL
 		SELECT g.id, g.parent_id, g.name, gc.level + 1
-		FROM %s g
+		FROM groups g
 		INNER JOIN group_chain gc ON gc.parent_id = g.id
 		WHERE g.tenant_id = ?
 	  )
-	  SELECT name
-	  FROM group_chain
-	  ORDER BY level DESC;
-	`, groupTable, groupTable)
-	var names []string
-	if err := global.DB.Raw(sql, id, tenantID, tenantID).Scan(&names).Error; err != nil {
-		return nil, err
+	  SELECT string_agg(name, '/' ORDER BY level DESC) AS group_path
+	  FROM group_chain;
+	`
+	err := global.DB.Raw(sql, id, tenantID, tenantID).Scan(&r)
+	if err.Error != nil {
+		return nil, err.Error
 	}
-	if len(names) == 0 {
-		r["group_path"] = nil
-		return r, nil
-	}
-	r["group_path"] = strings.Join(names, "/")
 	return r, nil
 }
 
 // 获取目标分组的所有子分组id
 func GetGroupChildrenIds(id string) ([]string, error) {
 	var ids []string
-	groupTable := quotedGroupsTable()
-	sql := fmt.Sprintf(`
+	sql := `
 	WITH RECURSIVE group_chain AS (
 		SELECT id, parent_id
-		FROM %s
+		FROM groups
 		WHERE id = ?
 		UNION ALL
 		SELECT g.id, g.parent_id
-		FROM %s g
+		FROM groups g
 		INNER JOIN group_chain gc ON gc.id = g.parent_id
 	  )
 	  SELECT id
 	  FROM group_chain;
-	`, groupTable, groupTable)
+	`
 	err := global.DB.Raw(sql, id).Scan(&ids)
 	if err.Error != nil {
 		return nil, err.Error

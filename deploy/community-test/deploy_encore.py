@@ -1,5 +1,6 @@
 """Deploy only the Encore and notification services on the community test host."""
 import fcntl
+import hashlib
 import json
 import os
 import pathlib
@@ -13,11 +14,12 @@ import urllib.request
 import urllib.error
 from encore_migrations import source_migrations, pending_migrations
 from deployment_guard import restore_services_on_failure
-from encore_artifacts import validate_prebuilt_image, artifact_sha256, require_import_capacity
+from encore_artifacts import prune_source_artifacts, reclaim_build_cache
 from notification_identity import prepare_notification_identity, retire_notification_renewal
 
 ROOT = pathlib.Path('/opt/tp-community-actions')
 RUNTIME = pathlib.Path('/opt/tp-community-main-20261028')
+TOOLS = ROOT / 'tools/encore-1.58.6'
 SHA = sys.argv[1]
 if not re.fullmatch('[0-9a-f]{40}', SHA):
     raise SystemExit('Invalid revision')
@@ -29,19 +31,20 @@ release.mkdir(parents=True, exist_ok=True)
 
 def artifact_command(args):
     result=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=60)
-    if result.returncode:raise RuntimeError('Could not inspect release storage')
+    if result.returncode:raise RuntimeError('Could not inspect or remove superseded source artifacts')
     return result.stdout.decode().strip()
 
-# Keep rollback releases and images. The build is done in CI, never on the live host.
-pruned_artifacts=[]
+pruned_artifacts=prune_source_artifacts(ROOT,SHA,artifact_command)
+if reclaim_build_cache(ROOT,artifact_command):
+    print(json.dumps({'reclaimed':'encore-build-cache','free_bytes':shutil.disk_usage(str(ROOT)).free}),flush=True)
 if shutil.disk_usage(str(ROOT)).free < 1024 ** 3:
     print(artifact_command(['df','-h',str(ROOT)]),flush=True)
     print(artifact_command(['du','-x','-h','--max-depth=1',str(ROOT)]),flush=True)
-    raise RuntimeError('At least 1 GiB free disk required for image import')
+    raise RuntimeError('At least 1 GiB free disk required for build')
 mem = int(next(line.split()[1] for line in pathlib.Path('/proc/meminfo').read_text().splitlines()
                if line.startswith('MemAvailable:')))
 if mem < 500 * 1024:
-    raise RuntimeError('Insufficient available memory for image import')
+    raise RuntimeError('Insufficient available memory for bounded build')
 
 
 def run(args, data=None, cwd=None, env=None, timeout=1800):
@@ -56,9 +59,6 @@ def run(args, data=None, cwd=None, env=None, timeout=1800):
 package = ROOT / 'incoming' / ('encore-' + SHA + '.tar.gz')
 with tarfile.open(str(package)) as archive:
     members = archive.getmembers()
-    names = [member.name for member in members]
-    if len(set(names)) != len(names):
-        raise RuntimeError('Duplicate release bundle entries')
     for member in members:
         dest = (release / member.name).resolve()
         if (member.issym() or member.islnk() or not (member.isfile() or member.isdir())
@@ -67,12 +67,6 @@ with tarfile.open(str(package)) as archive:
         # Git must see deployment-owned source, not the CI runner's UID.
         member.uid, member.gid = os.getuid(), os.getgid()
         member.uname = member.gname = ''
-    manifest = json.load(archive.extractfile('manifest.json'))
-    image_manifest = json.load(archive.extractfile('image.json'))
-    validate_prebuilt_image(image_manifest,manifest,SHA)
-    require_import_capacity(shutil.disk_usage(str(ROOT)).free,
-                            sum(member.size for member in members if member.isfile()),
-                            image_manifest['uncompressed_bytes'])
     archive.extractall(str(release), members=members)
 manifest = json.loads((release / 'manifest.json').read_text())
 if manifest['commit'] != SHA:
@@ -81,18 +75,26 @@ for name, checksum in manifest['sha256'].items():
     path = release / name
     if not str(path.resolve()).startswith(str(release.resolve()) + '/'):
         raise RuntimeError('Unsafe source manifest')
-    if artifact_sha256(path) != checksum:
+    if hashlib.sha256(path.read_bytes()).hexdigest() != checksum:
         raise RuntimeError('Source checksum mismatch')
 source = release / 'encore-api'
-marketinstall = os.environ.get('TP_DEPLOY_MARKETINSTALL', 'false')
-if marketinstall not in ('true', 'false'):
-    raise RuntimeError('Invalid TP_DEPLOY_MARKETINSTALL')
+env = os.environ.copy()
+env.update(ENCORE_INSTALL=str(TOOLS), GOMAXPROCS='1', GOMEMLIMIT='384MiB', GOFLAGS='-p=1',
+           GOCACHE=str(ROOT / 'encore-build-cache'), GOPROXY='https://goproxy.cn,direct')
+env['PATH'] = str(TOOLS / 'bin') + ':/usr/local/go/bin:' + env.get('PATH', '')
+cli = str(TOOLS / 'bin/encore')
+if not run([cli, 'version'], env=env).startswith('encore version v1.58.6'):
+    raise RuntimeError('Unexpected Encore CLI version')
+run(['git', 'init', '-q', str(source)])
 image = 'tp-community-encore:source-' + SHA
-image_manifest = json.loads((release / 'image.json').read_text())
-validate_prebuilt_image(image_manifest,manifest,SHA)
-run(['docker','load','-i',str(release / 'image.tar.gz')], timeout=240)
+with (release / 'build.private.log').open('wb') as log:
+    result = subprocess.run([cli, 'build', 'docker', image,
+                             '--services=authn,thingmodel,automation,notification', '--skip-config'],
+                            cwd=str(source), env=env, stdout=log, stderr=subprocess.STDOUT,
+                            timeout=1800)
+    if result.returncode:
+        raise RuntimeError('Encore build failed; old services remain running')
 image_id = json.loads(run(['docker', 'image', 'inspect', image]))[0]['Id']
-validate_prebuilt_image(image_manifest,manifest,SHA,image_id)
 
 prepare_notification_identity(RUNTIME)
 compose = RUNTIME / 'compose.encore.private.json'
@@ -103,10 +105,7 @@ old_images = {name: config['services'][name]['image'] for name in services}
 runtime = json.loads((RUNTIME / 'runtime.encore.private.json').read_text())
 databases = runtime['sql_servers'][0]['databases']
 resources = {'device_metadata': 'devicemetadata/migrations', 'automation': 'automation/migrations',
-             'notification': 'l3-core/notification/migrations', 'file_storage': 'fileassets/migrations',
-             'connector_runtime': 'l3-core/connectorcatalog/migrations'}
-if marketinstall == 'true':
-    resources['market_install'] = 'marketinstall/migrations'
+             'notification': 'l3-core/notification/migrations'}
 plans = []
 
 
@@ -117,9 +116,6 @@ def sql(database, script):
 
 for logical, directory in resources.items():
     matches = [(name, db) for name, db in databases.items() if db['name'] == logical]
-    if not matches:
-        # Checked before any service is stopped, so the running services are untouched.
-        raise RuntimeError('Database ' + logical + ' is not provisioned in runtime.encore.private.json; see ENCORE.md')
     if len(matches) != 1:
         raise RuntimeError('Resource database mapping is ambiguous')
     database, db = matches[0]

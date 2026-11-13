@@ -2,12 +2,12 @@ package devicemetadata
 
 import (
 	"context"
-	"encore.app/pkg/dbx"
 	"reflect"
 	"strings"
 	"testing"
 
 	"encore.dev/beta/errs"
+	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -117,7 +117,7 @@ func TestResolveNativeInitialGroupsTx(t *testing.T) {
 	}
 }
 
-func insertInitialGroupFixture(ctx context.Context, tx dbx.Tx, tenantID, id string, parentID *string) error {
+func insertInitialGroupFixture(ctx context.Context, tx *sqldb.Tx, tenantID, id string, parentID *string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO device_groups(id,tenant_id,parent_id,name,created_by,updated_by) VALUES($1,$2,$3,$4,'initial-groups-test','initial-groups-test')`, id, tenantID, parentID, "initial-group-"+id)
 	return err
 }

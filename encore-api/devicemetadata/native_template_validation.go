@@ -104,7 +104,7 @@ func (s *Service) ValidateNativeDeviceAccessTemplate(w http.ResponseWriter, r *h
 		writeGroupCreateProblem(w, requestID, r.URL.Path, &errs.Error{Code: errs.InvalidArgument, Message: "template request body is too large or unreadable"}, http.StatusBadRequest)
 		return
 	}
-	report, err := validateNativeTemplateConfigurationReport(r.Context(), identity, id, body, validateNativeTemplateAccessConfiguration)
+	report, err := validateNativeTemplateConfigurationReport(r.Context(), identity, id, body, validateNativeDeviceConfiguration)
 	if err != nil {
 		writeNativeTemplateReadProblem(w, r, requestID, err)
 		return

@@ -74,7 +74,7 @@ func (r *DashboardTemplateRepo) ListAll(
 		Model(&model.LocalDashboardTemplate{}).
 		Where("tenant_id = ?", tenantID)
 	if keyword != "" {
-		db = db.Where("LOWER(name) LIKE LOWER(?)", "%"+keyword+"%")
+		db = db.Where("name ILIKE ?", "%"+keyword+"%")
 	}
 	if source != "" {
 		db = db.Where("source = ?", source)

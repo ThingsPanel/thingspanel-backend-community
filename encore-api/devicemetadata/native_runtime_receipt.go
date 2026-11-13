@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"errors"
 	"strings"
 
@@ -102,7 +101,7 @@ func validateRuntimeReceipt(receipt runtimeReceipt) error {
 // recordRuntimeReceiptTx applies one receipt inside the caller's transaction.
 // The outbox row is locked first, then its operation, so concurrent receipts
 // for the same event serialize.
-func recordRuntimeReceiptTx(ctx context.Context, tx dbx.Tx, receipt runtimeReceipt) (runtimeReceiptOutcome, error) {
+func recordRuntimeReceiptTx(ctx context.Context, tx *sqldb.Tx, receipt runtimeReceipt) (runtimeReceiptOutcome, error) {
 	if err := validateRuntimeReceipt(receipt); err != nil {
 		return runtimeReceiptOutcome{}, err
 	}

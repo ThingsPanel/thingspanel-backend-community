@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"io"
 	"net/http"
 
 	"encore.dev"
 	"encore.dev/beta/errs"
+	"encore.dev/storage/sqldb"
 
 	"encore.app/devicemetadata/accessconfig"
 )
@@ -47,7 +47,7 @@ func copyNativeTemplate(ctx context.Context, identity nativeTemplateWriteIdentit
 	}
 	canonical, _ := json.Marshal(req)
 	command := metadataWriteCommand{TenantID: identity.tenantID, SubjectID: identity.subjectID, Operation: copyNativeTemplateOperation, Method: "POST", Path: "/api/v2/device-access-templates/" + sourceID + "/copies", Key: key, RequestID: requestID, CanonicalBody: canonical}
-	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		source, err := loadAccessTemplateConfigurationTx(ctx, tx, identity.tenantID, sourceID, false)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
@@ -112,7 +112,7 @@ func (s *Service) CopyNativeDeviceAccessTemplate(w http.ResponseWriter, r *http.
 		writeGroupCreateProblem(w, requestID, r.URL.Path, &errs.Error{Code: errs.InvalidArgument, Message: "copy request body is too large or unreadable"}, http.StatusBadRequest)
 		return
 	}
-	result, err := copyNativeTemplate(r.Context(), identity, id, key, body, requestID, validateNativeTemplateAccessConfiguration, validateNativeTemplateAsset)
+	result, err := copyNativeTemplate(r.Context(), identity, id, key, body, requestID, validateNativeDeviceConfiguration, validateNativeTemplateAsset)
 	if err != nil {
 		writeNativeTemplateMutationError(w, r, requestID, err, false)
 		return

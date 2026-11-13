@@ -2,7 +2,6 @@ package devicemetadata
 
 import (
 	"context"
-	"encore.app/pkg/dbx"
 	"errors"
 	"io"
 	"net/http"
@@ -25,7 +24,7 @@ var errNativeTemplateInUse = &errs.Error{Code: errs.FailedPrecondition, Message:
 // checked; products, OTA, automation rules and market packages live elsewhere.
 func deleteNativeTemplate(ctx context.Context, identity nativeTemplateWriteIdentity, id, key, ifMatch, requestID string) (*metadataWriteResponse, error) {
 	command := metadataWriteCommand{TenantID: identity.tenantID, SubjectID: identity.subjectID, Operation: deleteNativeTemplateOperation, Method: "DELETE", Path: "/api/v2/device-access-templates/" + id, Key: key, RequestID: requestID, IfMatch: ifMatch, CanonicalBody: []byte("{}")}
-	return runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	return runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		stored, err := loadAccessTemplateConfigurationTx(ctx, tx, identity.tenantID, id, true)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err

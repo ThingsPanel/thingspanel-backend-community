@@ -56,8 +56,8 @@ type legacyDeviceTemplate struct {
 type legacyModelItem struct {
 	DataName       string
 	DataIdentifier string
-	DataType       string // String | Number | Boolean | Enum
-	ReadWriteFlag  string // R / W / RW
+	DataType       string  // String | Number | Boolean | Enum
+	ReadWriteFlag  string  // R / W / RW
 	Unit           string
 	Description    string
 	Params         string // JSON params for events/commands

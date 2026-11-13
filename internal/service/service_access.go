@@ -1,17 +1,11 @@
 package service
 
 import (
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
-
-	"gorm.io/gorm"
 
 	"project/internal/dal"
 	"project/internal/model"
@@ -21,129 +15,34 @@ import (
 	"project/third_party/others/http_client"
 
 	"github.com/go-basic/uuid"
+	"github.com/jinzhu/copier"
 	"github.com/sirupsen/logrus"
 )
 
 type ServiceAccess struct{}
 
-// CreateAccess keeps the legacy in-process call compatible. Durable callers
-// supply OperationKey and retain it across lost responses or process restarts.
-func (s *ServiceAccess) CreateAccess(req *model.CreateAccessReq, claims *utils.UserClaims) (map[string]interface{}, error) {
-	return s.CreateAccessContext(context.Background(), req, claims)
-}
-
-func (*ServiceAccess) CreateAccessContext(ctx context.Context, req *model.CreateAccessReq, claims *utils.UserClaims) (map[string]interface{}, error) {
-	if err := requireAccessClaims(claims); err != nil {
-		return nil, err
+func (*ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
+	var serviceAccess model.ServiceAccess
+	copier.Copy(&serviceAccess, req)
+	serviceAccess.ID = uuid.New()
+	serviceAccess.TenantID = userClaims.TenantID
+	if *serviceAccess.ServiceAccessConfig == "" {
+		*serviceAccess.ServiceAccessConfig = "{}"
 	}
-	if req == nil || strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.ServicePluginID) == "" || req.Voucher == "" {
-		return nil, errcode.New(errcode.CodeParamError)
-	}
-	if req.OperationKey != "" && !validServiceAccessOperationKey(req.OperationKey) {
-		return nil, errcode.New(errcode.CodeParamError)
-	}
-	config := req.ServiceAccessConfig
-	if config == "" {
-		config = "{}"
-	}
-	now := time.Now().UTC().Truncate(time.Microsecond)
-	access := model.ServiceAccess{
-		ID: uuid.New(), TenantID: claims.TenantID, Name: req.Name,
-		ServicePluginID: req.ServicePluginID, Voucher: req.Voucher,
-		Description: &req.Description, ServiceAccessConfig: &config, Remark: &req.Remark,
-		CreateAt: now, UpdateAt: now,
-	}
-	if req.OperationKey == "" {
-		// Existing interactive clients retain their old response shape. This
-		// path has no automatic-retry or original-key reconciliation promise.
-		if err := query.ServiceAccess.WithContext(ctx).Create(&access); err != nil {
-			return nil, errcode.NewWithMessage(errcode.CodeDBError, "service access creation failed or its outcome is unknown; reconcile before retry")
-		}
-		return map[string]interface{}{"id": access.ID}, nil
-	}
-	hash, err := serviceAccessCreateRequestHash(*req, claims)
+	serviceAccess.CreateAt = time.Now().UTC()
+	serviceAccess.UpdateAt = time.Now().UTC()
+	err := query.ServiceAccess.Create(&serviceAccess)
 	if err != nil {
-		return nil, errcode.New(errcode.CodeParamError)
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
-	observation, err := dal.CreateServiceAccessWithOperation(ctx, &access, claims.ID, req.OperationKey, hash)
-	if err != nil {
-		return nil, serviceAccessOperationError(err)
-	}
-	return map[string]interface{}{
-		"id": observation.ID, "protocol_version": observation.ProtocolVersion,
-		"operation_key": observation.OperationKey, "request_hash": observation.RequestHash,
-		"state": observation.State, "created_at": observation.CreatedAt, "replayed": observation.Replayed,
-	}, nil
-}
-
-func (*ServiceAccess) GetCreateOperation(ctx context.Context, key string, claims *utils.UserClaims) (*model.ServiceAccessCreateObservation, error) {
-	if err := requireAccessClaims(claims); err != nil {
-		return nil, err
-	}
-	if !validServiceAccessOperationKey(key) {
-		return nil, errcode.New(errcode.CodeParamError)
-	}
-	observation, err := dal.ReadServiceAccessCreateOperation(ctx, claims.TenantID, claims.ID, key)
-	if err != nil {
-		return nil, serviceAccessOperationError(err)
-	}
-	return observation, nil
-}
-
-func validServiceAccessOperationKey(key string) bool {
-	if len(key) == 0 || len(key) > 200 {
-		return false
-	}
-	for i, c := range []byte(key) {
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
-			continue
-		}
-		if i > 0 && (c == '.' || c == '_' || c == ':' || c == '-') {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-func serviceAccessCreateRequestHash(req model.CreateAccessReq, claims *utils.UserClaims) (string, error) {
-	req.OperationKey = ""
-	if req.ServiceAccessConfig == "" {
-		req.ServiceAccessConfig = "{}"
-	}
-	raw, err := json.Marshal(struct {
-		Version         int
-		Tenant, Subject string
-		Request         model.CreateAccessReq
-	}{1, claims.TenantID, claims.ID, req})
-	if err != nil {
-		return "", err
-	}
-	sum := sha256.Sum256(raw)
-	return hex.EncodeToString(sum[:]), nil
-}
-
-func serviceAccessOperationError(err error) error {
-	switch {
-	case errors.Is(err, dal.ErrServiceAccessOperationConflict):
-		return errcode.WithData(errcode.CodeOpDenied, map[string]interface{}{"reason": "SERVICE_ACCESS_OPERATION_CONFLICT"})
-	case errors.Is(err, dal.ErrServiceAccessResourceChanged):
-		return errcode.WithData(errcode.CodeOpDenied, map[string]interface{}{"reason": "SERVICE_ACCESS_RESOURCE_CHANGED"})
-	case errors.Is(err, dal.ErrServiceAccessOperationUnknown):
-		failure := errcode.NewWithMessage(errcode.CodeDBError, "service access outcome unknown; query the original operation key before retry")
-		failure.Data = map[string]interface{}{"reason": "SERVICE_ACCESS_OUTCOME_UNKNOWN"}
-		return failure
-	case errors.Is(err, gorm.ErrRecordNotFound):
-		return errcode.New(errcode.CodeNotFound)
-	default:
-		return errcode.NewWithMessage(errcode.CodeDBError, "service access operation unavailable; retain the original key")
-	}
+	resp := make(map[string]interface{})
+	resp["id"] = serviceAccess.ID
+	return resp, nil
 }
 
 func (*ServiceAccess) List(req *model.GetServiceAccessByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
-	if err := requireAccessClaims(userClaims); err != nil {
-		return nil, err
-	}
 	total, list, err := dal.GetServiceAccessListByPage(req, userClaims.TenantID)
 	listRsp := make(map[string]interface{})
 	listRsp["total"] = total
@@ -157,41 +56,33 @@ func (*ServiceAccess) List(req *model.GetServiceAccessByPageReq, userClaims *uti
 	return listRsp, err
 }
 
-func (*ServiceAccess) Update(req *model.UpdateAccessReq, claims *utils.UserClaims) error {
-	if err := requireAccessClaims(claims); err != nil {
-		return err
-	}
-	if req == nil {
-		return errcode.New(errcode.CodeParamError)
-	}
+func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 	// 查询服务接入点信息
-	serviceAccess, err := dal.GetServiceAccessByTenantID(req.ID, claims.TenantID)
+	serviceAccess, err := dal.GetServiceAccessByID(req.ID)
 	if err != nil {
-		return accessLookupError(err)
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	updates := make(map[string]interface{})
 	if req.Name != nil {
 		updates["name"] = req.Name
 	}
 	if req.ServiceAccessConfig != nil {
-		config := *req.ServiceAccessConfig
-		if config == "" {
-			config = "{}"
+		if *req.ServiceAccessConfig == "" {
+			*req.ServiceAccessConfig = "{}"
 		}
-		updates["service_access_config"] = config
+		serviceAccess.ServiceAccessConfig = req.ServiceAccessConfig
 	}
 	if req.Voucher != nil {
 		updates["voucher"] = req.Voucher
 	}
 	updates["update_at"] = time.Now().UTC()
-	affected, err := dal.UpdateServiceAccess(req.ID, claims.TenantID, updates)
+	err = dal.UpdateServiceAccess(req.ID, updates)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
-	}
-	if affected == 0 {
-		return errcode.New(errcode.CodeNotFound)
 	}
 	if serviceAccess.Voucher != "" {
 		// 查询服务地址
@@ -230,13 +121,7 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq, claims *utils.UserClaim
 	return nil
 }
 
-func (*ServiceAccess) Delete(id string, claims *utils.UserClaims) error {
-	if err := requireAccessClaims(claims); err != nil {
-		return err
-	}
-	if _, err := dal.GetServiceAccessByTenantID(id, claims.TenantID); err != nil {
-		return accessLookupError(err)
-	}
+func (*ServiceAccess) Delete(id string) error {
 	// 查询是否还有未删除的设备
 	devices, err := dal.GetServiceDeviceList(id)
 	if err != nil {
@@ -247,30 +132,13 @@ func (*ServiceAccess) Delete(id string, claims *utils.UserClaims) error {
 	if len(devices) > 0 {
 		return errcode.New(200064)
 	}
-	affected, err := dal.DeleteServiceAccess(id, claims.TenantID)
+	err = dal.DeleteServiceAccess(id)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
-	if affected == 0 {
-		return errcode.New(errcode.CodeNotFound)
-	}
-	return nil
-}
-
-func requireAccessClaims(claims *utils.UserClaims) error {
-	if claims == nil || strings.TrimSpace(claims.ID) == "" || strings.TrimSpace(claims.TenantID) == "" {
-		return errcode.New(errcode.CodeNoPermission)
-	}
-	return nil
-}
-
-func accessLookupError(err error) error {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return errcode.New(errcode.CodeNotFound)
-	}
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	return err
 }
 
 // GetVoucherForm

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/datatypes"
+	"gorm.io/gen"
 	"gorm.io/gorm"
 )
 
@@ -251,7 +253,7 @@ func GetAlarmHistoryListByPage(d *model.GetAlarmHisttoryListByPage, tenantID str
 
 	if d.DeviceId != nil && *d.DeviceId != "" {
 		//queryBuilder = queryBuilder.Where(q.AlarmDeviceList.Like(fmt.Sprintf("%%%s%%", *d.DeviceId)))
-		queryBuilder = queryBuilder.Where(jsonContainsString("alarm_device_list", *d.DeviceId)...)
+		queryBuilder = queryBuilder.Where(gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(*d.DeviceId))...)
 	}
 
 	count, err := queryBuilder.Count()
@@ -305,7 +307,7 @@ func AlarmHistoryDescUpdate(req *model.AlarmHistoryDescUpdateReq, tenantID strin
 }
 
 func GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
-	result, err := query.AlarmHistory.Where(jsonContainsString("alarm_device_list", req.DeviceId)...).Order(query.AlarmHistory.CreateAt.Desc()).First()
+	result, err := query.AlarmHistory.Where(gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(req.DeviceId))...).Order(query.AlarmHistory.CreateAt.Desc()).First()
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return false
 	}
@@ -317,7 +319,7 @@ func GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 
 func GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) ([]model.AlarmConfig, error) {
 	var result []map[string]interface{}
-	err := query.AlarmHistory.Where(jsonContainsString("alarm_device_list", req.DeviceId)...).
+	err := query.AlarmHistory.Where(gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(req.DeviceId))...).
 		Select(query.AlarmHistory.AlarmConfigID, query.AlarmHistory.AlarmConfigID.Count()).Group(query.AlarmHistory.AlarmConfigID).Scan(&result)
 	if err != nil {
 		return nil, err

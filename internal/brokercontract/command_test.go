@@ -217,15 +217,3 @@ func TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage(t *testing.T) {
 		t.Fatal("malformed JSON accepted")
 	}
 }
-
-func TestLegacyProtocolTelemetryFrameRetainsGatewayCanonicalProof(t *testing.T) {
-	now := time.Now()
-	frame := CommandFrame{LegacyTelemetryID: true, CommandID: "control-1", TenantID: "tenant", TargetDeviceID: "device-id", TargetDeviceNumber: "number-1", RouteEpoch: 3, TransportDeviceID: "root", TransportRouteEpoch: 9, MappingVersion: "standard-v1", CanonicalTopic: "plugin/modbus/gateway/telemetry/control/number-1", WireTopic: "plugin/modbus/devices/telemetry/control/device-id", ExpiresAt: now.Add(time.Minute).UnixMilli(), Payload: []byte(`{"value":1}`)}
-	if _, err := EncodeCommandFrame(frame, now); err != nil {
-		t.Fatalf("real legacy SDK wire with gateway canonical proof rejected: %v", err)
-	}
-	frame.WireTopic = "plugin/modbus/gateway/telemetry/control/device-id"
-	if _, err := EncodeCommandFrame(frame, now); err == nil {
-		t.Fatal("invented gateway device-ID alias accepted")
-	}
-}

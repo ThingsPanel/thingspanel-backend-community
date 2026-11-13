@@ -3,7 +3,6 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"errors"
 	"strings"
 	"time"
@@ -97,7 +96,7 @@ func validAccessTemplateText(value string, min, max int, identifier bool) bool {
 	return true
 }
 
-func validateAccessTemplateStoreContext(tx dbx.Tx, tenantID, actorID string) error {
+func validateAccessTemplateStoreContext(tx *sqldb.Tx, tenantID, actorID string) error {
 	if tx == nil {
 		return &errs.Error{Code: errs.Internal, Message: "template storage requires an existing transaction"}
 	}
@@ -119,7 +118,7 @@ func validateAccessTemplateStoreContext(tx dbx.Tx, tenantID, actorID string) err
 // insertAccessTemplateConfigurationTx does not commit. Authorization, authoritative
 // provider/model/file validation, idempotency and audit belong to its caller
 // and must complete in the same transaction before any public route uses it.
-func insertAccessTemplateConfigurationTx(ctx context.Context, tx dbx.Tx, tenantID, actorID string, row *accessTemplateConfigurationRecord) (*accessTemplateConfigurationRecord, error) {
+func insertAccessTemplateConfigurationTx(ctx context.Context, tx *sqldb.Tx, tenantID, actorID string, row *accessTemplateConfigurationRecord) (*accessTemplateConfigurationRecord, error) {
 	if err := validateAccessTemplateStoreContext(tx, tenantID, actorID); err != nil {
 		return nil, err
 	}
@@ -143,7 +142,7 @@ func insertAccessTemplateConfigurationTx(ctx context.Context, tx dbx.Tx, tenantI
 
 // loadAccessTemplateConfigurationTx locks the sole template aggregate when requested.
 // It never resolves old Community IDs or falls back to legacy template columns.
-func loadAccessTemplateConfigurationTx(ctx context.Context, tx dbx.Tx, tenantID, id string, forUpdate bool) (*accessTemplateConfigurationRecord, error) {
+func loadAccessTemplateConfigurationTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string, forUpdate bool) (*accessTemplateConfigurationRecord, error) {
 	if tx == nil {
 		return nil, &errs.Error{Code: errs.Internal, Message: "template storage requires an existing transaction"}
 	}
@@ -177,7 +176,7 @@ func loadAccessTemplateConfigurationTx(ctx context.Context, tx dbx.Tx, tenantID,
 // saveAccessTemplateConfigurationTx replaces an already merged and validated aggregate.
 // It increments exactly once and cannot overwrite a different resource version.
 // This repository method intentionally has no independent commit/audit boundary.
-func saveAccessTemplateConfigurationTx(ctx context.Context, tx dbx.Tx, tenantID, actorID, id string, expectedVersion int64, row *accessTemplateConfigurationRecord) (*accessTemplateConfigurationRecord, error) {
+func saveAccessTemplateConfigurationTx(ctx context.Context, tx *sqldb.Tx, tenantID, actorID, id string, expectedVersion int64, row *accessTemplateConfigurationRecord) (*accessTemplateConfigurationRecord, error) {
 	if err := validateAccessTemplateStoreContext(tx, tenantID, actorID); err != nil {
 		return nil, err
 	}

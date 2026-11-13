@@ -2,13 +2,14 @@ package devicemetadata
 
 import (
 	"context"
-	"encore.app/pkg/dbx"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
 	"testing"
+
+	"encore.dev/storage/sqldb"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestAccessTemplateCurrentConfigurationSchemaKeepsThingModelVersions(t *testing.T) {
@@ -53,7 +54,7 @@ type revisionSchemaSnapshot struct {
 	resourcesRevision *int64
 }
 
-func seedRevisionSchemaModel(t *testing.T, ctx context.Context, tx dbx.Tx, tenantID, namePrefix, modelStatus string, snapshots []revisionSchemaSnapshot) (string, map[int]string) {
+func seedRevisionSchemaModel(t *testing.T, ctx context.Context, tx *sqldb.Tx, tenantID, namePrefix, modelStatus string, snapshots []revisionSchemaSnapshot) (string, map[int]string) {
 	t.Helper()
 	modelID := uuid.NewString()
 	if _, err := tx.Exec(ctx, `
@@ -133,7 +134,7 @@ type revisionSchemaTemplate struct {
 	descriptionI18n, imageURL                 string
 }
 
-func mustInsertRevisionSchemaTemplate(t *testing.T, ctx context.Context, tx dbx.Tx, row revisionSchemaTemplate) {
+func mustInsertRevisionSchemaTemplate(t *testing.T, ctx context.Context, tx *sqldb.Tx, row revisionSchemaTemplate) {
 	t.Helper()
 	if row.status == "" {
 		row.status = "DRAFT"
@@ -169,7 +170,7 @@ func mustInsertRevisionSchemaTemplate(t *testing.T, ctx context.Context, tx dbx.
 	}
 }
 
-func expectRevisionSchemaError(t *testing.T, ctx context.Context, tx dbx.Tx, savepoint, wantSQLState, query string, args ...any) {
+func expectRevisionSchemaError(t *testing.T, ctx context.Context, tx *sqldb.Tx, savepoint, wantSQLState, query string, args ...any) {
 	t.Helper()
 	if _, err := tx.Exec(ctx, "SAVEPOINT "+savepoint); err != nil {
 		t.Fatalf("create %s: %v", savepoint, err)

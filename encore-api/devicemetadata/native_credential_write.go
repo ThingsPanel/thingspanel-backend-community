@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
-	"encore.app/pkg/dbx"
 	"errors"
 	"io"
 	"net/http"
@@ -181,13 +180,9 @@ func createNativeDeviceCredential(ctx context.Context, identity nativeCredential
 	}
 	owner := CredentialAAD{TenantID: identity.tenantID, OwnerKind: CredentialOwnerDevice, OwnerID: deviceID, Purpose: CredentialPurposeDeviceAccess}
 	result, err := runCredentialSecretWriteTx(ctx, command, owner, protector,
-		func(tx dbx.Tx) error {
+		func(tx *sqldb.Tx) error {
 			data := authn.CurrentData()
-			currentTenant, err := mustTenantID()
-			if err != nil {
-				return err
-			}
-			if data == nil || data.UserID != identity.subjectID || currentTenant != identity.tenantID {
+			if data == nil || data.UserID != identity.subjectID || data.TenantID != identity.tenantID {
 				return &errs.Error{Code: errs.Unauthenticated, Message: "authenticated credential identity changed"}
 			}
 			if !authz.Can(data, "device", "credentials:write") {
@@ -197,13 +192,13 @@ func createNativeDeviceCredential(ctx context.Context, identity nativeCredential
 				return &errs.Error{Code: errs.NotFound, Message: "device not found"}
 			}
 			var liveDevice string
-			err = tx.QueryRow(ctx, `SELECT id::text FROM devices WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL FOR SHARE`, identity.tenantID, deviceID).Scan(&liveDevice)
+			err := tx.QueryRow(ctx, `SELECT id::text FROM devices WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL FOR SHARE`, identity.tenantID, deviceID).Scan(&liveDevice)
 			if errors.Is(err, sqldb.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 				return &errs.Error{Code: errs.NotFound, Message: "device not found"}
 			}
 			return err
 		},
-		func(tx dbx.Tx, aad CredentialAAD, expiresAt time.Time) (metadataWriteResponse, metadataWriteAudit, error) {
+		func(tx *sqldb.Tx, aad CredentialAAD, expiresAt time.Time) (metadataWriteResponse, metadataWriteAudit, error) {
 			mode := "encrypted"
 			var protected ProtectedCredential
 			var fingerprint []byte

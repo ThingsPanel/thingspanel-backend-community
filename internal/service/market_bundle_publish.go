@@ -184,8 +184,6 @@ func (s *MarketBundlePublish) PublishDraft(ctx context.Context, req model.Publis
 		Version:     publishData.Version,
 		ContentHash: publishData.ContentHash,
 		Status:      publishData.Status,
-		VersionID:   publishData.VersionID,
-		TargetState: publishData.TargetState,
 	}
 
 	// Include precheck report with warnings if any
@@ -720,13 +718,6 @@ func requireSuccessfulHorizonPublish(response *model.HorizonPublishResponse) (*m
 		response.Data.ContentHash == "" ||
 		response.Data.Status == "" {
 		return nil, fmt.Errorf("%w: publish response data is incomplete", ErrMarketInvalidResponse)
-	}
-	// A receipt is historical evidence. A deleted/unknown target or a legacy
-	// receipt without its original version identity cannot confirm a current
-	// publication, even if its stored response still says pending_review.
-	if response.Data.VersionID == "" ||
-		(response.Data.TargetState != "pending_review" && response.Data.TargetState != "published") {
-		return nil, fmt.Errorf("%w: publication target is not currently confirmed", ErrMarketInvalidResponse)
 	}
 	return response.Data, nil
 }

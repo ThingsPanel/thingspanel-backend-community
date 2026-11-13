@@ -298,8 +298,8 @@ func TestRepeatedAndConcurrentSubmitCreateOneInstance(t *testing.T) {
 	}
 	row, _ := v.e.Repo.ByPlugin("tn1", "homeassistant")
 	v.settle(t, "tn1", row.ID, StateEnabled)
-	// more clicks after it is up change nothing, also with the same address (no secret re-typed)
-	again, err := v.e.Submit(context.Background(), "tn1", "homeassistant", "k-new", map[string]string{"HA_BASE_URL": "http://ha.local:8123"})
+	// more clicks after it is up change nothing
+	again, err := v.e.Submit(context.Background(), "tn1", "homeassistant", "k-new", nil)
 	if err != nil || again.State != StateEnabled {
 		t.Fatalf("%v %v", err, again.State)
 	}

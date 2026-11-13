@@ -95,7 +95,7 @@ func GetAttributeDataByKey(req model.GetDataListByKeyReq) (*model.AttributeData,
 
 // 删除属性下发历史数据，带事务
 func DeleteAttributeDataByDeviceIdTx(deviceId string, tx *query.QueryTx) error {
-	_, err := tx.AttributeSetLog.WithContext(context.Background()).Where(tx.AttributeSetLog.DeviceID.Eq(deviceId)).Delete()
+	_, err := tx.AttributeData.WithContext(context.Background()).Where(query.AttributeData.DeviceID.Eq(deviceId)).Delete()
 	return err
 }
 

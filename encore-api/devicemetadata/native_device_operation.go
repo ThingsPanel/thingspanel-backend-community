@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"errors"
 	"net/http"
 	"time"
@@ -37,20 +36,20 @@ const (
 
 // NativeOperation is the durable job projection defined by the contract.
 type NativeOperation struct {
-	ID              string                  `json:"id"`
-	TenantID        string                  `json:"tenantId"`
-	CreatedAt       time.Time               `json:"createdAt"`
-	UpdatedAt       time.Time               `json:"updatedAt"`
-	CreatedBy       string                  `json:"createdBy"`
-	UpdatedBy       string                  `json:"updatedBy"`
-	ResourceVersion int64                   `json:"resourceVersion"`
-	Kind            string                  `json:"kind"`
-	State           string                  `json:"state"`
-	ResourceID      *string                 `json:"resourceId"`
-	Progress        NativeOperationProgress `json:"progress"`
-	Result          json.RawMessage         `json:"result"`
-	Failure         json.RawMessage         `json:"failure"`
-	ExpiresAt       *time.Time              `json:"expiresAt"`
+	ID              string                   `json:"id"`
+	TenantID        string                   `json:"tenantId"`
+	CreatedAt       time.Time                `json:"createdAt"`
+	UpdatedAt       time.Time                `json:"updatedAt"`
+	CreatedBy       string                   `json:"createdBy"`
+	UpdatedBy       string                   `json:"updatedBy"`
+	ResourceVersion int64                    `json:"resourceVersion"`
+	Kind            string                   `json:"kind"`
+	State           string                   `json:"state"`
+	ResourceID      *string                  `json:"resourceId"`
+	Progress        NativeOperationProgress  `json:"progress"`
+	Result          json.RawMessage          `json:"result"`
+	Failure         json.RawMessage          `json:"failure"`
+	ExpiresAt       *time.Time               `json:"expiresAt"`
 }
 
 type NativeOperationProgress struct {
@@ -74,7 +73,7 @@ func operationRequestDigest(method, path, ifMatch string, body []byte) string {
 // owner acknowledges the outbox row; callers must not shorten that.
 func createDeviceOperationTx(
 	ctx context.Context,
-	tx dbx.Tx,
+	tx *sqldb.Tx,
 	tenantID, subjectID, kind, deviceID, operationName, requestID, digest string,
 	checkpoint map[string]any,
 ) (string, error) {
@@ -103,7 +102,7 @@ func createDeviceOperationTx(
 // apply, which keeps repeated identical requests free of extra side effects.
 func createCompletedDeviceOperationTx(
 	ctx context.Context,
-	tx dbx.Tx,
+	tx *sqldb.Tx,
 	tenantID, subjectID, kind, deviceID, operationName, requestID, digest string,
 ) (string, error) {
 	id := uuid.NewString()
@@ -124,7 +123,7 @@ func createCompletedDeviceOperationTx(
 // delta, so a consumer that applies the newest row per (device, kind) converges.
 func enqueueDeviceRuntimeTx(
 	ctx context.Context,
-	tx dbx.Tx,
+	tx *sqldb.Tx,
 	tenantID, deviceID, operationID, kind string,
 	generation int64,
 	desired any,
@@ -189,7 +188,7 @@ func loadNativeOperationTx(ctx context.Context, tx *sql.Tx, tenantID, operationI
 		tenantID, operationID))
 }
 
-func loadNativeOperationEncoreTx(ctx context.Context, tx dbx.Tx, tenantID, operationID string) (*NativeOperation, error) {
+func loadNativeOperationEncoreTx(ctx context.Context, tx *sqldb.Tx, tenantID, operationID string) (*NativeOperation, error) {
 	return scanNativeOperation(tx.QueryRow(ctx,
 		`SELECT `+nativeOperationSelectFields+` FROM metadata_operations WHERE tenant_id=$1 AND id=$2`,
 		tenantID, operationID))

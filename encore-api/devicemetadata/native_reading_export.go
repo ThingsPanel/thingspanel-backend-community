@@ -8,7 +8,6 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"errors"
 	"fmt"
 	"net/http"
@@ -281,7 +280,7 @@ func exportReadings(ctx context.Context, identity nativeDeviceWriteIdentity, dev
 		TenantID: identity.tenantID, SubjectID: identity.subjectID, Operation: "exportDeviceReadings",
 		Method: http.MethodPost, Path: path, Key: key, RequestID: requestID, CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		var locked string
 		if err := tx.QueryRow(ctx, `SELECT id::text FROM devices WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE`,
 			identity.tenantID, deviceID).Scan(&locked); err != nil {

@@ -54,7 +54,13 @@ func (postgresRepository) Execute(ctx context.Context, scope app.ReceiptScope, f
 		return app.Result{}, persistenceError(err)
 	}
 
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, receiptLockIdentity(scope.TenantID, scope.SubjectID, scope.Operation, scope.Key)); err != nil {
+	lockKey, _ := json.Marshal(struct {
+		Tenant    core.TenantID `json:"tenant"`
+		Subject   string        `json:"subject"`
+		Operation string        `json:"operation"`
+		Key       string        `json:"key"`
+	}{scope.TenantID, scope.SubjectID, scope.Operation, scope.Key})
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, string(lockKey)); err != nil {
 		return app.Result{}, persistenceError(err)
 	}
 

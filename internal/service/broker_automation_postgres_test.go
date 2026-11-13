@@ -89,7 +89,6 @@ func automationPG(t *testing.T) *gorm.DB {
 			t.Fatalf("apply %s: %v", file, err)
 		}
 	}
-	installServiceCommandIdentityFixture(t, db)
 	return db
 }
 
@@ -468,17 +467,5 @@ func TestPostgresAutomationPolicyProofRejectsTenantAndPolicyDrift(t *testing.T) 
 				t.Fatalf("stale policy proof error=%v", err)
 			}
 		})
-	}
-}
-
-// Direct fixture inserts stand in for the current DAL's identity reservation CAS.
-func installServiceCommandIdentityFixture(t *testing.T, db *gorm.DB) {
-	t.Helper()
-	body, err := os.ReadFile(filepath.Join("..", "brokercommands", "testdata", "identity-fixture.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Exec(string(body)).Error; err != nil {
-		t.Fatal(err)
 	}
 }

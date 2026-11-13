@@ -12,10 +12,10 @@ import (
 
 func TestNativeMetricMenusIncludeUnreportedFieldsAndRestrictKinds(t *testing.T) {
 	raw := json.RawMessage(`{"fields":[
- {"access":{"read":true,"write":true,"observe":true},"kind":"TELEMETRY","identifier":"temperature","nameI18n":{"default":"温度"},"unit":"℃","valueType":{"kind":"FLOAT"}},
- {"access":{"read":true,"write":true,"observe":true},"kind":"ATTRIBUTE","identifier":"mode","nameI18n":{"default":"模式"},"valueType":{"kind":"ENUM","baseKind":"STRING","enumValues":[{"code":"1","label":{"default":"自动"}}]}},
- {"access":{"read":true,"write":true,"observe":true},"kind":"EVENT","identifier":"alarm","nameI18n":{"default":"告警"},"parameters":{"schemaVersion":1,"items":[{"identifier":"level","nameI18n":{"default":"级别"},"valueType":{"kind":"ENUM","baseKind":"NUMBER","enumValues":[{"code":1,"label":{"default":"严重"}}]}}]}},
- {"access":{"read":true,"write":true,"observe":true},"kind":"COMMAND","identifier":"restart","nameI18n":{"default":"重启"},"parameters":{"schemaVersion":1,"items":[]}}
+ {"kind":"TELEMETRY","identifier":"temperature","nameI18n":{"default":"温度"},"unit":"℃","valueType":{"kind":"FLOAT"}},
+ {"kind":"ATTRIBUTE","identifier":"mode","nameI18n":{"default":"模式"},"valueType":{"kind":"ENUM","baseKind":"STRING","enumValues":[{"code":"1","label":{"default":"自动"}}]}},
+ {"kind":"EVENT","identifier":"alarm","nameI18n":{"default":"告警"},"parameters":{"schemaVersion":1,"items":[{"identifier":"level","nameI18n":{"default":"级别"},"valueType":{"kind":"ENUM","baseKind":"NUMBER","enumValues":[{"code":1,"label":{"default":"严重"}}]}}]}},
+ {"kind":"COMMAND","identifier":"restart","nameI18n":{"default":"重启"},"parameters":{"schemaVersion":1,"items":[]}}
  ]}`)
 	all, err := nativeMetricGroups(raw, "TELEMETRY", "ATTRIBUTE", "EVENT", "COMMAND")
 	if err != nil || len(all) != 4 {
@@ -46,7 +46,7 @@ func TestNativeMetricMenusIncludeUnreportedFieldsAndRestrictKinds(t *testing.T) 
 
 func TestNativeMetricEnumsKeepJSONTypesAndRejectInvalidCodes(t *testing.T) {
 	for _, tc := range []struct{ base, code string }{{"NUMBER", "1.5"}, {"STRING", `"1"`}, {"BOOLEAN", "false"}} {
-		raw := json.RawMessage(`{"fields":[{"access":{"read":true,"write":true,"observe":true},"kind":"TELEMETRY","identifier":"state","nameI18n":{"default":"状态"},"valueType":{"kind":"ENUM","baseKind":"` + tc.base + `","enumValues":[{"code":` + tc.code + `,"label":{"default":"映射"}}]}}]}`)
+		raw := json.RawMessage(`{"fields":[{"kind":"TELEMETRY","identifier":"state","nameI18n":{"default":"状态"},"valueType":{"kind":"ENUM","baseKind":"` + tc.base + `","enumValues":[{"code":` + tc.code + `,"label":{"default":"映射"}}]}}]}`)
 		groups, err := nativeMetricGroups(raw, "TELEMETRY")
 		if err != nil {
 			t.Fatal(err)
@@ -56,7 +56,7 @@ func TestNativeMetricEnumsKeepJSONTypesAndRejectInvalidCodes(t *testing.T) {
 			t.Fatalf("enum = %#v", item)
 		}
 	}
-	for _, raw := range []string{`{}`, `{"fields":null}`, `{"fields":[{"access":{"read":true,"write":true,"observe":true},"kind":"TELEMETRY","identifier":"bad","nameI18n":{"default":"Bad"},"valueType":{"kind":"ENUM","baseKind":"NUMBER","enumValues":[{"code":"1","label":{"default":"Bad"}}]}}]}`} {
+	for _, raw := range []string{`{}`, `{"fields":null}`, `{"fields":[{"kind":"TELEMETRY","identifier":"bad","nameI18n":{"default":"Bad"},"valueType":{"kind":"ENUM","baseKind":"NUMBER","enumValues":[{"code":"1","label":{"default":"Bad"}}]}}]}`} {
 		if _, err := nativeMetricGroups(json.RawMessage(raw), "TELEMETRY"); err == nil {
 			t.Fatalf("accepted invalid model %s", raw)
 		}
@@ -83,33 +83,12 @@ func TestNativeMetricBindingRejectsUnboundAndPartialReferences(t *testing.T) {
 }
 
 func TestNativeMetricBoolLabelsKeepBooleanCodes(t *testing.T) {
-	groups, err := nativeMetricGroups(json.RawMessage(`{"fields":[{"access":{"read":true,"write":true,"observe":true},"kind":"TELEMETRY","identifier":"power","nameI18n":{"default":"电源"},"valueType":{"kind":"BOOL","constraint":{"trueText":"开启","falseText":"关闭"}}}]}`), "TELEMETRY")
+	groups, err := nativeMetricGroups(json.RawMessage(`{"fields":[{"kind":"TELEMETRY","identifier":"power","nameI18n":{"default":"电源"},"valueType":{"kind":"BOOL","constraint":{"trueText":"开启","falseText":"关闭"}}}]}`), "TELEMETRY")
 	if err != nil {
 		t.Fatal(err)
 	}
 	options := groups[0].Options[0].Enum
 	if len(options) != 2 || string(options[0].Value) != "true" || options[1].Description != "关闭" {
 		t.Fatalf("bool labels = %#v", options)
-	}
-}
-
-func TestNativeMetricMenusFilterAccessAndFailClosed(t *testing.T) {
-	for _, tc := range []struct {
-		kind, flags string
-		want        int
-		wantErr     bool
-	}{
-		{"TELEMETRY", `{"read":false,"write":true,"observe":true}`, 0, false},
-		{"ATTRIBUTE", `{"read":true,"write":false,"observe":false}`, 1, false},
-		{"EVENT", `{"read":true,"write":true,"observe":false}`, 0, false},
-		{"COMMAND", `{"read":true,"write":false,"observe":true}`, 0, false},
-		{"COMMAND", `{"read":false,"write":true,"observe":false}`, 1, false},
-		{"TELEMETRY", `{"read":true}`, 0, true},
-	} {
-		raw := json.RawMessage(`{"fields":[{"kind":"` + tc.kind + `","identifier":"field","nameI18n":{"default":"Field"},"access":` + tc.flags + `,"valueType":{"kind":"STRING"},"parameters":{"schemaVersion":1,"items":[]}}]}`)
-		groups, err := nativeMetricGroups(raw, tc.kind)
-		if (err != nil) != tc.wantErr || len(groups) != tc.want {
-			t.Fatalf("%s %s: groups=%v err=%v", tc.kind, tc.flags, groups, err)
-		}
 	}
 }

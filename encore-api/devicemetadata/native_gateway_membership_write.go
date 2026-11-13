@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"errors"
 	"net/http"
 	"strings"
@@ -69,7 +68,7 @@ func nativeGatewayMembershipETag(membership NativeGatewayMembership) (string, er
 // loadNativeGatewayMembershipEncoreTx reads the same projection as
 // readNativeGatewayMembership so its ETag is the If-Match validator a client
 // obtained from GET /gateway-membership.
-func loadNativeGatewayMembershipEncoreTx(ctx context.Context, tx dbx.Tx, tenantID string, device *NativeDevice) (NativeGatewayMembership, error) {
+func loadNativeGatewayMembershipEncoreTx(ctx context.Context, tx *sqldb.Tx, tenantID string, device *NativeDevice) (NativeGatewayMembership, error) {
 	if device.ResourceVersion < 1 || device.ResourceVersion > 9007199254740991 {
 		return NativeGatewayMembership{}, &errs.Error{Code: errs.Unavailable, Message: "device resource version is outside the supported range"}
 	}
@@ -133,7 +132,7 @@ func setNativeGatewayMembership(
 		Method: http.MethodPut, Path: path, Key: key, RequestID: requestID, IfMatch: ifMatch,
 		CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		// Same lock order as the membership trigger: tenant tree first, then rows.
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('device-gateway-tree:' || $1::text,72311028))`, identity.tenantID); err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err

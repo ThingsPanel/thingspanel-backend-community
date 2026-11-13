@@ -4,10 +4,7 @@ package brokerstate
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"project/internal/brokerdelegate"
-	"project/internal/brokerroute"
 	"project/internal/model"
 	"time"
 
@@ -50,14 +47,6 @@ func (s *Store) Apply(ctx context.Context, o bc.StateObservation) (Decision, err
 		return out, e
 	}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if o.Delegation != nil {
-			if err := brokerdelegate.Lock(tx, o.Principal.TenantID, o.Delegation, true); err != nil {
-				if errors.Is(err, brokerroute.ErrFenced) {
-					return ErrFenced
-				}
-				return err
-			}
-		}
 		route, e := lockRoute(tx, o.Principal.TenantID, o.Principal.DeviceID)
 		if e != nil {
 			return e
@@ -70,16 +59,6 @@ func (s *Store) Apply(ctx context.Context, o bc.StateObservation) (Decision, err
 			return result.Error
 		}
 		accepted := result.RowsAffected > 0
-		if accepted && o.Delegation != nil {
-			proof, err := json.Marshal(o.Delegation)
-			if err != nil {
-				return err
-			}
-			if err := tx.Exec(`UPDATE broker_connection_observations SET delegated_route=?::jsonb WHERE tenant_id=? AND device_id=? AND broker_cell=? AND broker_instance=? AND node_boot_id=? AND connection_id=? AND event_seq=?`, string(proof), o.Principal.TenantID, o.Principal.DeviceID, o.BrokerCell, o.BrokerInstance, o.NodeBootID, o.ConnectionID, o.EventSeq).Error; err != nil {
-				return err
-			}
-		}
-
 		if accepted {
 			if e := tx.Exec(`INSERT INTO broker_state_projection_queue(tenant_id,device_id,updated_at) VALUES(?,?,now()) ON CONFLICT(tenant_id,device_id) DO UPDATE SET updated_at=now()`, o.Principal.TenantID, o.Principal.DeviceID).Error; e != nil {
 				return e
@@ -104,17 +83,10 @@ func snapshotTx(tx *gorm.DB, tenant, device, cell string, epoch uint64) (Decisio
 	 count(*) FILTER(WHERE online AND observed_at>=? AND observed_at<=? AND received_at>=?) AS active,
 	 count(*) FILTER(WHERE online AND NOT(observed_at>=? AND observed_at<=? AND received_at>=?)) AS stale,
 	 count(*) FILTER(WHERE NOT online AND observed_at>=? AND observed_at<=? AND received_at>=?) AS fresh_closed
-	 FROM broker_connection_observations AS o WHERE tenant_id=? AND device_id=? AND broker_cell=? AND route_epoch=? AND NULLIF(to_jsonb(o)->'delegated_route','null'::jsonb) IS NULL`, past, future, past, past, future, past, past, future, past, tenant, device, cell, epoch).Scan(&counts).Error
+	 FROM broker_connection_observations WHERE tenant_id=? AND device_id=? AND broker_cell=? AND route_epoch=?`, past, future, past, past, future, past, past, future, past, tenant, device, cell, epoch).Scan(&counts).Error
 	if err != nil {
 		return out, err
 	}
-	delegated, err := delegatedCounts(tx, tenant, device, cell, epoch, past, future)
-	if err != nil {
-		return out, err
-	}
-	counts.Active += delegated.Active
-	counts.Stale += delegated.Stale
-	counts.FreshClosed += delegated.FreshClosed
 	out.Connections = counts.Active
 	out.Status = "unknown"
 	if counts.Active > 0 {
@@ -222,10 +194,6 @@ type routeRow struct {
 
 func lockRoute(tx *gorm.DB, tenant, device string) (routeRow, error) {
 	var route routeRow
-	if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", tenant).Error; err != nil {
-		return route, err
-	}
-
 	r := tx.Raw(`SELECT broker_cell,route_epoch,phase FROM broker_transport_bindings WHERE tenant_id=? AND device_id=? FOR UPDATE`, tenant, device).Scan(&route)
 	if r.Error != nil {
 		return route, r.Error
@@ -311,52 +279,5 @@ func (s *Store) Snapshot(ctx context.Context, tenant, device string) (Decision, 
 	if route.BrokerCell == "" || route.RouteEpoch == 0 {
 		return out, nil
 	}
-	return snapshotTx(s.db.WithContext(ctx).Set("delegated_read_only", true), tenant, device, route.BrokerCell, route.RouteEpoch)
-}
-
-type pluginCounts struct{ Active, Stale, FreshClosed int64 }
-
-func delegatedCounts(tx *gorm.DB, tenant, device, cell string, epoch uint64, past, future time.Time) (pluginCounts, error) {
-	var out pluginCounts
-	var rows []struct {
-		Proof                  json.RawMessage
-		Online                 bool
-		ObservedAt, ReceivedAt time.Time
-	}
-	e := tx.Raw(`SELECT to_jsonb(o)->'delegated_route' AS proof,online,observed_at,received_at FROM broker_connection_observations o WHERE tenant_id=? AND device_id=? AND broker_cell=? AND route_epoch=? AND NULLIF(to_jsonb(o)->'delegated_route','null'::jsonb) IS NOT NULL LIMIT 257`, tenant, device, cell, epoch).Scan(&rows).Error
-	if e != nil {
-		return out, e
-	}
-	if len(rows) > 256 {
-		return out, nil
-	}
-	for _, row := range rows {
-		var proof bc.Delegation
-		if json.Unmarshal(row.Proof, &proof) != nil || proof.TargetDeviceID != device || proof.TargetRouteEpoch != epoch || proof.BrokerCell != cell {
-			continue
-		}
-		var e error
-		if readonly, _ := tx.Get("delegated_read_only"); readonly == true {
-			e = brokerdelegate.Check(tx, tenant, &proof, false)
-		} else {
-			e = brokerdelegate.Lock(tx, tenant, &proof, false)
-		}
-		if errors.Is(e, brokerroute.ErrFenced) || errors.Is(e, brokerroute.ErrConnecting) {
-			continue
-		}
-		if e != nil {
-			return out, e
-		}
-		fresh := !row.ObservedAt.Before(past) && !row.ObservedAt.After(future) && !row.ReceivedAt.Before(past)
-		if row.Online {
-			if fresh {
-				out.Active++
-			} else {
-				out.Stale++
-			}
-		} else if fresh {
-			out.FreshClosed++
-		}
-	}
-	return out, nil
+	return snapshotTx(s.db.WithContext(ctx), tenant, device, route.BrokerCell, route.RouteEpoch)
 }

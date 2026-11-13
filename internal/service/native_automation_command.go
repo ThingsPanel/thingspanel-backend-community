@@ -9,7 +9,6 @@ import (
 	"gorm.io/gorm"
 	"project/internal/automationbridge"
 	"project/internal/brokercommands"
-	"project/internal/dal"
 	"project/internal/model"
 	"project/pkg/global"
 	"strings"
@@ -40,7 +39,7 @@ func SubmitNativeAutomationCommand(ctx context.Context, req NativeCommand) (stri
 		return "", brokercommands.ErrRejected
 	}
 	scope := nativeAutomationScope(req.DeploymentID, req.TenantID, req.Scope)
-	if err := dal.BumpAutomationScopeGeneration(ctx, global.DB, scope, req.Generation); err != nil {
+	if err := global.DB.WithContext(ctx).Exec(`INSERT INTO automation_scope_generation(scope_key,generation,updated_at) VALUES(?,?,now()) ON CONFLICT(scope_key) DO UPDATE SET generation=GREATEST(automation_scope_generation.generation,excluded.generation),updated_at=now()`, scope, req.Generation).Error; err != nil {
 		return "", err
 	}
 	value := req.Value

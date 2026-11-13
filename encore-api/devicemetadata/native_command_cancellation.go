@@ -3,7 +3,6 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"errors"
 	"net/http"
 	"strings"
@@ -57,7 +56,7 @@ func cancelNativeDeviceCommand(ctx context.Context, identity nativeDeviceWriteId
 		Method: http.MethodPost, Path: nativeCommandLocation(deviceID, executionID) + "/cancellations", Key: key,
 		RequestID: requestID, CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		var state, mode string
 		var messageID *string
 		if err := tx.QueryRow(ctx, `SELECT state,delivery_mode,runtime_message_id FROM device_command_executions

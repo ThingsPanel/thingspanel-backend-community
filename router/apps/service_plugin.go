@@ -28,7 +28,6 @@ func (*ServicePlugin) Init(Router *gin.RouterGroup) {
 
 		access := url.Group("access")
 		access.POST("", api.Controllers.ServiceAccessApi.Create)
-		access.GET("/operations/:key", api.Controllers.ServiceAccessApi.HandleCreateOperation)
 
 		access.GET("/list", api.Controllers.ServiceAccessApi.HandleList)
 

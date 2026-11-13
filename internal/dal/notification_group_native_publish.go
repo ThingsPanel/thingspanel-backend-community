@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/ThingsPanel/thingspanel-backend-community/pkg/relational"
 	"project/internal/model"
 	"project/pkg/global"
 
@@ -37,7 +36,7 @@ func EnsureNativePublishAlias(ctx context.Context, key SourceRouteKey, aliasID, 
 	}
 	db := global.DB.WithContext(ctx).Session(&gorm.Session{Logger: logger.Discard})
 	return db.Transaction(func(tx *gorm.DB) error {
-		if err := relational.LockTx(ctx, tx, sourceRouteAdvisoryKey(key)); err != nil {
+		if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, sourceRouteAdvisoryKey(key)).Error; err != nil {
 			return ErrSourceRouteUnavailable
 		}
 		var existing model.NotificationGroup
@@ -71,10 +70,12 @@ func ActivateNativePublishRoute(ctx context.Context, key SourceRouteKey, nativeG
 	replayed := false
 	db := global.DB.WithContext(ctx).Session(&gorm.Session{Logger: logger.Discard})
 	err := db.Transaction(func(tx *gorm.DB) error {
-		if err := relational.LockTx(ctx, tx, sourceRouteAdvisoryKey(key)); err != nil {
+		if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, sourceRouteAdvisoryKey(key)).Error; err != nil {
 			return ErrSourceRouteUnavailable
 		}
-		if err := ensureSourceGroupRoute(tx, key); err != nil {
+		if err := tx.Exec(`INSERT INTO notification_source_group_routes
+			(source_deployment_id, tenant_id, legacy_group_id, engine, group_revision, route_version, bound_notification_group_id)
+			VALUES (?, ?, ?, 'legacy', 0, 0, NULL) ON CONFLICT DO NOTHING`, key.DeploymentID, key.TenantID, key.LegacyGroup).Error; err != nil {
 			return ErrSourceRouteUnavailable
 		}
 		var route struct {
@@ -172,7 +173,7 @@ func StopNativePublishRoute(ctx context.Context, key SourceRouteKey, nativeGroup
 	replayed := false
 	db := global.DB.WithContext(ctx).Session(&gorm.Session{Logger: logger.Discard})
 	err := db.Transaction(func(tx *gorm.DB) error {
-		if err := relational.LockTx(ctx, tx, sourceRouteAdvisoryKey(key)); err != nil {
+		if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, sourceRouteAdvisoryKey(key)).Error; err != nil {
 			return ErrSourceRouteUnavailable
 		}
 		var route struct {

@@ -63,7 +63,7 @@ func (*TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, err
 			return nil, err
 		}
 		// 是否有设备模板
-		if shouldLoadLegacyTelemetryMetadata(deviceConfig) {
+		if deviceConfig.DeviceTemplateID != nil {
 			// 查询遥测模型
 			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
@@ -148,7 +148,7 @@ func (*TelemetryData) GetCurrentTelemetrDataKeys(req *model.GetTelemetryCurrentD
 			})
 		}
 		// 是否有设备模板
-		if shouldLoadLegacyTelemetryMetadata(deviceConfig) {
+		if deviceConfig.DeviceTemplateID != nil {
 			// 查询遥测模型
 			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
@@ -203,10 +203,6 @@ func (*TelemetryData) GetCurrentTelemetrDataKeys(req *model.GetTelemetryCurrentD
 	}
 
 	return data, err
-}
-
-func shouldLoadLegacyTelemetryMetadata(config *model.DeviceConfig) bool {
-	return config != nil && config.DeviceTemplateID != nil && !hasNativeDeviceConfigBinding(config)
 }
 
 // 返回数据格式{"key":value,"key1":value1}
@@ -270,7 +266,7 @@ func (*TelemetryData) GetTelemetrHistoryData(req *model.GetTelemetryHistoryDataR
 	sT := req.StartTime * 1000
 	eT := req.EndTime * 1000
 
-	d, err := dal.History.GetHistoryTelemetrData(req.DeviceID, req.Key, sT, eT)
+	d, err := dal.GetHistoryTelemetrData(req.DeviceID, req.Key, sT, eT)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -304,7 +300,7 @@ func (*TelemetryData) GetTelemetrHistoryData(req *model.GetTelemetryHistoryDataR
 }
 
 func (*TelemetryData) DeleteTelemetrData(req *model.DeleteTelemetryDataReq) error {
-	err := dal.History.DeleteTelemetrData(req.DeviceID, req.Key)
+	err := dal.DeleteTelemetrData(req.DeviceID, req.Key)
 	if err != nil {
 		return err
 	}
@@ -353,7 +349,7 @@ func (*TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistor
 		rowNumber := 2
 
 		for {
-			datas, err := dal.History.GetHistoryTelemetrDataByExport(req, offset, batchSize)
+			datas, err := dal.GetHistoryTelemetrDataByExport(req, offset, batchSize)
 			if err != nil {
 				return addr, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 					"sql_error": err.Error(),
@@ -412,7 +408,7 @@ func (*TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistor
 	}
 
 	//  暂时忽略总数
-	_, data, err := dal.History.GetHistoryTelemetrDataByPage(req)
+	_, data, err := dal.GetHistoryTelemetrDataByPage(req)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -451,7 +447,7 @@ func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHist
 		rowNumber := 2
 
 		for {
-			datas, err := dal.History.GetHistoryTelemetrDataByExport(req, offset, batchSize)
+			datas, err := dal.GetHistoryTelemetrDataByExport(req, offset, batchSize)
 			if err != nil {
 				return addr, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 					"sql_error": err.Error(),
@@ -518,7 +514,7 @@ func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHist
 	}
 
 	//  暂时忽略总数
-	total, data, err := dal.History.GetHistoryTelemetrDataByPage(req)
+	total, data, err := dal.GetHistoryTelemetrDataByPage(req)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -949,7 +945,7 @@ func validateNonAggregateTimeRange(req *model.GetTelemetryStatisticReq) error {
 // 获取遥测数据
 func fetchTelemetryData(req *model.GetTelemetryStatisticReq) ([]map[string]interface{}, error) {
 	if req.AggregateWindow == "no_aggregate" {
-		data, err := dal.History.GetTelemetrStatisticData(req.DeviceId, req.Key, req.StartTime, req.EndTime)
+		data, err := dal.GetTelemetrStatisticData(req.DeviceId, req.Key, req.StartTime, req.EndTime)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),
@@ -966,7 +962,7 @@ func fetchTelemetryData(req *model.GetTelemetryStatisticReq) ([]map[string]inter
 		req.AggregateFunction = "avg"
 	}
 
-	return dal.History.GetTelemetrStatisticaAgregationData(
+	return dal.GetTelemetrStatisticaAgregationData(
 		req.DeviceId,
 		req.Key,
 		req.StartTime,
@@ -1172,9 +1168,6 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 
 	// 步骤3: 获取设备配置和协议类型
 	// ---------------------------------------------
-	if err := rejectNativeLegacyControl(deviceInfo); err != nil {
-		return err
-	}
 	var (
 		protocolType string
 		deviceConfig *model.DeviceConfig
@@ -1497,7 +1490,7 @@ func buildNestedSubGatewayData(gateway *model.Device, subDeviceAddr string, inpu
 }
 
 func (*TelemetryData) ServeMsgCountByTenantId(tenantId string) (int64, error) {
-	cnt, err := dal.History.GetTelemetryDataCountByTenantId(tenantId)
+	cnt, err := dal.GetTelemetryDataCountByTenantId(tenantId)
 	if err != nil {
 		return 0, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -1524,7 +1517,7 @@ func (*TelemetryData) GetTelemetryStatisticDataByDeviceIds(req *model.GetTelemet
 	}
 
 	// 调用DAL层查询数据
-	results, err := dal.History.GetTelemetryStatisticDataByDeviceIds(
+	results, err := dal.GetTelemetryStatisticDataByDeviceIds(
 		req.DeviceIds,
 		req.Keys,
 		req.TimeType,

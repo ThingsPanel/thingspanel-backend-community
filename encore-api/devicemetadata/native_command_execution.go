@@ -3,7 +3,6 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"errors"
 	"net/http"
 	"net/url"
@@ -374,7 +373,7 @@ func submitNativeDeviceCommand(
 		RequestID: requestID, CanonicalBody: canonical,
 	}
 	var accepted *nativeCommandAccepted
-	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		var lockedID string
 		if err := tx.QueryRow(ctx, `SELECT id::text FROM devices WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL FOR SHARE`,
 			identity.tenantID, deviceID).Scan(&lockedID); err != nil {

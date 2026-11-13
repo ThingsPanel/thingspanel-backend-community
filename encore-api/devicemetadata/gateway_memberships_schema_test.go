@@ -2,11 +2,12 @@ package devicemetadata
 
 import (
 	"context"
-	"encore.app/pkg/dbx"
-	"github.com/google/uuid"
 	"strings"
 	"testing"
 	"time"
+
+	"encore.dev/storage/sqldb"
+	"github.com/google/uuid"
 )
 
 func TestGatewayMembershipsSchemaAndTenantConstraints(t *testing.T) {
@@ -267,7 +268,7 @@ func TestGatewayMembershipsSchemaAndTenantConstraints(t *testing.T) {
 	}
 }
 
-func insertGatewayMembershipSchemaDevice(t *testing.T, ctx context.Context, tx dbx.Tx, tenantID, kind string, deleted bool) string {
+func insertGatewayMembershipSchemaDevice(t *testing.T, ctx context.Context, tx *sqldb.Tx, tenantID, kind string, deleted bool) string {
 	t.Helper()
 	row := validDeviceIdentitySchemaRow(tenantID)
 	row.deviceNumber = deviceIdentityString("gateway-device-" + uuid.NewString())
@@ -287,7 +288,7 @@ func insertGatewayMembershipSchemaDevice(t *testing.T, ctx context.Context, tx d
 	return row.id
 }
 
-func insertGatewayMembershipSchemaRow(ctx context.Context, tx dbx.Tx, tenantID, childID, gatewayID, address, actor string) error {
+func insertGatewayMembershipSchemaRow(ctx context.Context, tx *sqldb.Tx, tenantID, childID, gatewayID, address, actor string) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO gateway_memberships(tenant_id, child_device_id, gateway_device_id, subdevice_address, updated_by)
 		VALUES($1,$2,$3,$4,$5)

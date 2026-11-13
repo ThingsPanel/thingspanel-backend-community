@@ -32,14 +32,7 @@ type nativeMetricGroup struct {
 	Options        []nativeMetricOption `json:"options"`
 }
 
-type nativeMetricAccess struct {
-	Read    *bool `json:"read"`
-	Write   *bool `json:"write"`
-	Observe *bool `json:"observe"`
-}
-
 type nativeMetricField struct {
-	Access     *nativeMetricAccess     `json:"access"`
 	Kind       string                  `json:"kind"`
 	Identifier string                  `json:"identifier"`
 	Name       nativeCommandI18n       `json:"nameI18n"`
@@ -130,19 +123,6 @@ func nativeMetricGroups(raw json.RawMessage, kinds ...string) ([]nativeMetricGro
 		}
 		for _, field := range definition.Fields {
 			if field.Kind != kind {
-				continue
-			}
-			if field.Access == nil || field.Access.Read == nil || field.Access.Write == nil || field.Access.Observe == nil {
-				return nil, fmt.Errorf("native field %s requires complete access flags", field.Identifier)
-			}
-			permitted := *field.Access.Read
-			if kind == "COMMAND" {
-				permitted = *field.Access.Write
-			}
-			if kind == "EVENT" {
-				permitted = *field.Access.Observe
-			}
-			if !permitted {
 				continue
 			}
 			option, err := nativeMetricFromField(field)

@@ -95,38 +95,40 @@ func DispatchAutomation(device *model.Device, ext service.AutomateFromExt) error
 	if device == nil {
 		return fmt.Errorf("automation dispatch: nil device")
 	}
-	c, err := automationbridge.ReadConfig()
-	if err != nil {
-		return err
-	}
 	f := sharedForwarder()
-	if c.Mode == "legacy" {
-		return service.GroupApp.Execute(device, ext)
-	}
 	if f == nil {
-		return fmt.Errorf("native automation forwarder unavailable")
+		return service.GroupApp.Execute(device, ext)
 	}
 	return f.enqueue(device, ext)
 }
 
-// CurrentAutomationMode reports the validated decision used by uplinks.
-func CurrentAutomationMode() (AutomationMode, error) {
-	c, err := automationbridge.ReadConfig()
-	if err != nil {
-		return "", err
+// CurrentAutomationMode reports the same process-frozen decision used by uplinks.
+// In particular, a missing native URL is reported as legacy to every client.
+func CurrentAutomationMode() AutomationMode {
+	if sharedForwarder() != nil {
+		return AutomationModeNative
 	}
-	return AutomationMode(c.Mode), nil
+	return AutomationModeLegacy
 }
 
-// sharedForwarder builds the native forwarder once per process. DispatchAutomation
-// separately validates the mode and never treats a missing forwarder as legacy.
+// sharedForwarder builds the forwarder once per process. It returns nil when the
+// installation has not switched, which is how DispatchAutomation knows to keep
+// using the in-process engine.
 func sharedForwarder() *nativeForwarder {
-	cfg, err := automationbridge.ReadConfig()
-	if err != nil || cfg.Mode != "native" {
-		return nil
-	}
 	forwarderOnce.Do(func() {
-		baseURL := cfg.BaseURL
+		mode := AutomationMode(strings.ToLower(strings.TrimSpace(os.Getenv(envAutomationMode))))
+		if mode != AutomationModeNative {
+			return
+		}
+		baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv(envAutomationBaseURL)), "/")
+		if baseURL == "" {
+			// Refusing to start forwarding is deliberate: a native mode with no
+			// address would drop every uplink and look like "automation stopped
+			// working". Falling back keeps the old engine alive and says why.
+			logrus.WithField("env", envAutomationBaseURL).
+				Error("自动化已配置为 native 但未给出服务地址，回退到内置引擎")
+			return
+		}
 		timeout := defaultAutomationTimeout
 		if raw := strings.TrimSpace(os.Getenv(envAutomationTimeout)); raw != "" {
 			if ms, err := strconv.Atoi(raw); err == nil && ms > 0 {
@@ -141,7 +143,7 @@ func sharedForwarder() *nativeForwarder {
 		}
 		f := &nativeForwarder{
 			baseURL: baseURL,
-			token:   cfg.Token,
+			token:   strings.TrimSpace(os.Getenv(envAutomationToken)),
 			client:  &http.Client{Timeout: timeout},
 			queue:   make(chan nativeUplink, size),
 			logger:  logrus.StandardLogger(),

@@ -8,6 +8,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func init() {
+	initialize.ViperInit("../../configs/conf-localdev.yml")
+	initialize.LogInIt()
+	initialize.RedisInit()
+	alarmCache = initialize.NewAlarmCache()
+
+}
+
 var (
 	alarmCache          *initialize.AlarmCache
 	group_id            = "group_id_1234"
@@ -17,7 +25,6 @@ var (
 )
 
 func TestSetDevice(t *testing.T) {
-	resetPrivateCache(t)
 	logrus.Debug("单元测试开始执行:")
 	err := alarmCache.SetDevice(group_id, scene_automation_id, device_ids, contents)
 	if err != nil {
@@ -38,10 +45,6 @@ func TestSetDevice(t *testing.T) {
 }
 
 func TestDeleteBygroupId(t *testing.T) {
-	resetPrivateCache(t)
-	if err := alarmCache.SetDevice(group_id, scene_automation_id, device_ids, contents); err != nil {
-		t.Fatal(err)
-	}
 	fmt.Println("测试删除缓存...")
 
 	err := alarmCache.DeleteBygroupId(group_id)

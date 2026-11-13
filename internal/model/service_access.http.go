@@ -1,7 +1,6 @@
 package model
 
 type CreateAccessReq struct {
-	OperationKey        string `json:"operation_key,omitempty" binding:"omitempty,max=200"`
 	Name                string `json:"name" binding:"required"`
 	ServicePluginID     string `json:"service_plugin_id" binding:"required"`
 	Voucher             string `json:"voucher" binding:"required"`

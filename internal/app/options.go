@@ -72,7 +72,7 @@ func WithLogger() Option {
 // WithDatabase 初始化数据库连接
 func WithDatabase() Option {
 	return func(app *Application) error {
-		db, err := initialize.RelationalInit()
+		db, err := initialize.PgInit()
 		if err != nil {
 			return err
 		}

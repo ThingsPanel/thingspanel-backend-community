@@ -253,31 +253,19 @@ func (c *MarketClient) Login(ctx context.Context, username, password string) (*m
 // Refresh exchanges a market refresh token for a new access token.
 func (c *MarketClient) Refresh(ctx context.Context, refreshToken string) (*model.MarketLoginRsp, error) {
 	reqBytes, err := json.Marshal(map[string]string{"refresh_token": refreshToken})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal refresh body: %w", err)
-	}
+	if err != nil { return nil, fmt.Errorf("failed to marshal refresh body: %w", err) }
 	url := fmt.Sprintf("%s/api/account/auth/refresh", c.baseURL)
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create refresh request: %w", err)
-	}
+	if err != nil { return nil, fmt.Errorf("failed to create refresh request: %w", err) }
 	httpReq.Header.Set("Content-Type", "application/json")
 	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("refresh request failed: %w", err)
-	}
+	if err != nil { return nil, fmt.Errorf("refresh request failed: %w", err) }
 	defer resp.Body.Close()
 	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read refresh response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("market refresh failed with status: %d", resp.StatusCode)
-	}
+	if err != nil { return nil, fmt.Errorf("failed to read refresh response: %w", err) }
+	if resp.StatusCode != http.StatusOK { return nil, fmt.Errorf("market refresh failed with status: %d", resp.StatusCode) }
 	var result model.MarketLoginRsp
-	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse refresh response: %w", err)
-	}
+	if err := json.Unmarshal(bodyBytes, &result); err != nil { return nil, fmt.Errorf("failed to parse refresh response: %w", err) }
 	return &result, nil
 }
 
@@ -637,9 +625,6 @@ func (c *MarketClient) PublishBundle(ctx context.Context, token string, idempote
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		if resp.StatusCode == http.StatusConflict {
-			return nil, &MarketPublicationConflictError{}
-		}
 		return nil, fmt.Errorf("%w: status=%d body=%s", ErrMarketRequestRejected, resp.StatusCode, compactMarketBody(bodyBytes))
 	}
 

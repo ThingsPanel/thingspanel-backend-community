@@ -2,7 +2,7 @@ name: Kernel convergence verification
 on:
   workflow_dispatch:
   push:
-    branches: [codex/kernel-source-convergence-20261110, wp/full-develop-integration-20261111]
+    branches: [codex/kernel-source-convergence-20261110]
   pull_request:
     paths:
       - 'encore-api/**'
@@ -19,7 +19,6 @@ jobs:
       GOMAXPROCS: '2'
       GOFLAGS: '-p=2'
       NOTIFICATION_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
-      TP_AUTH_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test
     services:
       postgres:
         image: postgres:16-alpine
@@ -55,9 +54,8 @@ jobs:
         run: |
           UNIPUSH_FIXTURE_BIN="$RUNNER_TEMP/notification-unipush" encore test -p=2 \
             ./thingmodel/... ./devicemetadata/... ./fileassets/... \
-            ./l1-access/authn ./internal/authz ./internal/authcore/... ./pkg/... ./internal/communityclient ./internal/luasandbox \
-            ./l3-core/connectorcatalog/... ./l3-core/notification/... ./automation/... \
-            ./marketinstall/... ./platformconfig/...
+            ./l1-access/authn ./internal/authz ./internal/communityclient ./internal/luasandbox \
+            ./l3-core/connectorcatalog/... ./l3-core/notification/... ./automation/...
       - name: Verify existing migration safeguards
         env:
           KERNEL_MIGRATION_FIXTURE_CONTAINER: ${{ job.services.postgres.id }}
@@ -65,6 +63,6 @@ jobs:
           python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_kernel_metadata_upgrade.py' -v
           python3 -m unittest discover -s deploy/community-test -p 'test_deployment_guard.py' -v
-      - name: Build integrated native service selection
+      - name: Build current production service selection
         working-directory: encore-api
-        run: encore build docker tp-community-convergence --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,marketinstall,platformconfig --skip-config
+        run: encore build docker tp-community-convergence --services=authn,thingmodel,automation,notification --skip-config

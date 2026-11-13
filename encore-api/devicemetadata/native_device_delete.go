@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"errors"
 	"net/http"
 
@@ -38,7 +37,7 @@ func requestNativeDeviceDeletion(
 		Method: http.MethodDelete, Path: path, Key: key, RequestID: requestID, IfMatch: ifMatch,
 		CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('device-gateway-tree:' || $1::text,72311028))`, identity.tenantID); err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}

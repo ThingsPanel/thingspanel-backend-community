@@ -69,8 +69,6 @@ func RouterInit() *gin.Engine {
 	router.Use(middleware.Cors())
 	// Credential routes precede full-body operation logging and ordinary JWT auth.
 	api.RegisterBrokerAIToolRoutes(router)
-	api.RegisterMarketInstallProviderRoutes(router)
-	api.RegisterDictionaryAuthorizationRoutes(router)
 	router.Use(api.BrokerCommandPlanBodyLimits())
 	// 初始化响应处理器
 	handler, err := response.NewHandler("configs/messages.yaml", "configs/messages_str.yaml")
@@ -94,7 +92,7 @@ func RouterInit() *gin.Engine {
 				c.JSON(503, gin.H{"code": 503, "message": "authentication routing is not configured"})
 				return
 			}
-			var data any = gin.H{"password": gin.H{"enabled": true}, "external": gin.H{"enabled": false, "providers": []any{}}, "bindings": gin.H{"enabled": false}}
+			var data any = gin.H{"password": gin.H{"enabled": true}, "external": gin.H{"enabled": false, "providers": []any{}}}
 			if c.Request.URL.Path == "/api/v1/auth/external/providers" {
 				data = []any{}
 			}
@@ -199,12 +197,7 @@ func RouterInit() *gin.Engine {
 		v1.Use(middleware.CasbinRBAC())
 		v1.GET("/automation/runtime", func(c *gin.Context) {
 			c.Header("Cache-Control", "no-store")
-			mode, err := uplink.CurrentAutomationMode()
-			if err != nil {
-				c.JSON(503, gin.H{"code": 503, "message": "automation configuration invalid"})
-				return
-			}
-			c.JSON(200, gin.H{"code": 200, "message": "success", "data": gin.H{"mode": mode}})
+			c.JSON(200, gin.H{"code": 200, "message": "success", "data": gin.H{"mode": uplink.CurrentAutomationMode()}})
 		})
 		// SSE服务
 		SSERouter(v1)

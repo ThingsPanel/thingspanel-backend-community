@@ -7,7 +7,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"project/internal/automationbridge"
-	"project/internal/brokerroute"
 	"project/internal/model"
 	"time"
 )
@@ -26,10 +25,6 @@ func ProcessBrokerNativeAutomationEffect(ctx context.Context, db *gorm.DB, cell 
 	var claimed automationEffect
 	var event automationbridge.Uplink
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		delegationErr := lockAutomationDelegation(tx, candidate)
-		if delegationErr != nil && !errors.Is(delegationErr, brokerroute.ErrFenced) && !errors.Is(delegationErr, brokerroute.ErrConnecting) {
-			return delegationErr
-		}
 		var source struct {
 			DeviceID   string
 			RouteEpoch uint64
@@ -55,7 +50,7 @@ func ProcessBrokerNativeAutomationEffect(ctx context.Context, db *gorm.DB, cell 
 			claimed.ID = ""
 			return tx.Model(&automationEffect{}).Where("id=?", candidate.ID).Updates(map[string]any{"state": "fenced", "last_error": reason, "updated_at": time.Now()}).Error
 		}
-		if delegationErr != nil || binding.Phase != "active" || binding.BrokerCell != cell || binding.RouteEpoch != source.RouteEpoch {
+		if binding.Phase != "active" || binding.BrokerCell != cell || binding.RouteEpoch != source.RouteEpoch {
 			return fence("source transport route changed")
 		}
 		if time.Since(claimed.CreatedAt) > 2*time.Minute || claimed.CreatedAt.After(time.Now().Add(5*time.Second)) {

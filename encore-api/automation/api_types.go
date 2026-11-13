@@ -328,10 +328,6 @@ type ListAlarmsRequest struct {
 	SubjectID string `json:"subject_id" query:"subject_id"`
 	State     string `json:"state" query:"state"`
 	Limit     int    `json:"limit" query:"limit"`
-	Offset    int    `json:"offset" query:"offset"`
-	Level     string `json:"level" query:"level"`
-	StartTime string `json:"start_time" query:"start_time"`
-	EndTime   string `json:"end_time" query:"end_time"`
 }
 
 // AlarmResponse is one alarm episode.
@@ -398,7 +394,6 @@ type AlarmReconcileResponse struct {
 // ListAlarmsResponse is a page of episodes.
 type ListAlarmsResponse struct {
 	Alarms []AlarmResponse `json:"alarms"`
-	Total  int64           `json:"total"`
 }
 
 // AckAlarmRequest acknowledges an episode.

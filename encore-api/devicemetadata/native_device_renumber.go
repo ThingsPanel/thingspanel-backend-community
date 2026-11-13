@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"encore.app/pkg/dbx"
 	"errors"
 	"net/http"
 
@@ -74,7 +73,7 @@ func renumberNativeDevice(ctx context.Context, identity nativeDeviceWriteIdentit
 		TenantID: identity.tenantID, SubjectID: identity.subjectID, Operation: "changeDeviceNumber",
 		Method: http.MethodPost, Path: path, Key: key, RequestID: requestID, CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		var version int64
 		var oldNumber string
 		err := tx.QueryRow(ctx, `SELECT resource_version,device_number FROM devices WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE`,

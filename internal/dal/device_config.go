@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
-	"strings"
 	"time"
 
 	model "project/internal/model"
@@ -16,7 +14,6 @@ import (
 
 	"gorm.io/gen"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"github.com/sirupsen/logrus"
 )
@@ -38,57 +35,68 @@ func UpdateDeviceConfigTemplateID(id string, templateID *string) error {
 }
 
 func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
-	config, err := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(id)).First()
+	p := query.DeviceConfig
+	t := time.Now().UTC()
+	condsMap["updated_at"] = &t
+	info, err := query.DeviceConfig.Where(p.ID.Eq(id)).Updates(condsMap)
 	if err != nil {
+		logrus.Error(err)
 		return err
 	}
-	return UpdateDeviceConfigForTenant(id, config.TenantID, condsMap)
+	if info.RowsAffected == 0 {
+		return fmt.Errorf("update deviceconfig failed, no rows affected")
+	}
+	return err
 }
 
 func UpdateDeviceConfigForTenant(id, tenantID string, condsMap map[string]interface{}) error {
 	condsMap["updated_at"] = time.Now().UTC()
-	return updateDeviceConfigForOwner(id, tenantID, condsMap, nil)
+	result := global.DB.Model(&model.DeviceConfig{}).
+		Where("id = ? AND tenant_id = ?", id, tenantID).
+		Updates(condsMap)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("update device config failed: record not found for tenant")
+	}
+	return nil
 }
 
 func UpdateDeviceConfigWithBindingCAS(id, tenantID string, expectedRevision int, condsMap map[string]interface{}) error {
 	condsMap["updated_at"] = time.Now().UTC()
 	condsMap["native_binding_revision"] = gorm.Expr("native_binding_revision + 1")
-	return updateDeviceConfigForOwner(id, tenantID, condsMap, &expectedRevision)
+	return global.DB.Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&model.DeviceConfig{}).
+			Where("id = ? AND tenant_id = ? AND native_binding_revision = ?", id, tenantID, expectedRevision).
+			Updates(condsMap)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrNativeBindingRevisionConflict
+		}
+		return nil
+	})
 }
 
 func DeleteDeviceConfig(id string) error {
-	config, err := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(id)).First()
+	_, err := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(id)).Delete()
 	if err != nil {
-		return err
+		logrus.Error(err)
 	}
-	return DeleteDeviceConfigForTenant(id, config.TenantID)
+	return err
 }
 
 func DeleteDeviceConfigForTenant(id, tenantID string) error {
-	if strings.TrimSpace(tenantID) == "" {
-		return ErrDeviceBindingInvalid
+	result := global.DB.Where("id = ? AND tenant_id = ?", id, tenantID).Delete(&model.DeviceConfig{})
+	if result.Error != nil {
+		return result.Error
 	}
-	tx := query.Use(global.DB).Begin()
-	if tx.Error != nil {
-		return tx.Error
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("delete device config failed: record not found for tenant")
 	}
-	c, d := tx.DeviceConfig, tx.Device
-	_, err := c.Clauses(clause.Locking{Strength: "UPDATE"}).Where(c.ID.Eq(id), c.TenantID.Eq(tenantID)).First()
-	if err == nil {
-		var count int64
-		count, err = d.Where(d.DeviceConfigID.Eq(id)).Count()
-		if err == nil && count > 0 {
-			err = &DeviceConfigurationInUseError{Count: count}
-		}
-	}
-	if err == nil {
-		info, deleteErr := c.Where(c.ID.Eq(id), c.TenantID.Eq(tenantID)).Delete()
-		err = deleteErr
-		if err == nil && info.RowsAffected != 1 {
-			err = ErrDeviceConfigurationConflict
-		}
-	}
-	return finishDeviceBinding(tx, err)
+	return nil
 }
 
 func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {
@@ -386,273 +394,10 @@ func GetDeviceConfigCountByFuncTemplateId(id string) (int64, error) {
 }
 
 // 给设备增加设备模板
-func UpdateDeviceDeviceConfigID(deviceID, tenantID string, deviceConfigID *string) error {
-	return ReplaceTenantDeviceConfigurations(context.Background(), tenantID, []string{deviceID}, deviceConfigID, true)
-}
-
-// updateDeviceConfigForOwner keeps role-changing updates on the existing
-// configuration owner. Device rows are always locked before configuration rows,
-// matching parent binding and device configuration replacement.
-func updateDeviceConfigForOwner(id, tenantID string, updates map[string]interface{}, expectedRevision *int) error {
-	if strings.TrimSpace(tenantID) == "" {
-		return ErrDeviceBindingInvalid
-	}
-	if _, changesOwner := updates["tenant_id"]; changesOwner {
-		return ErrDeviceBindingInvalid
-	}
-	if _, changesID := updates["id"]; changesID {
-		return ErrDeviceBindingInvalid
-	}
-	tx := query.Use(global.DB).Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	q, c := tx.Device, tx.DeviceConfig
-	var err error
-	var lockedIDs map[string]bool
-	var desiredType string
-	roleChange := false
-	if value, provided := updates["device_type"]; provided {
-		roleChange = true
-		switch value := value.(type) {
-		case string:
-			desiredType = value
-		case *string:
-			if value != nil {
-				desiredType = *value
-			}
-		}
-		if desiredType != "1" && desiredType != "2" && desiredType != "3" {
-			err = ErrDeviceBindingInvalid
-		}
-	}
-	if err == nil && roleChange {
-		var refs []*model.Device
-		refs, err = q.Where(q.DeviceConfigID.Eq(id)).Order(q.ID).Find()
-		lockedIDs = map[string]bool{}
-		if err == nil {
-			for _, d := range refs {
-				if d.TenantID != tenantID {
-					err = ErrDeviceBindingInvalid
-					break
-				}
-				_, err = q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(d.ID), q.TenantID.Eq(tenantID)).First()
-				if err != nil {
-					break
-				}
-				lockedIDs[d.ID] = true
-			}
-		}
-	}
-	if err == nil {
-		var config *model.DeviceConfig
-		config, err = c.Clauses(clause.Locking{Strength: "UPDATE"}).Where(c.ID.Eq(id), c.TenantID.Eq(tenantID)).First()
-		if err == nil && expectedRevision != nil && config.NativeBindingRevision != *expectedRevision {
-			err = ErrNativeBindingRevisionConflict
-		}
-	}
-	if err == nil && roleChange {
-		var refs []*model.Device
-		refs, err = q.Where(q.DeviceConfigID.Eq(id)).Order(q.ID).Find()
-		if err == nil {
-			for _, d := range refs {
-				// A reference added while the lock plan was being acquired must be retried
-				// with a new plan; acquiring it now would reverse the global lock order.
-				if !lockedIDs[d.ID] {
-					err = ErrDeviceConfigurationConflict
-					break
-				}
-				if d.TenantID != tenantID {
-					err = ErrDeviceBindingInvalid
-					break
-				}
-				if d.ParentID != nil && *d.ParentID != "" && desiredType != "2" && desiredType != "3" {
-					err = ErrDeviceBindingInvalid
-					break
-				}
-				var children int64
-				children, err = q.Where(q.ParentID.Eq(d.ID)).Count()
-				if err != nil {
-					break
-				}
-				if children > 0 && desiredType != "2" {
-					err = ErrDeviceBindingInvalid
-					break
-				}
-			}
-		}
-	}
-	if err == nil {
-		scoped := c.Where(c.ID.Eq(id), c.TenantID.Eq(tenantID))
-		if expectedRevision != nil {
-			scoped = scoped.Where(c.NativeBindingRevision.Eq(*expectedRevision))
-		}
-		info, updateErr := scoped.Updates(updates)
-		err = updateErr
-		if err == nil && info.RowsAffected != 1 {
-			err = ErrNativeBindingRevisionConflict
-		}
-	}
-	return finishDeviceBinding(tx, err)
-}
-
-var ErrDeviceConfigurationConflict = errors.New("device configuration references changed; retry with current state")
-
-// validateDeviceConfigurationRole is called with the affected device row locked.
-// Child creation/binding takes that same parent lock, so dependency inspection
-// and configuration replacement cannot pass each other unnoticed.
-func validateDeviceConfigurationRole(tx *query.Query, tenantID string, device *model.Device, configID *string) error {
-	q, c := tx.Device, tx.DeviceConfig
-	children, err := q.Where(q.ParentID.Eq(device.ID)).Count()
+func UpdateDeviceDeviceConfigID(deviceID string, deviceConfigID *string) error {
+	_, err := query.Device.Where(query.Device.ID.Eq(deviceID)).Update(query.Device.DeviceConfigID, deviceConfigID)
 	if err != nil {
-		return err
+		logrus.Error(err)
 	}
-	isChild := device.ParentID != nil && *device.ParentID != ""
-	if configID == nil || *configID == "" {
-		if isChild || children > 0 {
-			return ErrDeviceBindingInvalid
-		}
-		return nil
-	}
-	config, err := c.Clauses(clause.Locking{Strength: "SHARE"}).Where(c.ID.Eq(*configID), c.TenantID.Eq(tenantID)).First()
-	if err != nil {
-		return err
-	}
-	if isChild && config.DeviceType != "2" && config.DeviceType != "3" {
-		return ErrDeviceBindingInvalid
-	}
-	if children > 0 && config.DeviceType != "2" {
-		return ErrDeviceBindingInvalid
-	}
-	return nil
-}
-
-func ReplaceTenantDeviceConfigurations(ctx context.Context, tenantID string, deviceIDs []string, configID *string, requireEmpty bool) error {
-	if strings.TrimSpace(tenantID) == "" || len(deviceIDs) == 0 {
-		return ErrDeviceBindingInvalid
-	}
-	unique := map[string]bool{}
-	ids := []string{}
-	for _, id := range deviceIDs {
-		if strings.TrimSpace(id) == "" {
-			return ErrDeviceBindingInvalid
-		}
-		if !unique[id] {
-			unique[id] = true
-			ids = append(ids, id)
-		}
-	}
-	sort.Strings(ids)
-	tx := query.Use(global.DB.WithContext(ctx)).Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	q := tx.Device
-	devices := []*model.Device{}
-	var err error
-	for _, id := range ids {
-		var device *model.Device
-		device, err = q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).First()
-		if err != nil {
-			break
-		}
-		if requireEmpty && device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
-			err = ErrDeviceConfigurationConflict
-			break
-		}
-		devices = append(devices, device)
-	}
-	if err == nil {
-		for _, device := range devices {
-			if err = validateDeviceConfigurationRole(tx.Query, tenantID, device, configID); err != nil {
-				break
-			}
-		}
-	}
-	if err == nil {
-		for _, id := range ids {
-			info, updateErr := q.Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).Update(q.DeviceConfigID, configID)
-			err = updateErr
-			if err == nil && info.RowsAffected != 1 {
-				err = ErrDeviceConfigurationConflict
-			}
-			if err != nil {
-				break
-			}
-		}
-	}
-	return finishDeviceBinding(tx, err)
-}
-
-// New-child creation also participates in configuration serialization. A missing
-// configuration keeps the existing unconfigured-device contract; any configured
-// role must be owned by this tenant and compatible with its parent/child role.
-func validateNewChildConfigurations(tx *query.Query, parent, child *model.Device) error {
-	ids := []string{}
-	seen := map[string]bool{}
-	for _, d := range []*model.Device{parent, child} {
-		if d.DeviceConfigID != nil && *d.DeviceConfigID != "" && !seen[*d.DeviceConfigID] {
-			seen[*d.DeviceConfigID] = true
-			ids = append(ids, *d.DeviceConfigID)
-		}
-	}
-	sort.Strings(ids)
-	configs := map[string]*model.DeviceConfig{}
-	q := tx.DeviceConfig
-	for _, id := range ids {
-		c, err := q.Clauses(clause.Locking{Strength: "SHARE"}).Where(q.ID.Eq(id), q.TenantID.Eq(child.TenantID)).First()
-		if err != nil {
-			return err
-		}
-		configs[id] = c
-	}
-	if parent.DeviceConfigID != nil && *parent.DeviceConfigID != "" && configs[*parent.DeviceConfigID].DeviceType != "2" {
-		return ErrDeviceBindingInvalid
-	}
-	if child.DeviceConfigID != nil && *child.DeviceConfigID != "" {
-		typ := configs[*child.DeviceConfigID].DeviceType
-		if typ != "2" && typ != "3" {
-			return ErrDeviceBindingInvalid
-		}
-	}
-	return nil
-}
-
-// Every new configuration reference, including an unparented device, holds the
-// configuration row until commit. Configuration updates/deletion can therefore
-// inspect the complete committed reference set under their exclusive lock.
-func lockNewDeviceConfigurations(tx *query.Query, devices []*model.Device) error {
-	owners := map[string]string{}
-	ids := []string{}
-	for _, d := range devices {
-		if d == nil {
-			return ErrDeviceBindingInvalid
-		}
-		if d.DeviceConfigID == nil || *d.DeviceConfigID == "" {
-			continue
-		}
-		id := *d.DeviceConfigID
-		if owner, exists := owners[id]; exists {
-			if owner != d.TenantID {
-				return ErrDeviceBindingInvalid
-			}
-		} else {
-			owners[id] = d.TenantID
-			ids = append(ids, id)
-		}
-	}
-	sort.Strings(ids)
-	q := tx.DeviceConfig
-	for _, id := range ids {
-		if _, err := q.Clauses(clause.Locking{Strength: "SHARE"}).Where(q.ID.Eq(id), q.TenantID.Eq(owners[id])).First(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-type DeviceConfigurationInUseError struct{ Count int64 }
-
-func (e *DeviceConfigurationInUseError) Error() string {
-	return "device configuration is still referenced"
+	return err
 }
