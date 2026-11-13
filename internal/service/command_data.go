@@ -27,6 +27,8 @@ import (
 
 const commandStatusTimeout = 30 * time.Second
 
+type commandAuthorizationKey struct{}
+
 type CommandData struct {
 	downlinkBus *downlink.Bus // ✨ 依赖注入
 }
@@ -44,7 +46,10 @@ func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, 
 }
 
 // CommandPutMessageWithResult 接受命令并返回可用于查询回执的 message_id。
-func (c *CommandData) CommandPutMessageWithResult(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType, tenantID string) (string, error) {
+func (c *CommandData) CommandPutMessageWithResult(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType, tenantID string, authorization ...string) (string, error) {
+	if len(authorization) > 0 {
+		ctx = context.WithValue(ctx, commandAuthorizationKey{}, authorization[0])
+	}
 	return c.commandPutMessageWithResult(ctx, operatorID, putMessageReq, operationType, tenantID, true)
 }
 
@@ -89,6 +94,14 @@ func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorI
 	}
 	if enforceTenant && device.TenantID != tenantID {
 		return "", errcode.NewWithMessage(errcode.CodeParamError, "device not found")
+	}
+	// Plans have already checked the pinned semantic evidence. All ordinary
+	// entrypoints validate before producing a log, durable row, or wire payload.
+	if len(hooks) == 0 {
+		authorization, _ := ctx.Value(commandAuthorizationKey{}).(string)
+		if err := validateDeviceCommand(ctx, authorization, device, putMessageReq.Identify, putMessageReq.Value); err != nil {
+			return "", errcode.NewWithMessage(errcode.CodeParamError, "invalid native command: "+err.Error())
+		}
 	}
 	if !durableCommands && c.downlinkBus == nil {
 		return "", fmt.Errorf("downlink service not available")

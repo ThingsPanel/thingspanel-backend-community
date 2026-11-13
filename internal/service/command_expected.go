@@ -164,6 +164,11 @@ func prepareExpectedDownlink(ctx context.Context, ed *model.ExpectedData) (broke
 		if err != nil {
 			return err
 		}
+		if typ == downlink.MessageTypeCommand {
+			if err := validateSnapshotCommand(ctx, snapshot, data); err != nil {
+				return err
+			}
+		}
 		deviceType := snapshot.Devices[0].DeviceType
 		if snapshot.Plugin != nil {
 			deviceType = snapshotWireDeviceType(snapshot)

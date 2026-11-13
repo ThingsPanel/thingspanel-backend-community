@@ -208,7 +208,7 @@ func validateConstraintSchema(v commandValueType, base string) error {
 	if c == nil {
 		return nil
 	}
-	if c.TrueText != "" || c.FalseText != "" { // Display metadata is not runtime semantics.
+	if (c.TrueText != "" || c.FalseText != "") && v.Kind != "BOOL" { // Labels are valid only on BOOL; they never coerce values.
 		return ErrCommandUnsupported
 	}
 	if c.Min != nil || c.Max != nil || c.Step != nil || c.Precision != nil {

@@ -90,6 +90,9 @@ func (e *ExpectedData) createIngress(ctx context.Context, ed *model.ExpectedData
 		if err := validateExpectedCreatorTx(ctx, tx, claims, ed.DeviceID); err != nil {
 			return err
 		}
+		if err := validateStoredNativeCommand(ctx, tx, ed); err != nil {
+			return err
+		}
 		if err := tx.Create(ed).Error; err != nil {
 			return err
 		}

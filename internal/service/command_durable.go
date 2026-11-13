@@ -194,6 +194,11 @@ type commandDeviceSnapshot struct {
 }
 
 type commandConfigSnapshot struct {
+	NativeThingModelID         *string `json:"native_thing_model_id,omitempty"`
+	NativeThingModelSnapshotID *string `json:"native_thing_model_snapshot_id,omitempty"`
+	NativeThingModelRevision   *int    `json:"native_thing_model_revision,omitempty"`
+	NativeBindingRevision      int     `json:"native_binding_revision,omitempty"`
+
 	ID               string  `json:"id"`
 	TenantID         string  `json:"tenant_id"`
 	DeviceType       string  `json:"device_type"`
@@ -325,6 +330,7 @@ func readDownlinkFingerprint(ctx context.Context, tx *gorm.DB, tenant, logicalDe
 	for _, id := range configIDs {
 		config := configsByID[id]
 		snapshot.Configs = append(snapshot.Configs, commandConfigSnapshot{
+			NativeThingModelID: config.NativeThingModelID, NativeThingModelSnapshotID: config.NativeThingModelSnapshotID, NativeThingModelRevision: config.NativeThingModelRevision, NativeBindingRevision: config.NativeBindingRevision,
 			ID: config.ID, TenantID: config.TenantID, DeviceType: config.DeviceType, DeviceTemplateID: config.DeviceTemplateID,
 			ProtocolType: config.ProtocolType, ProtocolConfig: config.ProtocolConfig, AdditionalInfo: config.AdditionalInfo, OtherConfig: config.OtherConfig,
 		})
@@ -413,6 +419,9 @@ func prepareDurableDownlink(ctx context.Context, db *gorm.DB, message *downlink.
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		fingerprint, script, snapshot, err := readCommandFingerprint(ctx, tx, tenant, logicalDeviceID, targetRootID, message.DeviceConfigID)
 		if err != nil {
+			return err
+		}
+		if err := validateSnapshotCommand(ctx, snapshot, commandData); err != nil {
 			return err
 		}
 		if snapshot.Plugin != nil {

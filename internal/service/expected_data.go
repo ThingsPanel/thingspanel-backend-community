@@ -9,6 +9,7 @@ import (
 	model "project/internal/model"
 	"project/pkg/errcode"
 	utils "project/pkg/utils"
+	"strings"
 	"time"
 
 	"github.com/go-basic/uuid"
@@ -24,8 +25,13 @@ func mergeIdentifyAndPayload(identify string, paramsStr *string) (string, error)
 	}
 	// 解析 payload 为 map
 	if paramsStr != nil {
+		if !json.Valid([]byte(*paramsStr)) {
+			return "", fmt.Errorf("error parsing payload JSON: expected one JSON value")
+		}
 		var params any
-		err := json.Unmarshal([]byte(*paramsStr), &params)
+		decoder := json.NewDecoder(strings.NewReader(*paramsStr))
+		decoder.UseNumber()
+		err := decoder.Decode(&params)
 		if err != nil {
 			return "", fmt.Errorf("error parsing payload JSON: %v", err)
 		}
