@@ -27,6 +27,12 @@ class StageCAS(unittest.TestCase):
   self.assertNotIn('dal.UpdateDeviceConfigVoucherType(req.Id',service)
   self.assertIn('Strength:"UPDATE"',(self.destination/'internal/dal/device_config_metadata_owner.go').read_text())
   self.assertEqual(len(result['changes']),len(cas.COPIED)+4)
+ def test_lf_and_crlf_have_identical_source_guard(self):
+  for name in cas.BASE_HASHES:
+   target=self.destination/name
+   target.write_bytes(target.read_bytes().replace(b'\r\n',b'\n'))
+  first=cas.apply(ROOT,self.destination)
+  self.assertEqual(first['base_hash_format'],'Git LF (CRLF normalized only)')
  def test_base_drift_refused_before_mutation(self):
   path=self.destination/'internal/api/device_config.go';path.write_bytes(path.read_bytes()+b'\n')
   with self.assertRaisesRegex(ValueError,'source drift'):cas.apply(ROOT,self.destination)

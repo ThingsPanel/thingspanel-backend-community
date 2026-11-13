@@ -4,10 +4,10 @@ import json
 from pathlib import Path
 
 BASE_HASHES = {
- 'internal/middleware/cors.go':'360c9d2566f52e6be1d4baf53f61802bee3b9fa2e2fe7b29ac7818cfdf5a17d8',
- 'internal/api/device_config.go':'69d85cb625845d2bcfd12d2e97020942fd890a440528b314f06508f7a3a5ca28',
- 'internal/service/device_config.go':'aeda279e9d8ee15062c26853815e44d1103287610f71764e9e37297a5accf603',
- 'internal/dal/device_config.go':'739ab8ba7cfb1dddace262804e4c2cd4af960412be4f5f6f48d75993c2c4f849',
+ 'internal/middleware/cors.go':'ad265a1852ae406b1ba8c00b37324fe2daf0b87541c594be1f62a0ee25de8809',
+ 'internal/api/device_config.go':'e881f8fffa19ebd594affd43dff192ca83efa29e835a3aebf89b71297230b9d7',
+ 'internal/service/device_config.go':'7b682edc634794e7ced4d10ea8e5a1c812ae9132009b5195f6164ddff1450108',
+ 'internal/dal/device_config.go':'cae94e332e4588af827c7ecc643734338b1ff2f95e08cdff7cdc1f8646686efc',
 }
 COPIED = [
  'internal/model/device_config_version.go', 'internal/model/device_config_version_test.go',
@@ -26,7 +26,7 @@ def function(source, signature):
 def apply(repo, destination):
  repo,destination=Path(repo),Path(destination)
  for name,sha in BASE_HASHES.items():
-  if digest((destination/name).read_bytes())!=sha: raise ValueError('Stage source drift: '+name)
+  if digest((destination/name).read_bytes().replace(b'\r\n',b'\n'))!=sha: raise ValueError('Stage source drift: '+name)
  result=[]
  def write(name,raw):
   target=destination/name
@@ -60,7 +60,7 @@ def apply(repo, destination):
  name='internal/dal/device_config_metadata_owner.go'
  if (destination/name).exists(): raise ValueError('Stage owner source already exists')
  write(name,(repo/'deploy/community-test/template_metadata_stage_owner.go.txt').read_bytes())
- return {'profile':'template-metadata-cas-stage','owner':'legacy-stage-retained','base_files':BASE_HASHES,'changes':result}
+ return {'profile':'template-metadata-cas-stage','owner':'legacy-stage-retained','base_files':BASE_HASHES,'base_hash_format':'Git LF (CRLF normalized only)','changes':result}
 
 if __name__=='__main__':
  import sys
