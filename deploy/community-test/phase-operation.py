@@ -1,16 +1,142 @@
-SOURCE='"""DRAFT for root review. Never invoked automatically by candidate CI.\n\nOnly encore-api image may change. Exact fresh-baseline checks, private snapshots,\nand existing deployment.lock protect apply/rollback; no migration or DB access.\nPython 3.6 compatible. stdout never includes compose/env or subprocess errors.\n"""\nimport argparse,copy,datetime,fcntl,gzip,hashlib,json,os,pathlib,re,shutil,subprocess,tarfile,time,urllib.request,urllib.error\n\nROOT=pathlib.Path(\'/opt/tp-community-main-20261028\')\nCOMPOSE=ROOT/\'compose.encore.private.json\'\nLOCK=pathlib.Path(\'/opt/tp-community-actions/deployment.lock\')\nPROJECT=\'tp-community-main-47\'\nSERVICE=\'encore-api\'\nNAME=\'tp-community-main-47-encore-api-1\'\nBASE=\'ece5c7ef870acd54b712123831d615ed6e3858c2\'\nISOLATION=\'ce9097abf20b13f7c7f072f64d435018801b926a\'\nOWNER=\'47405bfd51eba9f436231744de9a123d4278152d\'\nSERVICES={\'authn\',\'thingmodel\',\'devicemetadata\',\'fileassets\',\'connectorcatalog\',\'automation\',\'notification\',\'marketinstall\',\'platformconfig\'}\n\ndef sha(path):\n    h=hashlib.sha256()\n    with pathlib.Path(path).open(\'rb\') as f:\n        for block in iter(lambda:f.read(1048576),b\'\'):h.update(block)\n    return h.hexdigest()\n\ndef fingerprint(value):\n    return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(\',\',\':\')).encode()).hexdigest()\n\ndef run(args,timeout=30):\n    p=subprocess.run([str(a) for a in args],stdout=subprocess.PIPE,stderr=subprocess.PIPE,\n                     universal_newlines=True,timeout=timeout)\n    if p.returncode:raise RuntimeError(\'subprocess-failed\')\n    return p.stdout.strip()\n\ndef inspect(name):return json.loads(run([\'docker\',\'inspect\',name]))[0]\n\ndef observe_target():\n    """Absence is valid only when both the exact service and name are absent."""\n    ids=run([\'docker\',\'ps\',\'-aq\',\'--no-trunc\',\'--filter\',\'label=com.docker.compose.project=\'+PROJECT,\n             \'--filter\',\'label=com.docker.compose.service=\'+SERVICE]).splitlines()\n    if not ids:\n        names=run([\'docker\',\'ps\',\'-aq\',\'--no-trunc\',\'--filter\',\'name=^/\'+NAME+\'$\']).splitlines()\n        if names:raise RuntimeError(\'target-name-owned-by-another-service\')\n        return None\n    if len(ids)!=1:raise RuntimeError(\'ambiguous-target-service\')\n    c=inspect(ids[0]);labels=c[\'Config\'].get(\'Labels\') or {}\n    if c[\'Name\'].lstrip(\'/\')!=NAME or labels.get(\'com.docker.compose.project\')!=PROJECT or labels.get(\'com.docker.compose.service\')!=SERVICE or labels.get(\'com.docker.compose.project.config_files\')!=str(COMPOSE):\n        raise RuntimeError(\'target-service-identity-drift\')\n    return c\n\ndef private_write(path,data):\n    fd=os.open(str(path),os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)\n    with os.fdopen(fd,\'wb\') as f:f.write(data);f.flush();os.fsync(f.fileno())\n\ndef write_record(path,value):\n    private_write(path,json.dumps(value,sort_keys=True,indent=2).encode())\n\ndef mounted(c):\n    return [{\'type\':m[\'Type\'],\'source\':m[\'Source\'],\'destination\':m[\'Destination\'],\'rw\':m[\'RW\']} for m in c[\'Mounts\']]\n\ndef contract(c):\n    cfg=c[\'Config\']\n    return fingerprint({\'Env\':cfg.get(\'Env\'),\'Cmd\':cfg.get(\'Cmd\'),\'Entrypoint\':cfg.get(\'Entrypoint\'),\n                        \'HostConfig\':c[\'HostConfig\'],\'Mounts\':mounted(c)})\n\ndef env_map(values):\n    out={}\n    for value in values or []:\n        key,sep,item=value.partition(\'=\')\n        if not sep or key in out:raise RuntimeError(\'ambiguous-environment-definition\')\n        out[key]=item\n    return out\n\ndef runtime_config(c):\n    """Only irrelevant ordering is normalized; no settings are dropped."""\n    cfg=c[\'Config\'];host=copy.deepcopy(c[\'HostConfig\'])\n    if isinstance(host.get(\'Binds\'),list):host[\'Binds\']=sorted(host[\'Binds\'])\n    return {\'Env\':env_map(cfg.get(\'Env\')),\'Cmd\':cfg.get(\'Cmd\'),\'Entrypoint\':cfg.get(\'Entrypoint\'),\n            \'HostConfig\':host,\'Mounts\':sorted(mounted(c),key=lambda m:(m[\'destination\'],m[\'source\']))}\n\ndef same_image_defaults(old,new):\n    a,b=old[\'Config\'],new[\'Config\']\n    # Fail before replacing a container if the new image brings unreviewed\n    # defaults. Compose may override these, but that requires separate review.\n    if env_map(a.get(\'Env\'))!=env_map(b.get(\'Env\')) or any(a.get(k)!=b.get(k) for k in (\'Cmd\',\'Entrypoint\',\'User\',\'WorkingDir\',\'ExposedPorts\',\'Volumes\',\'Healthcheck\',\'StopSignal\')):\n        raise RuntimeError(\'candidate-image-defaults-require-review\')\n\ndef unchanged_file(record):\n    p=pathlib.Path(record[\'path\'])\n    if record.get(\'exists\') is False:\n        if p.exists() or p.is_symlink():raise RuntimeError(\'unexpected-preserved-file\')\n    elif p.is_symlink() or not p.is_file() or sha(p)!=record[\'sha256\']:\n        raise RuntimeError(\'preserved-file-drift\')\n\ndef preserve(spec):\n    for expected in spec[\'preserved_containers\']:\n        c=inspect(expected[\'name\'])\n        if c[\'Id\']!=expected[\'id\'] or c[\'Image\']!=expected[\'image_id\'] or not c[\'State\'][\'Running\']:\n            raise RuntimeError(\'non-target-container-drift\')\n        if \'restart_count\' in expected and c[\'RestartCount\']!=expected[\'restart_count\']:\n            raise RuntimeError(\'non-target-container-restarted\')\n    for record in spec[\'preserved_files\']:unchanged_file(record)\n    pm=json.loads(run([\'/root/.local/share/pnpm/pm2\',\'jlist\']))\n    gin=[p for p in pm if p.get(\'name\')==spec[\'gin\'][\'name\']]\n    if len(gin)!=1 or gin[0][\'pid\']!=spec[\'gin\'][\'pid\'] or gin[0].get(\'pm_id\')!=spec[\'gin\'][\'pm_id\'] or gin[0][\'pm2_env\'].get(\'status\')!=\'online\':\n        raise RuntimeError(\'Gin-identity-drift\')\n    unchanged_file(spec[\'gin\'][\'binary\'])\n\ndef baseline(spec):\n    preserve(spec);unchanged_file(spec[\'compose\'])\n    c=inspect(NAME);e=spec[\'encore\']\n    if c[\'Id\']!=e[\'id\'] or c[\'Image\']!=e[\'image_id\'] or not c[\'State\'][\'Running\'] or contract(c)!=e[\'runtime_contract_sha256\']:\n        raise RuntimeError(\'Encore-baseline-drift\')\n    labels=c[\'Config\'].get(\'Labels\') or {}\n    if labels.get(\'com.docker.compose.project\')!=PROJECT or labels.get(\'com.docker.compose.service\')!=SERVICE or labels.get(\'com.docker.compose.project.config_files\')!=str(COMPOSE):\n        raise RuntimeError(\'Encore-compose-identity-drift\')\n    for record in e[\'mounted_file_hashes\']:unchanged_file(record)\n    return c\n\ndef verify_bundle(bundle,expected_checksums,tooling):\n    if sha(bundle/\'checksums.json\')!=expected_checksums:raise RuntimeError(\'artifact-checksum-manifest-mismatch\')\n    sums=json.loads((bundle/\'checksums.json\').read_text())\n    required={\'image.tar.gz\',\'image.json\',\'source.tar.gz\',\'composition.json\',\'test-gate.json\',\'automation-tests.jsonl\',\'owner-contract-tests.jsonl\'}\n    if set(sums)!=required:raise RuntimeError(\'artifact-file-set-mismatch\')\n    for name,digest in sums.items():\n        p=bundle/name\n        if p.is_symlink() or not p.is_file() or sha(p)!=digest:raise RuntimeError(\'artifact-file-mismatch\')\n    image=json.loads((bundle/\'image.json\').read_text());composition=json.loads((bundle/\'composition.json\').read_text())\n    if image.get(\'tooling_commit\')!=tooling or composition.get(\'tooling_commit\')!=tooling or image.get(\'owner_commit\')!=OWNER:\n        raise RuntimeError(\'artifact-source-identity-mismatch\')\n    if (composition.get(\'base_commit\'),composition.get(\'isolation_commit\'),composition.get(\'owner_commit\'))!=(BASE,ISOLATION,OWNER):\n        raise RuntimeError(\'artifact-base-or-patch-mismatch\')\n    if image.get(\'os\')!=\'linux\' or image.get(\'architecture\')!=\'amd64\' or image.get(\'composition_sha256\')!=composition.get(\'composition_sha256\'):\n        raise RuntimeError(\'artifact-platform-mismatch\')\n    if set(image.get(\'services\',[]))!=SERVICES or set(composition.get(\'services\',[]))!=SERVICES:\n        raise RuntimeError(\'artifact-service-set-mismatch\')\n    if len(composition.get(\'migrations\',{}))!=61 or len(composition.get(\'changed_files\',[]))!=9:\n        raise RuntimeError(\'artifact-scope-mismatch\')\n    tests=json.loads((bundle/\'test-gate.json\').read_text())\n    if any(tests.get(k) for k in (\'missing\',\'failed\',\'skipped\')) or len(tests.get(\'passed_tests\',[]))<13:\n        raise RuntimeError(\'candidate-required-tests-not-passed\')\n    source={}\n    with tarfile.open(str(bundle/\'source.tar.gz\'),\'r:gz\') as archive:\n        for item in archive:\n            if not item.isfile() or item.name.startswith(\'/\') or \'..\' in pathlib.PurePosixPath(item.name).parts or item.name in source:\n                raise RuntimeError(\'invalid-source-archive\')\n            source[item.name]=hashlib.sha256(archive.extractfile(item).read()).hexdigest()\n    if source!=composition[\'source_sha256\'] or any(source.get(n)!=s for n,s in composition[\'migrations\'].items()):\n        raise RuntimeError(\'source-or-migration-checksum-mismatch\')\n    with tarfile.open(str(bundle/\'image.tar.gz\'),\'r:gz\') as archive:\n        manifests=json.load(archive.extractfile(\'manifest.json\'))\n        if len(manifests)!=1:raise RuntimeError(\'multiple-images-in-candidate\')\n        raw=archive.extractfile(manifests[0][\'Config\']).read()\n        config_id=\'sha256:\'+hashlib.sha256(raw).hexdigest()\n        config=json.loads(raw)\n        if config.get(\'architecture\')!=\'amd64\' or config.get(\'os\')!=\'linux\':raise RuntimeError(\'image-config-platform-mismatch\')\n        identities={config_id}\n        if \'index.json\' in archive.getnames():\n            for descriptor in json.load(archive.extractfile(\'index.json\'))[\'manifests\']:\n                digest=descriptor[\'digest\'];blob=archive.extractfile(\'blobs/sha256/\'+digest.split(\':\')[1]).read()\n                if \'sha256:\'+hashlib.sha256(blob).hexdigest()!=digest:raise RuntimeError(\'image-manifest-corrupt\')\n                if json.loads(blob).get(\'config\',{}).get(\'digest\')==config_id:identities.add(digest)\n        if image.get(\'docker_image_id\') not in identities:raise RuntimeError(\'CI-image-identity-mismatch\')\n    return image,config_id\n\ndef next_compose(original,image):\n    value=json.loads(original)\n    if SERVICE not in value.get(\'services\',{}) or \'notification-core\' not in value[\'services\']:\n        raise RuntimeError(\'expected-split-runtime-services-absent\')\n    changed=copy.deepcopy(value);changed[\'services\'][SERVICE][\'image\']=image\n    check=copy.deepcopy(changed);check[\'services\'][SERVICE][\'image\']=value[\'services\'][SERVICE][\'image\']\n    if check!=value:raise RuntimeError(\'compose-change-exceeds-image\')\n    return (json.dumps(changed,indent=2)+\'\\n\').encode()\n\ndef compose_up():\n    run([\'docker\',\'compose\',\'--project-directory\',ROOT,\'-p\',PROJECT,\'-f\',COMPOSE,\n         \'up\',\'-d\',\'--no-deps\',\'--pull\',\'never\',SERVICE],timeout=90)\n\ndef replace_compose(data,expected_hash,stage):\n    if COMPOSE.is_symlink() or sha(COMPOSE)!=expected_hash:raise RuntimeError(\'compose-drift-before-write\')\n    temp=ROOT/(\'.q09-compose-\'+stage.name+\'.tmp\')\n    private_write(temp,data)\n    os.replace(str(temp),str(COMPOSE))\n\ndef ready(image,spec,require_owner,expected_runtime=None,expected_id=None):\n    deadline=time.monotonic()+50\n    while time.monotonic()<deadline:\n        try:\n            c=observe_target()\n            if c is None or c[\'Image\']!=image or not c[\'State\'][\'Running\'] or c[\'RestartCount\'] or (expected_id and c[\'Id\']!=expected_id):\n                raise RuntimeError(\'candidate-container-not-stable\')\n            if expected_runtime is not None and runtime_config(c)!=expected_runtime:\n                raise RuntimeError(\'candidate-runtime-contract-drift\')\n            with urllib.request.urlopen(\'http://127.0.0.1:14000/v1/health\',timeout=3) as response:\n                if json.load(response).get(\'status\')!=\'ok\':raise RuntimeError(\'native-health-not-ready\')\n            if require_owner:\n                try:\n                    urllib.request.urlopen(urllib.request.Request(\'http://127.0.0.1:14000/internal/thingmodel/validate-command\',data=b\'{}\',headers={\'Content-Type\':\'application/json\'}),timeout=3)\n                except urllib.error.HTTPError as e:\n                    if e.code!=401:raise RuntimeError(\'owner-contract-route-or-auth-not-ready\')\n                else:raise RuntimeError(\'owner-contract-accepted-anonymous\')\n            preserve(spec)\n            return c\n        except Exception:\n            time.sleep(2)\n    raise RuntimeError(\'bounded-readiness-failed\')\n\ndef stage_release(bundle,stage,spec,checksum,tooling):\n    original_container=baseline(spec)\n    image,config_id=verify_bundle(bundle,checksum,tooling)\n    free=shutil.disk_usage(str(ROOT)).free\n    if free<2*image[\'image_size\']+1024**3:raise RuntimeError(\'insufficient-stage-capacity\')\n    if stage.exists():raise RuntimeError(\'refusing-existing-stage\')\n    stage.mkdir(mode=0o700)\n    original=COMPOSE.read_bytes()\n    # docker load changes only local image cache; no running service is replaced.\n    run([\'docker\',\'load\',\'-i\',bundle/\'image.tar.gz\'],timeout=120)\n    loaded=json.loads(run([\'docker\',\'image\',\'inspect\',config_id]))[0]\n    if loaded[\'Id\']!=config_id:raise RuntimeError(\'loaded-config-image-mismatch\')\n    old_image=json.loads(run([\'docker\',\'image\',\'inspect\',spec[\'encore\'][\'image_id\']]))[0]\n    same_image_defaults(old_image,loaded)\n    next_data=next_compose(original,config_id)\n    private_write(stage/\'compose.before.private.json\',original)\n    private_write(stage/\'compose.next.private.json\',next_data)\n    state={\'phase\':\'staged\',\'image_id\':config_id,\'old_image_id\':spec[\'encore\'][\'image_id\'],\n           \'before_sha256\':hashlib.sha256(original).hexdigest(),\'next_sha256\':hashlib.sha256(next_data).hexdigest(),\n           \'checksums_sha256\':checksum,\'tooling_commit\':tooling,\'spec\':spec}\n    state[\'expected_runtime\']=runtime_config(original_container)\n    write_record(stage/\'state.private.json\',state)\n    baseline(spec)\n    return {\'status\':\'STAGED_NOT_APPLIED\',\'image_id\':config_id,\'compose_next_sha256\':state[\'next_sha256\']}\n\ndef may_restore_target(current,allowed_ids,old_image,new_image):\n    if current is None:return True\n    return current[\'Id\'] in allowed_ids and current[\'Image\'] in (old_image,new_image)\n\ndef apply_release(stage,rollback=False):\n    state=json.loads((stage/\'state.private.json\').read_text());spec=state[\'spec\']\n    before=stage/\'compose.before.private.json\';after=stage/\'compose.next.private.json\'\n    if sha(before)!=state[\'before_sha256\'] or sha(after)!=state[\'next_sha256\']:raise RuntimeError(\'private-stage-file-drift\')\n    if rollback:\n        preserve(spec)\n        current=observe_target()\n        if sha(COMPOSE)!=state[\'next_sha256\']:\n            raise RuntimeError(\'rollback-refuses-intervening-deployment\')\n        applied=json.loads((stage/\'applied.private.json\').read_text())\n        if not may_restore_target(current,{applied[\'container_id\']},state[\'old_image_id\'],state[\'image_id\']):\n            raise RuntimeError(\'rollback-container-identity-drift\')\n        replace_compose(before.read_bytes(),state[\'next_sha256\'],stage);compose_up()\n        ready(state[\'old_image_id\'],spec,False,state[\'expected_runtime\'])\n        return {\'status\':\'ROLLED_BACK\',\'image_id\':state[\'old_image_id\']}\n    baseline(spec)\n    replace_compose(after.read_bytes(),state[\'before_sha256\'],stage)\n    owned_id=None\n    try:\n        compose_up()\n        created=observe_target()\n        if created is None or created[\'Image\']!=state[\'image_id\']:raise RuntimeError(\'target-not-created\')\n        owned_id=created[\'Id\']\n        write_record(stage/\'attempt.private.json\',{\'container_id\':owned_id,\'image_id\':created[\'Image\']})\n        c=ready(state[\'image_id\'],spec,True,state[\'expected_runtime\'],owned_id)\n        write_record(stage/\'applied.private.json\',{\'container_id\':c[\'Id\'],\'image_id\':c[\'Image\'],\'at\':datetime.datetime.utcnow().isoformat()+\'Z\'})\n        return {\'status\':\'APPLIED_INITIAL_HEALTH\',\'image_id\':c[\'Image\'],\'acceptance\':\'PENDING_AUTHENTICATED_POST_LOCK_TESTS\'}\n    except Exception as original_error:\n        # Roll back only our exact compose and only our old/new image. Never\n        # override another deployment or try a broad whole-stack recovery.\n        current=observe_target()\n        allowed_ids={spec[\'encore\'][\'id\']}\n        if owned_id:allowed_ids.add(owned_id)\n        if sha(COMPOSE)!=state[\'next_sha256\'] or not may_restore_target(current,allowed_ids,state[\'old_image_id\'],state[\'image_id\']):\n            raise RuntimeError(\'apply-failed-rollback-blocked-by-drift\')\n        preserve(spec)\n        replace_compose(before.read_bytes(),state[\'next_sha256\'],stage);compose_up()\n        ready(state[\'old_image_id\'],spec,False,state[\'expected_runtime\'])\n        return {\'status\':\'APPLY_FAILED_ROLLED_BACK\',\'cause_type\':type(original_error).__name__}\n\ndef main():\n    p=argparse.ArgumentParser();p.add_argument(\'mode\',choices=[\'stage\',\'apply\',\'rollback\'])\n    p.add_argument(\'--stage\',required=True);p.add_argument(\'--bundle\');p.add_argument(\'--spec\');p.add_argument(\'--checksums-sha\');p.add_argument(\'--tooling-commit\')\n    args=p.parse_args();stage=pathlib.Path(args.stage)\n    if stage.parent!=pathlib.Path(\'/opt/tp-community-actions\') or not re.fullmatch(\'q09-encore-[a-zA-Z0-9-]+\',stage.name):\n        raise RuntimeError(\'stage-must-be-an-explicit-Q09-release-directory\')\n    with LOCK.open(\'r\') as lock:\n        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)\n        if args.mode==\'stage\':\n            if not all([args.bundle,args.spec,re.fullmatch(\'[0-9a-f]{64}\',args.checksums_sha or \'\'),re.fullmatch(\'[0-9a-f]{40}\',args.tooling_commit or \'\')]):raise RuntimeError(\'explicit-stage-inputs-required\')\n            result=stage_release(pathlib.Path(args.bundle),stage,json.loads(pathlib.Path(args.spec).read_text()),args.checksums_sha,args.tooling_commit)\n        else:result=apply_release(stage,args.mode==\'rollback\')\n    print(json.dumps(result))\n    if result[\'status\']==\'APPLY_FAILED_ROLLED_BACK\':raise SystemExit(1)\n\nif __name__==\'__main__\':main()\n'
-import hashlib,json,pathlib
-ns={'__name__':'reviewed_release'}
-exec(compile(SOURCE,'q09-reviewed-release.py','exec'),ns)
-stage=pathlib.Path('/opt/tp-community-actions/q09-encore-db078-ci43350641612')
-if stage.is_symlink():raise RuntimeError('release-stage-symlink')
-with ns['LOCK'].open('r') as lock:
-    ns['fcntl'].flock(lock,ns['fcntl'].LOCK_EX|ns['fcntl'].LOCK_NB)
-    state=json.loads((stage/'state.private.json').read_text())
-    if state['image_id']!='sha256:d284d82d112a0f12c1038aa4dfb7fd2427b38a4c0a49bb6c51078242733e9154' or state['tooling_commit']!='db078b3e47af72338c856d38dd676b55e20660fa' or state['checksums_sha256']!='c815ebfb37a1fa5808dd14fe6850486065c6deaf234aaa369e6813955e461d8d' or state['next_sha256']!='242dcf2e54d3598329eb192c6e669508766396690f62a8a9070c5d1e3435a6d5':
-        raise RuntimeError('reviewed-stage-identity-mismatch')
-    # Preserve this exact reversible operator implementation on the server.
-    ns['private_write'](stage/'release-reviewed.private.py',SOURCE.encode())
-    result=ns['apply_release'](stage)
-print(json.dumps(result))
-if result['status']!='APPLIED_INITIAL_HEALTH':raise SystemExit(1)
+import sys
+sys.argv=['probe','--gin-pid','2825348','--encore-image-id','sha256:d284d82d112a0f12c1038aa4dfb7fd2427b38a4c0a49bb6c51078242733e9154']
+"""Read-only rollout probe: model validation POSTs never admit device commands.
+
+Run on the server only after the new Encore image is active and before Gin
+enforces the new contract. Secret values are read in memory and never emitted.
+"""
+import argparse
+import hmac
+import json
+import os
+import pathlib
+import subprocess
+import urllib.error
+import urllib.parse
+import urllib.request
+
+DEVICE = "c13ad287-76b1-38cd-b16e-946b37e8c88e"
+CONFIG = "9a151988-61bb-307c-ec2e-ff06b8e6393b"
+MODEL = "ce4e7118-1b14-42d4-ba72-861f96a59276"
+SNAPSHOT = "6d332a51-07f8-4a6e-8863-a4a432ded976"
+ENCORE = "tp-community-main-47-encore-api-1"
+EXECUTABLE = "/home/thingspanel/thingspanel-backend-community/thingspanel-backend-community"
+OTHER_QA_TENANT = "ab4fa6e9"
+
+
+def checked_environment(pid, expected_image):
+    if os.readlink("/proc/{}/exe".format(pid)) != EXECUTABLE:
+        raise RuntimeError("Gin executable changed")
+    env = dict(part.split("=", 1) for part in pathlib.Path("/proc/{}/environ".format(pid)).read_text().split("\0") if "=" in part)
+    result = subprocess.run(["docker", "inspect", ENCORE], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+    if result.returncode:
+        raise RuntimeError("Encore inventory unavailable")
+    container = json.loads(result.stdout)[0]
+    if container["Image"] != expected_image or not container["State"]["Running"]:
+        raise RuntimeError("Encore image or running state changed")
+    other = dict(item.split("=", 1) for item in container["Config"]["Env"] if "=" in item)
+    token = env.get("GOTP_AUTOMATION_TOKEN", "").strip()
+    deployment = env.get("GOTP_AUTOMATION_DEPLOYMENT_ID", "").strip()
+    if len(token) < 32 or not hmac.compare_digest(token, other.get("TP_AUTOMATION_SERVICE_TOKEN", "").strip()):
+        raise RuntimeError("Owner identity mismatch")
+    if not deployment or not hmac.compare_digest(deployment, other.get("TP_SOURCE_DEPLOYMENT_ID", "").strip()):
+        raise RuntimeError("Owner deployment mismatch")
+    origin = env.get("TP_THINGMODEL_NATIVE_URL", "").rstrip("/")
+    if origin != "http://127.0.0.1:14000":
+        raise RuntimeError("Model owner origin differs from approved direct route")
+    return origin, token, deployment, container["Id"]
+
+
+def read_fixture():
+    query = """BEGIN READ ONLY;
+SELECT row_to_json(x) FROM (
+ SELECT d.id AS device_id,d.tenant_id,c.id AS config_id,
+ c.native_thing_model_id AS model_id,c.native_thing_model_snapshot_id AS snapshot_id,
+ c.native_thing_model_revision AS revision,c.native_binding_revision AS binding_revision
+ FROM devices d JOIN device_configs c ON c.id=d.device_config_id AND c.tenant_id=d.tenant_id
+ WHERE d.id='c13ad287-76b1-38cd-b16e-946b37e8c88e'
+ AND c.id='9a151988-61bb-307c-ec2e-ff06b8e6393b'
+ AND d.is_enabled='enabled' AND d.activate_flag='active'
+) x; COMMIT;"""
+    result = subprocess.run(["docker", "exec", "-i", "timescaledb", "psql", "-X", "-q", "-At", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "ThingsPanel"], input=query.encode(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+    if result.returncode:
+        raise RuntimeError("QA binding read failed")
+    rows = [line for line in result.stdout.decode().splitlines() if line.strip()]
+    if len(rows) != 1:
+        raise RuntimeError("QA fixture is absent or not unique")
+    pins = json.loads(rows[0])
+    if pins["device_id"] != DEVICE or pins["config_id"] != CONFIG or pins["model_id"] != MODEL or pins["snapshot_id"] != SNAPSHOT or pins["revision"] != 3 or pins["binding_revision"] < 1:
+        raise RuntimeError("QA fixture binding changed; review before probing")
+    if not pins["tenant_id"] or pins["tenant_id"] == OTHER_QA_TENANT:
+        raise RuntimeError("QA tenant precondition changed")
+    return pins
+
+
+def http_post(origin, headers, payload):
+    request = urllib.request.Request(origin + "/internal/thingmodel/validate-command", data=json.dumps(payload).encode(), headers=headers, method="POST")
+    # Never forward an owner credential across a redirect.
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    try:
+        with opener.open(request, timeout=5) as response:
+            raw = response.read(4097)
+            if len(raw) > 4096:
+                raise RuntimeError("Unexpected oversized owner response")
+            return response.status, json.loads(raw)
+    except urllib.error.HTTPError as error:
+        return error.code, None
+
+
+def probe(origin, token, deployment, pins, transport=http_post):
+    headers = {"Content-Type": "application/json", "Authorization": "Bearer " + token,
+               "X-Automation-Tenant": pins["tenant_id"], "X-Automation-Deployment": deployment}
+    payload = {key: value for key, value in pins.items() if key != "tenant_id"}
+    payload.update(identifier="set_switch", params={"enabled": True, "mode": "manual"})
+    cases = [
+        ("valid_pinned_command", {}, {}, 200),
+        ("missing_required_parameters", {}, {"params": {}}, 400),
+        ("wrong_boolean_type", {}, {"params": {"enabled": "true", "mode": "manual"}}, 400),
+        ("unknown_command", {}, {"identifier": "qa_undefined_command"}, 400),
+        ("other_qa_tenant", {"X-Automation-Tenant": OTHER_QA_TENANT}, {}, 404),
+        ("anonymous", {"Authorization": ""}, {}, 401),
+    ]
+    output = []
+    for name, header_change, body_change, expected in cases:
+        actual_headers = dict(headers); actual_headers.update(header_change)
+        actual_body = dict(payload); actual_body.update(body_change)
+        status, result = transport(origin, actual_headers, actual_body)
+        passed = status == expected
+        if expected == 200:
+            passed = passed and result == {"valid": True, "device_id": DEVICE, "snapshot_id": SNAPSHOT, "binding_revision": pins["binding_revision"]}
+        output.append({"case": name, "http_status": status, "expected": expected, "pass": passed})
+    return output
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--gin-pid", type=int, required=True)
+    parser.add_argument("--encore-image-id", required=True)
+    args = parser.parse_args()
+    phase = "environment_guard"
+    try:
+        origin, token, deployment, container = checked_environment(args.gin_pid, args.encore_image_id)
+        phase = "fixture_read"
+        pins = read_fixture()
+        phase = "contract_probe"
+        cases = probe(origin, token, deployment, pins)
+        result = {"changes": False, "command_admission": False, "secrets_exported": False,
+                  "encore_id": container, "image_id": args.encore_image_id, "fixture": pins,
+                  "cases": cases, "pass": all(item["pass"] for item in cases)}
+        print(json.dumps(result))
+        return 0 if result["pass"] else 1
+    except Exception as error:
+        # Exception messages from transport/processes may contain URL/config data.
+        print(json.dumps({"changes": False, "pass": False, "phase": phase, "error_class": type(error).__name__,
+                          "reason": str(error) if type(error) is RuntimeError else "operation failed", "secrets_exported": False}))
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
