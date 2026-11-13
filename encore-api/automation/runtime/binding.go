@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"encore.app/automation/domain"
+	"encore.app/automation/ports"
 	"encore.app/automation/store"
 )
 
@@ -123,18 +124,15 @@ func (r *Runtime) deviceConfigOf(ctx context.Context, tenantID, deviceID string)
 	if v, ok := r.bindings.getDevice(tenantID+"|"+deviceID, now); ok {
 		return v, nil
 	}
-	devices, err := r.dir.ByIDs(ctx, tenantID, []string{deviceID})
+	device, exists, err := r.sourceDevice(ctx, tenantID, deviceID)
 	if err != nil {
 		return "", err
 	}
-	if len(devices) == 0 {
+	if !exists {
 		return "", nil
 	}
-	if len(devices) != 1 || devices[0].ID != deviceID || (devices[0].TenantID != "" && devices[0].TenantID != tenantID) {
-		return "", errors.New("binding directory identity mismatch")
-	}
-	r.bindings.putDevice(tenantID+"|"+deviceID, devices[0].DeviceConfigID, now)
-	return devices[0].DeviceConfigID, nil
+	r.bindings.putDevice(tenantID+"|"+deviceID, device.DeviceConfigID, now)
+	return device.DeviceConfigID, nil
 }
 
 // usesTemplateBindings reports whether the tenant has any template-level
@@ -261,18 +259,85 @@ func (r *Runtime) unboundSourceAllowed(ctx context.Context, rule *store.Rule, de
 	if len(spec.DeviceIDs)+len(spec.DeviceConfigIDs)+len(spec.Labels)+len(spec.DeviceTypes)+len(spec.AreaIDs) == 0 {
 		return true, nil // Existing explicitly unscoped self definitions.
 	}
-	copy := *rule
-	copy.Definition.Targets.MaxTargets = 0
-	targets, err := r.resolveTargets(ctx, &copy, deviceID)
-	if err != nil {
+	if r.dir == nil {
+		// Preserve the existing explicit-ID-only contract when no directory exists.
+		for _, id := range spec.DeviceIDs {
+			if id == deviceID {
+				return true, nil
+			}
+		}
+		return false, errors.New("device directory unavailable for source membership")
+	}
+	d, exists, err := r.sourceDevice(ctx, rule.TenantID, deviceID)
+	if err != nil || !exists {
 		return false, err
 	}
-	for _, target := range targets {
-		if target.DeviceID == deviceID && target.Status == "selected" {
-			return true, nil
+	selected := false
+	for _, id := range spec.DeviceIDs {
+		selected = selected || id == deviceID
+	}
+	for _, id := range spec.DeviceConfigIDs {
+		selected = selected || id == d.DeviceConfigID
+	}
+	for _, kind := range spec.DeviceTypes {
+		selected = selected || kind == d.DeviceType
+	}
+	if len(spec.Labels) > 0 {
+		have := map[string]bool{}
+		for _, label := range ports.LabelTokens(d.Label) {
+			have[label] = true
+		}
+		hits := 0
+		for _, label := range spec.Labels {
+			if have[label] {
+				hits++
+			}
+		}
+		selected = selected || (spec.LabelMatch == "and" && hits == len(spec.Labels)) || (spec.LabelMatch != "and" && hits > 0)
+	}
+	// Areas are still explicitly unsupported by the directory contract. Other
+	// selector branches are a union; capability remains an intersection after it.
+	return selected && (spec.RequiredCapability == "" || hasCapability(d, spec.RequiredCapability)), nil
+}
+
+// This cache lasts for one event evaluation only. It does not retain device
+// membership across events or bypass changes in tenant/enabled state.
+type sourceDeviceCacheKey struct{}
+type sourceDeviceKey struct{ tenant, device string }
+type sourceDeviceResult struct {
+	device ports.Device
+	exists bool
+	err    error
+}
+
+func withSourceDeviceCache(ctx context.Context) context.Context {
+	return context.WithValue(ctx, sourceDeviceCacheKey{}, map[sourceDeviceKey]sourceDeviceResult{})
+}
+func (r *Runtime) sourceDevice(ctx context.Context, tenant, device string) (ports.Device, bool, error) {
+	key := sourceDeviceKey{tenant, device}
+	cache, _ := ctx.Value(sourceDeviceCacheKey{}).(map[sourceDeviceKey]sourceDeviceResult)
+	if found, ok := cache[key]; ok {
+		return found.device, found.exists, found.err
+	}
+	result := sourceDeviceResult{}
+	if r.dir == nil {
+		result.err = errors.New("device directory unavailable")
+	} else {
+		rows, err := r.dir.ByIDs(ctx, tenant, []string{device})
+		result.err = err
+		if err == nil && len(rows) > 0 {
+			if len(rows) != 1 || rows[0].ID != device || rows[0].TenantID != tenant {
+				result.err = errors.New("source device identity mismatch")
+			} else {
+				result.device = rows[0]
+				result.exists = true
+			}
 		}
 	}
-	return false, nil
+	if cache != nil {
+		cache[key] = result
+	}
+	return result.device, result.exists, result.err
 }
 
 // A stored hold cannot outlive removal of its membership or disabling a rule.

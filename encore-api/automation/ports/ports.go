@@ -541,22 +541,79 @@ func NewHTTPDirectory(cfg Config) *HTTPDirectory {
 	return &HTTPDirectory{cfg: cfg, client: newClient(cfg.Timeout)}
 }
 
+// ByIDs uses the additive exact-ID owner contract. Old owners return 404;
+// this must fail closed instead of silently paging through every tenant device.
 func (h *HTTPDirectory) ByIDs(ctx context.Context, tenantID string, ids []string) ([]Device, error) {
-	all, err := h.list(ctx, tenantID)
-	if err != nil {
-		return nil, err
+	if h.cfg.CommunityBaseURL == "" {
+		return nil, ErrNotConfigured
 	}
-	want := make(map[string]bool, len(ids))
+	if tenantID == "" {
+		return nil, errors.New("device lookup tenant is required")
+	}
+	unique := make([]string, 0, len(ids))
+	seen := map[string]bool{}
 	for _, id := range ids {
-		want[id] = true
-	}
-	var out []Device
-	for _, d := range all {
-		if want[d.ID] {
-			out = append(out, d)
+		if id == "" || len(id) > 36 || strings.TrimSpace(id) != id || strings.IndexAny(id, "\r\n\t\x00") >= 0 {
+			return nil, errors.New("invalid device lookup ID")
+		}
+		if !seen[id] {
+			seen[id] = true
+			unique = append(unique, id)
 		}
 	}
-	return out, nil
+	const batchSize = 200
+	var result []Device
+	for start := 0; start < len(unique); start += batchSize {
+		end := start + batchSize
+		if end > len(unique) {
+			end = len(unique)
+		}
+		batch := unique[start:end]
+		want := map[string]bool{}
+		for _, id := range batch {
+			want[id] = true
+		}
+		body, _ := json.Marshal(map[string]any{"ids": batch})
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.cfg.CommunityBaseURL+"/internal/automation/devices/lookup", bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+h.cfg.CommunityToken)
+		req.Header.Set("X-Automation-Tenant", tenantID)
+		req.Header.Set("X-Automation-Deployment", h.cfg.DeploymentID)
+		response, err := h.client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		var envelope struct {
+			Code int `json:"code"`
+			Data struct {
+				List  []Device `json:"list"`
+				Total int      `json:"total"`
+			} `json:"data"`
+		}
+		decodeErr := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&envelope)
+		response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("device lookup http %d", response.StatusCode)
+		}
+		if decodeErr != nil || envelope.Code != 200 {
+			return nil, errors.New("device lookup invalid response")
+		}
+		if envelope.Data.Total != len(envelope.Data.List) || len(envelope.Data.List) > len(batch) {
+			return nil, errors.New("device lookup result is not bounded")
+		}
+		returned := map[string]bool{}
+		for _, d := range envelope.Data.List {
+			if d.TenantID != tenantID || !want[d.ID] || returned[d.ID] {
+				return nil, errors.New("device lookup returned an invalid identity")
+			}
+			returned[d.ID] = true
+			result = append(result, d)
+		}
+	}
+	return result, nil
 }
 
 func (h *HTTPDirectory) ByDeviceConfig(ctx context.Context, tenantID string, configIDs []string) ([]Device, error) {

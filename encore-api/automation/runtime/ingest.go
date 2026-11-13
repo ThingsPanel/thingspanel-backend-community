@@ -103,6 +103,7 @@ func (r *Runtime) evaluateReceipt(ctx context.Context, e *store.IngestEvent, now
 // evaluated against the template body — with the placeholders still in it —
 // while the same event evaluated correctly before the crash.
 func (r *Runtime) evaluateForDevice(ctx context.Context, e *store.IngestEvent, seq int64, now time.Time) error {
+	ctx = withSourceDeviceCache(ctx)
 	// Which template this device belongs to is only needed when the tenant
 	// actually uses template bindings; asking the directory on every uplink
 	// would be a cost with no benefit for the common case.

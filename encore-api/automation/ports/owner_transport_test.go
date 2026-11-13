@@ -27,7 +27,7 @@ func TestCommandUsesServiceChannelAndCarriesTenant(t *testing.T) {
 
 func TestDirectoryRejectsCrossTenantResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/internal/automation/devices" || r.Header.Get("X-Automation-Tenant") != "tenant-a" {
+		if r.URL.Path != "/internal/automation/devices/lookup" || r.Header.Get("X-Automation-Tenant") != "tenant-a" {
 			t.Error("directory owner context lost")
 		}
 		_, _ = w.Write([]byte(`{"code":200,"data":{"list":[{"id":"device-b","tenant_id":"tenant-b"}],"total":1}}`))

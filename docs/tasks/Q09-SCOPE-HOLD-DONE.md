@@ -54,3 +54,13 @@
 真实 PG 手工构造旧随机 ID：completed 与 waiting 两子例都经过 processed 标记故障、revision 更新和恢复，原 ID/冻结决策不变；waiting 最终只执行原动作一次。另有两条历史重复 run 的用例，恢复没有再添第三条或改历史。034b06c8 精确基线加同一测试夹具时这些断言均失败；补丁后通过，事件并发与四种 mode/部分多规则回归合计 6 顶层通过。证据：Q09-upgrade-compatibility-before.jsonl、Q09-event-identity-upgrade-compatibility.jsonl。
 
 未增加 SQL migration。旧事件查找可用现有 rule_id/started_at 索引，但没有完整复合事件索引；高历史量性能仍需上线前核对，不能称该兼容查询已完成负载验收。
+
+## 有界设备目录依赖 delta
+
+Gin 独立 owner 增量 c4197017 基于现场 9766c010，仅新增 /internal/automation/devices/lookup。该服务必须先部署，旧 Encore 不受影响。当前 Encore delta 的 ByIDs 仅使用此接口，每请求至多 200 个 ID，较大显式目标集分批；严格校验响应 tenant、ID、重复项、返回数量，旧服务 404 明确失败，绝不回退完整列表。
+
+self 来源成员只取当前设备的权威字段，依照原选择器 union、标签分支 AND/OR、capability 后置交集判断；area 仍未支持，MaxTargets 仍只约束动作数量。模板/类型/标签来源判定不再展开所有目标。一次事件内多规则共享单源查询结果，下一事件重新读取；未新增跨请求缓存。原有 binding 缓存保留；缓存失效时与单源读取共用本次请求结果。
+
+Encore 定向 15 顶层测试全部通过，0 跳过：端口真实 HTTP 404 无 fallback、批量/恶意响应/缺失 ID；成员语义矩阵；真实 PG 六个模板候选且目录含 3000 其他设备时每事件仅一次 exact lookup、零完整模板扫描；既有绑定故障/范围用例。证据 Q09-directory-encore-tests.jsonl。Gin 自身真实 PG 3 项通过记录另见 Q09-directory-gin-tests.jsonl。尚未上线，不称在线验收；实际动作目标展开不在本次重构范围。
+
+独立 agent 发现同 Runtime 执行 lease token 复入会导致同 idempotency key 的两个重叠 Dispatch，正在另一个 worktree 修复；本目录 delta 不修改 executeRunAt，不将稳定 run 身份描述为完整动作 exactly-once。
