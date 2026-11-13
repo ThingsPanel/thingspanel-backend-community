@@ -393,7 +393,7 @@ func UpdateDeviceDeviceConfigID(deviceID, tenantID string, deviceConfigID *strin
 // updateDeviceConfigForOwner keeps role-changing updates on the existing
 // configuration owner. Device rows are always locked before configuration rows,
 // matching parent binding and device configuration replacement.
-func updateDeviceConfigForOwner(id, tenantID string, updates map[string]interface{}, expectedRevision *int) error {
+func updateDeviceConfigForOwner(id, tenantID string, updates map[string]interface{}, expectedRevision *int, mutations ...*DeviceConfigMutation) error {
 	if strings.TrimSpace(tenantID) == "" {
 		return ErrDeviceBindingInvalid
 	}
@@ -447,6 +447,9 @@ func updateDeviceConfigForOwner(id, tenantID string, updates map[string]interfac
 	if err == nil {
 		var config *model.DeviceConfig
 		config, err = c.Clauses(clause.Locking{Strength: "UPDATE"}).Where(c.ID.Eq(id), c.TenantID.Eq(tenantID)).First()
+		if err == nil && len(mutations) > 0 {
+			err = prepareDeviceConfigMetadata(config, updates, mutations[0])
+		}
 		if err == nil && expectedRevision != nil && config.NativeBindingRevision != *expectedRevision {
 			err = ErrNativeBindingRevisionConflict
 		}
@@ -492,6 +495,9 @@ func updateDeviceConfigForOwner(id, tenantID string, updates map[string]interfac
 		if err == nil && info.RowsAffected != 1 {
 			err = ErrNativeBindingRevisionConflict
 		}
+	}
+	if err == nil && len(mutations) > 0 {
+		mutations[0].After, err = c.Where(c.ID.Eq(id), c.TenantID.Eq(tenantID)).First()
 	}
 	return finishDeviceBinding(tx, err)
 }

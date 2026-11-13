@@ -73,7 +73,7 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 	return deviceconfig, err
 }
 
-func (*DeviceConfig) UpdateDeviceConfig(ctx context.Context, req model.UpdateDeviceConfigReq, claims *utils.UserClaims, authToken string) (any, error) {
+func (*DeviceConfig) UpdateDeviceConfig(ctx context.Context, req model.UpdateDeviceConfigReq, claims *utils.UserClaims, authToken string, conditions ...*model.DeviceConfigCondition) (any, error) {
 	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
 		return nil, errcode.New(errcode.CodeNoPermission)
 	}
@@ -147,13 +147,22 @@ func (*DeviceConfig) UpdateDeviceConfig(ctx context.Context, req model.UpdateDev
 		}
 	}
 
-	logrus.Debug("condsMap:", condsMap)
-	if bindingFieldsProvided {
-		err = dal.UpdateDeviceConfigWithBindingCAS(req.Id, claims.TenantID, *req.NativeBindingRevision, condsMap)
-	} else {
-		err = dal.UpdateDeviceConfigForTenant(req.Id, claims.TenantID, condsMap)
+	var condition *model.DeviceConfigCondition
+	if len(conditions) > 0 {
+		condition = conditions[0]
 	}
+	var bindingRevision *int
+	if bindingFieldsProvided {
+		bindingRevision = req.NativeBindingRevision
+	}
+	mutation, err := dal.UpdateDeviceConfigConditional(req.Id, claims.TenantID, condsMap, bindingRevision, condition)
 	if err != nil {
+		if errors.Is(err, model.ErrDeviceConfigVersionConflict) {
+			return nil, err
+		}
+		if errors.Is(err, dal.ErrDeviceConfigBindingConflict) {
+			return nil, errcode.New(errcode.CodeParamError)
+		}
 		if errors.Is(err, dal.ErrDeviceConfigurationConflict) {
 			return nil, errcode.NewWithMessage(errcode.CodeOpDenied, "device configuration references changed; reload and try again")
 		}
@@ -173,37 +182,13 @@ func (*DeviceConfig) UpdateDeviceConfig(ctx context.Context, req model.UpdateDev
 	}
 	// 清除设备配置信息缓存
 	initialize.DelDeviceConfigCache(req.Id)
-	// 获取设备配置信息
-	data, err := dal.GetDeviceConfigByIDForTenant(context.Background(), req.Id, claims.TenantID)
-	if err != nil {
-		return data, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
+	// The transaction returns the final row, including derived credentials.
+	oldConfig, data := mutation.Before, mutation.After
 	if data.ProtocolType != nil && *data.ProtocolType != "MQTT" {
 		// 判断协议配置是否有变化
 		if oldConfig.ProtocolConfig != nil && data.ProtocolConfig != nil && *oldConfig.ProtocolConfig != *data.ProtocolConfig {
 			// 协议配置有变化，断开设备连接
 			err = protocolplugin.DeviceConfigUpdateAndDisconnect(req.Id, *data.ProtocolType, data.DeviceType)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"sql_error": err.Error(),
-				})
-			}
-		}
-	}
-	// 判断协议类型是否变化
-	if oldConfig.ProtocolType != nil && data.ProtocolType != nil && *oldConfig.ProtocolType != *data.ProtocolType {
-		// 协议类型有变化，要删除凭证类型，但如果新的协议类型是MQTT，要改为ACCESSTOKEN
-		if *data.ProtocolType == "MQTT" {
-			err = dal.UpdateDeviceConfigVoucherType(req.Id, StringPtr("ACCESSTOKEN"))
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"sql_error": err.Error(),
-				})
-			}
-		} else {
-			err = dal.UpdateDeviceConfigVoucherType(req.Id, nil)
 			if err != nil {
 				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 					"sql_error": err.Error(),
