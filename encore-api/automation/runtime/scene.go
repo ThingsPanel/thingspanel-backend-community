@@ -168,7 +168,7 @@ func (r *Runtime) dispatchScene(ctx context.Context, item *store.OutboxItem) (bo
 	}
 	c := cause{Root: root, Hop: parent.CausalHop + 1, EventID: item.ID, ScenePath: append(append([]string{}, path...), scene.ID)}
 	result := domain.Result{Verdict: domain.VerdictTrue, Reasons: []domain.Reason{{Code: "scene_activation", Message: fmt.Sprintf("由父运行 %s 激活", parent.ID)}}}
-	child, err := r.acceptRunWithIdentity(ctx, scene, subject, item.ID, c, result, r.Now(), childID, true)
+	child, err := r.acceptRunWithIdentity(ctx, scene, subject, item.ID, c, result, r.Now(), childID, true, false)
 	if err != nil {
 		return false, "", "", "", err
 	}

@@ -2,6 +2,7 @@ package automation
 
 import (
 	"context"
+	"encoding/json"
 	"encore.app/automation/domain"
 	"encore.app/automation/ports"
 	"encore.app/automation/runtime"
@@ -248,5 +249,119 @@ func TestQ09RecoveryEnforcesCausalHopLimit(t *testing.T) {
 	processed, err := e.st.ReceiptProcessed(e.ctx(), e.tenant, e.dev1, event.EventID)
 	if err != nil || !processed {
 		t.Fatal("rejected cyclic receipt not finalized")
+	}
+}
+
+func q09SeedLegacyEventRun(e *testEnv, rule *store.Rule, eventID string) *store.Run {
+	e.t.Helper()
+	snapshot, _ := json.Marshal(map[string]any{"rule_id": rule.ID, "revision": rule.Revision, "definition_hash": rule.DefinitionHash, "device_id": e.dev1, "mode": rule.Definition.Mode, "manual": false, "binding_params": map[string]string{}})
+	deadline := e.now.Add(rule.Definition.Budget.MaxRunDuration.Std())
+	old := &store.Run{ID: runtime.NewID(), TenantID: e.tenant, RuleID: rule.ID, Revision: rule.Revision, DefinitionHash: rule.DefinitionHash, ScopeKey: runtime.ScopeKey(&rule.Definition, rule.ID, e.dev1), DeviceID: e.dev1, TriggerEventID: eventID, CauseEventID: eventID, Status: runtime.StatusAccepted, Snapshot: snapshot, StartedAt: e.now, Deadline: &deadline}
+	if err := e.st.AdmitRun(e.ctx(), old, []store.Target{{DeviceID: e.dev1, Status: "selected"}}, rule.Definition); err != nil {
+		e.t.Fatal(err)
+	}
+	return old
+}
+func TestQ09LegacyRandomRunReusedAcrossUpgrade(t *testing.T) {
+	for _, pending := range []bool{false, true} {
+		t.Run(map[bool]string{false: "completed", true: "waiting"}[pending], func(t *testing.T) {
+			e := newEnv(t)
+			def := e.baseDefinition()
+			if pending {
+				def.Steps = append([]domain.Step{{Kind: domain.StepWait, Wait: domain.Duration(time.Minute)}}, def.Steps...)
+			}
+			rule := e.createRule(def)
+			event := store.IngestEvent{EventID: runtime.NewID(), TenantID: e.tenant, DeviceID: e.dev1, Signal: domain.SignalTelemetry, Key: "temperature", Value: 38.0, Quality: domain.QualityGood, ObservedAt: e.now}
+			if _, err := e.st.InsertEvent(e.ctx(), &event); err != nil {
+				t.Fatal(err)
+			}
+			if err := e.st.ApplyState(e.ctx(), &event); err != nil {
+				t.Fatal(err)
+			}
+			old := q09SeedLegacyEventRun(e, rule, event.EventID)
+			if _, err := e.rt.ResumeRun(e.ctx(), old.ID); err != nil {
+				t.Fatal(err)
+			}
+			before := e.run(old.ID)
+			oldActions := e.cmds.count()
+			fault := q09FaultRuntime(e)
+			fail := true
+			fault.beforeExec = func(q string) error {
+				if fail && strings.Contains(q, "UPDATE auto_inbox SET processed_at") {
+					fail = false
+					return errors.New("QA old receipt marker failure")
+				}
+				return nil
+			}
+			if _, err := e.rt.RecoverAfterRestart(e.ctx(), 100); err != nil {
+				t.Fatal(err)
+			}
+			processed, err := e.st.ReceiptProcessed(e.ctx(), e.tenant, e.dev1, event.EventID)
+			if err != nil || processed || fail {
+				t.Fatal("old receipt marker fault not reached")
+			}
+			rule.Definition.Steps = []domain.Step{{Kind: domain.StepAction, Action: "telemetry", Identifier: "switch", Value: "2"}}
+			rule.DefinitionHash = domain.DefinitionHash(rule.Definition)
+			if err := e.st.UpdateRule(e.ctx(), rule, rule.Version); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := e.rt.RecoverAfterRestart(e.ctx(), 100); err != nil {
+				t.Fatal(err)
+			}
+			after := e.runs(rule.ID)
+			if len(after) != 1 || after[0].ID != old.ID || after[0].Status != before.Status || after[0].Generation != before.Generation || after[0].Revision != before.Revision || string(after[0].Snapshot) != string(before.Snapshot) || e.cmds.count() != oldActions {
+				t.Fatal("upgrade created or changed legacy decision/actions")
+			}
+			if pending {
+				e.advance(time.Minute)
+				e.tick()
+			}
+			if e.cmds.count() != 1 || e.run(old.ID).Status != runtime.StatusSucceeded {
+				t.Fatal("legacy action did not complete exactly once")
+			}
+			var key string
+			if err := e.st.DB.QueryRowContext(e.ctx(), "SELECT idempotency_key FROM auto_outbox WHERE run_id=$1", old.ID).Scan(&key); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(key, old.ID+":") {
+				t.Fatal("old idempotency identity not preserved")
+			}
+		})
+	}
+}
+func TestQ09MultipleLegacyEventRunsDoNotCreateAnother(t *testing.T) {
+	e := newEnv(t)
+	rule := e.createRule(e.baseDefinition())
+	event := store.IngestEvent{EventID: runtime.NewID(), TenantID: e.tenant, DeviceID: e.dev1, Signal: domain.SignalTelemetry, Key: "temperature", Value: 38.0, Quality: domain.QualityGood, ObservedAt: e.now}
+	if _, err := e.st.InsertEvent(e.ctx(), &event); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.st.ApplyState(e.ctx(), &event); err != nil {
+		t.Fatal(err)
+	}
+	first := q09SeedLegacyEventRun(e, rule, event.EventID)
+	if _, err := e.rt.ResumeRun(e.ctx(), first.ID); err != nil {
+		t.Fatal(err)
+	}
+	e.advance(time.Second)
+	second := q09SeedLegacyEventRun(e, rule, event.EventID)
+	if _, err := e.rt.ResumeRun(e.ctx(), second.ID); err != nil {
+		t.Fatal(err)
+	}
+	before := e.runs(rule.ID)
+	if len(before) != 2 || e.cmds.count() != 2 {
+		t.Fatal("historical duplicate fixture not seeded")
+	}
+	if _, err := e.rt.RecoverAfterRestart(e.ctx(), 100); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.runs(rule.ID)) != 2 || e.cmds.count() != 2 {
+		t.Fatal("upgrade amplified historical duplicates")
+	}
+	for _, old := range before {
+		current := e.run(old.ID)
+		if current.Status != old.Status || current.Generation != old.Generation || string(current.Snapshot) != string(old.Snapshot) {
+			t.Fatal("historical accepted run was rewritten")
+		}
 	}
 }

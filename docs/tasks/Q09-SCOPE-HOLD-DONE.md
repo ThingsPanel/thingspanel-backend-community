@@ -46,3 +46,11 @@
 - 升级前已产生随机 run ID、但 receipt 尚未 processed 的历史记录，不会自动匹配新稳定 ID。发布前必须审查兼容映射或安全排空，不能直接重放这类历史记录。
 - 混合旧/新 worker 不具备统一事件身份，不能据本地测试声称滚动并存安全。
 - 范围匹配全量设备目录扫描成本尚未优化，scope 候选仍不可直接发布。
+
+## 升级兼容补丁
+
+后续补丁已处理上节的旧随机 ID 缺口：AdmitEventRun 在现有 admission 事务/作用域锁内，先匹配稳定 ID，再按 tenant/event/rule/device 精确查旧 trigger_event_id，重放旧 run 与 snapshot、targets、status、generation、outbox key。历史已有多条 run 时按 started_at/id 复用首条，不新增，也不取消或改写其他已受理动作。它不允许旧/新版本同时并存的写入者凭空获得一致身份，发布仍需控制 worker 切换。
+
+真实 PG 手工构造旧随机 ID：completed 与 waiting 两子例都经过 processed 标记故障、revision 更新和恢复，原 ID/冻结决策不变；waiting 最终只执行原动作一次。另有两条历史重复 run 的用例，恢复没有再添第三条或改历史。034b06c8 精确基线加同一测试夹具时这些断言均失败；补丁后通过，事件并发与四种 mode/部分多规则回归合计 6 顶层通过。证据：Q09-upgrade-compatibility-before.jsonl、Q09-event-identity-upgrade-compatibility.jsonl。
+
+未增加 SQL migration。旧事件查找可用现有 rule_id/started_at 索引，但没有完整复合事件索引；高历史量性能仍需上线前核对，不能称该兼容查询已完成负载验收。

@@ -34,7 +34,7 @@ const (
 // with a frozen target snapshot.
 func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, triggerEventID string,
 	c cause, res domain.Result, now time.Time, seq int64) (*store.Run, error) {
-	return r.acceptRunWithIdentity(ctx, rule, deviceID, triggerEventID, c, res, now, NewID(), false)
+	return r.acceptRunWithIdentity(ctx, rule, deviceID, triggerEventID, c, res, now, NewID(), false, false)
 }
 
 // acceptEventRun reuses the durable decision for one normalized ingress event.
@@ -45,11 +45,11 @@ func (r *Runtime) acceptEventRun(ctx context.Context, rule *store.Rule, deviceID
 	c cause, res domain.Result, now time.Time) (*store.Run, error) {
 	key, _ := json.Marshal([]string{"ingress-event", rule.TenantID, eventID, rule.ID, deviceID})
 	digest := sha256.Sum256(key)
-	return r.acceptRunWithIdentity(ctx, rule, deviceID, eventID, c, res, now, "event-"+hex.EncodeToString(digest[:]), false)
+	return r.acceptRunWithIdentity(ctx, rule, deviceID, eventID, c, res, now, "event-"+hex.EncodeToString(digest[:]), false, true)
 }
 
 func (r *Runtime) acceptRunWithIdentity(ctx context.Context, rule *store.Rule, deviceID, triggerEventID string,
-	c cause, res domain.Result, now time.Time, id string, deferred bool) (*store.Run, error) {
+	c cause, res domain.Result, now time.Time, id string, deferred, eventIdentity bool) (*store.Run, error) {
 	def := rule.Definition
 	scope := ScopeKey(&def, rule.ID, deviceID)
 	targets, targetErr := r.resolveTargets(ctx, rule, deviceID)
@@ -116,8 +116,14 @@ func (r *Runtime) acceptRunWithIdentity(ctx context.Context, rule *store.Rule, d
 		run.ReasonCode = "target_resolution_failed"
 		run.Reason = targetErr.Error()
 	}
-	if err := r.store.AdmitRun(ctx, run, targets, def); err != nil {
-		return nil, err
+	var admissionErr error
+	if eventIdentity {
+		admissionErr = r.store.AdmitEventRun(ctx, run, targets, def)
+	} else {
+		admissionErr = r.store.AdmitRun(ctx, run, targets, def)
+	}
+	if admissionErr != nil {
+		return nil, admissionErr
 	}
 
 	if deferred || run.Status != StatusAccepted {

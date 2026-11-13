@@ -19,6 +19,17 @@ func lockRunScope(ctx context.Context, tx *sql.Tx, scope string) error {
 // AdmitRun commits the admission decision and its frozen targets together.
 // A stable ID replays the existing decision, including a busy/limit refusal.
 func (s *Store) AdmitRun(ctx context.Context, run *Run, targets []Target, def domain.Definition) error {
+	return s.admitRun(ctx, run, targets, def, false)
+}
+
+// AdmitEventRun also adopts an existing pre-stable-ID event decision. The exact
+// tenant/event/rule/device tuple is checked under the normal admission lock.
+// If historical duplicates exist, the first decision is reused; no old action
+// is cancelled, rewritten or submitted again by this compatibility path.
+func (s *Store) AdmitEventRun(ctx context.Context, run *Run, targets []Target, def domain.Definition) error {
+	return s.admitRun(ctx, run, targets, def, true)
+}
+func (s *Store) admitRun(ctx context.Context, run *Run, targets []Target, def domain.Definition, eventIdentity bool) error {
 	replay := false
 	err := s.WithTx(ctx, func(tx *sql.Tx) error {
 		if err := lockRunScope(ctx, tx, run.ScopeKey); err != nil {
@@ -32,6 +43,17 @@ func (s *Store) AdmitRun(ctx context.Context, run *Run, targets []Target, def do
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
 			return err
+		}
+		if eventIdentity && run.TriggerEventID != "" {
+			err = tx.QueryRowContext(ctx, `SELECT id FROM auto_runs WHERE tenant_id=$1 AND trigger_event_id=$2 AND rule_id=$3 AND coalesce(device_id,'')=$4 ORDER BY started_at,id LIMIT 1`, run.TenantID, run.TriggerEventID, run.RuleID, run.DeviceID).Scan(&existing)
+			if err == nil {
+				run.ID = existing
+				replay = true
+				return nil
+			}
+			if !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
 		}
 		var active, queued int
 		if err := tx.QueryRowContext(ctx, `SELECT count(*) FILTER(WHERE status IN ('accepted','running')), count(*) FILTER(WHERE status='queued'), coalesce(max(generation),0)+1 FROM auto_runs WHERE scope_key=$1`, run.ScopeKey).Scan(&active, &queued, &run.Generation); err != nil {
