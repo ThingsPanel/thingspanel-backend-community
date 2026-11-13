@@ -197,3 +197,6 @@ R5b、R6 已合并推送：安装器 develop `f7e9212`、后端 develop `53a7032
 | 镜像 `r6-encore:dev`、`r7-frontend:dev`/`r6-frontend:dev` | — | 计划已做完，**R7 结束后删除**（见下） | 已清理（见 R7-DONE） |
 | 演练栈 `r7-*`、`r7-backend:*`、`r7-ha-standin:*`、`/Volumes/KIOXIA/tmp/r7-work` | — | 已于 R7 结束时删除，证据在 `/Volumes/KIOXIA/archive/evidence/2026-11-13-R7` | 已清理 |
 
+## R7 合并推送（2026-11-13）
+R7 已合并推送：安装器 develop `dd9dbbd`、后端 develop `59b67038`、前端 develop `a0432f20`。`wp-r7-plugin-upgrade`（后端）、`wp-r7-agent`（安装器）、`wp-r7-frontend`（前端）的 worktree 与分支已删除（上面 R7 一节里这些行的“待清理”以此为准）。R0–R7 全部合并完成。
+
