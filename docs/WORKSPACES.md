@@ -142,3 +142,7 @@ Q02续行：同一后端worktree转wp/gin-integrated-candidate-20261113，仅统
 ### 2026-11-13 Q09 additive Gin directory build tooling
 
 qa_connectors: q09-gin-directory-candidate / wp/q09-gin-directory-candidate-20261113, exact tooling base1702cc2d. Root explicitly assigns build-only candidate using existing deployed composition plus c4197017 three file overlay; anchor is not merged into main. Preserve CAS/command11, broker, migrations and Encore. No remote commands, deployment or latest/release mutation. Evidence outside repository Q09-gin-directory-*; push/dispatch only after root review.
+
+### 2026-11-13 Q04 combined Gin uplink CI tooling
+
+qa_model: `.claude/worktrees/q04-gin-uplink-candidate`, branch `wp/q04-gin-uplink-candidate-20261113`, root-assigned exact efb3f95f tooling baseline. Build-only actual1702+directory c419 composition, then command34d6 four Gin files and uplink7e240 thirty-eight files; preserve Broker/SQL/Encore sources. No deployment, dispatch or push until root review. External evidence `F:/coding/artifacts/20261111-coordinated-rollout/Q04-gin-uplink-*`; retain after review, removal requires confirmation.

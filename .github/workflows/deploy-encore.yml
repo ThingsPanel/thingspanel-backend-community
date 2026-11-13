@@ -1,6 +1,6 @@
 # Candidate-branch dispatch adapter using an already registered workflow path.
 # Build and GitHub artifact upload only. No SSH, deployment or migrations.
-name: Build additive Gin bounded directory candidate
+name: Build combined Gin native uplink candidate
 on:
   workflow_dispatch:
 permissions:
@@ -23,6 +23,12 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U notification_test -d notification_test"
           --health-interval 2s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['26379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s --health-timeout 3s --health-retries 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,8 +43,12 @@ jobs:
           test -z "$(git status --porcelain)"
           git fetch origin 47405bfd51eba9f436231744de9a123d4278152d
           git fetch origin c4197017533974a624a3fa0982a0f79cd6443ec7
-          python3 -m unittest discover -s deploy/community-test -p test_gin_integrated_candidate.py
-          python3 deploy/community-test/build_gin_integrated_candidate.py compose "$RUNNER_TEMP/gin-integrated"
+          git fetch origin efb3f95f45310206fa484efb59402eb4bf7aa62f
+          git fetch origin 34d6e18971f15b74c0b02fb7f69fae2fc87f876a
+          git fetch origin 7e2407913250aa231e162c4d97f028f27c52d1b0
+          git fetch origin cbb627f5423919e09ba9c1442d382a869b7cb3d1
+          python3 -m unittest discover -s deploy/community-test -p 'test_gin_*candidate.py'
+          python3 deploy/community-test/build_gin_uplink_candidate.py compose "$RUNNER_TEMP/gin-integrated"
       - name: Validate actual combined Gin and real PostgreSQL boundaries
         env:
           Q02_METADATA_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test?sslmode=disable
@@ -47,8 +57,22 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/gin-integrated/source/backend"
-          go test ./internal/model ./internal/dal ./internal/api ./internal/service ./internal/brokersemantic ./internal/brokercontrol ./internal/adapter/mqttadapter ./router -run 'Test(DeviceConfigCondition|DeviceConfigMetadataPostgres|TemplateMetadataAPI|NativeCommand|PostgresNativeCommandOwnerValidation|ExpectedCommandRetains|ValidateCommand|CommandFingerprintSnapshotLegacyJSONIsStable|PostgresPluginPublisherAuthenticatesWhileDispatchHoldsRoute|DeviceDiagnosticsAuthenticatedTenantBoundary|HTTPCommandWireUsesAcceptedDeadlineOnly|AutomationDeviceLookup|AutomationOwnerAuth)' -count=1 -json | tee "$RUNNER_TEMP/gin-integrated/tests.jsonl"
+          go test ./internal/model ./internal/dal ./internal/api ./internal/service ./internal/brokersemantic ./internal/brokercontrol ./internal/adapter/mqttadapter ./router -run 'Test(DeviceConfigCondition|DeviceConfigMetadataPostgres|TemplateMetadataAPI|NativeCommand|NativeDeviceCommands|HistoricalBindingRevision|PostgresNativeCommandOwnerValidation|ExpectedCommandRetains|ValidateCommand|CommandFingerprintSnapshotLegacyJSONIsStable|PostgresPluginPublisherAuthenticatesWhileDispatchHoldsRoute|DeviceDiagnosticsAuthenticatedTenantBoundary|HTTPCommandWireUsesAcceptedDeadlineOnly|AutomationDeviceLookup|AutomationOwnerAuth)' -count=1 -json | tee "$RUNNER_TEMP/gin-integrated/tests.jsonl"
           python3 "$GITHUB_WORKSPACE/deploy/community-test/build_gin_integrated_candidate.py" verify-tests "$RUNNER_TEMP/gin-integrated/tests.jsonl"
+          python3 "$GITHUB_WORKSPACE/deploy/community-test/gin_uplink_test_gate.py" command "$RUNNER_TEMP/gin-integrated/tests.jsonl"
+      - name: Validate native uplink atomic commits and real logical diagnostics
+        env:
+          TEST_BROKER_DATABASE_DSN: host=127.0.0.1 port=25543 user=notification_test password=fixture-only-password dbname=notification_test sslmode=disable
+          TP_BROKER_LEDGER_TEST_DSN: host=127.0.0.1 port=25543 user=notification_test password=fixture-only-password dbname=notification_test sslmode=disable
+          TP_TELEMETRY_BROKER_TEST_DSN: host=127.0.0.1 port=25543 user=notification_test password=fixture-only-password dbname=notification_test sslmode=disable
+          TEST_DIAGNOSTICS_REDIS_ADDR: 127.0.0.1:26379
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/gin-integrated/source/backend"
+          go test ./internal/uplink ./internal/storage ./internal/brokerledger ./internal/diagnostics ./internal/uplinkbinding ./internal/uplinkcontract ./internal/brokersemantic -count=1 -json | tee "$RUNNER_TEMP/gin-integrated/uplink-tests.jsonl"
+          python3 "$GITHUB_WORKSPACE/deploy/community-test/gin_uplink_test_gate.py" uplink "$RUNNER_TEMP/gin-integrated/uplink-tests.jsonl"
+          go test ./internal/app -run 'TestBrokerIngress(Worker|LegacyDoesNotRequireDB|IngressV1FailsClosed|AcceptorRejectsUntrusted|AcceptorUsesOnlyExplicit|AcceptorUsesStable|AttributeSource|PreparedAssembly)' -count=1 -json | tee "$RUNNER_TEMP/gin-integrated/assembly-tests.jsonl"
+          python3 "$GITHUB_WORKSPACE/deploy/community-test/gin_uplink_test_gate.py" assembly "$RUNNER_TEMP/gin-integrated/assembly-tests.jsonl"
       - name: Retain mainline ownership and validate stage transform guards
         env:
           Q02_METADATA_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test?sslmode=disable
@@ -75,7 +99,7 @@ jobs:
           cd "$RUNNER_TEMP/gin-integrated/source/backend"
           go build -trimpath -buildvcs=false -ldflags "-s -w -X project/pkg/global.SYSTEM_VERSION=gin-cas-command-$GITHUB_SHA" -o "$RUNNER_TEMP/ThingsPanel-Go" .
           cd "$GITHUB_WORKSPACE"
-          python3 deploy/community-test/build_gin_integrated_candidate.py package "$RUNNER_TEMP/gin-integrated" "$RUNNER_TEMP/ThingsPanel-Go" "gin-integrated-$GITHUB_SHA.tar.gz" "$GITHUB_SHA"
+          python3 deploy/community-test/build_gin_uplink_candidate.py package "$RUNNER_TEMP/gin-integrated" "$RUNNER_TEMP/ThingsPanel-Go" "gin-integrated-$GITHUB_SHA.tar.gz" "$GITHUB_SHA"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -84,6 +108,8 @@ jobs:
             ${{ runner.temp }}/gin-integrated/SOURCE_PROVENANCE.json
             ${{ runner.temp }}/gin-integrated/SOURCE_FILES.json
             ${{ runner.temp }}/gin-integrated/tests.jsonl
+            ${{ runner.temp }}/gin-integrated/uplink-tests.jsonl
+            ${{ runner.temp }}/gin-integrated/assembly-tests.jsonl
             ${{ runner.temp }}/gin-integrated/main-owner-tests.jsonl
             ${{ runner.temp }}/gin-integrated/manifest.json
           if-no-files-found: error
