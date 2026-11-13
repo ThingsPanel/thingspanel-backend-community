@@ -96,7 +96,7 @@ type commandEnumOption struct {
 // exact published ModelDraft carried by Description.Model. No model state is
 // inferred from display labels, device payloads, or community-side metadata.
 func ValidateCommand(description Description, identifier string, params *string) error {
-	if strings.TrimSpace(identifier) == "" || identifier != strings.TrimSpace(identifier) || params == nil || len(*params) > maxCommandParamsBytes {
+	if identifier == "" || params == nil || len(*params) > maxCommandParamsBytes {
 		return ErrCommandInvalid
 	}
 	var model commandModel
@@ -106,7 +106,7 @@ func ValidateCommand(description Description, identifier string, params *string)
 	var selected *commandField
 	for i := range model.Fields {
 		field := &model.Fields[i]
-		if field.Identifier != identifier {
+		if field.Kind != "COMMAND" || field.Identifier != identifier {
 			continue
 		}
 		if selected != nil {
@@ -129,7 +129,7 @@ func ValidateCommand(description Description, identifier string, params *string)
 	}
 	seen := make(map[string]struct{}, len(selected.Parameters.Items))
 	for _, parameter := range selected.Parameters.Items {
-		if parameter.Identifier == "" || strings.TrimSpace(parameter.Identifier) != parameter.Identifier {
+		if parameter.Identifier == "" {
 			return ErrCommandUnsupported
 		}
 		if _, duplicate := seen[parameter.Identifier]; duplicate {

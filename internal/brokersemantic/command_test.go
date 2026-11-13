@@ -7,6 +7,56 @@ import (
 	"testing"
 )
 
+// Mirrors the model accepted through Create/Publish/Version by
+// app.TestPublishedCommandKindNamespaceAndVerbatimIdentifiers. All four kinds
+// share the same exact identifier, but only COMMAND is eligible for dispatch.
+func TestValidateCommandKindNamespaceAndVerbatimIdentifiers(t *testing.T) {
+	for _, identifier := range []string{"Mode-Wire", "  Vendor.Mode/°C  ", " "} {
+		t.Run(identifier, func(t *testing.T) {
+			write, no := true, false
+			model := commandModel{Name: "Namespace contract", Fields: []commandField{
+				{Kind: "TELEMETRY", Identifier: identifier, NameI18n: commandI18n{Default: "Reported mode"}, Access: &commandAccess{Read: &write, Write: &no, Observe: &write}, ValueType: &commandValueType{Kind: "NUMBER"}},
+				{Kind: "ATTRIBUTE", Identifier: identifier, NameI18n: commandI18n{Default: "Mode attribute"}, Access: &commandAccess{Read: &write, Write: &no, Observe: &no}, ValueType: &commandValueType{Kind: "STRING"}},
+			}}
+			parameters := &commandParams{SchemaVersion: 1, Items: []commandParameter{{Identifier: "  target/value  ", NameI18n: commandI18n{Default: "Target"}, ValueType: commandValueType{Kind: "BOOL"}}}}
+			model.Fields = append(model.Fields,
+				commandField{Kind: "EVENT", Identifier: identifier, NameI18n: commandI18n{Default: "Mode event"}, Access: &commandAccess{Read: &no, Write: &no, Observe: &write}, Parameters: parameters},
+				commandField{Kind: "COMMAND", Identifier: identifier, NameI18n: commandI18n{Default: "Set mode"}, Access: &commandAccess{Read: &no, Write: &write, Observe: &no}, Parameters: parameters})
+			encode := func() Description {
+				raw, err := json.Marshal(model)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return Description{Model: raw}
+			}
+			description := encode()
+			for _, raw := range []string{`{"  target/value  ":true}`, `{"  target/value  ":false}`} {
+				if err := ValidateCommand(description, identifier, params(raw)); err != nil {
+					t.Errorf("published command rejected: %v", err)
+				}
+			}
+			for _, raw := range []string{`{}`, `{"target/value":true}`, `{"  target/value  ":"true"}`, `{"  target/value  ":1}`, `{"  target/value  ":true,"extra":1}`} {
+				if err := ValidateCommand(description, identifier, params(raw)); err == nil {
+					t.Errorf("invalid parameters accepted: %s", raw)
+				}
+			}
+			if ValidateCommand(description, identifier+"missing", params(`{"  target/value  ":true}`)) == nil {
+				t.Fatal("unknown command accepted")
+			}
+			// Malformed duplicate commands still fail closed even though such a
+			// model cannot be published; do not confuse this with cross-kind reuse.
+			model.Fields = append(model.Fields, model.Fields[3])
+			if ValidateCommand(encode(), identifier, params(`{"  target/value  ":true}`)) == nil {
+				t.Fatal("duplicate command accepted")
+			}
+			model.Fields = model.Fields[:3]
+			if ValidateCommand(encode(), identifier, params(`{"  target/value  ":true}`)) == nil {
+				t.Fatal("non-command namespace used")
+			}
+		})
+	}
+}
+
 func commandDescription(t *testing.T, kind string, constraint *commandConstraint, enums []commandEnumOption) Description {
 	t.Helper()
 	write := true

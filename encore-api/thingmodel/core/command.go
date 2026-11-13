@@ -19,7 +19,7 @@ func ValidateCommandParameters(snapshot Snapshot, identifier string, raw json.Ra
 	}
 	var selected *Field
 	for i := range snapshot.Fields {
-		if snapshot.Fields[i].Identifier == identifier {
+		if snapshot.Fields[i].Kind == FieldCommand && snapshot.Fields[i].Identifier == identifier {
 			if selected != nil {
 				return ErrCommandParameters
 			}
