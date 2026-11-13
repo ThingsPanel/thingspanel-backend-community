@@ -56,10 +56,24 @@ func mapErr(err error) error {
 	case errors.Is(err, systemagent.ErrBusy):
 		return &errs.Error{Code: errs.FailedPrecondition, Message: "another system operation is running", Details: errDetails{Code: "system_busy"}}
 	case errors.As(err, &ae):
-		return &errs.Error{Code: errs.FailedPrecondition, Message: ae.Message, Details: errDetails{Code: ae.Code}}
+		return &errs.Error{Code: errs.FailedPrecondition, Message: agentMessage(ae), Details: errDetails{Code: ae.Code}}
 	default:
 		return &errs.Error{Code: errs.Internal, Message: "system manager error"}
 	}
+}
+
+// agentMessages holds user-facing texts for Agent codes that need operator guidance. Codes not listed fall back to
+// the Agent's own message. Texts are bilingual (中文 / English) and name no host paths or secrets.
+var agentMessages = map[string]string{
+	"upgrade_helper_image_unavailable": "升级辅助镜像（默认 docker:27-cli）拉取失败，未对站点做任何修改。请在服务器上执行 `docker pull docker:27-cli` 后重试；离线主机请在联网机器上 docker save、再在本机 docker load 导入，具体镜像名见安装目录日志中的 UPGRADE-HELPER-IMAGE 行。" +
+		" / The upgrade helper image (default docker:27-cli) could not be pulled; nothing was changed on this site. Run `docker pull docker:27-cli` on the server and retry. On an offline host, import it with docker save / docker load; the exact image is in the UPGRADE-HELPER-IMAGE line of the install-directory log.",
+}
+
+func agentMessage(ae *systemagent.Error) string {
+	if m, ok := agentMessages[ae.Code]; ok {
+		return m
+	}
+	return ae.Message
 }
 
 type errDetails struct {

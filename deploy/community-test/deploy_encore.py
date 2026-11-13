@@ -83,7 +83,7 @@ run(['git', 'init', '-q', str(source)])
 marketinstall = os.environ.get('TP_DEPLOY_MARKETINSTALL', 'false')
 if marketinstall not in ('true', 'false'):
     raise RuntimeError('Invalid TP_DEPLOY_MARKETINSTALL')
-native_services = 'authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification'
+native_services = 'authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification,brokerscope,system'
 if marketinstall == 'true':
     native_services += ',marketinstall'
 image = 'tp-community-encore:source-' + SHA
