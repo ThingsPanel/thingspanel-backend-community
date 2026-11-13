@@ -43,7 +43,7 @@ try:
   profile_bytes=tar.extractfile(files['RELEASE_PROFILE.json']).read()
   assert hashlib.sha256(profile_bytes).hexdigest()==expected_profile
   profile=json.loads(profile_bytes)
-  assert profile['source_commit']==commit and len(profile['overrides'])==33 and len(profile['device_ui_patches'])==7
+  assert profile['source_commit']==commit and len(profile['overrides'])==33 and len(profile['device_ui_patches'])==8
   result.update(manifest_sha256=expected_manifest,profile_sha256=expected_profile,validated_files=len(files),expanded_bytes=total)
  tools.mkdir(exist_ok=True,mode=0o700)
  assert not path.is_symlink()
