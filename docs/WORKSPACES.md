@@ -200,3 +200,5 @@ R5b、R6 已合并推送：安装器 develop `f7e9212`、后端 develop `53a7032
 ## R7 合并推送（2026-11-13）
 R7 已合并推送：安装器 develop `dd9dbbd`、后端 develop `59b67038`、前端 develop `a0432f20`。`wp-r7-plugin-upgrade`（后端）、`wp-r7-agent`（安装器）、`wp-r7-frontend`（前端）的 worktree 与分支已删除（上面 R7 一节里这些行的“待清理”以此为准）。R0–R7 全部合并完成。
 
+## R 系列交接文档（2026-11-13）
+交接文档 `docs/HANDOVER-RESTART-BACKUP-UPGRADE-2026-11-13.md` 已合入后端 develop；worktree `wp-r-handover` 与分支 `wp/R-handover` 已删除。
