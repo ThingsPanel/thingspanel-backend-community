@@ -24,7 +24,7 @@ jobs:
         run: |
           docker run -d --name import-test -p 127.0.0.1:25543:5432 -e POSTGRES_USER=import_test -e POSTGRES_PASSWORD=fixture-only -e POSTGRES_DB=import_test postgres:16-alpine
           for attempt in $(seq 1 30); do
-            if docker exec import-test pg_isready -U import_test -d import_test; then
+            if docker exec import-test pg_isready -h 127.0.0.1 -U import_test -d import_test; then
               docker exec import-test createdb -U import_test tp_upgrade_rehearsal_20000101000001
               exit 0
             fi
