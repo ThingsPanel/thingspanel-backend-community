@@ -17,11 +17,15 @@ import (
 // Client talks to the Community backend that owns the device runtime: live and historical
 // readings, commands, simulation and the device records themselves.
 //
-// It is configured only from the environment and has no defaults, so a deployment that does
+// Its endpoint is configured only from the environment and has no defaults, so a deployment that does
 // not configure it fails clearly instead of talking to a public demo server with a shared
 // password:
 //
 //	TP_COMMUNITY_BASE_URL  Community base URL, e.g. http://community:9999 (required; shared with the automation service)
+// Synchronous authenticated native reads use WithAuthenticatedReadRequest and
+// never require or fall back to service-account credentials. Other existing
+// callers use the following service credentials:
+//
 //	TP_COMMUNITY_API_KEY   a Community API key for this service (preferred)
 //	TP_COMMUNITY_EMAIL / TP_COMMUNITY_PASSWORD  a dedicated service account, used only when no API key is set
 type Client struct {
@@ -61,6 +65,15 @@ type loginResp struct {
 // Login returns a session token. If TP_COMMUNITY_API_KEY is set it returns a sentinel
 // value so callers can use the API key path instead.
 func (c *Client) Login(ctx context.Context) (string, error) {
+	if read, ok := ctx.Value(authenticatedReadKey{}).(authenticatedRead); ok {
+		if read.token == "" {
+			return "", ErrRequestAuthentication
+		}
+		if c.baseURL == "" {
+			return "", ErrNotConfigured
+		}
+		return read.token, nil
+	}
 	if !c.Configured() {
 		return "", ErrNotConfigured
 	}
@@ -95,6 +108,10 @@ func (c *Client) doJSON(ctx context.Context, method, path, token string, reqBody
 }
 
 func (c *Client) doRaw(ctx context.Context, method, path, token string, reqBody any) (json.RawMessage, error) {
+	read, callerRead := ctx.Value(authenticatedReadKey{}).(authenticatedRead)
+	if callerRead && (read.token == "" || method != http.MethodGet) {
+		return nil, ErrRequestAuthentication
+	}
 	var bodyReader *bytes.Reader
 	if reqBody == nil {
 		bodyReader = bytes.NewReader(nil)
@@ -110,12 +127,23 @@ func (c *Client) doRaw(ctx context.Context, method, path, token string, reqBody 
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if c.apiKey != "" {
+	if callerRead {
+		req.Header.Set("Authorization", "Bearer "+read.token)
+		req.Header.Set("x-token", read.token)
+	} else if c.apiKey != "" {
 		req.Header.Set("x-api-key", c.apiKey)
 	} else if token != "" {
 		req.Header.Set("x-token", token)
 	}
-	resp, err := c.http.Do(req)
+	client := c.http
+	if callerRead {
+		// Clone the value, not the shared client's mutable state. In particular,
+		// x-token must not be forwarded even to a same-host redirect target.
+		isolated := *client
+		isolated.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+		client = &isolated
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

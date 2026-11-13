@@ -275,7 +275,7 @@ func (s *Service) GetNativeDeviceDiagnostics(w http.ResponseWriter, r *http.Requ
 		}
 		return "offline", nil
 	}
-	response, err := readNativeDiagnostics(r.Context(), identity, query, deviceID, requestID, now, connectivity)
+	response, err := readNativeDiagnostics(nativeRuntimeReadContext(r), identity, query, deviceID, requestID, now, connectivity)
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return

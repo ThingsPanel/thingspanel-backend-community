@@ -365,7 +365,7 @@ func (s *Service) ListNativeDeviceDebugLogs(w http.ResponseWriter, r *http.Reque
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, true)
 		return
 	}
-	response, err := listNativeDebugLogs(r.Context(), identity.nativeDeviceReadIdentity, deviceID, page, pageSize, requestID)
+	response, err := listNativeDebugLogs(nativeRuntimeReadContext(r), identity.nativeDeviceReadIdentity, deviceID, page, pageSize, requestID)
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, true)
 		return

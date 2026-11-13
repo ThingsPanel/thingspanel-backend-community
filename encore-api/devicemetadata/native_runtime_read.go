@@ -44,6 +44,13 @@ func nativeRuntimeClient() *communityclient.Client {
 	return runtimeClientInstance
 }
 
+// Only synchronous, authenticated read handlers use this context. Native
+// ownership checks still run before the client, and no credential is persisted
+// in metadata or the shared runtime client for later background dispatch.
+func nativeRuntimeReadContext(r *http.Request) context.Context {
+	return communityclient.WithAuthenticatedReadRequest(r.Context(), r)
+}
+
 // resolveRuntimeDeviceID picks the Community device ID for a native device:
 //  1. a runtimeRef in the configured Community namespace is the provider-confirmed
 //     identity and wins;
@@ -151,7 +158,7 @@ func (s *Service) GetNativeDeviceRuntimeState(w http.ResponseWriter, r *http.Req
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return
 	}
-	response, err := readNativeRuntimeState(r.Context(), identity, deviceID, requestID)
+	response, err := readNativeRuntimeState(nativeRuntimeReadContext(r), identity, deviceID, requestID)
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return
@@ -414,7 +421,7 @@ func (s *Service) ListNativeDeviceReadings(w http.ResponseWriter, r *http.Reques
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, true)
 		return
 	}
-	response, err := readNativeReadings(r.Context(), identity, query, deviceID, requestID)
+	response, err := readNativeReadings(nativeRuntimeReadContext(r), identity, query, deviceID, requestID)
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, true)
 		return

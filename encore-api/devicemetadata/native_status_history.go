@@ -133,7 +133,7 @@ func (s *Service) ListNativeDeviceStatusHistory(w http.ResponseWriter, r *http.R
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, true)
 		return
 	}
-	response, err := readNativeStatusHistory(r.Context(), identity, query, deviceID, requestID)
+	response, err := readNativeStatusHistory(nativeRuntimeReadContext(r), identity, query, deviceID, requestID)
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, true)
 		return

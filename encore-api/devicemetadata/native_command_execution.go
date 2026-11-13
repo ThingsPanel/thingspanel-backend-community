@@ -838,7 +838,7 @@ func (s *Service) ListNativeDeviceCommands(w http.ResponseWriter, r *http.Reques
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, true)
 		return
 	}
-	response, err := listNativeDeviceCommands(r.Context(), identity.nativeDeviceReadIdentity, query, deviceID, requestID)
+	response, err := listNativeDeviceCommands(nativeRuntimeReadContext(r), identity.nativeDeviceReadIdentity, query, deviceID, requestID)
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, true)
 		return
@@ -868,7 +868,7 @@ func (s *Service) GetNativeDeviceCommand(w http.ResponseWriter, r *http.Request)
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return
 	}
-	response, err := getNativeDeviceCommand(r.Context(), identity.nativeDeviceReadIdentity, deviceID, executionID, requestID)
+	response, err := getNativeDeviceCommand(nativeRuntimeReadContext(r), identity.nativeDeviceReadIdentity, deviceID, executionID, requestID)
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return
