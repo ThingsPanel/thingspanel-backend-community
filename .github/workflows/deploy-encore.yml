@@ -78,9 +78,11 @@ jobs:
         working-directory: encore-api
         env:
           UPGRADE_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/tp_upgrade_rehearsal_20000101000001?sslmode=disable
+          TENANT_IMPORT_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test?sslmode=disable
         run: |
           docker exec notification-test createdb -U notification_test tp_upgrade_rehearsal_20000101000001
-          go test -count=1 ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-groups ./cmd/metadata-upgrade-devices ./cmd/metadata-upgrade-relations
+          go test -count=1 ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-groups ./cmd/metadata-upgrade-devices ./cmd/metadata-upgrade-relations ./cmd/metadata-import-tenant
+          CGO_ENABLED=0 go build -trimpath -o ../metadata-import-tenant ./cmd/metadata-import-tenant
       - name: Verify device automation queries against PostgreSQL
         working-directory: encore-api
         env:
@@ -109,6 +111,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p candidate
+          install -m 700 metadata-import-tenant candidate/metadata-import-tenant
           git archive --format=tar HEAD encore-api pkg/relational | tar -xf - -C candidate
           docker save "tp-community-encore:source-$GITHUB_SHA" | gzip -1 > candidate/image.tar.gz
           python3 - <<'PY'

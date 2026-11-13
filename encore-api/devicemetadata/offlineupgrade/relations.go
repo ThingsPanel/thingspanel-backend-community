@@ -74,6 +74,11 @@ func PlanRelations(in RelationsInput) (RelationsPlan, error) {
 	if err != nil {
 		return p, err
 	}
+	return planRelationRows(in)
+}
+
+func planRelationRows(in RelationsInput) (RelationsPlan, error) {
+	p := RelationsPlan{Input: in, Actor: "migration:" + in.SourceArchiveSHA256}
 	if in.RecordedAt.IsZero() || in.RecordedAt.Nanosecond()%1000 != 0 {
 		return p, fmt.Errorf("fixed microsecond-precision conversion record time required")
 	}

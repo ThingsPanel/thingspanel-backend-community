@@ -111,6 +111,11 @@ func PlanDeviceIdentities(input DeviceIdentityInput) (DeviceIdentityPlan, error)
 	if err != nil {
 		return p, err
 	}
+	return planDeviceIdentityRows(input)
+}
+
+func planDeviceIdentityRows(input DeviceIdentityInput) (DeviceIdentityPlan, error) {
+	p := DeviceIdentityPlan{Input: input, Actor: "migration:" + input.SourceArchiveSHA256}
 	excluded, err := uniqueIDs(input.ExcludedDevices)
 	if err != nil {
 		return p, err

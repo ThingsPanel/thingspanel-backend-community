@@ -102,6 +102,12 @@ func PlanGroups(input GroupInput) (GroupPlan, error) {
 			return p, fmt.Errorf("verified archive digests required")
 		}
 	}
+	return planGroupRows(input)
+}
+
+// planGroupRows is shared by separately authorized rehearsal and tenant import boundaries.
+func planGroupRows(input GroupInput) (GroupPlan, error) {
+	p := GroupPlan{Input: input, Actor: "migration:" + input.SourceArchiveSHA256}
 	excluded := map[string]bool{}
 	for _, id := range input.ExcludedGroups {
 		if id == "" || excluded[id] {
