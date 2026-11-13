@@ -37,4 +37,8 @@
 - [R6, 2026-11-13] `.github/workflows/encore-image-build.yml` 的 `--services` 只有 authn、thingmodel、devicemetadata、fileassets、connectorcatalog，缺 automation、notification、marketinstall、northbound、platformconfig、brokerscope、system；CI 发布的 Encore 镜像里没有这些服务（本地脚本 `scripts/build-encore-image.sh` 是全的）。R2G 说明里“工作流已补 brokerscope”与 develop 上的实际内容不符。
 - [R6, 2026-11-13] Encore 管理 API（`/api/system/*`）没有审计表；现在只有 Encore 日志里的 “system action” 一行。
 - [R6, 2026-11-13] 备份“下载”、自动备份设置、上传备份恢复（第二期）。
+- [R7, 2026-11-13] 插件安装/升级的 `agent_prepare` 失败（例如镜像缺失、Agent 返回非“拒绝”类错误）被归为“Agent 离线”并重试最多 40 轮，期间升级场景下旧代次已吊销，插件停着；R7 只用镜像预检挡住最常见原因，重试规则本身没改。
+- [R7, 2026-11-13] 插件升级失败没有自动回退到旧版本（Agent 只认当前目录）；如果要回退，需要目录保留上一版条目或 Agent 保留上一代次的 profile。
+- [R7, 2026-11-13] “统一更新列表”目前是前端把 Encore `/api/system/updates` 和 Gin `/api/v1/plugin/catalog` 拼起来；插件安装迁到 Encore 后改成一个接口。
+- [R7, 2026-11-13] 更新对话框里插件升级成功后该行没有重新拉取目录（文字仍显示旧→新）。
 
