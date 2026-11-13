@@ -81,4 +81,16 @@ class CandidateGuards(unittest.TestCase):
   self.assertEqual(len(candidate.REQUIRED_DIRECTORY_TESTS),3)
   self.assertFalse(set(candidate.DIRECTORY_FILES)&set(candidate.COMMAND_FILES))
 
+ def test_generated_profile_normalizes_only_verified_newlines(self):
+  with tempfile.TemporaryDirectory(prefix='profile-newlines-') as tmp:
+   path=Path(tmp)/'RELEASE_PROFILE.json';raw=b'{\n  "reviewed": true\n}'
+   with patch.object(candidate,'DEPLOYED_BACKEND_PROFILE_SHA256',candidate.digest(raw)):
+    path.write_bytes(raw.replace(b'\n',b'\r\n'));candidate.normalize_generated_backend_profile(path)
+    self.assertEqual(path.read_bytes(),raw)
+    candidate.normalize_generated_backend_profile(path)
+    self.assertEqual(path.read_bytes(),raw)
+    path.write_bytes(b'{"reviewed":false}')
+    with self.assertRaisesRegex(ValueError,'deployed CI bytes'):candidate.normalize_generated_backend_profile(path)
+    self.assertEqual(path.read_bytes(),b'{"reviewed":false}')
+
 if __name__=='__main__':unittest.main()

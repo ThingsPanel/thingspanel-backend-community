@@ -20,6 +20,7 @@ DIRECTORY_SOURCE = 'c4197017533974a624a3fa0982a0f79cd6443ec7'
 DIRECTORY_PARENT = '9766c01000960cd8ef66a9f1eb2a0bfe2a02328f'
 DEPLOYED_TOOL_SOURCE = '1702cc2daf9267d590c9d3e0f41fb56cdc02b4bd'
 DEPLOYED_SOURCE_SNAPSHOT_SHA256 = 'a6e278f62d51c881d5a9b3a46e314a1994d5f01b5ee6eadc36486aeef5d8b8b4'
+DEPLOYED_BACKEND_PROFILE_SHA256 = '5ed710d8f83599a27cb7fa4ce7269cf4905a2f1c7c3bcea19e505c2895e03560'
 DIRECTORY_FILES = (
  'internal/api/automation_owner.go',
  'internal/api/automation_device_lookup.go',
@@ -107,6 +108,17 @@ def verify_only_changes(before, after, allowed):
     return [{'path': name, 'before_sha256': before.get(name), 'after_sha256': after.get(name)} for name in sorted(changed)]
 
 
+def normalize_generated_backend_profile(path):
+    # The historical Python generator uses the host newline mode for this one
+    # generated JSON file. Normalize only CRLF bytes, then require the exact CI
+    # hash; this is not a general content or source normalization exception.
+    path = Path(path)
+    raw = path.read_bytes().replace(b'\r\n', b'\n')
+    if digest(raw) != DEPLOYED_BACKEND_PROFILE_SHA256:
+        raise ValueError('Generated backend profile differs from deployed CI bytes')
+    path.write_bytes(raw)
+
+
 def verify_deployed_source(files):
     current = digest(json.dumps(files, sort_keys=True, separators=(',', ':')).encode())
     if current != DEPLOYED_SOURCE_SNAPSHOT_SHA256:
@@ -177,6 +189,7 @@ def compose(repo, destination):
     if baseline_profile['source_commit'] != BASE_SOURCE:
         raise ValueError('Historical composition did not use 1af')
     backend = composed / 'backend'
+    normalize_generated_backend_profile(backend / 'RELEASE_PROFILE.json')
     before = snapshot(backend)
     broker_before = snapshot(composed / 'broker')
 
