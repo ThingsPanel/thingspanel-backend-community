@@ -13,10 +13,10 @@ logs=[]
 for key in ['pm_err_log_path','pm_out_log_path']:
  path=pathlib.Path(e[key])
  if path.exists():
-  raw=path.read_bytes()[-180000:].decode(errors='replace')
+  raw=path.read_bytes()[-3000000:].decode(errors='replace')
   lines=raw.splitlines()
-  selected=[v for i,v in enumerate(lines) if re.search('fatal|panic|error|failed|cannot|invalid',v,re.I)]
-  text='\n'.join(selected[-35:])
+  selected=[v for v in lines if re.search(r'2026-11-13 14:(19|20|21):',v) and not re.search(r'broker state projection|message dispatch|ingress denied',v)]
+  text='\n'.join(selected[-80:])
   for value in sorted(secret,key=len,reverse=True):text=text.replace(value,'[redacted]')
   text=re.sub(r'(?i)(password|token|secret|jwt.key)[=: ]+[^ ,;]+',r'\1=[redacted]',text)
   logs.append({'kind':key,'errors':text[-9000:]})
