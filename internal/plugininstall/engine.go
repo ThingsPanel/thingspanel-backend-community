@@ -32,6 +32,10 @@ const (
 // ErrUpToDate: the signed catalog offers no newer version than the one installed.
 var ErrUpToDate = errors.New("plugin is already at the catalog version")
 
+// ErrImageMissing: the new version's image is not on the host. An upgrade would revoke the running generation before
+// the new one could start, so it is refused instead of taking a working plugin down.
+var ErrImageMissing = errors.New("the new plugin image is not available on this host")
+
 var (
 	ErrUnknownPlugin = errors.New("plugin is not in the signed catalog")
 	ErrInvalidConfig = errors.New("invalid plugin configuration")
@@ -317,6 +321,9 @@ func (e *Engine) Upgrade(ctx context.Context, tenant, id string) (*Installation,
 	}
 	if !updateAvailable(row, entry) {
 		return nil, ErrUpToDate
+	}
+	if entry.ImagePresent != nil && !*entry.ImagePresent {
+		return nil, ErrImageMissing
 	}
 	return e.transition(tenant, id, func(r *Installation) bool {
 		if r.State != StateEnabled {

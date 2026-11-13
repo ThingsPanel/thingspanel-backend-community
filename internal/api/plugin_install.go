@@ -98,6 +98,8 @@ func installFail(c *gin.Context, err error) {
 		status, code, msg = http.StatusNotFound, "NOT_FOUND", "not found"
 	case errors.Is(err, plugininstall.ErrInvalidConfig):
 		status, code, msg = http.StatusBadRequest, "INVALID_CONFIG", err.Error()
+	case errors.Is(err, plugininstall.ErrImageMissing):
+		status, code, msg = http.StatusConflict, "IMAGE_UNAVAILABLE", "the new plugin image is not available on this host"
 	case errors.Is(err, plugininstall.ErrUpToDate):
 		status, code, msg = http.StatusConflict, "UP_TO_DATE", "the plugin already runs the catalog version"
 	case errors.Is(err, plugininstall.ErrBadState):
@@ -142,7 +144,7 @@ func PluginInstallCatalog(c *gin.Context) {
 	out := make([]gin.H, 0, len(items))
 	for _, it := range items {
 		out = append(out, gin.H{"id": it.ID, "display_name": it.DisplayName, "version": it.Version, "description": it.Description,
-			"service_identifier": it.ServiceIdentifier, "fields": it.EnvUser, "update_available": it.UpdateAvailable,
+			"service_identifier": it.ServiceIdentifier, "fields": it.EnvUser, "update_available": it.UpdateAvailable, "image_available": it.ImagePresent == nil || *it.ImagePresent,
 			"installation": toInstallView(it.Installation, nil)})
 	}
 	c.Set("data", out)

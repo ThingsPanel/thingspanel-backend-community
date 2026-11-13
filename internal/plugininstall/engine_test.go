@@ -21,6 +21,7 @@ const secretValue = "SECRET-TOKEN-VALUE-123"
 
 type fakeAgent struct {
 	version   string // catalog version offered (default 1.0.0)
+	imageGone bool   // the Agent reports the pinned image as not present
 	mu        sync.Mutex
 	calls     []string
 	secrets   map[string]string
@@ -29,6 +30,11 @@ type fakeAgent struct {
 	conflict  string // return ErrAgentConflict on this call name
 	prepares  int
 	lastToken string
+}
+
+func (a *fakeAgent) imagePresent() *bool {
+	present := !a.imageGone
+	return &present
 }
 
 func newFakeAgent() *fakeAgent { return &fakeAgent{secrets: map[string]string{}} }
@@ -58,7 +64,7 @@ func (a *fakeAgent) Catalog(context.Context) ([]CatalogEntry, error) {
 		version = "1.0.0"
 	}
 	return []CatalogEntry{{ID: "homeassistant", DisplayName: "Home Assistant", Version: version, ServiceIdentifier: "homeassistant",
-		NetworkAlias: "tp-plugin-homeassistant", HTTPPort: 9001, Health: &HealthSpec{Port: 9001, Path: "/health"},
+		NetworkAlias: "tp-plugin-homeassistant", HTTPPort: 9001, Health: &HealthSpec{Port: 9001, Path: "/health"}, ImagePresent: a.imagePresent(),
 		ServicePlugin: &ServicePluginSpec{Name: "Home Assistant", ServiceType: 2, Config: map[string]string{"http_address": "{alias}:{http_port}"}},
 		EnvUser: map[string]FieldSpec{
 			"HA_BASE_URL":     {Required: true, Validate: "url"},
@@ -693,5 +699,24 @@ func TestFailedUpgradeKeepsTheOldVersionRecordedAndRetryFinishesIt(t *testing.T)
 	}
 	if done := v.settle(t, "", row.ID, StateEnabled); done.CatalogVersion != "1.1.0" {
 		t.Fatalf("%+v", done)
+	}
+}
+
+func TestUpgradeIsRefusedWhileTheNewImageIsMissingAndTheRunningPluginIsLeftAlone(t *testing.T) {
+	v := newEnv(t)
+	ctx := context.Background()
+	row, _ := v.e.Submit(ctx, "", "homeassistant", "", fullConfig())
+	row = v.settle(t, "", row.ID, StateEnabled)
+	v.agent.version, v.agent.imageGone = "1.1.0", true
+	if _, err := v.e.Upgrade(ctx, "", row.ID); !errors.Is(err, ErrImageMissing) {
+		t.Fatalf("%v", err)
+	}
+	after, _, _ := v.e.Get("", row.ID)
+	if after.State != StateEnabled || after.Generation != 1 || v.agent.count("revoke-1") != 0 {
+		t.Fatalf("the running generation must be untouched: %+v calls=%v", after, v.agent.calls)
+	}
+	v.agent.imageGone = false // the image has been loaded since
+	if _, err := v.e.Upgrade(ctx, "", row.ID); err != nil {
+		t.Fatal(err)
 	}
 }
