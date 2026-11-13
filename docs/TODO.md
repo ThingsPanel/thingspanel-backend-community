@@ -31,3 +31,7 @@
 - [R5a, 2026-11-12] 安装器 `tests/test_plugin_bundle_activation.py` 有 7 个测试在安装器 develop 上就失败（"Downloaded plugin helper does not match the installer pin: tools/plugin_catalog.py"），与 R5a 无关，未修。
 - [R5a, 2026-11-12] `deploy/community-test/deploy_encore.py` 的 `native_services` 清单不含 `brokerscope`（R2G 说明里已提；CI 工作流和 `scripts/build-encore-image.sh` 已补）。
 - [R5a, 2026-11-12] Agent 的 `system.json` 由 Agent 二进制生成：升级 Agent 后需重新 `agent_host.py up --system` 才会刷新配置；R5b 的升级编排要包含这一步。
+- [R6, 2026-11-13] `.github/workflows/encore-image-build.yml` 的 `--services` 只有 authn、thingmodel、devicemetadata、fileassets、connectorcatalog，缺 automation、notification、marketinstall、northbound、platformconfig、brokerscope、system；CI 发布的 Encore 镜像里没有这些服务（本地脚本 `scripts/build-encore-image.sh` 是全的）。R2G 说明里“工作流已补 brokerscope”与 develop 上的实际内容不符。
+- [R6, 2026-11-13] Encore 管理 API（`/api/system/*`）没有审计表；现在只有 Encore 日志里的 “system action” 一行。
+- [R6, 2026-11-13] 备份“下载”、自动备份设置、上传备份恢复（第二期）。
+

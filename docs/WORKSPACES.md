@@ -169,3 +169,13 @@ R3、R4、R4S 已合并推送到两个仓库的 develop；`wp-r3-done`、`wp-r4s
 | `.claude/worktrees/wp-r5a-done`（后端） | `wp/R5a-done` | R5a 交付说明、镜像脚本补 brokerscope | 审查合并后当天清理 |
 | 镜像 `r5a-encore:dev`（含 brokerscope 的 Encore 镜像） | — | **保留给 R5b**，R5b 结束后删除 | Claude 会话 |
 | 演练栈 `r5a-*`、`/Volumes/KIOXIA/tmp/r5a-work`、`r5a-bin` | — | 已于 R5a 结束时删除，证据在 `/Volumes/KIOXIA/archive/evidence/2026-11-12-R5a` | 已清理 |
+
+## R6（2026-11-13 登记）
+| 路径/对象 | 分支 | 任务 | 预计清理 |
+|---|---|---|---|
+| `.claude/worktrees/wp-r6-system-api`（后端） | `wp/R6-system-api` | R6 Encore 管理 API + 交付说明 | 审查合并后当天清理 |
+| `~/Downloads/code/thingspanel-installer/.claude/worktrees/wp-r6-agent`（安装器，叠在 `wp/R5b-upgrade` 上） | `wp/R6-agent` | R6 Agent 接口、nginx 维护页、修复 | 审查合并后当天清理 |
+| `~/Downloads/code/thingspanel-frontend-community/.claude/worktrees/wp-r6-frontend`（前端，单独会话） | `wp/R6-frontend` | R6 前端界面 | 审查合并后当天清理 |
+| 镜像 `r6-encore:dev`、`r6-frontend:dev` | — | 保留给 R7 整栈演练，R7 结束后删除 | Claude 会话 |
+| 演练栈 `r6-*`、`r6-backend:*`、`docker:27-cli`、`r5a-encore:dev`、`/Volumes/KIOXIA/tmp/r6-work` | — | 已于 R6 结束时删除，证据在 `/Volumes/KIOXIA/archive/evidence/2026-11-13-R6` | 已清理 |
+
