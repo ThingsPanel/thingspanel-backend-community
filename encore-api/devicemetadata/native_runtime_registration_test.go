@@ -67,6 +67,16 @@ func TestNativeRuntimeRegistrationRequiresOwnerConfirmation(t *testing.T) {
 	if err := registerNativeMQTTRuntime(ctx, item, change, `{"username":"secret"}`); err != nil {
 		t.Fatalf("confirmed registration retry failed: %v", err)
 	}
+	if owned, err := isOwnedNativeRuntime(ctx, tenant, id); err != nil || !owned {
+		t.Fatalf("confirmed runtime owner was not recognized: owned=%v err=%v", owned, err)
+	}
+	if owned, err := isOwnedNativeRuntime(ctx, testTenantID(), id); err != nil || owned {
+		t.Fatalf("cross tenant ownership detected: owned=%v err=%v", owned, err)
+	}
+	if owned, err := isOwnedNativeRuntime(ctx, tenant, "not-a-uuid"); err == nil || owned {
+		t.Fatal("ownership SQL error must not be swallowed")
+	}
+
 	runtimeID, err := lookupRuntimeDeviceID(ctx, tenant, id)
 	if err != nil || runtimeID != id {
 		t.Fatal("confirmed UUID not recorded", err)

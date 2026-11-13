@@ -97,13 +97,13 @@ func registerNativeMQTTRuntime(ctx context.Context, item runtimeOutboxItem, chan
 
 // Only identities confirmed by this deployment's runtime owner may be retried
 // through registration. Existing imported runtime identities keep their path.
-func isOwnedNativeRuntime(ctx context.Context, tenantID, deviceID string) bool {
+func isOwnedNativeRuntime(ctx context.Context, tenantID, deviceID string) (bool, error) {
 	deployment := os.Getenv("TP_SOURCE_DEPLOYMENT_ID")
 	if deployment == "" {
-		return false
+		return false, fmt.Errorf("runtime deployment identity unavailable")
 	}
 	provider := uuid.NewSHA1(uuid.NameSpaceOID, []byte("thingspanel/community/runtime/"+deployment)).String()
 	var owned bool
-	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM device_access_bindings WHERE tenant_id=$1 AND device_id=$2 AND runtime_provider_id=$3 AND runtime_namespace='community' AND runtime_external_id=$2)`, tenantID, deviceID, provider).Scan(&owned)
-	return err == nil && owned
+	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM device_access_bindings WHERE tenant_id=$1 AND device_id=$2 AND runtime_provider_id=$3 AND runtime_namespace='community' AND runtime_external_id=$4)`, tenantID, deviceID, provider, deviceID).Scan(&owned)
+	return owned, err
 }

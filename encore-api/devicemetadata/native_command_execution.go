@@ -242,20 +242,45 @@ func commandStateRank(state string) int {
 }
 
 // mapRuntimeCommandStatus converts a Community command status to the contract state.
-func mapRuntimeCommandStatus(status string) string {
+func mapRuntimeCommandStatus(status, reason string) string {
 	switch status {
-	case "accepted":
+	case "accepted", "dispatching":
 		return "accepted"
-	case "published":
+	case "published", "broker_acknowledged":
+		// Transport acceptance is not evidence of execution by the device.
 		return "delivered"
-	case "publish_failed", "device_failed":
+	case "failed":
+		// Exact reason emitted by brokercommands.Store.MarkStaleDispatches; generic failures and
+		// arbitrary messages containing "timeout" are not acknowledgement timeouts.
+		if reason == "device acknowledgement timed out" {
+			return "timed_out"
+		}
 		return "failed"
-	case "device_succeeded":
+	case "publish_failed", "device_failed", "device_reported_failure", "fenced":
+		return "failed"
+	case "device_succeeded", "device_reported_success":
 		return "acknowledged"
 	case "timeout":
 		return "timed_out"
+	case "expired":
+		return "expired"
 	}
 	return "unknown"
+}
+
+func canRefreshNativeCommandState(current, next string) bool {
+	if current == next {
+		return false
+	}
+	switch current {
+	case "unknown":
+		// Unknown is lack of evidence, not a confirmed terminal outcome.
+		return next != "pending" && next != "unknown"
+	case "pending", "accepted", "delivered":
+		return commandStateRank(next) >= commandStateRank(current)
+	default:
+		return false
+	}
 }
 
 // mapExpectedStatus converts a Community expected-message status (pending, sent,
@@ -500,8 +525,13 @@ func dispatchNativeCommand(ctx context.Context, identity nativeDeviceWriteIdenti
 }
 
 // refreshNativeDeviceCommands advances recent non-terminal receipts from the runtime.
-// States only move forward. Runtime errors leave the last known state untouched.
+// Confirmed states only move forward. An unknown receipt with a runtime ID can
+// recover from fresh runtime evidence. Runtime errors leave it untouched.
 func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadIdentity, deviceID, onlyID string) {
+	refreshNativeDeviceCommandsWithClient(ctx, identity, deviceID, onlyID, nativeRuntimeClient())
+}
+
+func refreshNativeDeviceCommandsWithClient(ctx context.Context, identity nativeDeviceReadIdentity, deviceID, onlyID string, client *communityclient.Client) {
 	tenantID := identity.tenantID
 	tx, err := beginTenantScopedSQLTx(ctx, tenantID, true)
 	if err != nil {
@@ -511,10 +541,12 @@ func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadI
 		id, state string
 		messageID *string
 		accepted  time.Time
+		delivered bool
 	}
 	var candidates []candidate
-	query := `SELECT id::text,state,runtime_message_id,accepted_at FROM device_command_executions
-		WHERE tenant_id=$1 AND device_id=$2 AND state IN ('pending','accepted','delivered')`
+	query := `SELECT id::text,state,runtime_message_id,accepted_at,delivery_at IS NOT NULL FROM device_command_executions
+		WHERE tenant_id=$1 AND device_id=$2 AND (state IN ('pending','accepted','delivered')
+		OR (state='unknown' AND runtime_message_id IS NOT NULL))`
 	args := []any{tenantID, deviceID}
 	if onlyID != "" {
 		query += ` AND id=$3`
@@ -527,7 +559,7 @@ func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadI
 	}
 	for rows.Next() {
 		var c candidate
-		if rows.Scan(&c.id, &c.state, &c.messageID, &c.accepted) == nil {
+		if rows.Scan(&c.id, &c.state, &c.messageID, &c.accepted, &c.delivered) == nil {
 			candidates = append(candidates, c)
 		}
 	}
@@ -549,7 +581,7 @@ func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadI
 				if err != nil {
 					continue
 				}
-				rows, err := nativeRuntimeClient().ListExpectedCommands(ctx, legacyID, 1, 100)
+				rows, err := client.ListExpectedCommands(ctx, legacyID, 1, 100)
 				if err != nil {
 					continue
 				}
@@ -564,16 +596,21 @@ func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadI
 			}
 			newState = mapExpectedStatus(status)
 		default:
-			status, err := nativeRuntimeClient().GetCommandStatus(ctx, *c.messageID)
+			status, err := client.GetCommandStatus(ctx, *c.messageID)
 			if err != nil {
 				continue
 			}
-			newState = mapRuntimeCommandStatus(status.Status)
+			runtimeReason := ""
 			if status.ErrorMessage != nil {
-				reason = truncateReason(*status.ErrorMessage)
+				runtimeReason = *status.ErrorMessage
 			}
+			newState = mapRuntimeCommandStatus(status.Status, runtimeReason)
+			reason = truncateReason(runtimeReason)
 		}
-		if newState == c.state || commandStateRank(newState) < commandStateRank(c.state) {
+		if c.delivered && newState == "accepted" {
+			newState = "delivered"
+		}
+		if !canRefreshNativeCommandState(c.state, newState) {
 			continue
 		}
 		write, err := beginTenantScopedSQLTx(ctx, tenantID, false)
@@ -584,11 +621,12 @@ func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadI
 		if reason != "" {
 			reasonValue = &reason
 		}
-		_, execErr := write.Exec(ctx, `UPDATE device_command_executions SET state=$4::varchar,reason=COALESCE($5,reason),
+		_, execErr := write.Exec(ctx, `UPDATE device_command_executions SET state=$4::varchar,reason=$5,
 			delivery_at=CASE WHEN $4::text='delivered' AND delivery_at IS NULL THEN NOW() ELSE delivery_at END,
 			acknowledged_at=CASE WHEN $4::text='acknowledged' AND acknowledged_at IS NULL THEN NOW() ELSE acknowledged_at END,
 			updated_at=NOW()
-			WHERE tenant_id=$1 AND device_id=$2 AND id=$3 AND state=$6`, tenantID, deviceID, c.id, newState, reasonValue, c.state)
+			WHERE tenant_id=$1 AND device_id=$2 AND id=$3 AND state=$6
+			AND runtime_message_id IS NOT DISTINCT FROM $7::varchar`, tenantID, deviceID, c.id, newState, reasonValue, c.state, c.messageID)
 		if execErr != nil || write.Commit() != nil {
 			_ = write.Rollback()
 		}
