@@ -132,3 +132,7 @@
 ### 2026-11-11 新设备目标调整
 
 用户随后明确不再处理废弃旧设备，要求保证最新代码与新设备完整链路正常。旧转换工作停止，历史数据和备份保留。后端同一 worktree 改用 `wp/new-device-readiness-20261111`，基于 main 独立修复新设备问题，不携带未合并的旧凭据迁移候选。任务报告和外置证据目录不变；新设备完整链路尚未通过。
+
+### 2026-11-13 Q09 与 owner 合同统一 Encore 候选
+
+- `.claude/worktrees/q09-unified-encore-candidate`，分支 `wp/q09-unified-encore-candidate`；任务 Q09 发布工具，负责人 qa_connectors，root 明确授权独立构建线。develop 本地不存在，工具分支基于 1af19294；实际运行源码严格组合 ece5 + ce9097 + 已审查 owner 合同提交，不取工具分支运行源码。只编译上传候选，不部署、不发布 registry/latest/release。外置证据仍为 `F:/coding/artifacts/20261111-coordinated-rollout/`；验收后保留，删除前确认。
