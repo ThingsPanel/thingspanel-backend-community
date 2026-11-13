@@ -34,4 +34,7 @@
 - [R5b, 2026-11-13] `system upgrade` 的 `verifying` 阶段 kill -9 和 `needs_human` 路径只有单元测试，没在真实栈上演练（原因见 `docs/tasks/R5b-DONE.md`）；要真实覆盖，需要一个“健康但不被 compose 依赖”的慢组件，或在健康门里加最小停留时间。
 - [R5b, 2026-11-13] `update.py` 没有把 `--release-source/--release-trust-root` 传给 `agent_host.py`；升级发布源和信任根如何接进 install/upgrade 脚本待负责人决定。
 - [R5b, 2026-11-13] 后端 `CleanSystemDataByCron`（数据保留，默认 15 天）会删除旧时间戳的遥测，做备份/恢复/升级演练的合成数据必须用当前时间戳。
+- [R6, 2026-11-13] `.github/workflows/encore-image-build.yml` 的 `--services` 只有 authn、thingmodel、devicemetadata、fileassets、connectorcatalog，缺 automation、notification、marketinstall、northbound、platformconfig、brokerscope、system；CI 发布的 Encore 镜像里没有这些服务（本地脚本 `scripts/build-encore-image.sh` 是全的）。R2G 说明里“工作流已补 brokerscope”与 develop 上的实际内容不符。
+- [R6, 2026-11-13] Encore 管理 API（`/api/system/*`）没有审计表；现在只有 Encore 日志里的 “system action” 一行。
+- [R6, 2026-11-13] 备份“下载”、自动备份设置、上传备份恢复（第二期）。
 
