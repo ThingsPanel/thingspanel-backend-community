@@ -31,3 +31,9 @@
 - 这是本地 arm64 构建，用的是本地脚本；CI 工作流本身没有真的跑（不推送、不发布）。CI 用 amd64+arm64、Linux 上的 Encore 1.58.6 下载，未在本地复现。
 - 容器没有接数据库，只验证了路由存在与鉴权拦截，不是整栈验收。
 - 未对比“不带 system 的构建”作反例（401 对 404 的差异已足够区分）。
+
+## git log --oneline base/origin-develop-20261113..HEAD
+```
+8e552681 ci: add system to Encore image --services; deploy_encore.py adds brokerscope, system (R8)
+(本说明所在提交)
+```
