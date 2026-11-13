@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,6 +35,17 @@ const (
 func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, triggerEventID string,
 	c cause, res domain.Result, now time.Time, seq int64) (*store.Run, error) {
 	return r.acceptRunWithIdentity(ctx, rule, deviceID, triggerEventID, c, res, now, NewID(), false)
+}
+
+// acceptEventRun reuses the durable decision for one normalized ingress event.
+// Mutable revisions are intentionally absent: recovery must resume the original
+// snapshot, not execute a new revision for the same event. Timers, scheduled
+// fires and manual runs retain their own admission identities.
+func (r *Runtime) acceptEventRun(ctx context.Context, rule *store.Rule, deviceID, eventID string,
+	c cause, res domain.Result, now time.Time) (*store.Run, error) {
+	key, _ := json.Marshal([]string{"ingress-event", rule.TenantID, eventID, rule.ID, deviceID})
+	digest := sha256.Sum256(key)
+	return r.acceptRunWithIdentity(ctx, rule, deviceID, eventID, c, res, now, "event-"+hex.EncodeToString(digest[:]), false)
 }
 
 func (r *Runtime) acceptRunWithIdentity(ctx context.Context, rule *store.Rule, deviceID, triggerEventID string,

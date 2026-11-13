@@ -268,11 +268,8 @@ func (r *Runtime) RecoverAfterRestart(ctx context.Context, limit int) (int, erro
 		// Recovery goes through the same candidate resolution as the live path,
 		// so a recovered event is evaluated with this device's parameter values
 		// instead of the template body.
-		if err := r.evaluateForDevice(ctx, e, e.Seq, now); err != nil {
+		if err := r.evaluateReceipt(ctx, e, now); err != nil {
 			continue
-		}
-		if err := r.store.MarkProcessed(ctx, e.EventID); err != nil {
-			return 0, err
 		}
 	}
 	return len(events), nil

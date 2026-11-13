@@ -59,6 +59,20 @@ func (r *Runtime) Ingest(ctx context.Context, e store.IngestEvent) (*store.Recei
 		return nil, err
 	}
 
+	return rec, r.evaluateReceipt(ctx, &e, now)
+}
+
+// evaluateReceipt is the common safe tail for live ingestion and recovery.
+// The processed check avoids unnecessary replay but is not a distributed claim;
+// stable event-run identity guards the durable action decision across races.
+func (r *Runtime) evaluateReceipt(ctx context.Context, e *store.IngestEvent, now time.Time) error {
+	processed, err := r.store.ReceiptProcessed(ctx, e.TenantID, e.DeviceID, e.EventID)
+	if err != nil {
+		return err
+	}
+	if processed {
+		return nil
+	}
 	// Stop an alarm-driven chain that already used up its hops, and record why.
 	// This is the loop breaker: without it, alarm A triggering rule R whose
 	// action raises alarm A again would run forever.
@@ -69,16 +83,16 @@ func (r *Runtime) Ingest(ctx context.Context, e store.IngestEvent) (*store.Recei
 				"causal_root": e.CausalRoot, "causal_hop": e.CausalHop, "limit": MaxCausalHop,
 				"reason": "alarm-driven chain reached the hop limit; further links are stopped",
 			})
-		return rec, r.store.MarkProcessed(ctx, e.EventID)
+		return r.store.MarkProcessed(ctx, e.EventID)
 	}
 
-	if err := r.evaluateForDevice(ctx, &e, rec.Seq, now); err != nil {
-		return rec, err
+	if err := r.evaluateForDevice(ctx, e, e.Seq, now); err != nil {
+		return err
 	}
 	if err := r.store.MarkProcessed(ctx, e.EventID); err != nil {
-		return rec, err
+		return err
 	}
-	return rec, nil
+	return nil
 }
 
 // evaluateForDevice resolves the candidate rules for one event, fills in the
@@ -200,7 +214,7 @@ func (r *Runtime) evaluateRule(ctx context.Context, rule *store.Rule, e *store.I
 	case domain.VerdictTrue:
 		if def.Trigger.For.Std() <= 0 {
 			// for=0 keeps the legacy behaviour: every satisfying uplink may act.
-			_, err := r.acceptRun(ctx, rule, e.DeviceID, e.EventID, causeOf(e), res, now, seq)
+			_, err := r.acceptEventRun(ctx, rule, e.DeviceID, e.EventID, causeOf(e), res, now)
 			return err
 		}
 		return r.startPending(ctx, rule, e.DeviceID, scope, sample, causeOf(e), seq, now)

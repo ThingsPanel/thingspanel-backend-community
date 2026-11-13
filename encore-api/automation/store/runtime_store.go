@@ -196,6 +196,14 @@ func (s *Store) ApplyState(ctx context.Context, e *IngestEvent) error {
 	return err
 }
 
+// ReceiptProcessed checks the owned durable receipt before evaluation. It is
+// deliberately not a claim and cannot replace idempotent run admission.
+func (s *Store) ReceiptProcessed(ctx context.Context, tenantID, deviceID, eventID string) (bool, error) {
+	var processed sql.NullTime
+	err := s.DB.QueryRowContext(ctx, `SELECT processed_at FROM auto_inbox WHERE tenant_id=$1 AND device_id=$2 AND event_id=$3`, tenantID, deviceID, eventID).Scan(&processed)
+	return processed.Valid, err
+}
+
 // MarkProcessed records that the evaluator consumed the event.
 func (s *Store) MarkProcessed(ctx context.Context, eventID string) error {
 	_, err := s.DB.ExecContext(ctx,

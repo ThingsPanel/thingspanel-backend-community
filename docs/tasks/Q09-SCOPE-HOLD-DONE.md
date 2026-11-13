@@ -31,3 +31,18 @@
 - 相关绑定、计时、模拟、无数据和租户入口共 47 个顶层测试有通过证据，0 跳过。合并回归运行 46 通过、1 因同时启动同工作树 Encore 测试导致测试数据库连接失败；停止并发后该项及增强的 receipt 恢复测试串行通过。原始日志保留，未将基础设施失败改写成成功。
 - 最初故障夹具缺 Prepare 透传，会使负向断言假绿；该版本日志明确作废，不作为红绿依据。有效证据为 Q09-binding-review-before-v2.jsonl、after-v3.jsonl、regression.jsonl、sequential-recheck.jsonl。
 - 本次不解决 previewScope 的目录查询错误被吞掉问题：模板影响范围可能不完整却生成确认 token，须另行 fail-closed 审查。同步 Ingest / RecoverAfterRestart 的共同处理竞争同样另列。
+
+## 第一阶段：事件运行身份幂等
+
+同一真实 PostgreSQL receipt 的 live/recovery 由 SQL barrier 控制交错，原实现产生 2 个 succeeded run 和 2 次测试命令出口调用。补丁仅将即时 ingress 事件的 run ID 固定为 ingress-event / tenant / event_id / rule_id / device_id 的 SHA-256 身份；排除 revision，复用 AdmitRun 原有事务重放。原决策已完成时不会再进入执行；未完成则沿原 run 的检查点、租约和 outbox 身份继续。手动、日程和 pending timer 保持原身份。
+
+安全共用的尾部增加 owned receipt processed 复查、因果跳数限制、候选评估、processed 标记；它不是 claim，不能把前置复查描述为排他锁。恢复未投影 state、重复 status 的前态判定等需要单独处理，当前不强行合并。
+
+验证：可控 barrier 从 2 run / 2 command 变成 1 / 1；新 5 顶层测试（包含四种 mode 子例）、相关既有 14 项以及手动/日程 2 项全部通过，0 跳过。包含动作已完成但 processed 写入失败、规则 revision 改变后重入、部分多规则完成后恢复、独立 pending 窗口；均使用隔离 PostgreSQL，命令出口是测试替身，不能称线上设备验收。日志前缀 Q09-event-identity，原红日志 Q09-live-recovery-barrier-red.jsonl 保留。
+
+本阶段明确限制：
+
+- 不是 receipt 全面 exactly-once；没有新增 claim、lease 或迁移。状态投影、pending、告警转换与故障重试整体仍需独立并发/崩溃设计。
+- 升级前已产生随机 run ID、但 receipt 尚未 processed 的历史记录，不会自动匹配新稳定 ID。发布前必须审查兼容映射或安全排空，不能直接重放这类历史记录。
+- 混合旧/新 worker 不具备统一事件身份，不能据本地测试声称滚动并存安全。
+- 范围匹配全量设备目录扫描成本尚未优化，scope 候选仍不可直接发布。

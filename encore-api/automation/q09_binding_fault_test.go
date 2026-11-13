@@ -23,6 +23,7 @@ type q09BindingFaultConnector struct {
 	db             *sql.DB
 	mu             sync.Mutex
 	afterCandidate func()
+	beforeExec     func(string) error
 	failResolution bool
 	faults         int
 }
@@ -87,6 +88,11 @@ func q09Args(args []driver.NamedValue) []any {
 	return out
 }
 func (c *q09BindingFaultConn) ExecContext(ctx context.Context, q string, args []driver.NamedValue) (driver.Result, error) {
+	if c.owner.beforeExec != nil {
+		if err := c.owner.beforeExec(q); err != nil {
+			return nil, err
+		}
+	}
 	return c.conn.ExecContext(ctx, q, q09Args(args)...)
 }
 func (c *q09BindingFaultConn) QueryContext(ctx context.Context, q string, args []driver.NamedValue) (driver.Rows, error) {
