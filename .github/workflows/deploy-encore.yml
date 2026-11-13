@@ -43,6 +43,7 @@ jobs:
           python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_deployment_guard.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_rollout_preflight.py'
+          python3 -m unittest discover -s deploy/community-test -p 'test_provision_native_runtime.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_metadata_upgrade_inventory.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_quarantine.py'
           python3 -m unittest discover -s deploy/community-test -p 'test_upgrade_identity_plan.py'
@@ -143,8 +144,9 @@ jobs:
         run: |
           set -euo pipefail
           args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
-          scp "${args[@]}" deploy/community-test/rollout_preflight.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/rollout_preflight.py deploy/community-test/provision_native_runtime.py deploy/community-test/upgrade_platform_config.py root@47.92.253.145:/opt/tp-community-actions/incoming/
           scp "${args[@]}" deploy/community-test/upgrade_acceptance.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 "if test -f /opt/tp-community-actions/rollout-mode.private.json; then python3 /opt/tp-community-actions/incoming/provision_native_runtime.py '$GITHUB_SHA'; fi"
           ssh "${args[@]}" root@47.92.253.145 'python3 /opt/tp-community-actions/incoming/rollout_preflight.py'
       - name: Deploy verified backend after all code checks pass
         if: inputs.deploy_runtime && inputs.deploy_backend
@@ -158,7 +160,7 @@ jobs:
         run: |
           set -euo pipefail
           args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts -o ServerAliveInterval=20 -o ServerAliveCountMax=9)
-          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_encore.py deploy/community-test/deployment_guard.py deploy/community-test/encore_migrations.py deploy/community-test/encore_artifacts.py deploy/community-test/automation_tick.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          scp "${args[@]}" deploy/community-test/deploy_encore.py deploy/community-test/deployment_guard.py deploy/community-test/encore_migrations.py deploy/community-test/encore_artifacts.py deploy/community-test/automation_tick.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
           ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_encore.py '$GITHUB_SHA'"
       - name: Preserve source identity
         uses: actions/upload-artifact@v4
