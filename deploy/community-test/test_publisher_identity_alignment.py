@@ -5,7 +5,7 @@ from provision_native_runtime import align_target_publisher, provision_target_pu
 
 class PublisherAlignmentTest(unittest.TestCase):
     def configuration(self):
-        return {'mqtt': {'input_profile': 'ingress_v1', 'username': 'service', 'password': 'test-secret', 'client_id': 'base'}}
+        return {'mqtt': {'input_profile': 'ingress_v1', 'user': 'service', 'pass': 'test-secret', 'client_id': 'base'}}
     def service(self):
         return {'username': 'service', 'password': 'test-secret', 'allowed_client_ids': ['base'], 'target_scoped_publisher': True, 'allowed_device_ids': []}
     def test_matches_existing_owner_without_expanding_scope(self):

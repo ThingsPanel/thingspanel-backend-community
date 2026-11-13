@@ -61,10 +61,10 @@ def align_target_publisher(platform, services):
     mqtt = platform.get('mqtt', {})
     if mqtt.get('input_profile') != 'ingress_v1':
         return
-    if not mqtt.get('username') or not mqtt.get('password') or not mqtt.get('client_id'):
+    if not mqtt.get('user') or not mqtt.get('pass') or not mqtt.get('client_id'):
         raise RuntimeError('MQTT service identity is incomplete')
-    matching = [entry for entry in services if entry.get('username') == mqtt['username']
-                and entry.get('password') == mqtt['password']
+    matching = [entry for entry in services if entry.get('username') == mqtt['user']
+                and entry.get('password') == mqtt['pass']
                 and mqtt['client_id'] in entry.get('allowed_client_ids', [])]
     if len(matching) != 1 or matching[0].get('plugin_socket'):
         raise RuntimeError('MQTT publisher identity does not uniquely match broker owner')
