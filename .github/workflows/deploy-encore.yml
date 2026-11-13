@@ -1,11 +1,8 @@
-name: Approved HTTP signed candidate staging
+name: Approved phase operation
 on:
   workflow_dispatch:
     inputs:
       expected_head:
-        required: true
-        type: string
-      bundle_url:
         required: true
         type: string
 permissions:
@@ -18,43 +15,20 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Require reviewed operation revision
+      - name: Require the reviewed operation revision
         env:
           EXPECTED_HEAD: ${{ inputs.expected_head }}
           ACTUAL_HEAD: ${{ github.sha }}
         run: test "$EXPECTED_HEAD" = "$ACTUAL_HEAD"
       - uses: actions/checkout@v4
-      - name: Download exact signed artifact
-        env:
-          BUNDLE_URL: ${{ inputs.bundle_url }}
-        run: |
-          python3 - <<'PY'
-          import hashlib, os, pathlib, urllib.request, urllib.parse
-          url = os.environ['BUNDLE_URL']
-          parsed = urllib.parse.urlsplit(url)
-          if parsed.scheme != 'https' or parsed.username or parsed.password:
-              raise SystemExit('Invalid artifact URL')
-          print('::add-mask::' + url)
-          try:
-              with urllib.request.urlopen(url, timeout=120) as response:
-                  data = response.read(100 * 1024 * 1024 + 1)
-          except Exception:
-              raise SystemExit('Signed artifact download failed; obtain a fresh URL')
-          expected = '72fb293bf0d3c8c56ab2d12ae0781e514b451787b494a4e271666adc74dc2498'
-          if len(data) > 100 * 1024 * 1024 or hashlib.sha256(data).hexdigest() != expected:
-              raise SystemExit('Artifact digest mismatch')
-          pathlib.Path(os.environ['RUNNER_TEMP'], 'http-expiry-candidate.zip').write_bytes(data)
-          print('Exact signed candidate archive verified')
-          PY
-      - name: Stage candidate without activation
+      - name: Run approved phase operation
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/phase-key"
-          scp -i "$RUNNER_TEMP/phase-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts "$RUNNER_TEMP/http-expiry-candidate.zip" root@47.92.253.145:/opt/tp-community-actions/http-expiry-candidate-bd639a0.zip
-          ssh -i "$RUNNER_TEMP/phase-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'python3 - --bundle /opt/tp-community-actions/http-expiry-candidate-bd639a0.zip --stage /opt/tp-community-actions/http-expiry-releases/signed-bd639a0' < deploy/community-test/phase-operation.py > phase-result.json
+          ssh -i "$RUNNER_TEMP/phase-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'python3 -' < deploy/community-test/phase-operation.py > phase-result.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
