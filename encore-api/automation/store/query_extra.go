@@ -154,8 +154,8 @@ func (s *Store) Backlog(ctx context.Context) (*BacklogStats, error) {
 // device" while three legacy scene automations quietly do.
 func (s *Store) RulesMatchingDevice(ctx context.Context, tenantID, deviceID string) ([]*Rule, error) {
 	condition := `
-             SELECT 1 FROM jsonb_array_elements(r.definition->'trigger'->'groups') g,
-                           jsonb_array_elements(g->'conditions') c
+             SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(r.definition->'trigger'->'groups') = 'array' THEN r.definition->'trigger'->'groups' ELSE '[]'::jsonb END) g,
+                           jsonb_array_elements(CASE WHEN jsonb_typeof(g->'conditions') = 'array' THEN g->'conditions' ELSE '[]'::jsonb END) c
               WHERE (c->>'source' = 'self' OR c->>'source' IS NULL
                      OR (c->>'source' = 'device' AND c->>'device_id' = $2))`
 	if s.MySQL {

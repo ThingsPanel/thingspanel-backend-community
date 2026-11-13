@@ -81,6 +81,14 @@ jobs:
         run: |
           docker exec notification-test createdb -U notification_test tp_upgrade_rehearsal_20000101000001
           go test -count=1 ./devicemetadata/offlineupgrade ./cmd/metadata-upgrade-groups ./cmd/metadata-upgrade-devices ./cmd/metadata-upgrade-relations
+      - name: Verify device automation queries against PostgreSQL
+        working-directory: encore-api
+        env:
+          AUTOMATION_RECEIPT_TEST_DSN: postgres://automation_fixture:fixture-only@127.0.0.1:25543/tp_takeover_automation?sslmode=disable
+        run: |
+          docker exec notification-test psql -U notification_test -d notification_test -v ON_ERROR_STOP=1 -c "CREATE USER automation_fixture PASSWORD 'fixture-only'"
+          docker exec notification-test createdb -U notification_test -O automation_fixture tp_takeover_automation
+          go test -count=1 ./automation/store
       - name: Verify scheduler transport
         run: |
           python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py

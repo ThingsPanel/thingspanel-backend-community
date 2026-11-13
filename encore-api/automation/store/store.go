@@ -363,8 +363,8 @@ func ruleWhere(tenantID string, f RuleFilter, mysql bool) (string, []any) {
             definition->'targets'->'device_ids' @> to_jsonb($%[1]d::text)
             OR EXISTS (
                 SELECT 1
-                  FROM jsonb_array_elements(coalesce(definition->'trigger'->'groups','[]'::jsonb)) g,
-                       jsonb_array_elements(coalesce(g->'conditions','[]'::jsonb)) c
+                  FROM jsonb_array_elements(CASE WHEN jsonb_typeof(definition->'trigger'->'groups') = 'array' THEN definition->'trigger'->'groups' ELSE '[]'::jsonb END) g,
+                       jsonb_array_elements(CASE WHEN jsonb_typeof(g->'conditions') = 'array' THEN g->'conditions' ELSE '[]'::jsonb END) c
                  WHERE c->>'device_id' = $%[1]d
             )
         )`, f.DeviceID)
@@ -400,8 +400,8 @@ func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, deviceCo
            AND r.enabled
            AND (
              EXISTS (
-               SELECT 1 FROM jsonb_array_elements(r.definition->'trigger'->'groups') g,
-                             jsonb_array_elements(g->'conditions') c
+               SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(r.definition->'trigger'->'groups') = 'array' THEN r.definition->'trigger'->'groups' ELSE '[]'::jsonb END) g,
+                             jsonb_array_elements(CASE WHEN jsonb_typeof(g->'conditions') = 'array' THEN g->'conditions' ELSE '[]'::jsonb END) c
                 WHERE (c->>'source' = 'self' OR c->>'source' IS NULL
                        OR (c->>'source' = 'device' AND c->>'device_id' = $2))
                   AND c->>'signal' = $4

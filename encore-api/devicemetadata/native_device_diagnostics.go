@@ -139,9 +139,14 @@ func readNativeDiagnostics(ctx context.Context, identity nativeDeviceReadIdentit
 	if err != nil {
 		return nil, err
 	}
-	var active, pending int
-	if err := tx.QueryRowContext(ctx, `SELECT count(*) FILTER (WHERE status='active'),count(*) FILTER (WHERE status='pending')
-		FROM device_credentials WHERE tenant_id=$1 AND device_id=$2 AND purpose='device_access'`, identity.tenantID, deviceID).Scan(&active, &pending); err != nil {
+	var credentials nativeCredentialDiagnosticCounts
+	if err := tx.QueryRowContext(ctx, `SELECT count(*),
+ count(*) FILTER (WHERE status='active' AND (expires_at IS NULL OR expires_at>$3)),
+ count(*) FILTER (WHERE status='pending' AND (expires_at IS NULL OR expires_at>$3)),
+ count(*) FILTER (WHERE status='revoked'),
+ count(*) FILTER (WHERE status<>'revoked' AND expires_at IS NOT NULL AND expires_at<=$3)
+ FROM device_credentials WHERE tenant_id=$1 AND device_id=$2 AND purpose='device_access'`, identity.tenantID, deviceID, now).
+		Scan(&credentials.total, &credentials.active, &credentials.pending, &credentials.revoked, &credentials.expired); err != nil {
 		return nil, wrapDBErr(err, "read credential state failed")
 	}
 	var configured, configPending bool
@@ -190,14 +195,7 @@ func readNativeDiagnostics(ctx context.Context, identity nativeDeviceReadIdentit
 	}
 
 	checks := []NativeDiagnosticCheck{{Stage: "metadata", State: "pass", Code: "DEVICE_FOUND", Message: "device metadata is readable in this tenant"}}
-	switch {
-	case active > 0:
-		checks = append(checks, NativeDiagnosticCheck{Stage: "credential", State: "pass", Code: "CREDENTIAL_ACTIVE", Message: "an active access credential exists"})
-	case pending > 0:
-		checks = append(checks, NativeDiagnosticCheck{Stage: "credential", State: "unknown", Code: "CREDENTIAL_PENDING", Message: "access credentials exist but none is active yet"})
-	default:
-		checks = append(checks, NativeDiagnosticCheck{Stage: "credential", State: "unknown", Code: "NO_CREDENTIAL", Message: "no access credential has been created"})
-	}
+	checks = append(checks, credentialDiagnosticCheck(credentials))
 	switch {
 	case !configured:
 		checks = append(checks, NativeDiagnosticCheck{Stage: "configuration", State: "fail", Code: "CONFIGURATION_INCOMPLETE", Message: "device access configuration is not set"})
@@ -281,4 +279,39 @@ func (s *Service) GetNativeDeviceDiagnostics(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	nativehttp.WriteJSON(w, requestID, r.URL.Path, http.StatusOK, "", response)
+}
+
+// Counts distinguish absent credentials from historical credentials that cannot authenticate.
+type nativeCredentialDiagnosticCounts struct{ total, active, pending, revoked, expired int }
+
+func credentialDiagnosticCheck(c nativeCredentialDiagnosticCounts) NativeDiagnosticCheck {
+	check := NativeDiagnosticCheck{Stage: "credential", State: "unknown"}
+	switch {
+	case c.active > 0:
+		check.State = "pass"
+		check.Code = "CREDENTIAL_ACTIVE"
+		check.Message = "an unexpired active access credential exists"
+	case c.pending > 0:
+		check.Code = "CREDENTIAL_PENDING"
+		check.Message = "an unexpired access credential is awaiting activation"
+	case c.total == 0:
+		check.Code = "NO_CREDENTIAL"
+		check.Message = "no access credential has been created"
+	case c.revoked == c.total:
+		check.State = "fail"
+		check.Code = "CREDENTIAL_REVOKED"
+		check.Message = "all access credentials have been revoked"
+	case c.expired == c.total:
+		check.State = "fail"
+		check.Code = "CREDENTIAL_EXPIRED"
+		check.Message = "all access credentials have expired"
+	case c.revoked+c.expired == c.total:
+		check.State = "fail"
+		check.Code = "CREDENTIAL_UNAVAILABLE"
+		check.Message = "access credentials are revoked or expired"
+	default:
+		check.Code = "CREDENTIAL_UNAVAILABLE"
+		check.Message = "access credentials exist but none is currently usable"
+	}
+	return check
 }
