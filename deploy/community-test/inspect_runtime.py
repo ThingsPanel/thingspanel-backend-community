@@ -38,7 +38,7 @@ def main():
             WHERE o.state IN ('pending','failed') AND m.state='pending'
             GROUP BY o.kind,o.state ORDER BY o.kind,o.state) t""")
         prefix = sql("""SELECT COALESCE(json_agg(t),'[]'::json) FROM (
-            SELECT o.id,o.kind,o.state,o.created_at,m.updated_at AS operation_updated_at
+            SELECT o.id,o.kind,o.state,o.last_error,o.attempts,o.created_at,m.updated_at AS operation_updated_at
             FROM device_runtime_outbox o JOIN metadata_operations m
               ON m.tenant_id=o.tenant_id AND m.id=o.operation_id
             WHERE o.state IN ('pending','failed') AND m.state='pending'
@@ -49,6 +49,7 @@ def main():
             env = dict(x.split('=', 1) for x in (info['Config'].get('Env') or []) if '=' in x)
             containers.append({'name': info['Name'].lstrip('/'), 'image': info['Config']['Image'],
                                'image_id': info['Image'], 'running': info['State']['Running'],
+                               'compose_files': (info['Config'].get('Labels') or {}).get('com.docker.compose.project.config_files'),
                                'workers': {key: env[key] for key in (
                                    'TP_BACKGROUND_WORKERS', 'TP_RUNTIME_OUTBOX_DISPATCH') if key in env}})
         print(json.dumps({'read_only': True, 'device_database': databases[0],
