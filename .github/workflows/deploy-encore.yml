@@ -97,6 +97,7 @@ jobs:
           python3 -m unittest discover -s deploy/community-test -p test_encore_artifacts.py
           python3 -m unittest discover -s deploy/community-test -p test_encore_image.py
           python3 -m unittest discover -s deploy/community-test -p test_notification_identity.py
+          python3 -m unittest discover -s deploy/community-test -p test_broker_upgrade.py
       - name: Build complete native image away from the live server
         working-directory: encore-api
         run: |
@@ -140,6 +141,23 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: backend-candidate-${{ github.sha }}
+      - name: Build coordinated broker artifact
+        if: inputs.deploy_runtime && inputs.deploy_backend
+        run: |
+          set -euo pipefail
+          docker build -f deploy/mosquitto-community/Dockerfile.production -t "tp-community-broker:source-$GITHUB_SHA" .
+          docker save "tp-community-broker:source-$GITHUB_SHA" | gzip -1 > "broker-$GITHUB_SHA.tar.gz"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,subprocess
+          sha=os.environ['GITHUB_SHA']
+          p=pathlib.Path('broker-'+sha+'.tar.gz')
+          image=json.loads(subprocess.check_output(['docker','image','inspect','tp-community-broker:source-'+sha]))[0]
+          digest=hashlib.sha256()
+          with p.open('rb') as stream:
+              for block in iter(lambda:stream.read(1024*1024),b''): digest.update(block)
+          checksum=digest.hexdigest()
+          pathlib.Path('broker-'+sha+'.json').write_text(json.dumps({'commit':sha,'image_id':image['Id'],'sha256':checksum}))
+          PY
       - name: Configure authenticated SSH
         if: inputs.deploy_runtime
         env:
@@ -164,7 +182,7 @@ jobs:
         run: |
           set -euo pipefail
           args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
-          scp "${args[@]}" "backend-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_backend.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          scp "${args[@]}" "broker-$GITHUB_SHA.tar.gz" "broker-$GITHUB_SHA.json" "backend-$GITHUB_SHA.tar.gz" deploy/community-test/broker_upgrade.py deploy/community-test/deploy_backend.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
           ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_backend.py '$GITHUB_SHA'"
       - name: Upload source and deploy native services
         if: inputs.deploy_runtime

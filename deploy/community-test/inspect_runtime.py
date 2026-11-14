@@ -1,9 +1,33 @@
 """Read-only runtime identity and queue diagnostics; never print credentials."""
 import fcntl
 import json
+import os
 import pathlib
 import shutil
 import subprocess
+import tarfile
+
+
+def broker_preflight(infos):
+    broker = next((i for i in infos if i['Name'].endswith('-broker-mosquitto-1')), None)
+    owner = next((i for i in infos if i['Name'].endswith('-broker-owner-1')), None)
+    result = {'pair_present': bool(broker and owner)}
+    if not broker or not owner:
+        return result
+    env = dict(x.split('=', 1) for x in (broker['Config'].get('Env') or []) if '=' in x)
+    token = env.get('TP_BROKER_TOKEN_FILE', '')
+    mounts = [m for m in broker.get('Mounts', []) if token and (token == m['Destination'] or token.startswith(m['Destination'].rstrip('/') + '/'))]
+    result['token_mount_mapped'] = bool(mounts)
+    result['token_host_readable_by_deployer'] = False
+    if mounts:
+        mount = max(mounts, key=lambda m: len(m['Destination']))
+        path = pathlib.Path(mount['Source']) / token[len(mount['Destination']):].lstrip('/')
+        result['token_host_readable_by_deployer'] = path.is_file() and os.access(str(path), os.R_OK)
+    bindings = [p for values in owner['NetworkSettings']['Ports'].values() for p in (values or [])]
+    result['owner_host_bindings'] = [{'host_ip': p['HostIp'], 'host_port': p['HostPort']} for p in bindings]
+    result['owner_ipv4_binding_count'] = sum(p['HostIp'] in ('0.0.0.0', '127.0.0.1') for p in bindings)
+    result['identity_fields_present'] = all(bool(env.get(k)) for k in ('TP_BROKER_CELL', 'TP_BROKER_INSTANCE'))
+    return result
 
 
 def run(args, data=None):
@@ -44,16 +68,30 @@ def main():
             WHERE o.state IN ('pending','failed') AND m.state='pending'
             ORDER BY o.created_at,o.id LIMIT 50) t""")
         containers = []
+        infos = []
         for container in run(['docker', 'ps', '-q']).splitlines():
             info = json.loads(run(['docker', 'inspect', container]))[0]
+            infos.append(info)
             env = dict(x.split('=', 1) for x in (info['Config'].get('Env') or []) if '=' in x)
             containers.append({'name': info['Name'].lstrip('/'), 'image': info['Config']['Image'],
                                'image_id': info['Image'], 'running': info['State']['Running'],
                                'compose_files': (info['Config'].get('Labels') or {}).get('com.docker.compose.project.config_files'),
                                'workers': {key: env[key] for key in (
                                    'TP_BACKGROUND_WORKERS', 'TP_RUNTIME_OUTBOX_DISPATCH') if key in env}})
+        import_requirements = []
+        for package in pathlib.Path('/opt/tp-community-actions/incoming').glob('broker-*.tar.gz'):
+            try:
+                with tarfile.open(str(package), mode='r|gz') as archive:
+                    expanded = sum(m.size for m in archive if m.isfile())
+                import_requirements.append({'artifact': package.name, 'compressed_bytes': package.stat().st_size,
+                                            'additional_import_bytes_required': expanded * 2 + 256 * 1024 * 1024})
+            except (OSError, tarfile.TarError):
+                import_requirements.append({'artifact': package.name, 'invalid_archive': True})
+        docker_root = run(['docker', 'info', '--format', '{{.DockerRootDir}}'])
         print(json.dumps({'read_only': True, 'device_database': databases[0],
                           'queue': queue, 'oldest_50': prefix, 'containers': containers,
+                          'broker_preflight': broker_preflight(infos), 'broker_import_requirements': import_requirements,
+                          'docker_disk_free_bytes': shutil.disk_usage(docker_root).free,
                           'disk_free_bytes': shutil.disk_usage(str(root)).free}))
 
 

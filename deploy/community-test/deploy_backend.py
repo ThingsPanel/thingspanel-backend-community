@@ -70,7 +70,7 @@ if relational.get('driver')=='postgres':
  if present not in ('0','2'):raise RuntimeError('Incomplete broker schema requires repair')
  if present=='2':
   upgrades=[]
-  for name in ['017_delegated_routes.sql','018_native_runtime_registrations.sql','019_native_runtime_credential_lifecycle.sql']:
+  for name in ['017_delegated_routes.sql','018_native_runtime_registrations.sql','019_native_runtime_credential_lifecycle.sql','020_native_credential_leases.sql','021_native_runtime_lifecycle.sql']:
    migration=release/'sql/broker'/name
    if migration.is_file():upgrades.append(migration.read_text())
   if upgrades:broker_sql("BEGIN; SET LOCAL lock_timeout='10s'; SET LOCAL statement_timeout='30s';\n"+'\n'.join(upgrades)+'\nCOMMIT;')
@@ -108,7 +108,10 @@ def wait_version(expected):
   time.sleep(1)
  raise RuntimeError('Running version did not match deployed source')
 old_version=run([str(target),'--version'])
+from broker_upgrade import upgrade_broker
+broker_env=upgrade_broker(ROOT, release, SHA, run)
 notification_env=prepare_notification_identity(pathlib.Path('/opt/tp-community-main-20261028'))
+notification_env.update(broker_env)
 processes=json.loads(run([PM,'jlist']))
 process=next(p for p in processes if p['name']=='thingspanel-backend-community')
 ecosystem=release/'backend.ecosystem.private.json'
