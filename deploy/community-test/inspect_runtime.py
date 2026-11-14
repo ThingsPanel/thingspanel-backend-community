@@ -46,7 +46,7 @@ def main():
         containers = []
         for container in run(['docker', 'ps', '-q']).splitlines():
             info = json.loads(run(['docker', 'inspect', container]))[0]
-            env = dict(x.split('=', 1) for x in info['Config'].get('Env', []) if '=' in x)
+            env = dict(x.split('=', 1) for x in (info['Config'].get('Env') or []) if '=' in x)
             containers.append({'name': info['Name'].lstrip('/'), 'image': info['Config']['Image'],
                                'image_id': info['Image'], 'running': info['State']['Running'],
                                'workers': {key: env[key] for key in (
