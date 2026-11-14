@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -35,6 +36,9 @@ import (
 func TestNativeE2E02RelayWorkerReceiptFaultMatrix(t *testing.T) {
 	if os.Getenv("NOTIFICATION_NATIVE_E2E") != "1" {
 		t.Skip("set NOTIFICATION_NATIVE_E2E=1 to run the local two-database integration")
+	}
+	if !filepath.IsAbs(nativeE2EFixtureServerMount) || !filepath.IsAbs(nativeE2EFixtureCounterMount) {
+		t.Fatal("set absolute NOTIFICATION_E2E_FIXTURE_SERVER_DIR and NOTIFICATION_E2E_FIXTURE_COUNTER_DIR before running fixture operations")
 	}
 	if os.Getenv("NOTIFICATION_TEST_DSN") != nativeE2EDSN {
 		t.Fatal("native integration requires the approved isolated PostgreSQL fixture")
@@ -410,8 +414,10 @@ func TestNativeE2E02RelayWorkerReceiptFaultMatrix(t *testing.T) {
 const nativeE2ECoreContainer = "tp-notification-core-native"
 const nativeE2ESidecarContainer = "tp-notification-native-fixture"
 const nativeE2EFixtureImage = "tp-notification-core:g2-checkpoint-9"
-const nativeE2EFixtureServerMount = "/Users/junhong/Downloads/code/notification-workspaces/native-fixture/fixture-server"
-const nativeE2EFixtureCounterMount = "/Users/junhong/Downloads/code/notification-workspaces/native-fixture/fault-counters"
+
+var nativeE2EFixtureServerMount = os.Getenv("NOTIFICATION_E2E_FIXTURE_SERVER_DIR")
+var nativeE2EFixtureCounterMount = os.Getenv("NOTIFICATION_E2E_FIXTURE_COUNTER_DIR")
+
 const nativeE2EFixtureCounterFile = "/fixture-data/fault-calls.json"
 
 type nativeE2EFixtureCounter struct {
@@ -517,6 +523,9 @@ func nativeE2ECheckSidecarConfig(t *testing.T, coreID string) error {
 
 func nativeE2EEnsureSidecar(t *testing.T, coreID string, expected nativeE2EFixtureCounter, forceRecreate bool) error {
 	t.Helper()
+	if nativeE2EFixtureServerMount == "" || nativeE2EFixtureCounterMount == "" {
+		return errors.New("set NOTIFICATION_E2E_FIXTURE_SERVER_DIR and NOTIFICATION_E2E_FIXTURE_COUNTER_DIR to approved fixture mounts")
+	}
 	state, inspectErr := nativeE2EInspectCore(t)
 	if inspectErr != nil || !state.running || state.id != coreID || state.image != nativeE2EFixtureImage {
 		return errors.New("Core container is not the approved running image9 target")

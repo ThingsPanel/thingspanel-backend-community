@@ -1,4 +1,4 @@
-"""Explicit phase builds. Output and caches stay on 80G; never auto-start services."""
+"""Explicit phase builds. Output and caches stay in the approved workspace; never auto-start services."""
 import hashlib
 import json
 import os
@@ -28,25 +28,32 @@ def execute(command, cwd, env, root, runtime, phase):
         process = subprocess.Popen(command, cwd=cwd, env=env, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
         try:
             while process.poll() is None:
-                if shutil.disk_usage('/').free < 4 * 1024**3 or shutil.disk_usage('/Volumes/80G').free < 4 * 1024**3:
+                if shutil.disk_usage(Path.home()).free < 4 * 1024**3 or shutil.disk_usage(runtime.workspace_root()).free < 4 * 1024**3:
                     raise ValueError('Build stopped at disk safety floor; review private build log before retrying')
                 time.sleep(2)
             if process.returncode:
                 raise ValueError('Build failed; no runtime changes applied. See fixture cache/' + log.name)
         finally:
             if process.poll() is None:
-                os.killpg(process.pid, signal.SIGTERM)
+                process.terminate() if os.name == 'nt' else os.killpg(process.pid, signal.SIGTERM)
                 try:
                     process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
+                    process.kill() if os.name == 'nt' else os.killpg(process.pid, signal.SIGKILL)
                     process.wait()
     runtime.preflight(root, phase)
 
 
+def target_arch():
+    arch = os.environ.get('TP_LOCAL_TARGET_ARCH', 'amd64')
+    if arch not in ('amd64', 'arm64'):
+        raise ValueError('TP_LOCAL_TARGET_ARCH must be amd64 or arm64')
+    return arch
+
+
 def encore_command(tag):
     # Official CLI defaults to amd64; never rely on host architecture inference.
-    return ['encore', 'build', 'docker', tag, '--arch', 'arm64', '--os', 'linux', '--base', 'scratch',
+    return ['encore', 'build', 'docker', tag, '--arch', target_arch(), '--os', 'linux', '--base', 'scratch',
         '--services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification', '--skip-config']
 
 
@@ -65,7 +72,7 @@ def build(root, runtime, phase, base_image=None, system_stage=None, dependency_s
         path.mkdir(parents=True, exist_ok=True)
         env[key] = str(path)
     env['ENCORE_DAEMON_LOG_PATH'] = str(cache / 'encore-daemon.log')
-    env.update(GOMAXPROCS='1', GOFLAGS='-p=1', GOOS='linux', GOARCH='arm64', CGO_ENABLED='0')
+    env.update(GOMAXPROCS='1', GOFLAGS='-p=1', GOOS='linux', GOARCH=target_arch(), CGO_ENABLED='0')
     provenance_path = root / 'build-provenance.json'
     provenance = json.loads(provenance_path.read_text()) if provenance_path.exists() else {}
     source = manifest['frontend' if phase == 'frontend' else 'backend']
@@ -74,8 +81,8 @@ def build(root, runtime, phase, base_image=None, system_stage=None, dependency_s
         if not base_image:
             raise ValueError('Provide --runtime-image already-local runtime image; no implicit pulls')
         image = json.loads(runtime.run(['docker', 'image', 'inspect', base_image]))[0]
-        if image.get('Os') != 'linux' or image.get('Architecture') != 'arm64':
-            raise ValueError('Runtime image must be linux/arm64')
+        if image.get('Os') != 'linux' or image.get('Architecture') != target_arch():
+            raise ValueError('Runtime image architecture must match TP_LOCAL_TARGET_ARCH')
         image_id = image['Id']
     if phase == 'backend':
         binary = out / 'ThingsPanel-Go'
@@ -153,8 +160,8 @@ def build(root, runtime, phase, base_image=None, system_stage=None, dependency_s
         execute(encore_command(tag),
             repo / 'encore-api', env, root, runtime, phase)
         image = json.loads(runtime.run(['docker', 'image', 'inspect', tag]))[0]
-        if image.get('Os') != 'linux' or image.get('Architecture') != 'arm64':
-            raise ValueError('Encore output must be linux/arm64; image not activated')
+        if image.get('Os') != 'linux' or image.get('Architecture') != target_arch():
+            raise ValueError('Encore output architecture must match TP_LOCAL_TARGET_ARCH; image not activated')
         for name in ('encore-api', 'notification-core'):
             config['services'][name]['image'] = image['Id']
             provenance[name] = {'sha': sha, 'mode': 'official-encore-build', 'base_image': image['Id'], 'cli': version}

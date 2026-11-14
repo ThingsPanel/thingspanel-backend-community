@@ -49,3 +49,9 @@
 ## 工作现场规则
 
 所有会话（人或 Claude/Codex）必须遵守仓库根目录 `CLAUDE.md` 的“工作现场规则”：先读 `docs/PROJECT-AUDIT-2026-11-04.md` 与 `docs/WORKSPACES.md`，只做分配的一个任务；从 `develop` 切 `wp/<任务编号>-<短名>` 并使用 `.claude/worktrees/` 下自己的 worktree；新目录当天登记到 `docs/WORKSPACES.md`；不用 `git stash`；证据不进仓库；不推送、不合并，等负责人确认；删除分支、worktree、目录、Docker 卷前先列清单给用户确认。
+
+## 过程资料与发布可移植性
+
+- 新日志、截图、验收证据写入仓库外 `TP_ARTIFACTS_DIR`，未设置时用工作区同级 `artifacts/`；不新增根目录过程报告。需保留的历史过程说明归档 `docs/archive/` 并维护引用。
+- 构建、测试和部署不得依赖个人绝对路径或未跟踪本机文件；外部fixture路径通过明确环境变量传入并校验，缺失时报错或明确跳过，不猜测私人目录。
+- 运行凭据、实例身份、数据库、迁移脚本及回滚资料不是临时产物，不能随缓存清理。

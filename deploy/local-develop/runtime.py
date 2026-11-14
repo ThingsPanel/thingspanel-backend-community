@@ -22,10 +22,21 @@ def run(args, **kwargs):
     return subprocess.check_output(args, text=True, **kwargs).strip()
 
 
+def workspace_root():
+    value = os.environ.get('TP_LOCAL_WORKSPACE_ROOT', '')
+    if not value:
+        raise ValueError('Set TP_LOCAL_WORKSPACE_ROOT to an explicitly approved existing workspace directory')
+    root = Path(value).expanduser().resolve(strict=True)
+    if not root.is_dir() or root == Path(root.anchor):
+        raise ValueError('Workspace must be a directory, not a filesystem root')
+    return root
+
+
 def safe_path(value):
     path = Path(value).expanduser().resolve()
-    if not str(path).startswith('/Volumes/80G/') or '500G' in str(path):
-        raise ValueError('All runtime/source paths must resolve underneath /Volumes/80G; 500G is forbidden')
+    root = workspace_root()
+    if path == root or not path.is_relative_to(root):
+        raise ValueError('Runtime/source paths must remain strictly underneath TP_LOCAL_WORKSPACE_ROOT')
     return path
 
 
@@ -38,10 +49,10 @@ def source(path):
 
 def preflight(root, phase='runtime'):
     safe_path(root)
-    if shutil.disk_usage('/').free < 6 * 1024**3:
+    if shutil.disk_usage(Path.home()).free < 6 * 1024**3:
         raise ValueError('System disk needs 6 GiB free even with external caches; no builds or startup allowed')
-    if shutil.disk_usage('/Volumes/80G').free < 12 * 1024**3:
-        raise ValueError('80G needs at least 12 GiB free')
+    if shutil.disk_usage(workspace_root()).free < 12 * 1024**3:
+        raise ValueError('Approved workspace needs at least 12 GiB free')
     import storage
     storage.check(sys.modules[__name__], phase)
     info = json.loads(run(['docker', 'info', '--format', '{{json .}}']))

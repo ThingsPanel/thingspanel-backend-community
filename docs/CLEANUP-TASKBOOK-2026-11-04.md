@@ -95,7 +95,7 @@
 
 1. 主目录根部的 `CLAUDE.md`（已经写好）就是规则正文。
 2. 在 `develop` 上新开 `wp/t0-work-rules` 分支：把这份 `CLAUDE.md` 加进去，再在 `AGENTS.md` 末尾加一节“工作现场规则”，内容引用 `CLAUDE.md`，这样 Codex 也会读到；同时加入 `docs/WORKSPACES.md`。
-3. 仓库根目录的过程文档（`HANDOVER-MERGE-TO-1.3.*`、`MERGE-AUTOMATION-REWRITE.md`、`automation-rewrite-progress.md`、`task-book-walkthrough.md`）用 `git mv` 移到 `docs/archive/2026-10/`。
+3. 仓库根目录的过程文档（`HANDOVER-MERGE-TO-1.3.*`、`MERGE-AUTOMATION-REWRITE.md`、`automation-rewrite-progress.md`、`task-book-walkthrough.md`）已归档到 `docs/archive/2026-10/`（2026-11-14）；当前部署规则以现行 workflow 为准。
 4. 交给用户审查后再合入 develop。
 
 ## 4. 交付物

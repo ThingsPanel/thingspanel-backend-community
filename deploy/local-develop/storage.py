@@ -19,7 +19,7 @@ def orbstack_internal(runtime):
         raise ValueError('OrbStack endpoint is not the expected local Unix socket')
     image = Path.home() / 'Library/Group Containers/HUAQ24HBR6.dev.orbstack/data/data.img.raw'
     actual = image.resolve(strict=True)
-    if actual != image or not actual.is_file() or '500G' in str(actual):
+    if actual != image or not actual.is_file():
         raise ValueError('OrbStack backing file changed location; inspect actual storage before continuing')
     volume = Path('/System/Volumes/Data')
     if actual.stat().st_dev != volume.stat().st_dev:
@@ -41,6 +41,7 @@ def check(runtime, phase='runtime'):
         return {'mode': mode, 'backing_file': str(backing), 'minimum_gib': MINIMUM[phase], 'floor_gib': 4}
     if mode != 'external':
         raise ValueError('Unknown Docker storage mode')
-    if os.environ.get('TP_DOCKER_STORAGE_VERIFIED') != '/Volumes/80G':
+    verified = os.environ.get('TP_DOCKER_STORAGE_VERIFIED', '')
+    if not verified or Path(verified).expanduser().resolve() != runtime.workspace_root():
         raise ValueError('Verify external Docker storage or explicitly select verified internal-bounded mode; no relocation is performed')
     return {'mode': mode, 'backing_file': None, 'minimum_gib': 6, 'floor_gib': 4}

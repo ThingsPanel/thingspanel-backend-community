@@ -11,8 +11,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-CHATBRIDGE_SRC = os.environ.get("CHATBRIDGE_SRC", "/Users/junhong/Downloads/code/chatbridge/src")
-if Path(CHATBRIDGE_SRC).is_dir() and CHATBRIDGE_SRC not in sys.path:
+CHATBRIDGE_SRC = os.environ.get("CHATBRIDGE_SRC", "")
+if CHATBRIDGE_SRC and Path(CHATBRIDGE_SRC).is_dir() and CHATBRIDGE_SRC not in sys.path:
     sys.path.insert(0, CHATBRIDGE_SRC)
 
 try:

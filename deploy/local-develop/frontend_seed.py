@@ -28,7 +28,7 @@ def verify_dependency_versions(repo, seed, stage, workspace_dirs):
             old_version = json.loads(old.read_text())['version']
             if json.loads(new.read_text())['version'] != old_version:
                 raise ValueError('Copied dependency version mismatch: ' + str(relative) + ':' + name)
-            versions[str(relative) + ':' + name] = old_version
+            versions[relative.as_posix() + ':' + name] = old_version
     return versions
 
 

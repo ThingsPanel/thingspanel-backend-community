@@ -8,15 +8,12 @@ import (
 	"math/big"
 	"time"
 
-	"project/internal/model"
-
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 var (
-	mqttClient        *mqtt.Client
-	gatewayMqttClient *mqtt.Client
-	switchStatus      int64 = 0 // 添加全局变量存储开关状态
+	mqttClient   *mqtt.Client
+	switchStatus int64 = 0 // 添加全局变量存储开关状态
 )
 
 // MQTT虚拟温湿度传感器
@@ -34,15 +31,6 @@ func TempHumSensor() {
 	// 发布事件消息
 	go publishEventMessage("devices/event/")
 
-	// // 网关设备
-	// createGatewayClient()
-
-	// // 发布遥测消息
-	// go publishGatewayTelemetryMessage("gateway/telemetry")
-
-	// go publishGatewayAttributeMessage("gateway/attributes/")
-
-	// go publishGatewayEventMessage("gateway/event/")
 	select {}
 }
 
@@ -55,17 +43,6 @@ func createClient() {
 		Pass:   "",
 	}
 	mqttClient = CreateMqttClient(opts)
-}
-
-func createGatewayClient() {
-	// 初始化配置
-	opts := MqttConfig{
-		Broker: "localhost:1883",
-		// Broker: "47.92.253.145:1883",
-		User: "3f07250e-bdcd-1692-ea2",
-		Pass: "",
-	}
-	gatewayMqttClient = CreateMqttClient(opts)
 }
 
 // 订阅控制消息
@@ -276,81 +253,4 @@ func getEventMessageParams() *map[string]interface{} {
 	}
 
 	return &message
-}
-
-// 网关发布遥测消息
-func publishGatewayTelemetryMessage(topic string) {
-	// 每隔10秒发布一次消息
-	for {
-		subDevice := make(map[string]map[string]interface{})
-		subDevice["3d6bd6af"] = *getTelemetryMessageParams()
-		payloads := &model.GatewayPublish{
-			GatewayData:   getTelemetryMessageParams(),
-			SubDeviceData: &subDevice,
-		}
-		// 转换为json格式
-		var payload []byte
-		payload, err := json.Marshal(payloads)
-		if err != nil {
-			log.Println("json.Marshal failed:", err)
-			return
-		}
-		token := (*gatewayMqttClient).Publish(topic, 0, false, payload)
-		token.Wait()
-		log.Println("Publish message:", string(payload))
-		// 每隔10秒发布一次消息
-		<-time.After(50 * time.Second)
-	}
-}
-
-// 网关发布遥测消息
-func publishGatewayAttributeMessage(topic string) {
-	// 每隔10秒发布一次消息
-	for {
-		subDevice := make(map[string]map[string]interface{})
-		subDevice["3d6bd6af"] = *getAttributeMessageParams()
-		payloads := &model.GatewayPublish{
-			GatewayData:   getAttributeMessageParams(),
-			SubDeviceData: &subDevice,
-		}
-		// 转换为json格式
-		var payload []byte
-		payload, err := json.Marshal(payloads)
-		if err != nil {
-			log.Println("json.Marshal failed:", err)
-			return
-		}
-		messageId := GetMessageID()
-		token := (*gatewayMqttClient).Publish(topic+messageId, 0, false, payload)
-		token.Wait()
-		log.Println("Publish message:", string(payload))
-		// 每隔10秒发布一次消息
-		<-time.After(40 * time.Second)
-	}
-}
-
-// 网关发布遥测消息
-func publishGatewayEventMessage(topic string) {
-	// 每隔10秒发布一次消息
-	for {
-		subDevice := make(map[string]map[string]interface{})
-		subDevice["3d6bd6af"] = *getEventMessageParams()
-		payloads := &model.GatewayPublish{
-			GatewayData:   getEventMessageParams(),
-			SubDeviceData: &subDevice,
-		}
-		// 转换为json格式
-		var payload []byte
-		payload, err := json.Marshal(payloads)
-		if err != nil {
-			log.Println("json.Marshal failed:", err)
-			return
-		}
-		messageId := GetMessageID()
-		token := (*gatewayMqttClient).Publish(topic+messageId, 0, false, payload)
-		token.Wait()
-		log.Println("Publish message:", string(payload))
-		// 每隔10秒发布一次消息
-		<-time.After(30 * time.Second)
-	}
 }

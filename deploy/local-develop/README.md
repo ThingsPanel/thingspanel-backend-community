@@ -8,8 +8,8 @@ frontend 18080, backend 19999, Encore 24000, notifications 28091, PostgreSQL
 15555, Redis 16379 and MQTT 11883. The old 8080/9999 project is untouched.
 
 ```sh
-python3 deploy/local-develop/runtime.py prepare --root /Volumes/80G/tp-develop-integration/new-fixture \
-  --backend /Volumes/80G/path/to/backend --frontend /Volumes/80G/path/to/frontend
+python3 deploy/local-develop/runtime.py prepare --root $TP_LOCAL_WORKSPACE_ROOT/tp-develop-integration/new-fixture \
+  --backend $TP_LOCAL_WORKSPACE_ROOT/path/to/backend --frontend $TP_LOCAL_WORKSPACE_ROOT/path/to/frontend
 ```
 
 Generated private files contain random PostgreSQL/MQTT/JWT/automation credentials,
@@ -24,7 +24,7 @@ local private fixture. Do not use this profile as a production hardening templat
 The build command is now executable, but must only be invoked in the coordinated
 I/O window. **No real build has been run or accepted.** Before Docker operations,
 verify its actual VM disk/build cache reside on 80G and set
-`TP_DOCKER_STORAGE_VERIFIED=/Volumes/80G`. This is operator attestation; Docker info
+`TP_DOCKER_STORAGE_VERIFIED=$TP_LOCAL_WORKSPACE_ROOT`. This is operator attestation; Docker info
 cannot prove the macOS backing-file location. Each phase starts/finishes with 6 GiB
 free system and 12 GiB free 80G checks. A running build is polled every 2 seconds
 and its process group is terminated if either volume falls below 4 GiB. These
@@ -38,10 +38,10 @@ python3 deploy/local-develop/runtime.py build --root <fixture> --phase frontend 
 python3 deploy/local-develop/runtime.py build --root <fixture> --phase encore
 ```
 
-- Backend uses host Go to cross-compile CGO-disabled **linux/arm64** develop binary
+- Backend uses host Go to cross-compile CGO-disabled **linux/selected-architecture** develop binary
   directly to 80G, with trimpath and the full source SHA in SYSTEM_VERSION. No new
   Docker image layer is produced. Its binary and matching source configs/sql/static
-  snapshot are mounted read-only over an already-local linux/arm64 v1.3 runtime
+  snapshot are mounted read-only over an already-local linux/selected-architecture v1.3 runtime
   image. The old image supplies only runtime filesystem/libraries; it is **not**
   represented as develop. Binary/resource SHA256, exact source SHA, immutable base
   image ID and required read-only mount paths are checked again before image lock
@@ -50,10 +50,10 @@ python3 deploy/local-develop/runtime.py build --root <fixture> --phase encore
 - Frontend exports the tracked pinned tree into 80G (checks file hashes on reuse),
   runs frozen-lockfile pnpm install with store on 80G, then normal production
   `pnpm build` including typecheck. dist is read-only mounted over the supplied
-  local linux/arm64 nginx image; develop nginx supplies routing. Full asset hash
+  local linux/selected-architecture nginx image; develop nginx supplies routing. Full asset hash
   inventory is checked before startup. This avoids a new frontend Docker layer.
 - Encore requires official CLI **1.58.6**, runs its official `encore build docker`
-  with the seven actual services, and verifies linux/arm64 output. It still creates
+  with the seven actual services, and verifies linux/selected-architecture output. It still creates
   Docker image/cache data, so Docker external storage proof is mandatory. Cache,
   Go module/build directories, TMPDIR and XDG cache are directed to 80G. Exact SHA,
   CLI version and output image ID are persisted; no unrelated image is relabeled.
@@ -62,7 +62,7 @@ python3 deploy/local-develop/runtime.py build --root <fixture> --phase encore
   fixture cache. A failed phase does not activate its runtime configuration. A
   successful phase invalidates images.lock.json so images must be relocked.
 - Broker source-image build remains explicit/manual using the develop
-  `deploy/mosquitto-community/Dockerfile.production` and native linux/arm64, tagged
+  `deploy/mosquitto-community/Dockerfile.production` and native linux/selected-architecture, tagged
   `tp-local-broker:<backend-sha>` with revision label. This expensive C/CGo phase
   is not silently substituted with an old broker; it still needs its own budget.
 - PostgreSQL/Redis initial image lookup tags are resolved by `lock-images` to
@@ -246,3 +246,9 @@ completion marker and no extra objects/schemas/triggers. Only the image's exact
 plpgsql/timescaledb extension objects are allowed. Every mismatch refuses recovery.
 No table, row or data directory is dropped/reset/adopted. Earlier logs and failed
 fixture remain; guarded recovery starts again from SQL1 after final TCP readiness.
+
+### Workspace portability
+
+Set `TP_LOCAL_WORKSPACE_ROOT` to an existing approved workspace directory (not a disk root). Source checkouts and the new isolated runtime directory must resolve strictly inside it; symlink escape is rejected. Set `TP_DOCKER_STORAGE_VERIFIED` to that resolved directory only after verifying Docker backing storage. Existing free-space floors and the no-adoption rule still apply. The optional `internal-bounded` mode remains specifically for verified OrbStack hosts.
+
+Build architecture defaults to `amd64`; set `TP_LOCAL_TARGET_ARCH=arm64` for ARM hosts/images. Runtime and Encore images must match the chosen architecture. The optional APFS dependency-clone mode and internal-bounded storage verification are macOS-specific; ordinary workspace preparation does not infer or relocate Docker storage. Windows test execution does not verify POSIX 0600 bits; use a private directory with user-only ACLs for actual fixtures.

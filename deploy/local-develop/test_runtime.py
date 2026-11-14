@@ -16,7 +16,7 @@ class FixtureSafety(unittest.TestCase):
 
     def test_no_docker_access_before_disk_capacity_check(self):
         usage = type('Usage', (), {'free': 3 * 1024**3})()
-        with patch.object(runtime.shutil, 'disk_usage', return_value=usage), patch.object(runtime, 'run') as run:
+        with patch.object(runtime, 'safe_path'), patch.object(runtime.shutil, 'disk_usage', return_value=usage), patch.object(runtime, 'run') as run:
             with self.assertRaisesRegex(ValueError, 'System disk'):
                 runtime.preflight(Path('/Volumes/80G/test'))
             run.assert_not_called()
@@ -196,12 +196,12 @@ class StorageSafety(unittest.TestCase):
                 self.storage.orbstack_internal(runtime)
 
 class EncoreBuildContract(unittest.TestCase):
-    def test_official_build_explicitly_targets_arm64_and_smallest_base(self):
+    def test_official_build_explicitly_targets_default_arch_and_smallest_base(self):
         import sys
         sys.path.insert(0, str(Path(__file__).parent))
         import build
         command = build.encore_command('local:test')
-        self.assertEqual(command[command.index('--arch') + 1], 'arm64')
+        self.assertEqual(command[command.index('--arch') + 1], 'amd64')
         self.assertEqual(command[command.index('--os') + 1], 'linux')
         self.assertEqual(command[command.index('--base') + 1], 'scratch')
         self.assertNotIn('--push', command)
@@ -349,4 +349,18 @@ class AdministratorInitialization(unittest.TestCase):
             with patch.object(identity,'rows',side_effect=rows),patch.object(identity,'api',side_effect=api) as call:
                 identity.initialize_administrator(root,runtime); identity.initialize_administrator(root,runtime)
                 self.assertEqual(sum(c.args[0]=='tenant/super-admin/init' for c in call.call_args_list),1)
-            self.assertEqual((root/'private/local-administrator.json').stat().st_mode & 0o777,0o600)
+            if __import__('os').name != 'nt':
+                self.assertEqual((root/'private/local-administrator.json').stat().st_mode & 0o777,0o600)  # Windows ACLs are not POSIX mode bits
+
+class PortableWorkspaceSafety(unittest.TestCase):
+    def test_explicit_workspace_accepts_child_rejects_root_and_escape(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            with patch.dict('os.environ', {'TP_LOCAL_WORKSPACE_ROOT': str(root)}):
+                self.assertEqual(runtime.safe_path(root / 'fixture'), root / 'fixture')
+                for bad in (root, root / '..' / 'escape'):
+                    with self.assertRaises(ValueError): runtime.safe_path(bad)
+    def test_missing_workspace_is_closed(self):
+        with patch.dict('os.environ', {}, clear=True):
+            with self.assertRaisesRegex(ValueError, 'TP_LOCAL_WORKSPACE_ROOT'): runtime.safe_path('fixture')

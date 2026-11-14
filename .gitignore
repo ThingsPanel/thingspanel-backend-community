@@ -34,3 +34,7 @@ deploy/community-test/__pycache__/
 .claude/worktrees/
 notification-adapters/**/.env
 notification-adapters/**/*.private.json
+
+# Rebuildable Python bytecode (never runtime identity or private configuration)
+**/__pycache__/
+*.pyc
