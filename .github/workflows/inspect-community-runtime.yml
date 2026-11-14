@@ -1,0 +1,31 @@
+name: Inspect community runtime
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require main
+        run: test "$GITHUB_REF" = refs/heads/main
+      - name: Read runtime identities and pending operations
+        env:
+          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/inspect-key"
+          args=(-i "$RUNNER_TEMP/inspect-key" -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          ssh "${args[@]}" root@47.92.253.145 'python3 -' < deploy/community-test/inspect_runtime.py > runtime-inspection.json
+          cat runtime-inspection.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-inspection-${{ github.sha }}
+          path: runtime-inspection.json
+          retention-days: 7
+      - name: Remove runner key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/inspect-key"
