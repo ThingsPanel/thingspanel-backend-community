@@ -31,13 +31,15 @@ type NativeRuntimeRegistration struct {
 	ReplacementCredentialID string `json:"replacementCredentialId"`
 }
 type nativeRuntimeRegistration struct {
-	DeviceID       string `gorm:"primaryKey"`
-	NativeTenantID string
-	TenantID       string
-	DeploymentID   string
-	CredentialID   string
-	VoucherSHA256  string `gorm:"column:voucher_sha256"`
-	Active         bool
+	DeviceID            string `gorm:"primaryKey"`
+	NativeTenantID      string
+	TenantID            string
+	DeploymentID        string
+	CredentialID        string
+	VoucherSHA256       string `gorm:"column:voucher_sha256"`
+	Active              bool
+	Deleting            bool
+	LifecycleGeneration int64
 }
 
 func (nativeRuntimeRegistration) TableName() string { return "native_runtime_registrations" }
@@ -87,6 +89,9 @@ func RegisterNativeRuntime(ctx context.Context, db *gorm.DB, tenant, deployment 
 		var registered nativeRuntimeRegistration
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("device_id=?", input.DeviceID).Take(&registered).Error
 		if err == nil {
+			if registered.Deleting {
+				return ErrNativeRegistrationConflict
+			}
 			if registered.NativeTenantID != tenant || registered.TenantID != source || registered.DeploymentID != deployment {
 				return ErrNativeRegistrationConflict
 			}
@@ -234,4 +239,23 @@ func ClearNativeRuntimeDeviceCache(ctx context.Context, client *redis.Client, de
 		return errors.New("native runtime cache unavailable")
 	}
 	return client.Del(ctx, deviceID).Err()
+}
+
+// Confirmation is durable across owner restarts and event replays. Unupgraded or
+// disconnected brokers cannot ACK, but their actual issued leases expire and
+// already fail closed at that deadline. There is no guessed sleep interval.
+func ConfirmNativeCredentialRevocation(ctx context.Context, db *gorm.DB, deviceID string) error {
+	if err := db.WithContext(ctx).Exec("DELETE FROM native_runtime_credential_leases WHERE device_id=? AND expires_at<=now()", deviceID).Error; err != nil {
+		return err
+	}
+	var pending int64
+	err := db.WithContext(ctx).Raw(`SELECT count(*) FROM native_runtime_credential_leases l JOIN native_runtime_registrations r ON r.device_id=l.device_id
+ WHERE l.device_id=? AND l.voucher_sha256<>r.voucher_sha256 AND l.revoked_ack_at IS NULL AND l.expires_at>now()`, deviceID).Scan(&pending).Error
+	if err != nil {
+		return err
+	}
+	if pending > 0 {
+		return errors.New("broker credential leases still active")
+	}
+	return nil
 }

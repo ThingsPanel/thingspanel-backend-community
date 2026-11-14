@@ -2,15 +2,20 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"os"
 	"path/filepath"
+	bc "project/internal/brokercontract"
+	"project/internal/brokercontrol"
 	"project/internal/dal"
 	"project/internal/model"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestNativeRuntimeRegistrationTenantOwnershipAndRetry(t *testing.T) {
@@ -39,7 +44,21 @@ func TestNativeRuntimeRegistrationTenantOwnershipAndRetry(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	leaseMigration, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", "020_native_credential_leases.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(string(leaseMigration)).Error; err != nil {
+		t.Fatal(err)
+	}
 	tenant := nativeTenantIdentity("63a4b529")
+	newLifecycle, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", "021_native_runtime_lifecycle.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(string(newLifecycle)).Error; err != nil {
+		t.Fatal(err)
+	}
 	ctx := context.Background()
 	in := NativeRuntimeRegistration{EventID: uuid.NewString(), Change: "activation", DeviceID: uuid.NewString(), CredentialID: uuid.NewString(), DeviceNumber: "native-test", Name: "native", Voucher: `{"username":"fresh-secret"}`}
 	for i := 0; i < 2; i++ {
@@ -72,6 +91,25 @@ func TestNativeRuntimeRegistrationTenantOwnershipAndRetry(t *testing.T) {
 			t.Fatalf("ownership changed: %v", err)
 		}
 	}
+	oldSum := sha256.Sum256([]byte(in.Voucher))
+	lease := brokercontrol.CredentialLease{ConnectionID: "old-session", DeviceID: in.DeviceID, TenantID: "63a4b529", BrokerCell: "community", BrokerInstance: "broker-a", VoucherSHA256: hex.EncodeToString(oldSum[:]), ExpiresAt: time.Now().UTC().Add(time.Minute).Truncate(time.Microsecond)}
+	safeVoucher, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", "011_safe_device_voucher.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(string(safeVoucher)).Error; err != nil {
+		t.Fatal(err)
+	}
+	leaseRepo := brokercontrol.NewGormRepository(db)
+	leaseRequest := bc.AuthRequest{BrokerCell: lease.BrokerCell, BrokerInstance: lease.BrokerInstance, Username: "fresh-secret"}
+	leaseGrant := bc.Grant{ConnectionID: lease.ConnectionID, ExpiresAt: lease.ExpiresAt, Principal: bc.Principal{Kind: bc.PrincipalDevice, TenantID: lease.TenantID, DeviceID: lease.DeviceID}}
+	if err := leaseRepo.RecordCredentialLease(ctx, leaseRequest, leaseGrant); err != nil {
+		t.Fatal("record issued lease", err)
+	}
+
+	if err := ConfirmNativeCredentialRevocation(ctx, db, in.DeviceID); err != nil {
+		t.Fatal("current credential incorrectly blocked", err)
+	}
 	first := in
 	rotated := in
 	rotated.EventID = uuid.NewString()
@@ -86,6 +124,49 @@ func TestNativeRuntimeRegistrationTenantOwnershipAndRetry(t *testing.T) {
 	}
 	if err := RegisterNativeRuntime(ctx, db, tenant, "dep", first); err != nil {
 		t.Fatal("old event acknowledgement", err)
+	}
+	if err := ConfirmNativeCredentialRevocation(ctx, db, in.DeviceID); err == nil {
+		t.Fatal("rotation completed while old broker lease alive")
+	}
+	if err := leaseRepo.RecordCredentialLease(ctx, leaseRequest, leaseGrant); err == nil {
+		t.Fatal("credential recheck allowed stale authentication after rotation")
+	}
+	newReq, newGrant := leaseRequest, leaseGrant
+	newReq.Username = "rotated-secret"
+	newGrant.ConnectionID = "replacement-session"
+	if err := leaseRepo.RecordCredentialLease(ctx, newReq, newGrant); err != nil {
+		t.Fatal("new credential cannot authenticate", err)
+	}
+
+	repo := brokercontrol.NewGormRepository(db)
+	ack := bc.CredentialLeaseAck{BrokerCell: lease.BrokerCell, BrokerInstance: "other-broker", ConnectionID: lease.ConnectionID, ExpiresAt: lease.ExpiresAt}
+	if err := repo.AcknowledgeCredentialLease(ctx, ack); err != nil {
+		t.Fatal(err)
+	}
+	if err := ConfirmNativeCredentialRevocation(ctx, db, in.DeviceID); err == nil {
+		t.Fatal("another broker acknowledged lease")
+	}
+	ack.BrokerInstance = lease.BrokerInstance
+	ack.ExpiresAt = lease.ExpiresAt.Add(-time.Second)
+	if err := repo.AcknowledgeCredentialLease(ctx, ack); err != nil {
+		t.Fatal(err)
+	}
+	if err := ConfirmNativeCredentialRevocation(ctx, db, in.DeviceID); err == nil {
+		t.Fatal("stale lease ACK accepted")
+	}
+	ack.ExpiresAt = lease.ExpiresAt
+	if err := repo.AcknowledgeCredentialLease(ctx, ack); err != nil {
+		t.Fatal(err)
+	}
+	if err := ConfirmNativeCredentialRevocation(ctx, db, in.DeviceID); err != nil {
+		t.Fatal("applied ACK not confirmed", err)
+	}
+	// A broker that never ACKs is bounded by the actual signed grant deadline.
+	if err := db.Model(&lease).Updates(map[string]any{"revoked_ack_at": nil, "expires_at": time.Now().Add(-time.Second)}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := ConfirmNativeCredentialRevocation(ctx, db, in.DeviceID); err != nil {
+		t.Fatal("expired lease still blocked", err)
 	}
 	var after model.Device
 	db.First(&after, "id=?", in.DeviceID)

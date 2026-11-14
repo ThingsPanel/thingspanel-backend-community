@@ -626,6 +626,11 @@ func (o *Owner) issueGrant(ctx context.Context, req brokercontract.AuthRequest, 
 			return deny, ErrUnavailable
 		}
 	}
+	if leases, ok := o.repo.(credentialLeaseRepository); ok {
+		if err := leases.RecordCredentialLease(ctx, req, grant); err != nil {
+			return deny, ErrUnavailable
+		}
+	}
 	return grant, nil
 }
 
@@ -666,6 +671,14 @@ type Handler struct {
 func (o *Owner) Handler() http.Handler { return &Handler{owner: o, maxBody: MaxAuthBodyBytes} }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/v1/credential-leases/ready" {
+		h.credentialLeaseReady(w, r)
+		return
+	}
+	if r.URL.Path == "/v1/credential-leases/ack" {
+		h.credentialLeaseAck(w, r)
+		return
+	}
 	if r.URL.Path != "/v1/authenticate" {
 		http.NotFound(w, r)
 		return

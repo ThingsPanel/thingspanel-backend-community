@@ -3,7 +3,6 @@ package communityclient
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/url"
 	"strconv"
 )
@@ -179,15 +178,17 @@ func (c *Client) RemoveDevice(ctx context.Context, deviceID string) error {
 // so a caller never treats an unknown state as "deleted".
 func (c *Client) DeviceGone(ctx context.Context, deviceID string) (bool, error) {
 	raw, err := c.GetDeviceDetail(ctx, deviceID)
-	if err == nil {
-		_, err = decodeEnvelope(raw)
-		if err == nil {
-			return false, nil
-		}
+	if err != nil {
+		// A denied request (including HTTP 401/403/404) is not proof that the
+		// device is absent. In particular, never confirm deletion after auth fails.
+		return false, err
 	}
-	if errors.Is(err, ErrRejected) {
+	var envelope legacyEnvelope
+	if json.Unmarshal(raw, &envelope) == nil && (envelope.Code == 204003 || envelope.Code == 100404) {
+		// Explicit Community device-not-found responses, not arbitrary rejection.
 		return true, nil
 	}
+	_, err = decodeEnvelope(raw)
 	return false, err
 }
 

@@ -51,7 +51,44 @@ func RegisterAutomationOwnerRoutes(router *gin.Engine, db *gorm.DB) {
 			c.JSON(503, gin.H{"code": 503, "message": "runtime cache invalidation not confirmed"})
 			return
 		}
+		if service.RequireNativeCredentialOwnerReady(c.Request.Context()) != nil {
+			c.JSON(503, gin.H{"code": 503, "message": "broker credential lease protocol unavailable"})
+			return
+		}
+		if err := service.ConfirmNativeCredentialRevocation(c.Request.Context(), db, body.DeviceID); err != nil {
+			c.JSON(503, gin.H{"code": 503, "message": "broker credential revocation not confirmed"})
+			return
+		}
 		c.JSON(200, gin.H{"code": 200, "data": gin.H{"deviceId": body.DeviceID}})
+	})
+	group.POST("/runtime-devices/lifecycle", func(c *gin.Context) {
+		var body service.NativeRuntimeLifecycle
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+		if c.ShouldBindJSON(&body) != nil {
+			c.JSON(400, gin.H{"code": 400})
+			return
+		}
+		if db == nil || service.RequireNativeCredentialOwnerReady(c.Request.Context()) != nil {
+			c.JSON(503, gin.H{"code": 503})
+			return
+		}
+		err := service.ApplyNativeRuntimeLifecycle(c.Request.Context(), db, c.GetString("automation_owner_tenant"), automationbridge.Deployment(), body)
+		if err != nil {
+			status := 503
+			if errors.Is(err, service.ErrNativeRegistrationInvalid) {
+				status = 400
+			}
+			if errors.Is(err, service.ErrNativeRegistrationConflict) {
+				status = 409
+			}
+			c.JSON(status, gin.H{"code": status})
+			return
+		}
+		if service.ClearNativeRuntimeDeviceCache(c.Request.Context(), global.REDIS, body.DeviceID) != nil {
+			c.JSON(503, gin.H{"code": 503})
+			return
+		}
+		c.JSON(200, gin.H{"code": 200, "data": gin.H{"deviceId": body.DeviceID, "eventId": body.EventID, "generation": body.Generation}})
 	})
 	group.GET("/devices", func(c *gin.Context) {
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))

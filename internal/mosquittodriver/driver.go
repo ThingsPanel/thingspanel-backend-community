@@ -30,21 +30,24 @@ type Config struct {
 	RuntimeFencing                  bool
 }
 type session struct {
-	id                           uint64
-	pointer                      uintptr
-	request                      bc.AuthRequest
-	grant                        bc.Grant
-	ready, connected, refreshing bool
-	result                       error
-	refreshAt                    time.Time
-	cancel                       context.CancelFunc
-	eventSeq                     uint64
-	lastObservation              time.Time
-	pluginStatuses               map[string]pluginStatus
-	pluginStatusOrder            []string
-	pluginStatusCursor           int
-	closed                       bool
-	retireAt                     time.Time
+	id                                          uint64
+	pointer                                     uintptr
+	request                                     bc.AuthRequest
+	grant                                       bc.Grant
+	ready, connected, refreshing                bool
+	result                                      error
+	refreshAt                                   time.Time
+	credentialAckPending, credentialAckInFlight bool
+	credentialAck                               bc.CredentialLeaseAck
+	credentialAckNext                           time.Time
+	cancel                                      context.CancelFunc
+	eventSeq                                    uint64
+	lastObservation                             time.Time
+	pluginStatuses                              map[string]pluginStatus
+	pluginStatusOrder                           []string
+	pluginStatusCursor                          int
+	closed                                      bool
+	retireAt                                    time.Time
 }
 
 type pluginStatus struct {
@@ -68,6 +71,7 @@ type Driver struct {
 	sequence                       uint64
 	ingestionSequence              uint64
 	activeAuth                     int
+	activeCredentialAcks           int
 	bootID                         string
 	ctx                            context.Context
 	cancel                         context.CancelFunc
@@ -227,6 +231,9 @@ func (d *Driver) authenticate(ctx context.Context, s *session, refresh bool) {
 		s.grant = grant
 	} else if refresh {
 		s.grant.Allow = false
+		s.credentialAckPending = true
+		s.credentialAck = bc.CredentialLeaseAck{BrokerCell: d.cfg.Cell, BrokerInstance: d.cfg.Instance, ConnectionID: s.grant.ConnectionID, ExpiresAt: s.grant.ExpiresAt}
+		d.startCredentialAckLocked(s)
 	}
 }
 
@@ -298,6 +305,9 @@ func (d *Driver) Tick() {
 	d.tickRuntimeLocked()
 	n := 0
 	for ptr, s := range d.sessions {
+		if s.credentialAckPending && !s.credentialAckInFlight && !time.Now().Before(s.credentialAckNext) {
+			d.startCredentialAckLocked(s)
+		}
 		if s.closed {
 			if !time.Now().Before(s.grant.ExpiresAt) || (!hasPendingPluginStatus(s) && time.Now().After(s.retireAt)) {
 				delete(d.sessions, ptr)

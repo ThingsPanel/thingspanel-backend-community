@@ -34,6 +34,22 @@ import (
 
 const runtimeDispatchEnv = "TP_RUNTIME_OUTBOX_DISPATCH"
 
+// Keep selection and application capabilities in one list. Unsupported intents
+// remain pending, but must not consume the bounded worker batch.
+var runtimeDispatchKinds = [...]string{
+	operationKindDeviceRenumber, operationKindDeviceDeletion,
+	operationKindGatewayBinding, operationKindCredentialChange,
+}
+
+func supportsRuntimeDispatch(kind string) bool {
+	for _, supported := range runtimeDispatchKinds {
+		if kind == supported {
+			return true
+		}
+	}
+	return false
+}
+
 type runtimeOutboxItem struct {
 	EventID    string
 	TenantID   string
@@ -59,7 +75,7 @@ type runtimeDispatchSummary struct {
 	Applied, Failed, Skipped int
 }
 
-// dispatchRuntimeOutbox applies up to limit eligible rows, oldest first. A row
+// dispatchRuntimeOutbox applies up to limit supported rows, least recently attempted first. A row
 // is eligible when it is pending, or failed with an operation that is still
 // pending (a retryable failure).
 func dispatchRuntimeOutbox(ctx context.Context, applier runtimeApplier, limit int) (runtimeDispatchSummary, error) {
@@ -68,7 +84,9 @@ func dispatchRuntimeOutbox(ctx context.Context, applier runtimeApplier, limit in
 		FROM device_runtime_outbox o
 		JOIN metadata_operations m ON m.tenant_id=o.tenant_id AND m.id=o.operation_id
 		WHERE o.state IN ('pending','failed') AND m.state='pending'
-		ORDER BY o.created_at,o.id LIMIT $1`, limit)
+		AND o.kind IN ($2,$3,$4,$5)
+		ORDER BY o.updated_at,o.created_at,o.id LIMIT $1`, limit,
+		runtimeDispatchKinds[0], runtimeDispatchKinds[1], runtimeDispatchKinds[2], runtimeDispatchKinds[3])
 	if err != nil {
 		return summary, wrapDBErr(err, "list runtime outbox failed")
 	}
@@ -132,9 +150,7 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 		return runtimeApplyOutcome{FailureCode: "DESIRED_INVALID"}
 	}
 	str := func(key string) string { s, _ := desired[key].(string); return s }
-	switch item.Kind {
-	case operationKindDeviceRenumber, operationKindDeviceDeletion, operationKindGatewayBinding, operationKindCredentialChange:
-	default:
+	if !supportsRuntimeDispatch(item.Kind) {
 		return runtimeApplyOutcome{Skip: true}
 	}
 	legacyID, err := lookupRuntimeDeviceID(ctx, item.TenantID, item.DeviceID)
@@ -162,6 +178,18 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 			}
 		}
 		return runtimeApplyOutcome{FailureCode: "RUNTIME_IDENTITY_UNKNOWN", Retryable: true}
+	}
+	if item.Kind == operationKindDeviceRenumber || item.Kind == operationKindDeviceDeletion {
+		owned, ownershipErr := isOwnedNativeRuntime(ctx, item.TenantID, item.DeviceID)
+		if ownershipErr != nil {
+			return runtimeApplyOutcome{FailureCode: "RUNTIME_OWNERSHIP_UNAVAILABLE", Retryable: true}
+		}
+		if owned {
+			if err := applyNativeRuntimeLifecycle(ctx, item, str("deviceNumber")); err != nil {
+				return runtimeApplyOutcome{FailureCode: "RUNTIME_LIFECYCLE_UNCONFIRMED", Retryable: true}
+			}
+			return runtimeApplyOutcome{Applied: true}
+		}
 	}
 	switch item.Kind {
 	case operationKindDeviceRenumber:

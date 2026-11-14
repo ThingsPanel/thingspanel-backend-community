@@ -404,3 +404,33 @@ func TestSimulationSendNeverPassesBrokerTarget(t *testing.T) {
 		}
 	}
 }
+
+func TestDeviceGoneDoesNotTreatDeniedOrUnknownAsMissing(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+		gone   bool
+	}{
+		{"legacy_missing", 200, `{"code":204003,"data":null}`, true},
+		{"resource_missing", 200, `{"code":100404,"data":null}`, true},
+		{"unauthorized", 401, `{"code":204003}`, false},
+		{"forbidden", 403, `{"code":100403}`, false},
+		{"proxy_not_found", 404, `<html>not found</html>`, false},
+		{"permission_envelope", 200, `{"code":100403,"data":null}`, false},
+		{"dependency_envelope", 200, `{"code":200063,"data":null}`, false},
+		{"bad_gateway", 502, `upstream unavailable`, false},
+		{"malformed", 200, `not JSON`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := runtimeTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			})
+			gone, err := c.DeviceGone(context.Background(), "d1")
+			if gone != tc.gone || (err == nil) != tc.gone {
+				t.Fatalf("gone=%v err=%v wantGone=%v", gone, err, tc.gone)
+			}
+		})
+	}
+}

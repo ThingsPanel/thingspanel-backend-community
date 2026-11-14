@@ -60,6 +60,15 @@ func TestPostgresVoucherJSONBSemanticsAndOwnerTransactions(t *testing.T) {
 	if err := db.AutoMigrate(&ClientIDBinding{}, &TransportBinding{}); err != nil {
 		t.Fatal("create owner fixture tables")
 	}
+	for _, migrationName := range []string{"018_native_runtime_registrations.sql", "019_native_runtime_credential_lifecycle.sql", "020_native_credential_leases.sql", "021_native_runtime_lifecycle.sql"} {
+		migration, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", migrationName))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Exec(string(migration)).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
 	body, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", "011_safe_device_voucher.sql"))
 	if err != nil {
 		t.Fatal(err)
