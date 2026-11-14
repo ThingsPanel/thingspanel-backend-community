@@ -44,6 +44,21 @@ class BrokerUpgradeTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             credential_environment(self.broker, self.owner)
 
+    def test_host_network_reuses_explicit_loopback_owner(self):
+        self.broker['HostConfig'] = self.owner['HostConfig'] = {'NetworkMode': 'host'}
+        self.owner['NetworkSettings']['Ports'] = {}
+        self.broker['Config']['Env'].append('TP_BROKER_OWNER_URL=http://127.0.0.1:19876')
+        self.assertEqual(credential_environment(self.broker, self.owner)['TP_BROKER_OWNER_URL'], 'http://127.0.0.1:19876')
+
+    def test_host_network_rejects_remote_or_implicit_port(self):
+        self.broker['HostConfig'] = self.owner['HostConfig'] = {'NetworkMode': 'host'}
+        self.owner['NetworkSettings']['Ports'] = {}
+        for endpoint in ['http://example.com:19876', 'http://127.0.0.1', 'http://user:secret@127.0.0.1:19876']:
+            self.broker['Config']['Env'] = [e for e in self.broker['Config']['Env'] if not e.startswith('TP_BROKER_OWNER_URL=')]
+            self.broker['Config']['Env'].append('TP_BROKER_OWNER_URL=' + endpoint)
+            with self.assertRaises(RuntimeError):
+                credential_environment(self.broker, self.owner)
+
     def test_rejects_ambiguous_owner_port(self):
         self.owner['NetworkSettings']['Ports']['9090/tcp'] = [{'HostIp': '127.0.0.1', 'HostPort': '19090'}]
         with self.assertRaises(RuntimeError):

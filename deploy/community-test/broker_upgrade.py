@@ -6,6 +6,8 @@ import shutil
 import tarfile
 import time
 import urllib.request
+import urllib.parse
+import ipaddress
 
 
 def required_import_bytes(image):
@@ -34,9 +36,22 @@ def credential_environment(broker, owner):
     host_token = pathlib.Path(mount['Source']) / token_path[len(mount['Destination']):].lstrip('/')
     ports = owner['NetworkSettings']['Ports']
     bindings = [p for values in ports.values() for p in (values or []) if p['HostIp'] in ('127.0.0.1', '0.0.0.0')]
-    if len(bindings) != 1:
-        raise RuntimeError('Owner must expose one unambiguous host port')
-    return {'TP_BROKER_OWNER_URL': 'http://127.0.0.1:' + bindings[0]['HostPort'],
+    if owner.get('HostConfig', {}).get('NetworkMode') == 'host' and broker.get('HostConfig', {}).get('NetworkMode') == 'host':
+        endpoint = env.get('TP_BROKER_OWNER_URL', '')
+        parsed = urllib.parse.urlsplit(endpoint)
+        try:
+            loopback = parsed.hostname == 'localhost' or ipaddress.ip_address(parsed.hostname).is_loopback
+            valid_port = parsed.port is not None and 0 < parsed.port < 65536
+        except (ValueError, TypeError):
+            loopback, valid_port = False, False
+        if parsed.scheme not in ('http', 'https') or not loopback or not valid_port or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in ('', '/'):
+            raise RuntimeError('Host-network broker Owner URL must be an explicit loopback endpoint')
+        endpoint = endpoint.rstrip('/')
+    else:
+        if len(bindings) != 1:
+            raise RuntimeError('Owner must expose one unambiguous host port')
+        endpoint = 'http://127.0.0.1:' + bindings[0]['HostPort']
+    return {'TP_BROKER_OWNER_URL': endpoint,
             'TP_BROKER_TOKEN_FILE': str(host_token),
             'TP_BROKER_CELL': env['TP_BROKER_CELL'], 'TP_BROKER_INSTANCE': env['TP_BROKER_INSTANCE']}
 
