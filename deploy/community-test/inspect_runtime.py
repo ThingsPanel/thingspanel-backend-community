@@ -6,6 +6,7 @@ import pathlib
 import shutil
 import subprocess
 import tarfile
+import urllib.parse
 
 
 def broker_preflight(infos):
@@ -15,6 +16,15 @@ def broker_preflight(infos):
     if not broker or not owner:
         return result
     env = dict(x.split('=', 1) for x in (broker['Config'].get('Env') or []) if '=' in x)
+    result['owner_network_mode'] = owner.get('HostConfig', {}).get('NetworkMode')
+    owner_env = dict(x.split('=', 1) for x in (owner['Config'].get('Env') or []) if '=' in x)
+    result['owner_listen'] = owner_env.get('TP_BROKER_OWNER_LISTEN')
+    result['broker_network_mode'] = broker.get('HostConfig', {}).get('NetworkMode')
+    try:
+        endpoint = urllib.parse.urlsplit(env.get('TP_BROKER_OWNER_URL', ''))
+        result['broker_owner_endpoint'] = {'scheme': endpoint.scheme, 'hostname': endpoint.hostname, 'port': endpoint.port}
+    except ValueError:
+        result['broker_owner_endpoint'] = {'invalid': True}
     token = env.get('TP_BROKER_TOKEN_FILE', '')
     mounts = [m for m in broker.get('Mounts', []) if token and (token == m['Destination'] or token.startswith(m['Destination'].rstrip('/') + '/'))]
     result['token_mount_mapped'] = bool(mounts)
