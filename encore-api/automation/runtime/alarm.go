@@ -244,6 +244,9 @@ func (r *Runtime) SubmitAlarmEvent(ctx context.Context, tenantID, policyID strin
 	if subject == "" {
 		return Decision{Outcome: OutcomeRejected, ReasonCode: "missing_subject"}, nil
 	}
+	if scope := r.TriggerScopeResult(ctx, rule, subject); scope != nil {
+		return Decision{Outcome: OutcomeRejected, ReasonCode: scope.Reasons[0].Code}, nil
+	}
 
 	hash := intakeHash(rule.PolicyKey(), req)
 	existing, created, err := r.store.ReserveAlarmIntake(ctx, &store.AlarmIntake{

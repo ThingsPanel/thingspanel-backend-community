@@ -126,8 +126,24 @@ func Validate(d *Definition) error {
 		add("freshness.no_data", "invalid_freshness", "no_data 不能为负数")
 	}
 
+	// Trigger restrictions are independent from the devices receiving actions.
+	if scope := d.TriggerScope; scope != nil {
+		if len(scope.DeviceIDs)+len(scope.DeviceConfigIDs) == 0 {
+			add("trigger_scope", "empty_trigger_scope", "触发范围至少指定一个设备或设备模板")
+		}
+		if len(scope.DeviceIDs)+len(scope.DeviceConfigIDs) > 1000 {
+			add("trigger_scope", "trigger_scope_too_large", "触发范围不能超过 1000 个设备或模板")
+		}
+		for field, ids := range map[string][]string{"device_ids": scope.DeviceIDs, "device_config_ids": scope.DeviceConfigIDs} {
+			for _, id := range ids {
+				if strings.TrimSpace(id) == "" || strings.TrimSpace(id) != id {
+					add("trigger_scope."+field, "invalid_scope_id", "触发范围 ID 不能为空或包含首尾空格")
+				}
+			}
+		}
+	}
+
 	// Targets: at least one selection, bounded size.
-	//
 	// An event-only alarm policy is exempt for the same reason it has no trigger:
 	// its subject is the one the caller names in the event, not a set the policy
 	// selects. Demanding a target there would force the author to pick a device

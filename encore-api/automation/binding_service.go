@@ -78,10 +78,10 @@ type ListBindingsResponse struct {
 
 // EffectiveRuleResponse is one rule that really applies to a device.
 type EffectiveRuleResponse struct {
-	RuleID   string            `json:"rule_id"`
-	RuleName string            `json:"rule_name"`
-	Kind     string            `json:"kind"`
-	Enabled  bool              `json:"enabled"`
+	RuleID   string `json:"rule_id"`
+	RuleName string `json:"rule_name"`
+	Kind     string `json:"kind"`
+	Enabled  bool   `json:"enabled"`
 	// Source is "template", "device" or "condition".
 	//
 	// "condition" is the legacy behaviour: a rule whose trigger names no device
@@ -110,9 +110,9 @@ type DeviceAutomationResponse struct {
 
 // TemplateBindingsResponse is the reconciliation view for one template.
 type TemplateBindingsResponse struct {
-	DeviceConfigID string            `json:"device_config_id"`
-	Attached       int               `json:"attached"`
-	Detached       int               `json:"detached"`
+	DeviceConfigID string `json:"device_config_id"`
+	Attached       int    `json:"attached"`
+	Detached       int    `json:"detached"`
 	// DeviceCount is how many devices currently inherit these bindings. It is
 	// the "生效范围" half of the reconciliation: a template with three bindings
 	// and zero devices is a configuration nobody is using.
@@ -286,6 +286,15 @@ func (s *Service) GetDeviceAutomation(ctx context.Context, deviceId string) (*De
 		return nil, err
 	}
 	out := &DeviceAutomationResponse{DeviceID: deviceId, Rules: []EffectiveRuleResponse{}}
+	scopeVisible := func(rule *store.Rule) bool {
+		if result := rt.TriggerScopeResult(ctx, rule, deviceId); result != nil {
+			if result.Reasons[0].Code == "trigger_scope_unavailable" {
+				out.Issues = append(out.Issues, domain.Issue{Field: "trigger_scope", Code: result.Reasons[0].Code, Message: result.Reasons[0].Message})
+			}
+			return false
+		}
+		return true
+	}
 	if rt.Directory() != nil {
 		devices, derr := rt.Directory().ByIDs(ctx, tenantID, []string{deviceId})
 		if derr != nil {
@@ -310,6 +319,9 @@ func (s *Service) GetDeviceAutomation(ctx context.Context, deviceId string) (*De
 				Field: "rule_id", Code: "binding_target_missing",
 				Message: "绑定指向的规则已不存在: " + b.RuleID,
 			})
+			continue
+		}
+		if !scopeVisible(rule) {
 			continue
 		}
 		eff, _ := effectiveParams(rule, b.Params)
@@ -341,6 +353,9 @@ func (s *Service) GetDeviceAutomation(ctx context.Context, deviceId string) (*De
 		})
 	}
 	for _, rule := range conditionRules {
+		if !scopeVisible(rule) {
+			continue
+		}
 		if seen[rule.ID] {
 			continue
 		}

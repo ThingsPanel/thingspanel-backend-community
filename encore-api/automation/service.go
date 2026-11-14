@@ -58,7 +58,7 @@ func getService() (*Service, error) {
 			st,
 			ports.NewHTTPCommandOwner(cfg),
 			ports.NewHTTPNotificationOwner(cfg),
-			ports.NewHTTPDirectory(cfg),
+			nativeDirectory{},
 			nil,
 		)}
 	})

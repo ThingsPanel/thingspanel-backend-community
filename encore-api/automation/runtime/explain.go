@@ -135,6 +135,14 @@ func (r *Runtime) Explain(ctx context.Context, rule *store.Rule, deviceID string
 		return res, nil
 	}
 
+	if scope := r.TriggerScopeResult(ctx, rule, deviceID); scope != nil {
+		res.Verdict = ExplainUndetermined
+		res.Reasons = scope.Reasons
+		res.Evidence.Complete = scope.Reasons[0].Code == "trigger_scope_mismatch"
+		res.Evidence.Note = scope.Reasons[0].Message
+		return res, nil
+	}
+
 	// 2. An open duration window explains "the condition is met but nothing ran".
 	scope := ScopeKey(&rule.Definition, rule.ID, deviceID)
 	if pending, err := r.store.GetPending(ctx, scope); err == nil && pending != nil {

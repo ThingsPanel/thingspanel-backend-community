@@ -112,15 +112,18 @@ type Definition struct {
 	// dropping it on the way into the new model would lose the only place a
 	// customer explains why a rule exists, so it lives in the definition and is
 	// echoed back unchanged.
-	Description string        `json:"description,omitempty"`
-	Trigger     Trigger       `json:"trigger"`
-	Recovery    *Trigger      `json:"recovery,omitempty"`
-	Freshness   Freshness     `json:"freshness"`
-	Targets     TargetSpec    `json:"targets"`
-	Steps       []Step        `json:"steps"`
-	Queue       *QueueRule    `json:"queue,omitempty"`
-	Parallel    *ParallelRule `json:"parallel,omitempty"`
-	Budget      Budget        `json:"budget"`
+	Description string  `json:"description,omitempty"`
+	Trigger     Trigger `json:"trigger"`
+	// TriggerScope limits the event subjects, independently of action Targets.
+	// Nil preserves existing cross-device rules. An explicit empty scope is invalid.
+	TriggerScope *TriggerScope `json:"trigger_scope,omitempty"`
+	Recovery     *Trigger      `json:"recovery,omitempty"`
+	Freshness    Freshness     `json:"freshness"`
+	Targets      TargetSpec    `json:"targets"`
+	Steps        []Step        `json:"steps"`
+	Queue        *QueueRule    `json:"queue,omitempty"`
+	Parallel     *ParallelRule `json:"parallel,omitempty"`
+	Budget       Budget        `json:"budget"`
 	// Params declares the slots this body exposes to a device binding. A rule
 	// with no params is a fixed rule; a rule with params is a template rule
 	// that a device (or a device template) may fill in differently. The body
@@ -296,6 +299,33 @@ type Freshness struct {
 	// provable and an active alarm records why. Zero means "not configured",
 	// which keeps the legacy behaviour for existing rules.
 	NoData Duration `json:"no_data,omitempty"`
+}
+
+// TriggerScope restricts subjects independently of action recipients.
+type TriggerScope struct {
+	DeviceIDs       []string `json:"device_ids,omitempty"`
+	DeviceConfigIDs []string `json:"device_config_ids,omitempty"`
+}
+
+// Matches uses union semantics. Empty or unresolved subjects never match.
+func (s *TriggerScope) Matches(deviceID, deviceConfigID string) bool {
+	if s == nil {
+		return true
+	}
+	if deviceID == "" {
+		return false
+	}
+	for _, id := range s.DeviceIDs {
+		if id != "" && id == deviceID {
+			return true
+		}
+	}
+	for _, id := range s.DeviceConfigIDs {
+		if id != "" && id == deviceConfigID {
+			return true
+		}
+	}
+	return false
 }
 
 // TargetSpec is resolved to a frozen snapshot when a run is accepted.

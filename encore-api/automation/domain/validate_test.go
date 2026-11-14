@@ -24,6 +24,29 @@ func validDefinition() Definition {
 	return d
 }
 
+func TestTriggerScopeValidationRejectsAmbiguousRestrictions(t *testing.T) {
+	for _, tc := range []struct {
+		scope *TriggerScope
+		code  string
+	}{
+		{&TriggerScope{}, "empty_trigger_scope"},
+		{&TriggerScope{DeviceIDs: []string{" "}}, "invalid_scope_id"},
+		{&TriggerScope{DeviceConfigIDs: []string{" template"}}, "invalid_scope_id"},
+		{&TriggerScope{DeviceIDs: make([]string, 1001)}, "trigger_scope_too_large"},
+	} {
+		d := validDefinition()
+		d.TriggerScope = tc.scope
+		if !hasCode(issuesOf(t, d), tc.code) {
+			t.Fatalf("scope %+v must fail with %s", tc.scope, tc.code)
+		}
+	}
+	d := validDefinition()
+	d.TriggerScope = &TriggerScope{DeviceIDs: []string{"different-from-action-target"}}
+	if err := Validate(&d); err != nil {
+		t.Fatalf("independent subject and target rejected: %v", err)
+	}
+}
+
 func issuesOf(t *testing.T, d Definition) []Issue {
 	t.Helper()
 	err := Validate(&d)

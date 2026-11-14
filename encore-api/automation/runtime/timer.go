@@ -165,6 +165,13 @@ func (r *Runtime) firePending(ctx context.Context, p *store.Pending, now time.Ti
 		return "dropped"
 	}
 
+	if scope := r.TriggerScopeResult(ctx, rule, p.DeviceID); scope != nil {
+		_ = r.store.ClearPending(ctx, p.ScopeKey)
+		_, _ = r.store.PublishEvent(ctx, nil, NewID(), p.TenantID, "pending.undetermined", p.RuleID,
+			map[string]any{"rule_id": p.RuleID, "device_id": p.DeviceID, "reasons": scope.Reasons})
+		return "dropped"
+	}
+
 	// Evidence freshness: a timer firing does not prove the physical condition
 	// held. If the newest evidence is older than max_age, the result is unknown.
 	fresh := checkFreshness(domain.Sample{ObservedAt: p.LastEvidenceAt}, now, rule.Definition.Freshness)

@@ -160,6 +160,11 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 		if pend.recovery && def.Recovery != nil {
 			trigger = *def.Recovery
 		}
+		if scope := r.TriggerScopeResult(ctx, rule, pend.device); scope != nil {
+			res.Steps = append(res.Steps, SimStep{At: rel(base, now), Kind: "timer", Verdict: string(scope.Verdict), Reasons: scope.Reasons})
+			pend = nil
+			return
+		}
 		verdict := domain.Evaluate(trigger, domain.EvalContext{
 			Now: now, SelfDeviceID: pend.device, Lookup: lookup,
 			MaxAge: def.Freshness.MaxAge.Std(), Mode: def.Freshness.Mode,
@@ -216,6 +221,10 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 			At: rel(base, item.at), Kind: "sample",
 			Detail: fmt.Sprintf("%s %s=%v", dev, item.s.Key, item.s.Value),
 		})
+		if scope := r.TriggerScopeResult(ctx, rule, dev); scope != nil {
+			res.Steps = append(res.Steps, SimStep{At: rel(base, item.at), Kind: "verdict", Verdict: string(scope.Verdict), Reasons: scope.Reasons})
+			continue
+		}
 
 		verdict := domain.Evaluate(def.Trigger, domain.EvalContext{
 			Now: item.at, SelfDeviceID: dev, Trigger: &sample, Lookup: lookup,

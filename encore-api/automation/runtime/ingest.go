@@ -104,6 +104,14 @@ func (r *Runtime) evaluateForDevice(ctx context.Context, e *store.IngestEvent, s
 	// still costs a single query.
 	bound := r.bindingsFor(ctx, e.TenantID, e.DeviceID)
 	for _, rule := range rules {
+		if scope := r.TriggerScopeResult(ctx, rule, e.DeviceID); scope != nil {
+			// A condition candidate is not yet an eligible trigger subject. Bindings
+			// cannot bypass an explicit scope via the self-condition OR branch.
+			if scope.Reasons[0].Code == "trigger_scope_unavailable" {
+				r.recordEvaluationError(ctx, rule, e, errors.New(scope.Reasons[0].Code+": "+scope.Reasons[0].Message))
+			}
+			continue
+		}
 		// The rule body is shared; the values are this device's. Materializing
 		// here — and only here — is what makes "edit the rule once, 500 devices
 		// follow, one device overrides" true without 500 copies of the body.
@@ -145,6 +153,9 @@ func (r *Runtime) recordEvaluationError(ctx context.Context, rule *store.Rule, e
 // Simulation and explain both use it, so they can never disagree with the real
 // path about what a rule means.
 func (r *Runtime) EvaluateSample(ctx context.Context, rule *store.Rule, deviceID string, trigger *domain.Sample, now time.Time) domain.Result {
+	if scope := r.TriggerScopeResult(ctx, rule, deviceID); scope != nil {
+		return *scope
+	}
 	return domain.Evaluate(rule.Definition.Trigger,
 		r.evalContext(ctx, &rule.Definition, deviceID, trigger, now))
 }

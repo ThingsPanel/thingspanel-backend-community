@@ -37,6 +37,9 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 
 func (r *Runtime) acceptRunWithIdentity(ctx context.Context, rule *store.Rule, deviceID, triggerEventID string,
 	c cause, res domain.Result, now time.Time, id string, deferred bool) (*store.Run, error) {
+	if guard := r.TriggerScopeResult(ctx, rule, deviceID); guard != nil {
+		return nil, fmt.Errorf("%s: %s", guard.Reasons[0].Code, guard.Reasons[0].Message)
+	}
 	def := rule.Definition
 	scope := ScopeKey(&def, rule.ID, deviceID)
 	targets, targetErr := r.resolveTargets(ctx, rule, deviceID)
@@ -378,6 +381,9 @@ func (r *Runtime) RunNow(ctx context.Context, rule *store.Rule, deviceID string)
 		}},
 	}
 	subject := deviceID
+	if subject == "" && rule.Definition.TriggerScope != nil && len(rule.Definition.TriggerScope.DeviceIDs) == 1 && len(rule.Definition.TriggerScope.DeviceConfigIDs) == 0 {
+		subject = rule.Definition.TriggerScope.DeviceIDs[0]
+	}
 	if subject == "" && rule.Definition.Scope == domain.ScopeDevice {
 		// A device-scoped rule needs a subject to isolate its scope. Fall back to
 		// the single target when the caller did not name one.
