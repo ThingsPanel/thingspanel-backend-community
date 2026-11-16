@@ -177,9 +177,11 @@ func assertFrozenRuntimeModelMatchesDevice(t *testing.T, ctx context.Context, te
 }
 
 func TestRuntimeConfigurationUnsupportedPoliciesRejectedBeforeSave(t *testing.T) {
-	for _, change := range []string{`"autoRegister":true`, `"kind":"x509"`, `"kind":"token"`, `"timeoutSeconds":61`, `"parameters":{"unconsumed":1}`} {
+	for _, change := range []string{`"autoRegister":true`, `"kind":"x509"`, `"kind":"token"`, `"timeoutSeconds":61`, `"parameters":{"unconsumed":1}`, `"topicMappings":[{"id":"11111111-1111-4111-8111-111111111111","name":"unscoped","description":null,"direction":"up","sourceTopic":"qa/shared/up","targetTopic":"devices/telemetry","dataIdentifier":null,"priority":0,"enabled":true,"dataKind":null}]`} {
 		raw := nativeTemplateMQTTConfiguration
 		switch {
+		case strings.Contains(change, "topicMappings"):
+			raw = strings.Replace(raw, `"topicMappings":[]`, change, 1)
 		case strings.Contains(change, "autoRegister"):
 			raw = strings.Replace(raw, `"autoRegister":false`, change, 1)
 		case strings.Contains(change, "kind"):
@@ -208,5 +210,23 @@ func TestRuntimeConfigurationUnsupportedPoliciesRejectedBeforeSave(t *testing.T)
 		if err := validateNativeMQTTRuntimeCapabilities("standalone", cfg.Access); err != nil {
 			t.Fatalf("supported %s: %v", mode, err)
 		}
+	}
+}
+
+func TestRuntimeConfigurationMappingDeviceScope(t *testing.T) {
+	access := accessconfig.AccessConfiguration{Mode: "direct", Protocol: "mqtt", ProviderID: json.RawMessage("null"), ServiceInstanceID: json.RawMessage("null")}
+	for _, source := range []string{"qa/{device_number}/+", "qa/{device_id}/{message_id}", "devices/telemetry/{device_number}"} {
+		if err := validateNativeMQTTMappingScope("standalone", access, []accessconfig.TopicMapping{{Enabled: true, SourceTopic: source}}); err != nil {
+			t.Fatalf("valid source %s: %v", source, err)
+		}
+	}
+	if err := validateNativeMQTTMappingScope("standalone", access, []accessconfig.TopicMapping{{Enabled: true, SourceTopic: "qa/shared/up"}}); err == nil {
+		t.Fatal("unscoped enabled mapping accepted")
+	}
+	if err := validateNativeMQTTMappingScope("standalone", access, []accessconfig.TopicMapping{{Enabled: false, SourceTopic: "qa/shared/up"}}); err != nil {
+		t.Fatal("disabled historical mapping rejected", err)
+	}
+	if err := validateNativeMQTTMappingScope("gateway", access, []accessconfig.TopicMapping{{Enabled: true, SourceTopic: "qa/shared/up"}}); err != nil {
+		t.Fatal("unrelated scope changed", err)
 	}
 }

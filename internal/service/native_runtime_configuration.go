@@ -137,6 +137,9 @@ func validateNativeRuntimeConfiguration(in *NativeRuntimeConfiguration) (*native
 	rules := []brokermapper.Rule{}
 	for i, m := range cfg.TopicMappings {
 		if m.Enabled {
+			if !strings.Contains(m.SourceTopic, "{device_number}") && !strings.Contains(m.SourceTopic, "{device_id}") {
+				return nil, fmt.Errorf("%w: mapping source requires {device_number} or {device_id}", ErrNativeRegistrationInvalid)
+			}
 			r := brokermapper.Rule{ID: int64(i + 1), Direction: m.Direction, SourceTopic: m.SourceTopic, TargetTopic: m.TargetTopic, Priority: m.Priority}
 			if m.DataIdentifier != nil {
 				r.DataIdentifier = *m.DataIdentifier

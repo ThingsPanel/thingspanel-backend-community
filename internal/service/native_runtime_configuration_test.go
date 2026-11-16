@@ -27,16 +27,18 @@ func configurationFixture(generation int64, topic string) *NativeRuntimeConfigur
 	return &NativeRuntimeConfiguration{Generation: generation, Digest: hex.EncodeToString(sum[:]), Configuration: raw}
 }
 func TestNativeRuntimeConfigurationValidation(t *testing.T) {
-	good := configurationFixture(1, "qa/up")
+	good := configurationFixture(1, "qa/{device_number}/up")
 	if _, err := validateNativeRuntimeConfiguration(good); err != nil {
 		t.Fatal(err)
 	}
-	for _, mode := range []string{"digest", "trailing", "foreign", "gateway", "unknown", "mapping", "auto-register", "credential-policy", "transport-timeout", "parameters"} {
+	for _, mode := range []string{"unscoped", "digest", "trailing", "foreign", "gateway", "unknown", "mapping", "auto-register", "credential-policy", "transport-timeout", "parameters"} {
 		t.Run(mode, func(t *testing.T) {
 			in := *good
 			var value map[string]any
 			_ = json.Unmarshal(in.Configuration, &value)
 			switch mode {
+			case "unscoped":
+				value["topicMappings"].([]any)[0].(map[string]any)["sourceTopic"] = "qa/shared/up"
 			case "digest":
 				in.Digest = "bad"
 			case "trailing":
@@ -88,7 +90,7 @@ func TestNativeRuntimeConfigurationPostgresProjectionAndLeaseFence(t *testing.T)
 		}
 	}
 	tenant := nativeTenantIdentity("tenant-a")
-	in := NativeRuntimeRegistration{DeviceID: uuid.NewString(), CredentialID: uuid.NewString(), EventID: uuid.NewString(), Change: "activation", DeviceNumber: "configuration-test", Voucher: `{"username":"configuration-secret"}`, RuntimeConfiguration: configurationFixture(1, "qa/v1")}
+	in := NativeRuntimeRegistration{DeviceID: uuid.NewString(), CredentialID: uuid.NewString(), EventID: uuid.NewString(), Change: "activation", DeviceNumber: "configuration-test", Voucher: `{"username":"configuration-secret"}`, RuntimeConfiguration: configurationFixture(1, "qa/{device_number}/v1")}
 	if err := RegisterNativeRuntime(ctx, db, tenant, "dep", in); err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +209,7 @@ func TestNativeRuntimeConfigurationPostgresProjectionAndLeaseFence(t *testing.T)
 	if err := repo.RecordCredentialLease(ctx, req, grant); err != nil {
 		t.Fatal(err)
 	}
-	update := NativeRuntimeLifecycle{DeviceID: in.DeviceID, EventID: uuid.NewString(), Kind: "template_binding", Generation: 2, RuntimeConfiguration: configurationFixture(2, "qa/v2")}
+	update := NativeRuntimeLifecycle{DeviceID: in.DeviceID, EventID: uuid.NewString(), Kind: "template_binding", Generation: 2, RuntimeConfiguration: configurationFixture(2, "qa/{device_number}/v2")}
 	if err := ApplyNativeRuntimeLifecycle(ctx, db, tenant, "dep", update); err == nil || errors.Is(err, ErrNativeRegistrationConflict) {
 		t.Fatalf("must be pending: %v", err)
 	}
@@ -255,9 +257,9 @@ func TestNativeRuntimeConfigurationPostgresProjectionAndLeaseFence(t *testing.T)
 		case "stale":
 			bad.EventID = uuid.NewString()
 			bad.Generation = 1
-			bad.RuntimeConfiguration = configurationFixture(1, "qa/v1")
+			bad.RuntimeConfiguration = configurationFixture(1, "qa/{device_number}/v1")
 		case "digest":
-			bad.RuntimeConfiguration = configurationFixture(2, "qa/changed")
+			bad.RuntimeConfiguration = configurationFixture(2, "qa/{device_number}/changed")
 		}
 		if err := ApplyNativeRuntimeLifecycle(ctx, db, scope, dep, bad); !errors.Is(err, ErrNativeRegistrationConflict) {
 			t.Fatalf("%s not rejected: %v", mode, err)
@@ -299,7 +301,7 @@ func TestNativeRuntimeConfigurationPostgresProjectionAndLeaseFence(t *testing.T)
 		t.Fatal(err)
 	}
 	for i, mode := range []string{"heartbeat", "activity"} {
-		cfg := configurationFixture(int64(3+i), "qa/current")
+		cfg := configurationFixture(int64(3+i), "qa/{device_number}/current")
 		var document map[string]any
 		_ = json.Unmarshal(cfg.Configuration, &document)
 		document["access"].(map[string]any)["onlinePolicy"] = map[string]any{"mode": mode, "timeoutSeconds": 2}

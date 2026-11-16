@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"encore.app/devicemetadata/accessconfig"
 	"encore.app/pkg/dbx"
@@ -89,6 +90,13 @@ func freezeRuntimeConfigurationTx(ctx context.Context, tx dbx.Tx, tenantID, devi
 		return nil, err
 	}
 	if err := validateNativeMQTTRuntimeCapabilities(kind, accessPolicy); err != nil {
+		return nil, err
+	}
+	var mappings []accessconfig.TopicMapping
+	if err := json.Unmarshal(document["topicMappings"], &mappings); len(document["topicMappings"]) > 0 && err != nil {
+		return nil, err
+	}
+	if err := validateNativeMQTTMappingScope(kind, accessPolicy, mappings); err != nil {
 		return nil, err
 	}
 	document["deviceKind"] = json.RawMessage(`"standalone"`)
@@ -242,6 +250,20 @@ func validateNativeMQTTRuntimeCapabilities(kind string, access accessconfig.Acce
 	}
 	if access.OnlinePolicy.Mode == "transport" && access.OnlinePolicy.TimeoutSeconds != 60 {
 		return invalid("access.onlinePolicy.timeoutSeconds", "transport status uses the MQTT connection; custom timeout is not supported")
+	}
+	return nil
+}
+
+// Match the broker's device-scope prerequisite before an intent is persisted.
+// The mapping compiler remains authoritative for topic syntax and routing.
+func validateNativeMQTTMappingScope(kind string, access accessconfig.AccessConfiguration, mappings []accessconfig.TopicMapping) error {
+	if kind != "standalone" || access.Mode != "direct" || access.Protocol != "mqtt" || (len(access.ProviderID) > 0 && string(access.ProviderID) != "null") || (len(access.ServiceInstanceID) > 0 && string(access.ServiceInstanceID) != "null") {
+		return nil
+	}
+	for _, mapping := range mappings {
+		if mapping.Enabled && !strings.Contains(mapping.SourceTopic, "{device_number}") && !strings.Contains(mapping.SourceTopic, "{device_id}") {
+			return invalid("configuration.topicMappings.sourceTopic", "MQTT mapping source requires {device_number} or {device_id}")
+		}
 	}
 	return nil
 }
