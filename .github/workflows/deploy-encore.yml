@@ -17,8 +17,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: community-main-encore-deploy
-  cancel-in-progress: false
+  group: ${{ inputs.deploy_runtime && 'community-main-encore-deploy' || format('community-encore-checks-{0}', github.ref) }}
+  cancel-in-progress: ${{ !inputs.deploy_runtime }}
 jobs:
   deploy:
     runs-on: ubuntu-24.04
