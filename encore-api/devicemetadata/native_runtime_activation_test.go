@@ -80,7 +80,7 @@ func testInactiveOwnedRuntimeAdministrativeStateTransaction(t *testing.T, change
 	}
 	defer tx.Rollback()
 	provider := uuid.NewSHA1(uuid.NameSpaceOID, []byte("thingspanel/community/runtime/dep")).String()
-	if _, err := tx.Exec(ctx, `UPDATE device_access_bindings SET configuration_generation=configuration_generation+1,direct_access=$3::jsonb,runtime_provider_id=$4,runtime_namespace='community',runtime_external_id=$5 WHERE tenant_id=$1 AND device_id=$2`, tenant, id, validNativeDirectAccess, provider, id); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE device_access_bindings SET configuration_generation=configuration_generation+1,direct_access=$3::jsonb,runtime_provider_id=$4,runtime_namespace='community',runtime_external_id=$5 WHERE tenant_id=$1 AND device_id=$2`, tenant, id, validNativeRuntimeDirectAccess, provider, id); err != nil {
 		t.Fatal(err)
 	}
 	cid := uuid.NewString()

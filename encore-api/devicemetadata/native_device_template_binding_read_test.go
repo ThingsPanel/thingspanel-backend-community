@@ -3,6 +3,7 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -142,11 +143,22 @@ func TestNativeDeviceTemplateBindingReadDirectAccessPreservesNumbersWithoutSecre
 	access := `{"mode":"direct","protocol":"mqtt","providerId":null,"parameters":{"precise":` + exactNumber + `,"ratio":1e-7},"credentialPolicy":{"kind":"none","autoRegister":false},"onlinePolicy":{"mode":"transport","timeoutSeconds":60},"connectionDirection":"device_to_platform","serviceInstanceId":null}`
 	direct := `{"access":` + access + `,"externalDeviceId":"external-binding-read"}`
 	body := `{"name":"direct-binding-read","deviceNumber":"direct-binding-read-` + uuid.NewString() + `","deviceKind":"standalone","directAccess":` + direct + `,"deviceParameters":{}}`
-	created, err := createNativeDevice(ctx, nativeWriteIdentity(tenantID), "binding-read-direct-"+uuid.NewString(), []byte(body), "binding-read-direct-request", validateNativeDeviceConfiguration)
+	// New writes must reject unsupported parameters. Historical persisted values
+	// must still remain readable without numeric loss or silent rewriting.
+	_, rejected := createNativeDevice(ctx, nativeWriteIdentity(tenantID), "binding-read-rejected-"+uuid.NewString(), []byte(body), "binding-read-rejected-request", validateNativeDeviceConfiguration)
+	var inputErr *NativeDeviceInputError
+	if !errors.As(rejected, &inputErr) || inputErr.Field != "access.parameters" {
+		t.Fatalf("unsupported new parameters not rejected at input boundary: %v", rejected)
+	}
+	legalBody := strings.Replace(body, `"parameters":{"precise":`+exactNumber+`,"ratio":1e-7}`, `"parameters":{}`, 1)
+	created, err := createNativeDevice(ctx, nativeWriteIdentity(tenantID), "binding-read-direct-"+uuid.NewString(), []byte(legalBody), "binding-read-direct-request", validateNativeDeviceConfiguration)
 	if err != nil {
 		t.Fatalf("create direct-access device: %v", err)
 	}
 	device := nativeWriteDevice(t, created)
+	if _, err := db.Exec(ctx, `UPDATE device_access_bindings SET direct_access=$3::jsonb,configuration_generation=configuration_generation+1 WHERE tenant_id=$1 AND device_id=$2`, tenantID, device.ID, direct); err != nil {
+		t.Fatalf("seed historical binding: %v", err)
+	}
 	binding, err := readNativeDeviceTemplateBinding(ctx, nativeDeviceReadIdentity{tenantID: tenantID}, device.ID, "binding-read-direct")
 	if err != nil {
 		t.Fatalf("read direct-access binding: %v", err)

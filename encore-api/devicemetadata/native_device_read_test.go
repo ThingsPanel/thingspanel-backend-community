@@ -225,7 +225,7 @@ func TestNativeDeviceReadFiltersUseCurrentTemplateBindingSnapshotAndAccess(t *te
 	boundB := createNativeTemplateBoundDevice(t, ctx, tenantB, templateB.ID, "read-filter-bound-b")
 	directBody := nativeWriteBody(t, map[string]any{
 		"name": "read-filter-direct-a", "deviceNumber": "read-filter-direct-" + uuid.NewString(), "deviceKind": "standalone",
-		"directAccess": json.RawMessage(validNativeDirectAccess), "initialGroupIds": []string{},
+		"directAccess": json.RawMessage(validNativeRuntimeDirectAccess), "initialGroupIds": []string{},
 	})
 	directResult, err := createNativeDevice(ctx, nativeWriteIdentity(tenantA), "read-filter-direct-"+uuid.NewString(), directBody, "read-filter-direct-request", validateNativeDeviceConfiguration)
 	if err != nil {

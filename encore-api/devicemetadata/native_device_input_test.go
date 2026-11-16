@@ -7,6 +7,10 @@ import (
 
 const validNativeDirectAccess = `{"access":{"mode":"direct","protocol":"mqtt","providerId":null,"providerVersion":null,"schemaDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","parameters":{"threshold":9007199254740993},"credentialPolicy":{"kind":"none","autoRegister":false},"onlinePolicy":{"mode":"transport","timeoutSeconds":30},"connectionDirection":"device_to_platform","serviceInstanceId":null},"externalDeviceId":null}`
 
+// Runtime fixtures use only settings implemented by the managed MQTT owner.
+// validNativeDirectAccess above intentionally exercises the wider JSON schema.
+const validNativeRuntimeDirectAccess = `{"access":{"mode":"direct","protocol":"mqtt","providerId":null,"providerVersion":null,"schemaDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","parameters":{},"credentialPolicy":{"kind":"none","autoRegister":false},"onlinePolicy":{"mode":"transport","timeoutSeconds":60},"connectionDirection":"device_to_platform","serviceInstanceId":null},"externalDeviceId":null}`
+
 func TestDecodeNativeCreateDeviceDefaultsAndRawPrecision(t *testing.T) {
 	got, err := DecodeNativeCreateDevice([]byte(`{"name":"sensor","deviceNumber":"SN-1","deviceKind":"standalone","deviceParameters":{"threshold":12.500000000000000001},"customFields":{"reading":9007199254740993},"initialGroupIds":[]}`))
 	if err != nil {
