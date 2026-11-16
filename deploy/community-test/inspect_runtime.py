@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import tarfile
 import urllib.parse
+import urllib.request
 
 
 def broker_preflight(infos):
@@ -122,7 +123,9 @@ def historical_package_copies(root, active_commits):
                 rows.append(row)
                 continue
             manifest = json.loads((release / 'manifest.json').read_text())
-            if manifest.get('commit') != commit or not isinstance(manifest.get('sha256'), dict):
+            if (manifest.get('commit') != commit or not isinstance(manifest.get('sha256'), dict)
+                    or not manifest['sha256']
+                    or not ({'image.json', 'image.tar.gz'} if kind == 'encore' else {'ThingsPanel-Go'}) <= set(manifest['sha256'])):
                 raise ValueError('manifest identity')
             with tarfile.open(str(package), 'r:gz') as archive:
                 archived = json.load(archive.extractfile('manifest.json'))
@@ -204,6 +207,17 @@ def main():
                                'workers': {key: env[key] for key in (
                                    'TP_BACKGROUND_WORKERS', 'TP_RUNTIME_OUTBOX_DISPATCH') if key in env}})
         active_commits = {image['image'].split('source-')[-1] for image in containers if 'source-' in image['image']}
+        try:
+            with urllib.request.urlopen('http://127.0.0.1:9999/api/v1/sys_version', timeout=5) as response:
+                backend_version = json.load(response).get('data', {}).get('version', '')
+            if not re.fullmatch('dev-[0-9a-f]{40}', backend_version):
+                raise ValueError('backend identity unavailable')
+            active_commits.add(backend_version[4:])
+            host['backend_version'] = backend_version
+        except (ValueError, OSError):
+            # Never propose a backend package while its current version is unknown.
+            active_commits.update(p.name[8:-7] for p in pathlib.Path('/opt/tp-community-actions/incoming').glob('backend-*.tar.gz'))
+            host['backend_identity_unavailable'] = True
         host['historical_package_copies'] = historical_package_copies(pathlib.Path('/opt/tp-community-actions'), active_commits)
         import_requirements = []
         for package in pathlib.Path('/opt/tp-community-actions/incoming').glob('broker-*.tar.gz'):
