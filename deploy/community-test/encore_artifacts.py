@@ -42,6 +42,12 @@ def require_import_capacity(free_bytes, extracted_bytes, image_bytes):
         raise RuntimeError('Image import requires {} free bytes; {} available'.format(required,free_bytes))
     return required
 
+def prepare_import_capacity(root, run, extracted_bytes, image_bytes):
+    required = extracted_bytes + 2 * image_bytes + 1024**3
+    reclaim_build_cache(root, run, minimum_free_bytes=required)
+    return require_import_capacity(shutil.disk_usage(str(root)).free, extracted_bytes, image_bytes)
+
+
 def reclaim_build_cache(root,run,minimum_free_bytes=1024**3):
     """Reclaim reproducible compiler output only when the build cannot start."""
     if shutil.disk_usage(str(root)).free >= minimum_free_bytes:

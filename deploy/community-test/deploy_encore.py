@@ -13,7 +13,7 @@ import urllib.request
 import urllib.error
 from encore_migrations import source_migrations, pending_migrations
 from deployment_guard import restore_services_on_failure
-from encore_artifacts import validate_prebuilt_image, artifact_sha256, require_import_capacity, reclaim_build_cache
+from encore_artifacts import validate_prebuilt_image, artifact_sha256, prepare_import_capacity
 from notification_identity import prepare_notification_identity, retire_notification_renewal
 
 ROOT = pathlib.Path('/opt/tp-community-actions')
@@ -27,17 +27,9 @@ fcntl.flock(lock, fcntl.LOCK_EX)
 release = ROOT / 'encore-releases' / SHA
 release.mkdir(parents=True, exist_ok=True)
 
-def artifact_command(args):
-    result=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=60)
-    if result.returncode:raise RuntimeError('Could not inspect release storage')
-    return result.stdout.decode().strip()
-
 # Keep rollback releases and images. The build is done in CI, never on the live host.
+# Capacity is checked against the verified image below, after approved cache reclaim.
 pruned_artifacts=[]
-if shutil.disk_usage(str(ROOT)).free < 1024 ** 3:
-    print(artifact_command(['df','-h',str(ROOT)]),flush=True)
-    print(artifact_command(['du','-x','-h','--max-depth=1',str(ROOT)]),flush=True)
-    raise RuntimeError('At least 1 GiB free disk required for image import')
 mem = int(next(line.split()[1] for line in pathlib.Path('/proc/meminfo').read_text().splitlines()
                if line.startswith('MemAvailable:')))
 if mem < 500 * 1024:
@@ -71,12 +63,9 @@ with tarfile.open(str(package)) as archive:
     image_manifest = json.load(archive.extractfile('image.json'))
     validate_prebuilt_image(image_manifest,manifest,SHA)
     extracted_bytes = sum(member.size for member in members if member.isfile())
-    required_bytes = extracted_bytes + 2 * image_manifest['uncompressed_bytes'] + 1024**3
     # Reclaim only the already-approved, reproducible compiler cache. Never
     # prune images, database volumes, release bundles or rollback resources.
-    reclaim_build_cache(ROOT, run, minimum_free_bytes=required_bytes)
-    require_import_capacity(shutil.disk_usage(str(ROOT)).free,
-                            extracted_bytes, image_manifest['uncompressed_bytes'])
+    prepare_import_capacity(ROOT, run, extracted_bytes, image_manifest['uncompressed_bytes'])
     archive.extractall(str(release), members=members)
 manifest = json.loads((release / 'manifest.json').read_text())
 if manifest['commit'] != SHA:

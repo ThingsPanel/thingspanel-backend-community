@@ -5,6 +5,17 @@ spec=importlib.util.spec_from_file_location('encore_artifacts',pathlib.Path(__fi
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 
 class ArtifactBoundaryTest(unittest.TestCase):
+    def test_import_below_one_gib_reclaims_before_enforcing_full_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory);(root/'encore-build-cache').mkdir()
+            commands=[]
+            required=100+2*200+1024**3
+            with patch.object(module.shutil,'disk_usage',side_effect=[SimpleNamespace(free=512*1024**2),SimpleNamespace(free=required)]):
+                self.assertEqual(module.prepare_import_capacity(root,commands.append,100,200),required)
+            self.assertEqual(len(commands),1)
+            with patch.object(module.shutil,'disk_usage',return_value=SimpleNamespace(free=512*1024**2)):
+                with self.assertRaises(RuntimeError):
+                    module.prepare_import_capacity(root,commands.append,100,200)
     def test_low_disk_only_reclaims_named_go_cache(self):
         with tempfile.TemporaryDirectory() as directory:
             root=pathlib.Path(directory);cache=root/'encore-build-cache';cache.mkdir()
