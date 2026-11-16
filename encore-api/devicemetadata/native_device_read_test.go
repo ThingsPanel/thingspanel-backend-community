@@ -169,11 +169,18 @@ func TestReadNativeDevicePageAndGroupMemberPage(t *testing.T) {
 		t.Fatalf("cross-tenant group error = %v, want NotFound", err)
 	}
 
-	for _, query := range []string{"connectivity=offline", "firmwareVersion=1.2", "alarmState=active"} {
+	for _, query := range []string{"firmwareVersion=1.2", "alarmState=active"} {
 		if _, err := readNativeDevicePage(ctx, nativeDeviceReadIdentity{tenantID: fixture.tenantA}, decodeNativeDeviceReadQuery(t, query), "native-unowned-filter"); !hasErrCode(err, errs.Unavailable) {
 			t.Errorf("unowned filter %q error=%v, want Unavailable", query, err)
 		}
 	}
+	// These fixture devices have no runtime identity. Unknown must not match
+	// offline, and the filtered total must be computed before pagination.
+	offline, err := readNativeDevicePage(ctx, nativeDeviceReadIdentity{tenantID: fixture.tenantA}, decodeNativeDeviceReadQuery(t, "connectivity=offline"), "native-offline-filter")
+	if err != nil || offline.Data.Total != 0 || len(offline.Data.Items) != 0 {
+		t.Fatalf("unknown devices matched offline: %+v err=%v", offline, err)
+	}
+
 	for _, id := range []string{fixture.unconvertedDevice, fixture.missingBindingDevice} {
 		if _, err := readNativeDevicePage(ctx, nativeDeviceReadIdentity{tenantID: fixture.tenantC, deviceIDs: []string{id}}, decodeNativeDeviceReadQuery(t, ""), "native-incomplete-device"); !hasErrCode(err, errs.Unavailable) {
 			t.Errorf("incomplete device %s error=%v, want Unavailable", id, err)
