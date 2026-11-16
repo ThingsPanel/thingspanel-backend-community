@@ -514,7 +514,7 @@ func serveSimulatorWrite(w http.ResponseWriter, r *http.Request, needIfMatch boo
 		writeGroupUpdateProblem(w, requestID, r.URL.Path, err, http.StatusBadRequest)
 		return
 	}
-	result, err := run(r.Context(), identity, deviceID, key, ifMatch, body, requestID)
+	result, err := run(communityclient.WithAuthenticatedDiagnosticRequest(r.Context(), r), identity, deviceID, key, ifMatch, body, requestID)
 	if err != nil {
 		writeSimulatorProblem(w, r, requestID, err)
 		return

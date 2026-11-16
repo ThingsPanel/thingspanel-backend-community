@@ -4,14 +4,18 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
 type authenticatedReadKey struct{}
 
 type authenticatedRead struct {
-	token   string
-	command bool
+	token        string
+	command      bool
+	diagnostic   bool
+	cancelDevice string
+	cancelID     string
 }
 
 // ErrRequestAuthentication is intentionally independent of service credentials:
@@ -89,9 +93,47 @@ func WithAuthenticatedCommandRequest(ctx context.Context, r *http.Request) conte
 	return context.WithValue(ctx, authenticatedReadKey{}, credential)
 }
 
+// WithAuthenticatedDiagnosticRequest forwards only the synchronous caller token
+// after native tenant/resource/diagnose checks. No worker credential is stored.
+func WithAuthenticatedDiagnosticRequest(ctx context.Context, r *http.Request) context.Context {
+	credential := authenticatedRead{diagnostic: true}
+	if r != nil {
+		credential.token = readRequestToken(r.Header)
+	}
+	return context.WithValue(ctx, authenticatedReadKey{}, credential)
+}
+
+// WithAuthenticatedCommandCancellationRequest scopes synchronous cancellation to
+// an already tenant-validated device and runtime expected-message identifier.
+func WithAuthenticatedCommandCancellationRequest(ctx context.Context, r *http.Request, deviceID, expectedID string) context.Context {
+	a := authenticatedRead{cancelDevice: deviceID, cancelID: expectedID}
+	if r != nil && deviceID != "" && expectedID != "" {
+		a.token = readRequestToken(r.Header)
+	}
+	return context.WithValue(ctx, authenticatedReadKey{}, a)
+}
+
 func (a authenticatedRead) permits(method, path string) bool {
 	if a.token == "" {
 		return false
+	}
+	if a.cancelDevice != "" || a.cancelID != "" {
+		if method == http.MethodDelete {
+			return path == "/api/v1/expected/data/"+url.PathEscape(a.cancelID)
+		}
+		u, err := url.Parse(path)
+		if err != nil || method != http.MethodGet || u.Path != "/api/v1/expected/data/list" {
+			return false
+		}
+		q := u.Query()
+		return len(q["device_id"]) == 1 && q.Get("device_id") == a.cancelDevice && len(q["send_type"]) == 1 && q.Get("send_type") == "command"
+	}
+	if a.diagnostic {
+		if method == http.MethodPost && path == "/api/v1/telemetry/datas/simulation/send" {
+			return true
+		}
+		parts := strings.Split(path, "/")
+		return len(parts) >= 6 && parts[1] == "api" && parts[2] == "v1" && parts[3] == "device" && parts[4] != "" && !strings.Contains(parts[4], "%") && parts[5] == "debug" && ((len(parts) == 6 && method == http.MethodPost) || (len(parts) == 7 && parts[6] == "status" && method == http.MethodGet))
 	}
 	if !a.command {
 		return method == http.MethodGet

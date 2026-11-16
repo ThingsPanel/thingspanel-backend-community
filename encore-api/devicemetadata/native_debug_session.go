@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"encore.app/internal/communityclient"
 	"encore.app/pkg/dbx"
 	"net/http"
 	"strconv"
@@ -295,7 +296,7 @@ func (s *Service) CreateNativeDeviceDebugSession(w http.ResponseWriter, r *http.
 		writeGroupUpdateProblem(w, requestID, r.URL.Path, err, http.StatusBadRequest)
 		return
 	}
-	result, err := createNativeDebugSession(r.Context(), identity, deviceID, key, body, requestID)
+	result, err := createNativeDebugSession(communityclient.WithAuthenticatedDiagnosticRequest(r.Context(), r), identity, deviceID, key, body, requestID)
 	if err != nil {
 		writeNativeDeviceOperationError(w, r, requestID, err)
 		return
@@ -330,7 +331,7 @@ func (s *Service) StopNativeDeviceDebugSession(w http.ResponseWriter, r *http.Re
 		writeGroupUpdateProblem(w, requestID, r.URL.Path, err, http.StatusBadRequest)
 		return
 	}
-	result, err := stopNativeDebugSession(r.Context(), identity, deviceID, sessionID, key, requestID)
+	result, err := stopNativeDebugSession(communityclient.WithAuthenticatedDiagnosticRequest(r.Context(), r), identity, deviceID, sessionID, key, requestID)
 	if err != nil {
 		writeNativeDeviceOperationError(w, r, requestID, err)
 		return

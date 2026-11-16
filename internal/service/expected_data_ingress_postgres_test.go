@@ -196,6 +196,9 @@ func TestExpectedDataIngressPostgresAdmissionDispatchRetryAndScope(t *testing.T)
 	if err := db.Exec(`DELETE FROM broker_connection_observations`).Error; err != nil {
 		t.Fatal("clear broker online evidence")
 	}
+	if err := ExpirePendingExpected(context.Background()); err != nil {
+		t.Fatalf("independent expiry: %v", err)
+	}
 	if err := DispatchPendingExpected(context.Background(), "cell-a"); !errors.Is(err, errExpectedContextUnavailable) {
 		t.Fatalf("historical message without creator context error=%v", err)
 	}

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"encore.app/internal/communityclient"
 	"encore.app/internal/nativehttp"
 	"encore.dev"
 	"encore.dev/beta/errs"
@@ -40,7 +41,7 @@ func decodeNativeCancelReason(body []byte) (string, error) {
 	return reason, nil
 }
 
-func cancelNativeDeviceCommand(ctx context.Context, identity nativeDeviceWriteIdentity, deviceID, executionID, key string, body []byte, requestID string) (*metadataWriteResponse, error) {
+func cancelNativeDeviceCommand(ctx context.Context, identity nativeDeviceWriteIdentity, deviceID, executionID, key string, body []byte, requestID string, requests ...*http.Request) (*metadataWriteResponse, error) {
 	if !identity.permits(deviceID) {
 		return nil, &errs.Error{Code: errs.NotFound, Message: "device not found"}
 	}
@@ -80,7 +81,11 @@ func cancelNativeDeviceCommand(ctx context.Context, identity nativeDeviceWriteId
 			if err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, err
 			}
-			rows, err := nativeRuntimeClient().ListExpectedCommands(ctx, legacyID, 1, 100)
+			runtimeCtx := ctx
+			if len(requests) > 0 {
+				runtimeCtx = communityclient.WithAuthenticatedCommandCancellationRequest(ctx, requests[0], legacyID, expectedID)
+			}
+			rows, err := nativeRuntimeClient().ListExpectedCommands(runtimeCtx, legacyID, 1, 100)
 			if err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 			}
@@ -93,7 +98,7 @@ func cancelNativeDeviceCommand(ctx context.Context, identity nativeDeviceWriteId
 			if status != "pending" {
 				return metadataWriteResponse{}, metadataWriteAudit{}, nativeCommandConflict("the command is no longer queued in the device runtime")
 			}
-			if err := nativeRuntimeClient().DeleteExpected(ctx, expectedID); err != nil {
+			if err := nativeRuntimeClient().DeleteExpected(runtimeCtx, expectedID); err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 			}
 			if _, err := tx.Exec(ctx, `UPDATE device_command_executions SET state='cancelled',reason=$4,updated_at=NOW()
@@ -153,7 +158,7 @@ func (s *Service) CancelNativeDeviceCommand(w http.ResponseWriter, r *http.Reque
 		writeGroupUpdateProblem(w, requestID, r.URL.Path, err, http.StatusBadRequest)
 		return
 	}
-	result, err := cancelNativeDeviceCommand(r.Context(), identity, deviceID, executionID, key, body, requestID)
+	result, err := cancelNativeDeviceCommand(r.Context(), identity, deviceID, executionID, key, body, requestID, r)
 	if err != nil {
 		writeNativeDeviceOperationError(w, r, requestID, err)
 		return

@@ -151,6 +151,28 @@ func dispatchExpectedIngress(ctx context.Context, ed *model.ExpectedData, owner 
 	return true, nil
 }
 
+// ExpirePendingExpected is independent of route synchronization and never publishes.
+func ExpirePendingExpected(ctx context.Context) error {
+	if ctx == nil || global.DB == nil {
+		return errors.New("expected message database is unavailable")
+	}
+	var rows []model.ExpectedData
+	if err := global.DB.WithContext(ctx).Where("status = ? AND expiry_time IS NOT NULL AND expiry_time <= ?", "pending", time.Now()).Order("expiry_time,id").Limit(32).Find(&rows).Error; err != nil {
+		return err
+	}
+	var firstErr error
+	for i := range rows {
+		owner, err := getExpectedContext(ctx, global.DB, &rows[i])
+		if err == nil {
+			_, err = dispatchExpectedIngress(ctx, &rows[i], owner, "")
+		}
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
 // DispatchPendingExpected is called by the broker-cell worker. Only pending
 // records with an intact creator sidecar and fresh online evidence for this
 // exact cell are handed to the durable command owner.

@@ -92,7 +92,7 @@ func (w *brokerCommandWorker) Stop() {
 func (w *brokerCommandWorker) run(ctx context.Context) {
 	defer close(w.done)
 	sweep := time.Now().Add(-time.Minute)
-	var lastSync, lastExpected time.Time
+	var lastSync, lastExpected, lastExpiry time.Time
 	for ctx.Err() == nil {
 		// Timeout visibility must not depend on route synchronization: accepted
 		// publishes may need to become terminal while dispatch is paused.
@@ -101,6 +101,15 @@ func (w *brokerCommandWorker) run(ctx context.Context) {
 				w.logger.WithError(err).Warn("durable command stale sweep failed")
 			}
 			sweep = time.Now()
+		}
+		if time.Since(lastExpiry) >= time.Second {
+			expiryCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+			err := service.ExpirePendingExpected(expiryCtx)
+			lastExpiry = time.Now()
+			cancel()
+			if err != nil && ctx.Err() == nil {
+				w.logger.WithError(err).Warn("expected message expiry deferred")
+			}
 		}
 		if w.runtimeSync != nil && time.Since(lastSync) >= 5*time.Second {
 			if err := w.runtimeSync(ctx); err != nil {
