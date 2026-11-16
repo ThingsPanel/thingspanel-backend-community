@@ -27,10 +27,10 @@ func TestNativeDirectoryUsesOwnerRPCSelectors(t *testing.T) {
 		t.Fatalf("RPC errors: %v %v %v %v", e1, e2, e3, e4)
 	}
 	want := []*devicemetadata.ResolveAutomationDirectoryRequest{
-		{TenantID: "63a4b529", Selector: "ids", IDs: []string{"device"}},
-		{TenantID: "63a4b529", Selector: "templates", IDs: []string{"template"}},
-		{TenantID: "63a4b529", Selector: "labels", Labels: []string{"floor=1"}, MatchAll: true},
-		{TenantID: "63a4b529", Selector: "kind", DeviceKind: "standalone"},
+		{TenantID: tenantidentity.NormalizePrincipalID("63a4b529"), Selector: "ids", IDs: []string{"device"}},
+		{TenantID: tenantidentity.NormalizePrincipalID("63a4b529"), Selector: "templates", IDs: []string{"template"}},
+		{TenantID: tenantidentity.NormalizePrincipalID("63a4b529"), Selector: "labels", Labels: []string{"floor=1"}, MatchAll: true},
+		{TenantID: tenantidentity.NormalizePrincipalID("63a4b529"), Selector: "kind", DeviceKind: "standalone"},
 	}
 	if !reflect.DeepEqual(received, want) {
 		t.Fatalf("owner selectors: %+v", received)
@@ -67,5 +67,16 @@ func TestNativeDirectoryDoesNotTruncateCompleteOwnerResults(t *testing.T) {
 	got, err := nativeDirectoryDevices("63a4b529", response)
 	if err != nil || len(got) != 10000 {
 		t.Fatalf("complete result truncated: count=%d err=%v", len(got), err)
+	}
+}
+
+func TestNativeDirectoryRejectsEmptyTenantBeforeRPC(t *testing.T) {
+	et.MockEndpoint(devicemetadata.ResolveAutomationDirectory, func(_ context.Context, req *devicemetadata.ResolveAutomationDirectoryRequest) (*devicemetadata.ResolveAutomationDirectoryResponse, error) {
+		t.Fatal("empty tenant reached owner")
+		return nil, nil
+	})
+	_, err := (nativeDirectory{}).ByIDs(context.Background(), " ", []string{"3246c612-8e97-44f9-95aa-92f5f6b661c4"})
+	if err == nil {
+		t.Fatal("empty tenant accepted")
 	}
 }

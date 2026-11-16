@@ -23,30 +23,32 @@ type RuntimeRef struct {
 // NativeDevice is the public device snapshot defined by the native metadata
 // contract. Nullable contract fields remain present in JSON with explicit null.
 type NativeDevice struct {
-	ID                  string             `json:"id"`
-	TenantID            string             `json:"tenantId"`
-	CreatedAt           time.Time          `json:"createdAt"`
-	UpdatedAt           time.Time          `json:"updatedAt"`
-	CreatedBy           string             `json:"createdBy"`
-	UpdatedBy           string             `json:"updatedBy"`
-	ResourceVersion     int64              `json:"resourceVersion"`
-	Name                string             `json:"name"`
-	DeviceNumber        string             `json:"deviceNumber"`
-	DeviceKind          string             `json:"deviceKind"`
-	ProductID           *string            `json:"productId"`
-	Description         *string            `json:"description"`
-	Labels              json.RawMessage    `json:"labels"`
-	Location            json.RawMessage    `json:"location"`
-	TemplateID          *string            `json:"templateId"`
-	ModelBinding        *ThingModelBinding `json:"modelBinding"`
-	AdministrativeState string             `json:"administrativeState"`
-	ActivationState     string             `json:"activationState"`
-	ActivatedAt         *time.Time         `json:"activatedAt"`
-	GatewayID           *string            `json:"gatewayId"`
-	RuntimeRef          *RuntimeRef        `json:"runtimeRef"`
-	Tags                []string           `json:"tags"`
-	CustomFields        json.RawMessage    `json:"customFields"`
-	BatchNumber         *string            `json:"batchNumber"`
+	RuntimeSummary      *NativeRuntimeSummary `json:"runtimeSummary,omitempty"`
+	AlarmSummary        *NativeAlarmSummary   `json:"alarmSummary,omitempty"`
+	ID                  string                `json:"id"`
+	TenantID            string                `json:"tenantId"`
+	CreatedAt           time.Time             `json:"createdAt"`
+	UpdatedAt           time.Time             `json:"updatedAt"`
+	CreatedBy           string                `json:"createdBy"`
+	UpdatedBy           string                `json:"updatedBy"`
+	ResourceVersion     int64                 `json:"resourceVersion"`
+	Name                string                `json:"name"`
+	DeviceNumber        string                `json:"deviceNumber"`
+	DeviceKind          string                `json:"deviceKind"`
+	ProductID           *string               `json:"productId"`
+	Description         *string               `json:"description"`
+	Labels              json.RawMessage       `json:"labels"`
+	Location            json.RawMessage       `json:"location"`
+	TemplateID          *string               `json:"templateId"`
+	ModelBinding        *ThingModelBinding    `json:"modelBinding"`
+	AdministrativeState string                `json:"administrativeState"`
+	ActivationState     string                `json:"activationState"`
+	ActivatedAt         *time.Time            `json:"activatedAt"`
+	GatewayID           *string               `json:"gatewayId"`
+	RuntimeRef          *RuntimeRef           `json:"runtimeRef"`
+	Tags                []string              `json:"tags"`
+	CustomFields        json.RawMessage       `json:"customFields"`
+	BatchNumber         *string               `json:"batchNumber"`
 }
 
 // nativeDeviceSelectFields is the shared projection used by page reads and

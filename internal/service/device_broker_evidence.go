@@ -23,3 +23,13 @@ func (*Device) BrokerStatusEvidence(ctx context.Context, claims *utils.UserClaim
 	}
 	return brokerstate.New(global.DB).InspectCurrent(ctx, claims.TenantID, deviceID)
 }
+
+func (*Device) BrokerStatusEvidenceBatch(ctx context.Context, claims *utils.UserClaims, ids []string) ([]brokerstate.Summary, error) {
+	if claims == nil || claims.ID == "" || claims.TenantID == "" {
+		return nil, ErrBrokerEvidenceUnauthorized
+	}
+	if !isIngressV1Commands() {
+		return nil, ErrBrokerEvidenceUnsupported
+	}
+	return brokerstate.New(global.DB).InspectBatch(ctx, claims.TenantID, ids)
+}

@@ -40,41 +40,45 @@ func (s *Store) InspectCurrent(ctx context.Context, tenant, deviceID string) (Ev
 		if e := tx.Exec("SET LOCAL statement_timeout = '1500ms'").Error; e != nil {
 			return e
 		}
-		var device model.Device
-		if e := tx.Where("tenant_id=? AND id=?", tenant, deviceID).Take(&device).Error; e != nil {
-			if errors.Is(e, gorm.ErrRecordNotFound) {
-				return ErrDeviceUnavailable
-			}
-			return e
-		}
-		if device.IsEnabled != "enabled" || device.ActivateFlag != "active" {
-			return nil
-		}
-		var activity activityRow
-		e := tx.Where("tenant_id=? AND device_id=?", tenant, deviceID).Take(&activity).Error
-		root := deviceID
-		if e == nil {
-			root = activity.TransportDeviceID
-		} else if !errors.Is(e, gorm.ErrRecordNotFound) {
-			return e
-		}
-		var route routeRow
-		if e := tx.Raw(`SELECT broker_cell,route_epoch,phase FROM broker_transport_bindings WHERE tenant_id=? AND device_id=?`, tenant, root).Scan(&route).Error; e != nil {
-			return e
-		}
-		out.TransportDeviceID, out.BrokerCell, out.RouteEpoch, out.RoutePhase = root, route.BrokerCell, route.RouteEpoch, route.Phase
-		if route.Phase != "active" || route.BrokerCell == "" || route.RouteEpoch == 0 {
-			return nil
-		}
-		decision, e := evaluateCurrent(tx, device, root, route, false)
-		if errors.Is(e, ErrFenced) {
-			return nil
-		}
-		if e != nil {
-			return e
-		}
-		out.Status, out.Fresh, out.Connections = decision.Status, decision.Fresh, decision.Connections
-		return nil
+		return inspectCurrentTx(tx, tenant, deviceID, &out)
 	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	return out, err
+}
+
+func inspectCurrentTx(tx *gorm.DB, tenant, deviceID string, out *Evidence) error {
+	var device model.Device
+	if e := tx.Where("tenant_id=? AND id=?", tenant, deviceID).Take(&device).Error; e != nil {
+		if errors.Is(e, gorm.ErrRecordNotFound) {
+			return ErrDeviceUnavailable
+		}
+		return e
+	}
+	if device.IsEnabled != "enabled" || device.ActivateFlag != "active" {
+		return nil
+	}
+	var activity activityRow
+	e := tx.Where("tenant_id=? AND device_id=?", tenant, deviceID).Take(&activity).Error
+	root := deviceID
+	if e == nil {
+		root = activity.TransportDeviceID
+	} else if !errors.Is(e, gorm.ErrRecordNotFound) {
+		return e
+	}
+	var route routeRow
+	if e := tx.Raw(`SELECT broker_cell,route_epoch,phase FROM broker_transport_bindings WHERE tenant_id=? AND device_id=?`, tenant, root).Scan(&route).Error; e != nil {
+		return e
+	}
+	out.TransportDeviceID, out.BrokerCell, out.RouteEpoch, out.RoutePhase = root, route.BrokerCell, route.RouteEpoch, route.Phase
+	if route.Phase != "active" || route.BrokerCell == "" || route.RouteEpoch == 0 {
+		return nil
+	}
+	decision, e := evaluateCurrent(tx, device, root, route, false)
+	if errors.Is(e, ErrFenced) {
+		return nil
+	}
+	if e != nil {
+		return e
+	}
+	out.Status, out.Fresh, out.Connections = decision.Status, decision.Fresh, decision.Connections
+	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"encore.app/internal/authz"
@@ -291,10 +292,12 @@ func readNativeDevicePage(ctx context.Context, identity nativeDeviceReadIdentity
 }
 
 func readNativeDevicePageForGateway(ctx context.Context, identity nativeDeviceReadIdentity, query nativeDeviceListQuery, requestID, gatewayID string) (*NativeDevicePageResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
 	// Runtime/OTA/alarm observations must be resolved BEFORE pagination. Until
 	// their authoritative snapshot adapter is connected, fail closed rather
 	// than silently filtering one page or interpreting an outage as zero rows.
-	if query.values.Has("connectivity") || query.values.Has("firmwareVersion") || (query.values.Has("alarmState") && query.values.Get("alarmState") != "any") {
+	if query.values.Has("firmwareVersion") {
 		return nil, &errs.Error{Code: errs.Unavailable, Message: "authoritative runtime filter snapshot is unavailable"}
 	}
 	tx, err := beginTenantGroupTx(ctx, identity.tenantID, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
@@ -333,18 +336,54 @@ func readNativeDevicePageForGateway(ctx context.Context, identity nativeDeviceRe
 	if order == "" {
 		order = "d.created_at DESC,d.id DESC"
 	}
-	limit, offset := f.argument(query.pageSize), f.argument((query.page-1)*query.pageSize)
-	rows, err := tx.QueryContext(ctx, f.cte+"SELECT "+nativeDeviceSelectFields+nativeDeviceFromSQL+f.predicate()+" ORDER BY "+order+" LIMIT "+limit+" OFFSET "+offset, f.args...)
+	suffix := ""
+	filtered := hasDeviceSummaryFilters(query)
+	if !filtered {
+		limit, offset := f.argument(query.pageSize), f.argument((query.page-1)*query.pageSize)
+		suffix = " LIMIT " + limit + " OFFSET " + offset
+	} else {
+		page.Total = 0
+	}
+	rows, err := tx.QueryContext(ctx, f.cte+"SELECT "+nativeDeviceSelectFields+nativeDeviceFromSQL+f.predicate()+" ORDER BY "+order+suffix, f.args...)
 	if err != nil {
 		return nil, wrapDBErr(err, "list devices failed")
 	}
 	defer rows.Close()
+	batch := make([]NativeDevice, 0, 200)
+	flush := func() error {
+		if err := attachDeviceSummaries(ctx, batch, query); err != nil {
+			return err
+		}
+		for _, device := range batch {
+			if !filtered {
+				page.Items = append(page.Items, device)
+				continue
+			}
+			if matchesDeviceSummary(device, query) {
+				index := page.Total
+				page.Total++
+				if index >= int64((query.page-1)*query.pageSize) && len(page.Items) < query.pageSize {
+					page.Items = append(page.Items, device)
+				}
+			}
+		}
+		batch = batch[:0]
+		return nil
+	}
 	for rows.Next() {
 		device, err := scanNativeDeviceRow(rows)
 		if err != nil {
 			return nil, err
 		}
-		page.Items = append(page.Items, *device)
+		batch = append(batch, *device)
+		if len(batch) == 200 {
+			if err := flush(); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := flush(); err != nil {
+		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, wrapDBErr(err, "list devices failed")
@@ -376,7 +415,7 @@ func (s *Service) ListNativeDevices(w http.ResponseWriter, r *http.Request) {
 		writeGroupReadProblem(w, requestID, r.URL.Path, err)
 		return
 	}
-	result, err := readNativeDevicePage(r.Context(), identity, query, requestID)
+	result, err := readNativeDevicePage(nativeRuntimeReadContext(r), identity, query, requestID)
 	if err != nil {
 		writeGroupReadProblem(w, requestID, r.URL.Path, err)
 		return

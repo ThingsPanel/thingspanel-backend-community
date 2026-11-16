@@ -32,7 +32,7 @@ func (s *Service) ListNativeSubdevices(w http.ResponseWriter, r *http.Request) {
 		writeGroupReadProblem(w, requestID, r.URL.Path, err)
 		return
 	}
-	result, err := readNativeDevicePageForGateway(r.Context(), identity, query, requestID, id)
+	result, err := readNativeDevicePageForGateway(nativeRuntimeReadContext(r), identity, query, requestID, id)
 	if err != nil {
 		writeGroupReadProblem(w, requestID, r.URL.Path, err)
 		return

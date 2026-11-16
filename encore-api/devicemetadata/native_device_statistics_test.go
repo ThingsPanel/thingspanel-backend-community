@@ -58,7 +58,7 @@ func TestNativeDeviceStatisticsMatchesListScopeAndFilters(t *testing.T) {
 
 func TestNativeDeviceStatisticsRejectsUnavailableFiltersAndPagination(t *testing.T) {
 	for _, raw := range []string{
-		"connectivity=offline", "firmwareVersion=1.2", "alarmState=active",
+		"firmwareVersion=1.2",
 	} {
 		query := decodeNativeDeviceStatisticsQuery(t, raw)
 		if _, err := readNativeDeviceStatistics(context.Background(), nativeDeviceReadIdentity{tenantID: "tenant"}, query, "statistics-unavailable-filter"); !hasErrCode(err, errs.Unavailable) {

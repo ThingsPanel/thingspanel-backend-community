@@ -17,7 +17,11 @@ import (
 type nativeDirectory struct{}
 
 func (nativeDirectory) resolve(ctx context.Context, tenant string, req *devicemetadata.ResolveAutomationDirectoryRequest) ([]ports.Device, error) {
-	req.TenantID = tenant
+	if strings.TrimSpace(tenant) == "" {
+		return nil, errors.New("native device directory requires tenant identity")
+	}
+	// Normalize only at the metadata owner boundary; retain the ingress tenant in runtime records.
+	req.TenantID = tenantidentity.NormalizePrincipalID(tenant)
 	response, err := devicemetadata.ResolveAutomationDirectory(ctx, req)
 	if err != nil {
 		return nil, err

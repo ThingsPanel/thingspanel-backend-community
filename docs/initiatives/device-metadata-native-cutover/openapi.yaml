@@ -6987,6 +6987,46 @@ components:
       - modelPackage
       description: 仅包含可分享的模板元数据和可选完整物模型发布快照；排除凭据与运行时状态。modelPackage 的身份只用于源依赖清单/导入映射，目标 tenant 始终由认证决定。contentDigest
         是包完整性摘要；modelPackage.checksum 是包含源身份/revision 的语义快照摘要；resourcesChecksum 是资源摘要。跨身份导入可生成新的语义 checksum，不能要求三者相同。包规范化算法由模板导出/导入任务冻结并以黄金样例验收。
+    DeviceRuntimeSummary:
+      type: object
+      additionalProperties: false
+      description: List and subdevice reads only; unknown is not offline.
+      required: [connectivity, observedAt, lastTelemetryAt, available]
+      properties:
+        connectivity:
+          type: string
+          enum: [online, offline, unknown]
+        observedAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        lastTelemetryAt:
+          description: Authoritative server telemetry reception time, not device update time.
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        available:
+          type: boolean
+    DeviceAlarmSummary:
+      type: object
+      additionalProperties: false
+      description: List and subdevice reads only; unavailable alarms are not none.
+      required: [state, activeCount, observedAt, available]
+      properties:
+        state:
+          type: string
+          enum: [active, none, unknown]
+        activeCount:
+          anyOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+        observedAt:
+          anyOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        available:
+          type: boolean
     Device:
       type: object
       additionalProperties: false
@@ -7052,6 +7092,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/RuntimeRef'
           - type: 'null'
+        runtimeSummary:
+          $ref: '#/components/schemas/DeviceRuntimeSummary'
+        alarmSummary:
+          $ref: '#/components/schemas/DeviceAlarmSummary'
         tags:
           type: array
           items:

@@ -136,7 +136,7 @@ func (a authenticatedRead) permits(method, path string) bool {
 		return len(parts) >= 6 && parts[1] == "api" && parts[2] == "v1" && parts[3] == "device" && parts[4] != "" && !strings.Contains(parts[4], "%") && parts[5] == "debug" && ((len(parts) == 6 && method == http.MethodPost) || (len(parts) == 7 && parts[6] == "status" && method == http.MethodGet))
 	}
 	if !a.command {
-		return method == http.MethodGet
+		return method == http.MethodGet || (method == http.MethodPost && (path == "/api/v1/device/status/evidence/batch" || path == "/v1/device-alarm-summaries"))
 	}
 	return method == http.MethodPost && (path == "/api/v1/command/datas/pub" || path == "/api/v1/expected/data")
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"time"
 
 	"encore.dev/beta/errs"
 )
@@ -63,7 +64,9 @@ func parseNativeDeviceStatisticsQuery(r *http.Request) (nativeDeviceListQuery, e
 func readNativeDeviceStatistics(ctx context.Context, identity nativeDeviceReadIdentity, query nativeDeviceListQuery, requestID string) (*NativeDeviceStatisticsResponse, error) {
 	// These filters require authoritative owner snapshots. Until those owners
 	// are connected, reject rather than turning unavailable observations into 0.
-	if query.values.Has("connectivity") || query.values.Has("firmwareVersion") || (query.values.Has("alarmState") && query.values.Get("alarmState") != "any") {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	if query.values.Has("firmwareVersion") {
 		return nil, &errs.Error{Code: errs.Unavailable, Message: "authoritative runtime filter snapshot is unavailable"}
 	}
 	tx, err := beginTenantGroupTx(ctx, identity.tenantID, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
@@ -82,23 +85,111 @@ func readNativeDeviceStatistics(ctx context.Context, identity nativeDeviceReadId
 	filter := nativeDeviceBaseFilter(identity)
 	addNativeDeviceFilters(&filter, query)
 	ungrouped := "NOT EXISTS(SELECT 1 FROM device_group_members m JOIN device_groups g ON g.tenant_id=m.tenant_id AND g.id=m.group_id WHERE m.tenant_id=d.tenant_id AND m.device_id=d.id AND g.deleted_at IS NULL)"
-	sqlQuery := filter.cte + `SELECT
-	COUNT(*)::bigint,
-	COUNT(*) FILTER (WHERE d.administrative_state='enabled')::bigint,
-	COUNT(*) FILTER (WHERE d.administrative_state='disabled')::bigint,
-	COUNT(*) FILTER (WHERE d.activation_state='active')::bigint,
-	COUNT(*) FILTER (WHERE d.activation_state='inactive')::bigint,
-	COUNT(*) FILTER (WHERE ` + ungrouped + `)::bigint
-	` + nativeDeviceFromSQL + filter.predicate()
-	result := NativeDeviceStatistics{
-		Runtime: NativeDeviceRuntimeStats{Unknown: 0},
+
+	rows, err := tx.QueryContext(ctx, filter.cte+`SELECT d.id::text,d.administrative_state,d.activation_state,b.runtime_namespace,b.runtime_external_id,`+ungrouped+nativeDeviceFromSQL+filter.predicate(), filter.args...)
+	if err != nil {
+		return nil, wrapDBErr(err, "read statistics candidates failed")
 	}
-	if err := tx.QueryRowContext(ctx, sqlQuery, filter.args...).Scan(&result.Total, &result.Enabled, &result.Disabled, &result.Active, &result.Inactive, &result.Ungrouped); err != nil {
-		return nil, wrapDBErr(err, "aggregate device statistics failed")
+	defer rows.Close()
+	result := NativeDeviceStatistics{}
+	var online, offline, affected, alarms int64
+	runtimeComplete, alarmComplete := true, true
+	batch := make([]NativeDevice, 0, 200)
+	groups := map[string]bool{}
+	flush := func() error {
+		if err := attachDeviceSummaries(ctx, batch, query); err != nil {
+			return err
+		}
+		for _, d := range batch {
+			if !matchesDeviceSummary(d, query) {
+				continue
+			}
+			result.Total++
+			if d.AdministrativeState == "enabled" {
+				result.Enabled++
+			} else {
+				result.Disabled++
+			}
+			if d.ActivationState == "active" {
+				result.Active++
+			} else {
+				result.Inactive++
+			}
+			if groups[d.ID] {
+				result.Ungrouped++
+			}
+			r, a := d.RuntimeSummary, d.AlarmSummary
+			if r == nil || !r.Available {
+				runtimeComplete = false
+				result.Runtime.Unknown++
+			} else {
+				switch r.Connectivity {
+				case "online":
+					online++
+				case "offline":
+					offline++
+				default:
+					result.Runtime.Unknown++
+				}
+				if r.ObservedAt != nil {
+					v := r.ObservedAt.UTC().Format(time.RFC3339Nano)
+					result.Runtime.ObservedAt = &v
+				}
+			}
+			if a == nil || !a.Available || a.ActiveCount == nil {
+				alarmComplete = false
+			} else {
+				alarms += *a.ActiveCount
+				if *a.ActiveCount > 0 {
+					affected++
+				}
+				if a.ObservedAt != nil {
+					v := a.ObservedAt.UTC().Format(time.RFC3339Nano)
+					result.Alarms.ObservedAt = &v
+				}
+			}
+		}
+		batch = batch[:0]
+		clear(groups)
+		return nil
 	}
-	// Runtime and alarm observations have not been connected to their owners.
-	// Unknown is therefore the full filtered denominator; null means unavailable.
-	result.Runtime.Unknown = result.Total
+	for rows.Next() {
+		var d NativeDevice
+		var ns, external sql.NullString
+		var ungrouped bool
+		if err := rows.Scan(&d.ID, &d.AdministrativeState, &d.ActivationState, &ns, &external, &ungrouped); err != nil {
+			return nil, err
+		}
+		if ns.Valid && external.Valid {
+			d.RuntimeRef = &RuntimeRef{Namespace: ns.String, ExternalID: external.String}
+		}
+		batch = append(batch, d)
+		groups[d.ID] = ungrouped
+		if len(batch) == 200 {
+			if err := flush(); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, wrapDBErr(err, "read statistics failed")
+	}
+	if err := flush(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	if runtimeComplete {
+		result.Runtime.Online = &online
+		result.Runtime.Offline = &offline
+	} else {
+		result.Runtime.ObservedAt = nil
+	}
+	if alarmComplete {
+		result.Alarms.AffectedDevices = &affected
+		result.Alarms.ActiveAlarms = &alarms
+	} else {
+		result.Alarms.ObservedAt = nil
+	}
 	response := &NativeDeviceStatisticsResponse{Data: result, Meta: RequestMeta{RequestID: requestID}}
 	response.ETag = groupJSONETag(result)
 	if err := tx.Commit(); err != nil {
@@ -120,7 +211,7 @@ func (s *Service) GetNativeDeviceStatistics(w http.ResponseWriter, r *http.Reque
 		writeGroupReadProblem(w, requestID, r.URL.Path, err)
 		return
 	}
-	result, err := readNativeDeviceStatistics(r.Context(), identity, query, requestID)
+	result, err := readNativeDeviceStatistics(nativeRuntimeReadContext(r), identity, query, requestID)
 	if err != nil {
 		writeGroupReadProblem(w, requestID, r.URL.Path, err)
 		return

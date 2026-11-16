@@ -60,6 +60,25 @@ func TestAlarmPageFiltersBeforePagination(t *testing.T) {
 	if err != nil || total != 25 || len(items) != 10 || items[0].ID != "14" {
 		t.Fatalf("page2: count=%d items=%v err=%v", total, items, err)
 	}
+	counts, err := s.ActiveAlarmCounts(ctx, "tenant-a", []string{"device", "empty"})
+	if err != nil || counts["device"] != 25 || counts["empty"] != 0 {
+		t.Fatalf("alarm summary tenant/zero: %v %v", counts, err)
+	}
+	counts, err = s.ActiveAlarmCounts(ctx, "tenant-b", []string{"device"})
+	if err != nil || counts["device"] != 1 {
+		t.Fatalf("alarm summary foreign tenant: %v %v", counts, err)
+	}
+	if _, err := db.Exec(`UPDATE alarm_episodes SET state='cleared' WHERE tenant_id='tenant-a' AND id='00'`); err != nil {
+		t.Fatal(err)
+	}
+	counts, err = s.ActiveAlarmCounts(ctx, "tenant-a", []string{"device"})
+	if err != nil || counts["device"] != 24 {
+		t.Fatalf("cleared episode counted: %v %v", counts, err)
+	}
+	if _, err := db.Exec(`UPDATE alarm_episodes SET state='active' WHERE tenant_id='tenant-a' AND id='00'`); err != nil {
+		t.Fatal(err)
+	}
+
 	from, to := base.Add(2*time.Minute), base.Add(4*time.Minute)
 	items, total, err = s.ListEpisodesPage(ctx, "tenant-a", store.EpisodeFilter{Limit: 2, Level: "L", StartTime: &from, EndTime: &to})
 	if err != nil || total != 3 || len(items) != 2 || items[0].ID != "04" {

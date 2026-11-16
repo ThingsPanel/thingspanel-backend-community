@@ -310,6 +310,34 @@ def backend_process_diagnostics(command=run):
     return result
 
 
+def encore_base_diagnostics(config, infos):
+    """Only credential-free address metadata and the health HTTP status."""
+    result = {'available': False}
+    try:
+        value = config.get('metadata', {}).get('base_url', '')
+        parsed = urllib.parse.urlsplit(value)
+        if (parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username
+                or parsed.password or parsed.query or parsed.fragment
+                or not re.fullmatch(r'[A-Za-z0-9_.:-]+', parsed.hostname)
+                or not re.fullmatch(r'/[A-Za-z0-9_./-]*|', parsed.path)):
+            return result
+        result.update({'available': True, 'scheme': parsed.scheme, 'host': parsed.hostname,
+                       'port': parsed.port, 'path': parsed.path})
+        owner = next((item for item in infos if
+                      (item['Config'].get('Labels') or {}).get('com.docker.compose.service') == 'encore-api'), None)
+        if owner is None:
+            result['probe'] = 'container_unavailable'
+            return result
+        completed = subprocess.run(['docker', 'exec', owner['Id'], 'wget', '-S', '-O', '/dev/null', '-T', '5', value.rstrip('/') + '/v1/health'],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+        matches = re.findall(rb'HTTP/[0-9.]+ ([0-9]{3})', completed.stderr)
+        result['http_status'] = int(matches[-1]) if matches else None
+        result['probe'] = 'completed' if matches else 'unavailable'
+    except (ValueError, OSError, subprocess.TimeoutExpired):
+        result['probe'] = 'unavailable'
+    return result
+
+
 def main():
     root = pathlib.Path('/opt/tp-community-main-20261028')
     host = transfer_diagnostics(pathlib.Path('/opt/tp-community-actions/incoming'))
@@ -364,6 +392,7 @@ def main():
                                'compose_files': (info['Config'].get('Labels') or {}).get('com.docker.compose.project.config_files'),
                                'workers': {key: env[key] for key in (
                                    'TP_BACKGROUND_WORKERS', 'TP_RUNTIME_OUTBOX_DISPATCH') if key in env}})
+        host['encore_api_base'] = encore_base_diagnostics(config, infos)
         active_commits = {image['image'].split('source-')[-1] for image in containers if 'source-' in image['image']}
         try:
             with urllib.request.urlopen('http://127.0.0.1:9999/api/v1/sys_version', timeout=5) as response:
