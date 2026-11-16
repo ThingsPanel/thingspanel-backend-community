@@ -276,6 +276,7 @@ def main():
         existing = any(BUCKET in (p.get('buckets') or {}) for p in (config.get('object_storage') or []))
         nginx_before = checked_path(NGINX).read_text()
         hosts = loaded_vhosts(run(['nginx', '-T']))
+        print(json.dumps({'read_only': True, 'loaded_vhosts': hosts}), flush=True)
         nginx_after, route_plan = (nginx_before, {}) if existing else prepare_nginx(nginx_before, hosts)
         pm2 = json.loads(run(['pm2', 'jlist']))
         process = [p for p in pm2 if p.get('name') == 'thingsvis-server']
