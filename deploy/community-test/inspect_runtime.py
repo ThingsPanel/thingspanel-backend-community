@@ -348,6 +348,32 @@ def encore_base_diagnostics(config, infos):
     return result
 
 
+def safe_service_url(value):
+    try:
+        p = urllib.parse.urlsplit(value)
+        if p.scheme not in ('http','https') or not p.hostname or p.username or p.password or p.query or p.fragment:
+            return {'configured': bool(value), 'safe_url': False}
+        return {'configured': True, 'scheme': p.scheme, 'host': p.hostname, 'port': p.port, 'path': p.path}
+    except ValueError:
+        return {'configured': bool(value), 'safe_url': False}
+
+
+def integration_diagnostics(config, infos):
+    out = {'thingsvis': [], 'fileassets': {'keyring_present': False, 'providers': []}}
+    for item in infos:
+        env = dict(x.split('=',1) for x in item['Config'].get('Env',[]) if '=' in x)
+        if 'thingsvis' in item['Name'].lower() or 'THINGSPANEL_API_URL' in env:
+            out['thingsvis'].append({'container':item['Name'].lstrip('/'),
+                                    'platform_api':safe_service_url(env.get('THINGSPANEL_API_URL',''))})
+        if (item['Config'].get('Labels') or {}).get('com.docker.compose.service') == 'encore-api':
+            out['fileassets']['keyring_present'] = bool(env.get('TP_FILE_ASSET_KEYRING'))
+    for provider in config.get('object_storage',[]):
+        out['fileassets']['providers'].append({'type':provider.get('type') if provider.get('type') in ('s3','gcs') else 'unknown',
+             'endpoint':safe_service_url(provider.get('endpoint','')),
+             'template_image_bucket_configured':'template-image-assets' in provider.get('buckets',{})})
+    return out
+
+
 def main():
     root = pathlib.Path('/opt/tp-community-main-20261028')
     host = transfer_diagnostics(pathlib.Path('/opt/tp-community-actions/incoming'))
@@ -402,6 +428,19 @@ def main():
                                'compose_files': (info['Config'].get('Labels') or {}).get('com.docker.compose.project.config_files'),
                                'workers': {key: env[key] for key in (
                                    'TP_BACKGROUND_WORKERS', 'TP_RUNTIME_OUTBOX_DISPATCH') if key in env}})
+        host['integrations'] = integration_diagnostics(config, infos)
+        file_databases = [name for server in config.get('sql_servers',[]) for name,spec in server.get('databases',{}).items() if spec.get('name') == 'file_storage']
+        host['integrations']['fileassets']['databases'] = []
+        for database in file_databases:
+            if not re.fullmatch(r'[A-Za-z0-9_]+',database):
+                continue
+            try:
+                ledger = run(['docker','exec','-i','timescaledb','psql','-X','-q','-At','-v','ON_ERROR_STOP=1','-U','postgres','-d',database],
+                    b"BEGIN READ ONLY; SET LOCAL statement_timeout='5s'; SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT version,dirty FROM schema_migrations) t; COMMIT;")
+                host['integrations']['fileassets']['databases'].append({'name':database,'health':'ok','migrations':json.loads(ledger)})
+            except (RuntimeError,ValueError,OSError):
+                host['integrations']['fileassets']['databases'].append({'name':database,'health':'unavailable'})
+
         host['encore_api_base'] = encore_base_diagnostics(config, infos)
         active_commits = {image['image'].split('source-')[-1] for image in containers if 'source-' in image['image']}
         try:
