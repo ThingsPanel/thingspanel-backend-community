@@ -51,5 +51,15 @@ class NativeImageTests(unittest.TestCase):
             path.write_bytes(data)
             self.assertEqual(artifact_sha256(path),hashlib.sha256(data).hexdigest())
 
+    def test_constrained_host_still_reserves_all_staging_and_minimum_headroom(self):
+        reserve=384*1024**2
+        required=300+2*500+reserve
+        self.assertEqual(require_import_capacity(required,300,500,reserve),required)
+        with self.assertRaises(RuntimeError):
+            require_import_capacity(required-1,300,500,reserve)
+        for invalid in (0,reserve-1,True,None):
+            with self.assertRaises(ValueError):
+                require_import_capacity(2*1024**3,300,500,invalid)
+
 
 if __name__=='__main__':unittest.main()

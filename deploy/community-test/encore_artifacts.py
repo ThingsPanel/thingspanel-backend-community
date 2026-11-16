@@ -37,16 +37,22 @@ def artifact_sha256(path):
     return digest.hexdigest()
 
 
-def require_import_capacity(free_bytes, extracted_bytes, image_bytes):
+def import_capacity_required(extracted_bytes, image_bytes, headroom_bytes=1024**3):
+    if type(headroom_bytes) is not int or headroom_bytes < 384 * 1024**2:
+        raise ValueError('Native image import must retain at least 384 MiB headroom')
+    return extracted_bytes + 2*image_bytes + headroom_bytes
+
+
+def require_import_capacity(free_bytes, extracted_bytes, image_bytes, headroom_bytes=1024**3):
     # The incoming compressed package already exists. Reserve its extracted
-    # contents, two image copies for Docker staging/layers, and 1 GiB headroom.
-    required=extracted_bytes + 2*image_bytes + 1024**3
+    # contents, two image copies for Docker staging/layers, and configured headroom.
+    required=import_capacity_required(extracted_bytes, image_bytes, headroom_bytes)
     if free_bytes < required:
         raise RuntimeError('Image import requires {} free bytes; {} available'.format(required,free_bytes))
     return required
 
-def prepare_import_capacity(root, run, extracted_bytes, image_bytes, approved_extra_cache=None):
-    required = extracted_bytes + 2 * image_bytes + 1024**3
+def prepare_import_capacity(root, run, extracted_bytes, image_bytes, approved_extra_cache=None, headroom_bytes=1024**3):
+    required = import_capacity_required(extracted_bytes, image_bytes, headroom_bytes)
     reclaim_build_cache(root, run, minimum_free_bytes=required)
     if approved_extra_cache is not None and shutil.disk_usage(str(root)).free < required:
         cache = pathlib.Path(approved_extra_cache)
@@ -57,7 +63,7 @@ def prepare_import_capacity(root, run, extracted_bytes, image_bytes, approved_ex
             # symlink entries; rmtree unlinks these rather than traversing targets.
             shutil.rmtree(str(cache))
             cache.mkdir(mode=0o700)
-    return require_import_capacity(shutil.disk_usage(str(root)).free, extracted_bytes, image_bytes)
+    return require_import_capacity(shutil.disk_usage(str(root)).free, extracted_bytes, image_bytes, headroom_bytes)
 
 
 def reclaim_build_cache(root,run,minimum_free_bytes=1024**3):

@@ -18,6 +18,9 @@ from notification_identity import prepare_notification_identity, retire_notifica
 
 ROOT = pathlib.Path('/opt/tp-community-actions')
 RUNTIME = pathlib.Path('/opt/tp-community-main-20261028')
+# This constrained test host keeps a bounded reserve in addition to the full
+# extraction and double Docker staging budget. Generic helpers default to 1 GiB.
+IMPORT_HEADROOM_BYTES = 384 * 1024**2
 SHA = sys.argv[1]
 if not re.fullmatch('[0-9a-f]{40}', SHA):
     raise SystemExit('Invalid revision')
@@ -66,7 +69,8 @@ with tarfile.open(str(package)) as archive:
     # Reclaim only the already-approved, reproducible compiler cache. Never
     # prune images, database volumes, release bundles or rollback resources.
     prepare_import_capacity(ROOT, run, extracted_bytes, image_manifest['uncompressed_bytes'],
-                            approved_extra_cache=pathlib.Path('/root/.cache/encore-build'))
+                            approved_extra_cache=pathlib.Path('/root/.cache/encore-build'),
+                            headroom_bytes=IMPORT_HEADROOM_BYTES)
     archive.extractall(str(release), members=members)
 manifest = json.loads((release / 'manifest.json').read_text())
 if manifest['commit'] != SHA:
@@ -234,6 +238,7 @@ with restore_services_on_failure(compose, services, run):
         'scheduler': 'tp-automation-tick.timer',
         'notification_identity': 'automatic-scoped-leases',
         'pruned_artifacts':pruned_artifacts,
+        'import_headroom_bytes':IMPORT_HEADROOM_BYTES,
         'previous_images': old_images, 'migrations_applied': {database: [m['version'] for m in pending]
                                                            for database, _, pending in plans}}, indent=2))
     print('Encore and notification deployed and verified: ' + SHA)
