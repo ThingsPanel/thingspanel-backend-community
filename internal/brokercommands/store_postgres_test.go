@@ -65,9 +65,7 @@ func postgresStore(t *testing.T) (*Store, *gorm.DB) {
 	)`).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec(`CREATE TABLE command_set_logs (id uuid PRIMARY KEY, device_id varchar(36) NOT NULL, message_id varchar(64), status varchar(10), error_message text)`).Error; err != nil {
-		t.Fatal(err)
-	}
+	installCommandLogFixture(t, db)
 	migration, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", "006_commands.sql"))
 	if err != nil {
 		t.Fatal(err)
@@ -115,7 +113,7 @@ func newRequest(tenant, caller, root, target, key string) Request {
 }
 
 func persistLog(tx *gorm.DB, row Row) error {
-	return tx.Exec("INSERT INTO command_set_logs(id,device_id,message_id,status) VALUES (?,?,?,?)", row.ID, row.TargetDeviceID, row.ID, "1").Error
+	return tx.Exec("INSERT INTO command_set_logs(id,device_id,message_id,status,created_at) VALUES (?,?,?,?,?)", row.ID, row.TargetDeviceID, row.ID, "1", row.CreatedAt).Error
 }
 
 func TestPostgresConcurrentSubmitIdempotencyAndConflict(t *testing.T) {
@@ -512,5 +510,19 @@ func TestPostgresExplicitDeadlineRejectsLateAcknowledgement(t *testing.T) {
 	}
 	if n, err := store.MarkStaleDispatches(ctx, time.Minute); err != nil || n != 0 {
 		t.Fatalf("repeat sweep n=%d err=%v", n, err)
+	}
+}
+
+// Match sql/1.sql and the cascading device foreign key from sql/2.sql.
+// Both plan and direct-command tests exercise the same production log projection.
+func installCommandLogFixture(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	if err := db.Exec(`CREATE TABLE command_set_logs (
+ id varchar(36) PRIMARY KEY, device_id varchar(36) NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+ operation_type varchar(255), message_id varchar(36), data text, rsp_data text,
+ status varchar(2), error_message varchar(500), created_at timestamptz(6) NOT NULL,
+ user_id varchar(36), description varchar(255), identify varchar(255)
+ )`).Error; err != nil {
+		t.Fatal(err)
 	}
 }

@@ -22,14 +22,7 @@ func plansPostgresStore(t *testing.T) (*Store, *gorm.DB) {
 	t.Helper()
 	dsn := os.Getenv("TP_BROKER_COMMANDS_TEST_DSN")
 	if dsn == "" {
-		data, err := os.ReadFile("/tmp/tp-mqtt-20261019/qa-dsn")
-		if err != nil {
-			t.Skip("PostgreSQL QA DSN unavailable")
-		}
-		dsn = strings.TrimSpace(string(data))
-	}
-	if dsn == "" {
-		t.Skip("PostgreSQL QA DSN is empty")
+		t.Skip("set TP_BROKER_COMMANDS_TEST_DSN to an isolated PostgreSQL test database")
 	}
 	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
 	if err != nil {
@@ -72,9 +65,7 @@ func plansPostgresStore(t *testing.T) (*Store, *gorm.DB) {
 	)`).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec(`CREATE TABLE command_set_logs (id uuid PRIMARY KEY, device_id varchar(36) NOT NULL)`).Error; err != nil {
-		t.Fatal(err)
-	}
+	installCommandLogFixture(t, db)
 	for _, name := range []string{"006_commands.sql", "013_command_plans.sql"} {
 		migration, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", name))
 		if err != nil {

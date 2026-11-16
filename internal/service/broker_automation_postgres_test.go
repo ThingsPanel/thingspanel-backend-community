@@ -24,11 +24,7 @@ func automationPG(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := os.Getenv("TEST_BROKER_DATABASE_DSN")
 	if dsn == "" {
-		b, err := os.ReadFile("/tmp/tp-mqtt-20261019/qa-dsn")
-		if err != nil {
-			t.Skip("isolated PostgreSQL DSN unavailable")
-		}
-		dsn = strings.TrimSpace(string(b))
+		t.Skip("set TEST_BROKER_DATABASE_DSN to an isolated PostgreSQL test database")
 	}
 	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
