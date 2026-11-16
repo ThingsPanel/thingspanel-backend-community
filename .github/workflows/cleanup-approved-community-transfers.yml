@@ -1,0 +1,61 @@
+name: Clean explicitly approved redundant community transfers
+on:
+  workflow_dispatch:
+    inputs:
+      approval_json:
+        description: 'Exact approved duplicate-transfer manifest JSON'
+        required: true
+        type: string
+      approval_sha256:
+        description: 'SHA256 of the exact approval JSON bytes'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: community-main-coordinated-deploy
+  cancel-in-progress: false
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: community-main-encore-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require main
+        run: test "$GITHUB_REF" = refs/heads/main
+      - name: Verify and remove only approved duplicate files
+        env:
+          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
+          APPROVAL_JSON: ${{ inputs.approval_json }}
+          APPROVAL_SHA256: ${{ inputs.approval_sha256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - <<'PY'
+          import os,pathlib,hashlib,base64,re
+          raw=os.environ['APPROVAL_JSON'].encode()
+          digest=os.environ['APPROVAL_SHA256']
+          assert re.fullmatch('[0-9a-f]{64}',digest) and hashlib.sha256(raw).hexdigest()==digest
+          root=pathlib.Path('deploy/community-test')
+          source=(root/'inspect_runtime.py').read_text()
+          marker="\nif __name__ == '__main__':"
+          assert source.count(marker)==1
+          bundle=source.split(marker)[0]+'\n'+(root/'cleanup_verified_transfers.py').read_text()
+          pathlib.Path(os.environ['RUNNER_TEMP'],'cleanup.py').write_text(bundle)
+          pathlib.Path(os.environ['RUNNER_TEMP'],'approval.b64').write_text(base64.b64encode(raw).decode())
+          PY
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/cleanup-key"
+          args=(-i "$RUNNER_TEMP/cleanup-key" -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          payload="$(cat "$RUNNER_TEMP/approval.b64")"
+          ssh "${args[@]}" root@47.92.253.145 "python3 - '$payload' '$APPROVAL_SHA256'" < "$RUNNER_TEMP/cleanup.py" | tee cleanup-result.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: approved-transfer-cleanup-${{ github.run_id }}
+          path: cleanup-result.json
+      - name: Remove runner key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/cleanup-key"

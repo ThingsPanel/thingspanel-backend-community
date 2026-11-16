@@ -161,6 +161,41 @@ def prepare_nginx(source, hosts):
                                   'default_server_unchanged': True}
 
 
+def existing_ip_route(hosts):
+    owners = [h for h in hosts if any('47.92.253.145' in n.split() for n in h['server_name']) and
+              any(re.search(r'^(?:80|0\.0\.0\.0:80|\*:80)(?: |$)', value) for value in h['listen'])]
+    if len(owners) > 1:
+        raise RuntimeError('IPv4 port 80 host binding is ambiguous')
+    if not owners:
+        return None
+    path = pathlib.Path(owners[0]['file'])
+    if not re.fullmatch(r'/etc/nginx/conf.d/[A-Za-z0-9_.-]+\.conf', path.as_posix()):
+        raise RuntimeError('IPv4 host configuration is outside reviewed conf.d')
+    return checked_path(path)
+
+
+def add_bound_ip_location(source):
+    if MARKER in source:
+        if source.count(MARKER) != 1 or MANAGED_LOCATION.strip() not in source:
+            raise RuntimeError('modified managed storage route')
+        return source
+    if re.search(r'location[^\n{]*template-image-assets', source):
+        raise RuntimeError('unmanaged image bucket route exists')
+    matches = [m for m in re.finditer(r'\bserver_name\s+([^;]+);', source) if '47.92.253.145' in m.group(1).split()]
+    if len(matches) != 1:
+        raise RuntimeError('IP server block is ambiguous')
+    start = source.rfind('server {', 0, matches[0].start())
+    if start < 0: raise RuntimeError('IP server syntax unsupported')
+    opening = source.index('{', start)
+    depth, end = 1, opening+1
+    while end < len(source) and depth:
+        depth += (source[end] == '{') - (source[end] == '}')
+        end += 1
+    if depth or not opening < matches[0].start() < end:
+        raise RuntimeError('IP server braces ambiguous')
+    return source[:end-1] + MANAGED_LOCATION + source[end-1:]
+
+
 def nginx_storage(source):
     if MARKER in source:
         if source.count(MARKER) != 1 or MANAGED_LOCATION.strip() not in source:
@@ -274,10 +309,19 @@ def main():
         checked_path(env_path)
         config = json.loads(runtime_path.read_text())
         existing = any(BUCKET in (p.get('buckets') or {}) for p in (config.get('object_storage') or []))
-        nginx_before = checked_path(NGINX).read_text()
         hosts = loaded_vhosts(run(['nginx', '-T']))
         print(json.dumps({'read_only': True, 'loaded_vhosts': hosts}), flush=True)
-        nginx_after, route_plan = (nginx_before, {}) if existing else prepare_nginx(nginx_before, hosts)
+        bound_path = existing_ip_route(hosts)
+        nginx_path = bound_path or NGINX
+        nginx_before = checked_path(nginx_path).read_text()
+        if existing:
+            nginx_after, route_plan = nginx_before, {}
+        elif bound_path:
+            nginx_after = add_bound_ip_location(nginx_before)
+            route_plan = {'file': str(nginx_path), 'add_location': '/template-image-assets/' if MARKER not in nginx_before else None,
+                          'server_name_unchanged': True, 'default_server_unchanged': True}
+        else:
+            nginx_after, route_plan = prepare_nginx(nginx_before, hosts)
         pm2 = json.loads(run(['pm2', 'jlist']))
         process = [p for p in pm2 if p.get('name') == 'thingsvis-server']
         if len(process) != 1:
@@ -294,7 +338,7 @@ def main():
             raise RuntimeError('insufficient storage bootstrap reserve')
         backup = ROOT / 'integration-wiring-backups' / str(time.time_ns() if hasattr(time, 'time_ns') else int(time.time()*1000000))
         backup.mkdir(parents=True, mode=0o700)
-        originals = {runtime_path: runtime_path.read_bytes(), env_path: env_path.read_bytes(), NGINX: NGINX.read_bytes()}
+        originals = {runtime_path: runtime_path.read_bytes(), env_path: env_path.read_bytes(), nginx_path: nginx_path.read_bytes()}
         for index, (path, content) in enumerate(originals.items()):
             (backup / str(index)).write_bytes(content)
         old_api = process[0].get('pm2_env', {}).get('THINGSPANEL_API_URL', '')
@@ -324,7 +368,7 @@ def main():
                     except RuntimeError:
                         if attempt==19: raise
                         time.sleep(1)
-                atomic_write(NGINX,nginx_after)
+                atomic_write(nginx_path,nginx_after)
                 run(['nginx','-t']);run(['nginx','-s','reload'])
                 updated,_ = runtime_storage(config,keys)
                 atomic_write(runtime_path,json.dumps(updated,indent=2))

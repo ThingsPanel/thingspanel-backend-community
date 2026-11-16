@@ -104,6 +104,14 @@ class IntegrationTests(unittest.TestCase):
         self.assertIn('metadata_fsync = true', m.garage_config(KEYS))
         self.assertIn('data_fsync = true', m.garage_config(KEYS))
 
+    def test_existing_ip_vhost_keeps_default_and_all_other_routes(self):
+        source = 'server {\n listen 80 default_server;\n server_name 47.92.253.145 other.example;\n location /thingsvis {proxy_pass http://127.0.0.1:8000;}\n}\n'
+        updated = m.add_bound_ip_location(source)
+        self.assertIn('server_name 47.92.253.145 other.example;', updated)
+        self.assertIn('location /thingsvis {proxy_pass http://127.0.0.1:8000;}', updated)
+        self.assertEqual(updated.replace(m.MANAGED_LOCATION, ''), source)
+        self.assertEqual(m.add_bound_ip_location(updated), updated)
+
     def test_failed_restart_restores_all_original_configs_without_data_delete(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp).resolve()
