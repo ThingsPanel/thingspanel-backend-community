@@ -96,7 +96,7 @@ func (w *brokerCommandWorker) run(ctx context.Context) {
 	for ctx.Err() == nil {
 		// Timeout visibility must not depend on route synchronization: accepted
 		// publishes may need to become terminal while dispatch is paused.
-		if time.Since(sweep) >= time.Minute {
+		if time.Since(sweep) >= time.Second {
 			if err := w.sweepStaleDispatches(ctx); err != nil && ctx.Err() == nil {
 				w.logger.WithError(err).Warn("durable command stale sweep failed")
 			}

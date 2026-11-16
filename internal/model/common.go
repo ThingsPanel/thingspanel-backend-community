@@ -20,6 +20,8 @@ type PutMessage struct {
 }
 
 type PutMessageForCommand struct {
+	AckTimeoutSeconds *int `json:"ack_timeout_seconds,omitempty" form:"ack_timeout_seconds" validate:"omitempty,min=1,max=300"`
+
 	DeviceID       string  `json:"device_id" form:"device_id" validate:"required,max=36"`
 	Value          *string `json:"value" form:"value" validate:"omitempty,max=9999"`
 	Identify       string  `json:"identify" form:"identify" validate:"required,max=255"`

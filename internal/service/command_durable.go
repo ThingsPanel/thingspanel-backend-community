@@ -39,11 +39,12 @@ const (
 var errDurableCommandSchema = errors.New("durable command schema is not installed")
 
 type canonicalCommandRequest struct {
-	DeviceID  string `json:"device_id"`
-	Identify  string `json:"identify"`
-	Params    any    `json:"params,omitempty"`
-	HasParams bool   `json:"has_params"`
-	ExpiresAt *int64 `json:"expires_at,omitempty"`
+	AckTimeoutSeconds *int   `json:"ack_timeout_seconds,omitempty"`
+	DeviceID          string `json:"device_id"`
+	Identify          string `json:"identify"`
+	Params            any    `json:"params,omitempty"`
+	HasParams         bool   `json:"has_params"`
+	ExpiresAt         *int64 `json:"expires_at,omitempty"`
 }
 
 func isIngressV1Commands() bool {
@@ -159,7 +160,10 @@ func durableCommandExpiry(req *model.PutMessageForCommand, now time.Time) time.T
 func canonicalizeCommand(req *model.PutMessageForCommand, _ string) ([]byte, error) {
 	// Route/ancestor/configuration snapshots are server-derived and must not
 	// turn an unchanged client retry into another logical request.
-	canonical := canonicalCommandRequest{DeviceID: req.DeviceID, Identify: req.Identify, ExpiresAt: req.ExpiresAt}
+	if req.AckTimeoutSeconds != nil && (*req.AckTimeoutSeconds < 1 || *req.AckTimeoutSeconds > 300) {
+		return nil, errors.New("ack_timeout_seconds must be between 1 and 300")
+	}
+	canonical := canonicalCommandRequest{AckTimeoutSeconds: req.AckTimeoutSeconds, DeviceID: req.DeviceID, Identify: req.Identify, ExpiresAt: req.ExpiresAt}
 	if req.Value != nil && strings.TrimSpace(*req.Value) != "" {
 		canonical.HasParams = true
 		if err := bc.ValidateUniqueJSON([]byte(*req.Value)); err != nil {

@@ -74,6 +74,10 @@ jobs:
         with:
           go-version: '1.24.9'
           cache-dependency-path: encore-api/go.sum
+      - name: Verify durable command deadlines against PostgreSQL
+        env:
+          TP_BROKER_COMMANDS_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test?sslmode=disable
+        run: go test -count=1 ./internal/brokercommands
       - name: Verify offline conversion transaction against native schema
         working-directory: encore-api
         env:

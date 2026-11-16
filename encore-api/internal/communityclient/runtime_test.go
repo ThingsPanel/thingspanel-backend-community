@@ -434,3 +434,31 @@ func TestDeviceGoneDoesNotTreatDeniedOrUnknownAsMissing(t *testing.T) {
 		})
 	}
 }
+
+func TestCommandAcknowledgementTimeoutTransport(t *testing.T) {
+	count := 0
+	c := runtimeTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body["ack_timeout_seconds"] != float64(2) {
+			t.Errorf("timeout not forwarded: %v", body)
+		}
+		count++
+		if r.URL.Path == "/api/v1/expected/data" {
+			_, _ = w.Write([]byte(`{"code":200,"data":{"id":"queued","status":"pending"}}`))
+		} else {
+			_, _ = w.Write([]byte(`{"code":200,"data":{"message_id":"immediate"}}`))
+		}
+	})
+	if _, err := c.SubmitCommand(context.Background(), "device", "set", "{}", "key", 2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.CreateExpectedCommand(context.Background(), "device", "set", "{}", nil, nil, 2); err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("requests %d", count)
+	}
+}

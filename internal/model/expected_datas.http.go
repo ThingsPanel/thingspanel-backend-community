@@ -5,6 +5,8 @@ import "time"
 // 创建预期数据请求
 // device_id send_type payload expiry_time label
 type CreateExpectedDataReq struct {
+	AckTimeoutSeconds *int `json:"ack_timeout_seconds,omitempty" form:"ack_timeout_seconds" validate:"omitempty,min=1,max=300"`
+
 	DeviceID string     `json:"device_id" form:"device_id" validate:"required,max=36"`                                   // 设备ID
 	SendType string     `json:"send_type" form:"send_type" validate:"required,max=50,oneof=telemetry attribute command"` // 发送类型
 	Payload  *string    `json:"payload" form:"payload" validate:"omitempty,max=9999"`                                    // 数据内容

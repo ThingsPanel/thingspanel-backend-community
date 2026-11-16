@@ -192,17 +192,24 @@ func (c *Client) ListEventDatas(ctx context.Context, deviceID, identify string, 
 // message_id that identifies it in the status endpoint. value is the JSON text of the
 // command parameters ("" sends no params). A non-empty idempotencyKey makes a repeated
 // submission return the same message_id instead of sending the command again.
-func (c *Client) SubmitCommand(ctx context.Context, deviceID, identify, value, idempotencyKey string) (string, error) {
+func (c *Client) SubmitCommand(ctx context.Context, deviceID, identify, value, idempotencyKey string, timeout ...int) (string, error) {
 	token, err := c.Login(ctx)
 	if err != nil {
 		return "", err
 	}
 	body := struct {
-		DeviceID       string  `json:"device_id"`
-		Identify       string  `json:"identify"`
-		Value          *string `json:"value,omitempty"`
-		IdempotencyKey string  `json:"idempotency_key,omitempty"`
+		DeviceID          string  `json:"device_id"`
+		Identify          string  `json:"identify"`
+		Value             *string `json:"value,omitempty"`
+		AckTimeoutSeconds *int    `json:"ack_timeout_seconds,omitempty"`
+		IdempotencyKey    string  `json:"idempotency_key,omitempty"`
 	}{DeviceID: deviceID, Identify: identify, IdempotencyKey: idempotencyKey}
+	if len(timeout) > 0 {
+		if len(timeout) != 1 || timeout[0] < 1 || timeout[0] > 300 {
+			return "", errors.New("invalid acknowledgement timeout")
+		}
+		body.AckTimeoutSeconds = &timeout[0]
+	}
 	if value != "" {
 		body.Value = &value
 	}
@@ -427,12 +434,18 @@ type ExpectedRecord struct {
 // CreateExpectedCommand queues a command that Community sends when the device is
 // online (immediately if it already is). params is the JSON text of the parameter
 // object ("" for none).
-func (c *Client) CreateExpectedCommand(ctx context.Context, deviceID, identify, params string, expiry *time.Time, label *string) (ExpectedRecord, error) {
+func (c *Client) CreateExpectedCommand(ctx context.Context, deviceID, identify, params string, expiry *time.Time, label *string, timeout ...int) (ExpectedRecord, error) {
 	token, err := c.Login(ctx)
 	if err != nil {
 		return ExpectedRecord{}, err
 	}
 	body := map[string]any{"device_id": deviceID, "send_type": "command", "identify": identify}
+	if len(timeout) > 0 {
+		if len(timeout) != 1 || timeout[0] < 1 || timeout[0] > 300 {
+			return ExpectedRecord{}, errors.New("invalid acknowledgement timeout")
+		}
+		body["ack_timeout_seconds"] = timeout[0]
+	}
 	if params != "" {
 		body["payload"] = params
 	}

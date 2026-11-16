@@ -5,6 +5,7 @@ package brokercommands
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	bc "project/internal/brokercontract"
@@ -318,6 +319,9 @@ func (s *Store) FinishPublish(ctx context.Context, id string, success bool, reas
 		state = StateBrokerAccepted
 	}
 	updates := map[string]any{"state": state, "last_error": reason, "updated_at": time.Now().UTC()}
+	if success {
+		updates["dispatched_at"] = time.Now().UTC()
+	}
 	result := s.db.WithContext(ctx).Model(&Row{}).Where("id = ? AND state = ?", id, StateDispatching).Updates(updates)
 	if result.Error != nil {
 		return result.Error
@@ -335,6 +339,38 @@ func (s *Store) FinishPublish(ctx context.Context, id string, success bool, reas
 	return nil
 }
 
+// acknowledgementDeadline separates queue expiry from device response timeout.
+// Expected intents store their command metadata in the immutable Payload envelope.
+func acknowledgementDeadline(row Row, fallback time.Duration) (time.Time, bool) {
+	var metadata struct {
+		Timeout *int `json:"ack_timeout_seconds"`
+		Payload string
+	}
+	if len(row.CanonicalRequest) == 0 {
+		return row.UpdatedAt.Add(fallback), false
+	}
+	if json.Unmarshal(row.CanonicalRequest, &metadata) != nil {
+		return time.Time{}, false
+	}
+	if row.Intent == "expected.command" && metadata.Payload != "" {
+		if json.Unmarshal([]byte(metadata.Payload), &metadata) != nil {
+			return time.Time{}, false
+		}
+	}
+	explicit := metadata.Timeout != nil
+	if explicit {
+		if *metadata.Timeout < 1 || *metadata.Timeout > 300 {
+			return time.Time{}, false
+		}
+		fallback = time.Duration(*metadata.Timeout) * time.Second
+	}
+	start := row.UpdatedAt
+	if explicit && row.DispatchedAt != nil {
+		start = *row.DispatchedAt
+	}
+	return start.Add(fallback), explicit
+}
+
 // Acknowledge updates only the receipt bound to the authenticated transport device.
 func (s *Store) Acknowledge(ctx context.Context, tx *gorm.DB, tenant, transportDevice, commandID string, success bool) error {
 	if s == nil || tx == nil || ctx == nil || tenant == "" || transportDevice == "" || commandID == "" {
@@ -349,6 +385,14 @@ func (s *Store) Acknowledge(ctx context.Context, tx *gorm.DB, tenant, transportD
 	}
 	if err := lockPreparedRoute(tx, tenant, transportDevice, command.Payload); err != nil {
 		return err
+	}
+	// Lock after the route lock, matching dispatch lock order. Re-read under lock
+	// so a concurrent sweep or terminal ACK cannot be overwritten.
+	if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND tenant_id=? AND target_device_id=?", commandID, tenant, transportDevice).Take(&command).Error; err != nil {
+		return err
+	}
+	if deadline, explicit := acknowledgementDeadline(command, 30*time.Second); explicit && !time.Now().UTC().Before(deadline) {
+		return ErrState
 	}
 	targetState := StateDeviceReportedFailure
 	if success {
@@ -401,14 +445,21 @@ func (s *Store) MarkStaleDispatches(ctx context.Context, age time.Duration, ackn
 		var timedOut []Row
 		var unreportedCount int64
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("state = ? AND (updated_at <= ? OR expires_at <= ?)", StateBrokerAccepted, now.Add(-timeout), now).
+			Where("state = ?", StateBrokerAccepted).
 			Find(&timedOut).Error; err != nil {
 			return err
 		}
 		if len(timedOut) > 0 {
 			ids := make([]string, 0, len(timedOut))
 			for _, row := range timedOut {
-				ids = append(ids, row.ID)
+				deadline, explicit := acknowledgementDeadline(row, timeout)
+				if (!deadline.IsZero() && !now.Before(deadline)) || (!explicit && !now.Before(row.ExpiresAt)) {
+					ids = append(ids, row.ID)
+				}
+			}
+			if len(ids) == 0 {
+				total = expired.RowsAffected + stale.RowsAffected
+				return nil
 			}
 			unreported := tx.Model(&Row{}).Where("id IN ? AND state = ?", ids, StateBrokerAccepted).
 				Updates(map[string]any{"state": StateFailed, "last_error": "device acknowledgement timed out", "completed_at": now, "updated_at": now})

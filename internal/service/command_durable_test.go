@@ -156,3 +156,42 @@ func TestCommandFingerprintSnapshotLegacyJSONIsStable(t *testing.T) {
 		t.Fatalf("prepared command without new field maps to %q, want standard-v1", got)
 	}
 }
+
+func TestDurableCommandTimeoutIdentity(t *testing.T) {
+	a, b := 2, 3
+	req := &model.PutMessageForCommand{DeviceID: "device", Identify: "set", AckTimeoutSeconds: &a}
+	first, err := canonicalizeCommand(req, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.AckTimeoutSeconds = &b
+	second, err := canonicalizeCommand(req, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) == string(second) {
+		t.Fatal("timeout absent from idempotency identity")
+	}
+	for _, n := range []int{0, 301} {
+		req.AckTimeoutSeconds = &n
+		if _, err := canonicalizeCommand(req, ""); err == nil {
+			t.Fatal("invalid timeout accepted")
+		}
+	}
+}
+
+func TestExpectedTimeoutPersistedInHashedEnvelope(t *testing.T) {
+	seconds := 2
+	envelope, err := mergeIdentifyAndPayload("set", nil, &seconds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := 3
+	changed, err := mergeIdentifyAndPayload("set", nil, &other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expectedPayloadHash(envelope) == expectedPayloadHash(changed) {
+		t.Fatal("timeout mutation not detected by expected context hash")
+	}
+}

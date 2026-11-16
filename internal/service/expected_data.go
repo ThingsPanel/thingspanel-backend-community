@@ -17,10 +17,16 @@ import (
 
 type ExpectedData struct{}
 
-func mergeIdentifyAndPayload(identify string, paramsStr *string) (string, error) {
+func mergeIdentifyAndPayload(identify string, paramsStr *string, timeout ...*int) (string, error) {
 	// 创建包含 identify 和 params 的 map
 	mergedData := map[string]interface{}{
 		"method": identify,
+	}
+	if len(timeout) > 0 && timeout[0] != nil {
+		if *timeout[0] < 1 || *timeout[0] > 300 {
+			return "", fmt.Errorf("ack_timeout_seconds must be between 1 and 300")
+		}
+		mergedData["ack_timeout_seconds"] = *timeout[0]
 	}
 	// 解析 payload 为 map
 	if paramsStr != nil {
@@ -67,7 +73,7 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 			}
 		}
 		// 将identify和payload合并成一个json字符串
-		payload, err := mergeIdentifyAndPayload(*req.Identify, req.Payload)
+		payload, err := mergeIdentifyAndPayload(*req.Identify, req.Payload, req.AckTimeoutSeconds)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
 				"payload": err.Error(),

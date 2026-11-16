@@ -62,11 +62,18 @@ func (s *Store) Dispatch(ctx context.Context, id string, guard func(context.Cont
 		}
 		publishCtx, cancel := context.WithDeadline(ctx, minDeadline(row.ExpiresAt, time.Now().Add(5*time.Second)))
 		defer cancel()
+		publicationStarted := time.Now().UTC()
 		state, reason := StateBrokerAccepted, ""
 		if err := publish(publishCtx, row); err != nil {
 			state, reason = StateUnknown, "broker publication outcome unknown"
 		}
-		return tx.Model(&Row{}).Where("id=? AND state=?", id, StateDispatching).Updates(map[string]any{"state": state, "last_error": reason, "updated_at": time.Now().UTC()}).Error
+		// Start the device response budget only after broker acceptance. Claim,
+		// route locks, validation and bounded publishing must not consume it.
+		responseStart := publicationStarted
+		if state == StateBrokerAccepted {
+			responseStart = time.Now().UTC()
+		}
+		return tx.Model(&Row{}).Where("id=? AND state=?", id, StateDispatching).Updates(map[string]any{"state": state, "last_error": reason, "dispatched_at": responseStart, "updated_at": time.Now().UTC()}).Error
 	})
 }
 func minDeadline(a, b time.Time) time.Time {

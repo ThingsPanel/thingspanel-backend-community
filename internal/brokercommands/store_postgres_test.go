@@ -22,14 +22,7 @@ func postgresStore(t *testing.T) (*Store, *gorm.DB) {
 	t.Helper()
 	dsn := os.Getenv("TP_BROKER_COMMANDS_TEST_DSN")
 	if dsn == "" {
-		data, err := os.ReadFile("/tmp/tp-mqtt-20261019/qa-dsn")
-		if err != nil {
-			t.Skip("PostgreSQL QA DSN unavailable")
-		}
-		dsn = strings.TrimSpace(string(data))
-	}
-	if dsn == "" {
-		t.Skip("PostgreSQL QA DSN is empty")
+		t.Skip("set TP_BROKER_COMMANDS_TEST_DSN to an isolated PostgreSQL test database")
 	}
 	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
 	if err != nil {
@@ -461,5 +454,63 @@ func installAuthoritativeIdentityFence(t *testing.T, db *gorm.DB) {
 	}
 	if err := db.Transaction(func(tx *gorm.DB) error { return tx.Exec(string(body)).Error }); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPostgresExplicitDeadlineRejectsLateAcknowledgement(t *testing.T) {
+	store, db := postgresStore(t)
+	tenant, root, target := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	seedDevices(t, db, tenant, root, target)
+	ctx := context.Background()
+	req := newRequest(tenant, "user-a", root, target, "deadline")
+	req.CanonicalRequest = []byte(`{"ack_timeout_seconds":2}`)
+	row, _, err := store.Submit(ctx, req, persistLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Claim(ctx, func(context.Context, *gorm.DB, Row) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate time spent waiting after claim and during final guard/publication.
+	if err = db.Model(&Row{}).Where("id=?", row.ID).Update("dispatched_at", time.Now().Add(-time.Minute)).Error; err != nil {
+		t.Fatal(err)
+	}
+	var acceptedAt time.Time
+	if err = store.Dispatch(ctx, row.ID, func(context.Context, *gorm.DB, Row) error { time.Sleep(20 * time.Millisecond); return nil }, func(context.Context, Row) error {
+		time.Sleep(20 * time.Millisecond)
+		acceptedAt = time.Now().UTC()
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	persisted, err := store.GetScoped(ctx, tenant, row.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted.DispatchedAt == nil || persisted.DispatchedAt.Before(acceptedAt.Add(-time.Microsecond)) {
+		t.Fatalf("response budget started before broker acceptance: %v vs %v", persisted.DispatchedAt, acceptedAt)
+	}
+	deadline, explicit := acknowledgementDeadline(persisted, time.Minute)
+	if !explicit || deadline.Before(acceptedAt.Add(2*time.Second-time.Microsecond)) {
+		t.Fatal("claim or publishing consumed response budget")
+	}
+	if err = db.Model(&Row{}).Where("id=?", row.ID).Updates(map[string]any{"dispatched_at": time.Now().Add(-3 * time.Second), "updated_at": time.Now()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err = db.Transaction(func(tx *gorm.DB) error { return store.Acknowledge(ctx, tx, tenant, root, row.ID, true) }); !errors.Is(err, ErrState) {
+		t.Fatalf("late ACK = %v", err)
+	}
+	if err = store.Acknowledge(ctx, db, uuid.NewString(), root, row.ID, true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("cross tenant ACK = %v", err)
+	}
+	if n, err := store.MarkStaleDispatches(ctx, time.Minute, 5*time.Minute); err != nil || n != 1 {
+		t.Fatalf("explicit sweep n=%d err=%v", n, err)
+	}
+	got, err := store.GetScoped(ctx, tenant, row.ID)
+	if err != nil || got.State != StateFailed {
+		t.Fatalf("terminal %s %v", got.State, err)
+	}
+	if n, err := store.MarkStaleDispatches(ctx, time.Minute); err != nil || n != 0 {
+		t.Fatalf("repeat sweep n=%d err=%v", n, err)
 	}
 }

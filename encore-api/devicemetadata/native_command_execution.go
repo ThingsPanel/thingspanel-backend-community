@@ -366,13 +366,14 @@ func nativeCommandLocation(deviceID, executionID string) string {
 // ---- submit ----
 
 type nativeCommandAccepted struct {
-	deliveryMode string
-	expiresAt    *time.Time
-	label        *string
-	executionID  string
-	runtimeID    string
-	parameters   json.RawMessage
-	identifier   string
+	timeoutSeconds int
+	deliveryMode   string
+	expiresAt      *time.Time
+	label          *string
+	executionID    string
+	runtimeID      string
+	parameters     json.RawMessage
+	identifier     string
 }
 
 func submitNativeDeviceCommand(
@@ -462,7 +463,7 @@ func submitNativeDeviceCommand(
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
-		accepted = &nativeCommandAccepted{deliveryMode: input.DeliveryMode, expiresAt: input.ExpiresAt, label: input.Label, executionID: executionID, runtimeID: runtimeID, parameters: input.Parameters, identifier: input.Identifier}
+		accepted = &nativeCommandAccepted{timeoutSeconds: input.TimeoutSeconds, deliveryMode: input.DeliveryMode, expiresAt: input.ExpiresAt, label: input.Label, executionID: executionID, runtimeID: runtimeID, parameters: input.Parameters, identifier: input.Identifier}
 		changes, _ := json.Marshal(map[string]any{"commandExecutionId": executionID, "identifier": input.Identifier, "deliveryMode": input.DeliveryMode})
 		version := device.ResourceVersion
 		return metadataWriteResponse{Status: http.StatusAccepted, Body: encoded, Location: nativeCommandLocation(deviceID, executionID)},
@@ -485,13 +486,13 @@ func dispatchNativeCommand(ctx context.Context, identity nativeDeviceWriteIdenti
 	var submitErr error
 	if accepted.deliveryMode == "when_online" {
 		var record communityclient.ExpectedRecord
-		record, submitErr = nativeRuntimeClient().CreateExpectedCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.expiresAt, accepted.label)
+		record, submitErr = nativeRuntimeClient().CreateExpectedCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.expiresAt, accepted.label, accepted.timeoutSeconds)
 		messageID = expectedMessagePrefix + record.ID
 	} else {
 		// The execution id is the runtime idempotency key, so repeating the call after an
 		// unclear failure cannot send the command twice.
 		for attempt := 0; attempt < 2; attempt++ {
-			messageID, submitErr = nativeRuntimeClient().SubmitCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.executionID)
+			messageID, submitErr = nativeRuntimeClient().SubmitCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.executionID, accepted.timeoutSeconds)
 			if submitErr == nil || errors.Is(submitErr, communityclient.ErrRejected) || ctx.Err() != nil {
 				break
 			}

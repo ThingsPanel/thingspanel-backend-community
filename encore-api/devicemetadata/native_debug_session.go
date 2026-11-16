@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"encore.app/internal/communityclient"
 	"encore.app/pkg/dbx"
 	"net/http"
 	"strconv"

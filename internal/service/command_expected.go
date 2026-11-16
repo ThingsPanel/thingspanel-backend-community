@@ -130,6 +130,10 @@ func prepareExpectedDownlink(ctx context.Context, ed *model.ExpectedData) (broke
 			return prepared, "", brokercommands.ErrInvalid
 		}
 	}
+	// Timeout is server-owned metadata, never part of the device command payload.
+	if typ == downlink.MessageTypeCommand {
+		delete(data, "ack_timeout_seconds")
+	}
 	var target string
 	err = global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		current := ed.DeviceID
