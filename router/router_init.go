@@ -81,6 +81,7 @@ func RouterInit() *gin.Engine {
 	controllers := new(api.Controller)
 	// This read-only identity assertion carries the original user token. Keep
 	// it outside operation-log middleware and require JWT session validation.
+	router.GET("/api/v1/auth/sso/identity", middleware.JWTAuth(), api.PlatformSSOIdentity)
 	router.GET("/api/v1/notification/session-context", middleware.JWTAuth(), controllers.NotificationIdentityApi.SessionContext)
 	// Dedicated deployment credentials protect these reads. Mount them before
 	// operation logging so credentials and member contact details are excluded.
