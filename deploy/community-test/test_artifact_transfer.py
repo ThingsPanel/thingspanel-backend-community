@@ -24,6 +24,11 @@ def bundle(entries):
 
 
 class ArtifactTransferTests(unittest.TestCase):
+    def test_remote_helper_supports_python36_syntax(self):
+        import ast
+        source = pathlib.Path(transfer.__file__).read_text(encoding='utf-8-sig')
+        ast.parse(source, feature_version=(3, 6))
+
     def test_validated_package_replaces_partial_atomically(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

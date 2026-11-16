@@ -1,0 +1,86 @@
+name: Recover verified community artifact transfer
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Failed main deployment run whose only failure was artifact transfer'
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: community-main-coordinated-deploy
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    concurrency:
+      group: community-main-encore-deploy
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify restricted recovery guard and existing packages
+        id: source
+        env:
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          python3 -m unittest discover -s deploy/community-test -p test_recover_verified_transfer.py
+          python3 -m unittest discover -s deploy/community-test -p test_artifact_transfer.py
+          python3 deploy/community-test/recover_verified_transfer.py
+      - name: Record separate build and deployment helper identities
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-identity-${{ github.run_id }}
+          path: recovery-identity.json
+      - name: Configure SSH and transfer existing verified artifacts
+        env:
+          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
+          BUILD_COMMIT: ${{ steps.source.outputs.build_commit }}
+          NATIVE_ID: ${{ steps.source.outputs.native_artifact_id }}
+          BACKEND_ID: ${{ steps.source.outputs.backend_artifact_id }}
+          BROKER_ID: ${{ steps.source.outputs.broker_artifact_id }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY"
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-deploy-key"
+          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          ssh "${args[@]}" root@47.92.253.145 'install -d -m 700 /opt/tp-community-actions/incoming'
+          scp "${args[@]}" deploy/community-test/artifact_transfer.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          python3 deploy/community-test/artifact_transfer.py --key "$RUNNER_TEMP/community-deploy-key" --artifact-id "$NATIVE_ID" "encore-$BUILD_COMMIT.tar.gz"
+          python3 deploy/community-test/artifact_transfer.py --key "$RUNNER_TEMP/community-deploy-key" --artifact-id "$BROKER_ID" "broker-$BUILD_COMMIT.tar.gz" "broker-$BUILD_COMMIT.json"
+          python3 deploy/community-test/artifact_transfer.py --key "$RUNNER_TEMP/community-deploy-key" --artifact-id "$BACKEND_ID" "backend-$BUILD_COMMIT.tar.gz"
+      - name: Run original provision and preflight checks
+        env:
+          BUILD_COMMIT: ${{ steps.source.outputs.build_commit }}
+        run: |
+          set -euo pipefail
+          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          scp "${args[@]}" deploy/community-test/rollout_preflight.py deploy/community-test/provision_native_runtime.py deploy/community-test/upgrade_platform_config.py deploy/community-test/upgrade_acceptance.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 "if test -f /opt/tp-community-actions/rollout-mode.private.json; then python3 /opt/tp-community-actions/incoming/provision_native_runtime.py '$BUILD_COMMIT'; fi"
+          ssh "${args[@]}" root@47.92.253.145 'python3 /opt/tp-community-actions/incoming/rollout_preflight.py'
+      - name: Run original backend deployment
+        env:
+          BUILD_COMMIT: ${{ steps.source.outputs.build_commit }}
+        run: |
+          set -euo pipefail
+          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          scp "${args[@]}" deploy/community-test/broker_upgrade.py deploy/community-test/deploy_backend.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_backend.py '$BUILD_COMMIT'"
+      - name: Run original native deployment
+        env:
+          BUILD_COMMIT: ${{ steps.source.outputs.build_commit }}
+        run: |
+          set -euo pipefail
+          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts -o ServerAliveInterval=20 -o ServerAliveCountMax=9)
+          scp "${args[@]}" deploy/community-test/deploy_encore.py deploy/community-test/deployment_guard.py deploy/community-test/encore_migrations.py deploy/community-test/encore_artifacts.py deploy/community-test/automation_tick.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_encore.py '$BUILD_COMMIT'"
+      - name: Remove runner SSH key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/community-deploy-key"

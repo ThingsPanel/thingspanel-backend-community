@@ -60,7 +60,10 @@ def extract_verified(archive, files, root):
                 p = pathlib.Path(work) / info.filename
                 with z.open(info) as src, p.open('wb') as dst:
                     count = 0
-                    while block := src.read(1024 * 1024):
+                    while True:
+                        block = src.read(1024 * 1024)
+                        if not block:
+                            break
                         count += len(block)
                         if count > files[info.filename]['bytes']:
                             raise ValueError('oversized member')
@@ -94,7 +97,10 @@ def receive(request, root=INCOMING):
     with tempfile.TemporaryFile(dir=root) as archive:
         with opener.open(url, timeout=60) as response:
             count, next_progress = 0, 5 * 1024 * 1024
-            while block := response.read(1024 * 1024):
+            while True:
+                block = response.read(1024 * 1024)
+                if not block:
+                    break
                 count += len(block)
                 if count > limit or time.monotonic() - started > 1800:
                     raise ValueError('artifact transfer limit exceeded')
