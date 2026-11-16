@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -90,8 +89,7 @@ func validateExpectedDownlinkCaller(ctx context.Context, tx *gorm.DB, row broker
 		}
 		return err
 	}
-	digest := fmt.Sprintf("%x", sha256.Sum256([]byte(ed.Payload)))
-	if saved.TenantID != row.TenantID || saved.DeviceID != row.DeviceID || saved.CallerID != row.CallerID || saved.SendType != kind || saved.PayloadSHA256 != digest || ed.DeviceID != row.DeviceID || ed.SendType != kind || (ed.Status != "pending" && ed.Status != "sent") || (ed.ExpiryTime != nil && !ed.ExpiryTime.After(time.Now())) {
+	if saved.TenantID != row.TenantID || saved.DeviceID != row.DeviceID || saved.CallerID != row.CallerID || saved.SendType != kind || !expectedPayloadMatches(ed.Payload, saved.PayloadSHA256) || ed.DeviceID != row.DeviceID || ed.SendType != kind || (ed.Status != "pending" && ed.Status != "sent") || (ed.ExpiryTime != nil && !ed.ExpiryTime.After(time.Now())) {
 		return brokercommands.ErrRejected
 	}
 	var canonical struct {

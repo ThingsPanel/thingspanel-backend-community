@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	bc "project/internal/brokercontract"
 	"strings"
 	"time"
 
@@ -35,6 +37,26 @@ var errExpectedContextUnavailable = errors.New("expected message is unavailable 
 func expectedPayloadHash(payload string) string {
 	sum := sha256.Sum256([]byte(payload))
 	return hex.EncodeToString(sum[:])
+}
+
+// expectedPayloadMatches accepts the stored representation, or the previous
+// deterministic JSON encoding only when its digest proves the same payload.
+// Never rewrite a saved digest from an unverified database value.
+func expectedPayloadMatches(payload, digest string) bool {
+	if expectedPayloadHash(payload) == digest {
+		return true
+	}
+	if bc.ValidateUniqueJSON([]byte(payload)) != nil {
+		return false
+	}
+	decoder := json.NewDecoder(strings.NewReader(payload))
+	decoder.UseNumber()
+	var value any
+	if decoder.Decode(&value) != nil {
+		return false
+	}
+	canonical, err := json.Marshal(value)
+	return err == nil && expectedPayloadHash(string(canonical)) == digest
 }
 
 // ExpectedDataIngressSchemaReady checks only when the core feature table is
@@ -93,10 +115,16 @@ func (e *ExpectedData) createIngress(ctx context.Context, ed *model.ExpectedData
 		if err := tx.Create(ed).Error; err != nil {
 			return err
 		}
+		// JSONB normalizes whitespace/key order. Hash the persisted form in
+		// this same transaction, rather than the pre-insert Go string.
+		var stored model.ExpectedData
+		if err := tx.Where("id=? AND tenant_id=?", ed.ID, ed.TenantID).Take(&stored).Error; err != nil {
+			return err
+		}
 		entry := expectedContext{
 			ExpectedID: ed.ID, TenantID: ed.TenantID, DeviceID: ed.DeviceID,
 			CallerID: claims.ID, SendType: ed.SendType,
-			PayloadSHA256: expectedPayloadHash(ed.Payload), CreatedAt: ed.CreatedAt,
+			PayloadSHA256: expectedPayloadHash(stored.Payload), CreatedAt: ed.CreatedAt,
 		}
 		return tx.Table("broker_expected_context").Create(&entry).Error
 	})
@@ -121,7 +149,7 @@ func getExpectedContext(ctx context.Context, db *gorm.DB, ed *model.ExpectedData
 	if err := db.WithContext(ctx).Table("broker_expected_context").Where("expected_id = ?", ed.ID).Take(&owner).Error; err != nil {
 		return owner, errExpectedContextUnavailable
 	}
-	if owner.TenantID == "" || owner.DeviceID == "" || owner.CallerID == "" || owner.TenantID != ed.TenantID || owner.DeviceID != ed.DeviceID || owner.SendType != ed.SendType || owner.PayloadSHA256 != expectedPayloadHash(ed.Payload) {
+	if owner.TenantID == "" || owner.DeviceID == "" || owner.CallerID == "" || owner.TenantID != ed.TenantID || owner.DeviceID != ed.DeviceID || owner.SendType != ed.SendType || !expectedPayloadMatches(ed.Payload, owner.PayloadSHA256) {
 		return owner, errExpectedContextUnavailable
 	}
 	return owner, nil

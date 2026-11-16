@@ -77,7 +77,10 @@ jobs:
       - name: Verify durable command deadlines against PostgreSQL
         env:
           TP_BROKER_COMMANDS_TEST_DSN: postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test?sslmode=disable
-        run: go test -count=1 ./internal/brokercommands
+          TEST_BROKER_DATABASE_DSN: host=127.0.0.1 port=25543 user=notification_test password=fixture-only-password dbname=notification_test sslmode=disable
+        run: |
+          go test -count=1 ./internal/brokercommands
+          go test -count=1 ./internal/service -run '^TestExpectedDataIngressPostgresAdmissionDispatchRetryAndScope$'
       - name: Verify offline conversion transaction against native schema
         working-directory: encore-api
         env:

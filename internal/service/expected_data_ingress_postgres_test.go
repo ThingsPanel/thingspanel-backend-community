@@ -24,6 +24,11 @@ func TestExpectedDataIngressPostgresAdmissionDispatchRetryAndScope(t *testing.T)
 	if err := db.AutoMigrate(&model.User{}, &model.ExpectedData{}, &model.DataScript{}, &model.DeviceModelCommand{}, &model.DeviceTopicMapping{}, &model.CommandSetLog{}, &model.AttributeSetLog{}, &model.TelemetrySetLog{}); err != nil {
 		t.Fatal("migrate isolated expected-data fixture")
 	}
+	// Production sql/3.sql stores payload as JSONB, not the TEXT inferred
+	// from the generated Go string model. Exercise its normalization here.
+	if err := db.Exec("ALTER TABLE expected_datas ALTER COLUMN payload TYPE jsonb USING payload::jsonb").Error; err != nil {
+		t.Fatal(err)
+	}
 	for _, migration := range []string{"006_commands.sql", "015_expected_context.sql"} {
 		contents, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", migration))
 		if err != nil {
@@ -82,6 +87,20 @@ func TestExpectedDataIngressPostgresAdmissionDispatchRetryAndScope(t *testing.T)
 		}
 		if owner.CallerID != caller || owner.TenantID != tenant || owner.DeviceID != deviceID || owner.SendType != req.SendType || owner.PayloadSHA256 != expectedPayloadHash(got.Payload) {
 			t.Fatalf("creator context mismatch for %s", req.SendType)
+		}
+		if req.SendType == "command" {
+			if got.Payload == *req.Payload {
+				t.Fatal("fixture did not exercise JSONB normalization")
+			}
+			// A pre-fix row retains the compact pre-insert digest. Verify
+			// compatibility at admission, dispatch and expiry without rewriting it.
+			oldDigest := expectedPayloadHash(*req.Payload)
+			if err := db.Table("broker_expected_context").Where("expected_id=?", got.ID).Update("payload_sha256", oldDigest).Error; err != nil {
+				t.Fatal(err)
+			}
+			if _, err := getExpectedContext(context.Background(), db, got); err != nil {
+				t.Fatalf("verified historical payload rejected: %v", err)
+			}
 		}
 		created = append(created, got)
 	}
