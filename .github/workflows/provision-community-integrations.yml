@@ -1,0 +1,39 @@
+name: Provision community test integrations
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Persist ThingsVis SSO and private image storage on the test host'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: community-main-coordinated-deploy
+  cancel-in-progress: false
+jobs:
+  provision:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: community-main-encore-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require main
+        run: test "$GITHUB_REF" = refs/heads/main
+      - name: Provision persistent integrations
+        env:
+          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/integrations-key"
+          args=(-i "$RUNNER_TEMP/integrations-key" -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          command='python3 -'
+          if [ "$APPLY" = true ]; then command='python3 - --apply'; fi
+          ssh "${args[@]}" root@47.92.253.145 "$command" < deploy/community-test/provision_integrations.py
+      - name: Remove runner key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/integrations-key"
