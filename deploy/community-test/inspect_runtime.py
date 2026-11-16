@@ -361,13 +361,13 @@ def safe_service_url(value):
 def integration_diagnostics(config, infos):
     out = {'thingsvis': [], 'fileassets': {'keyring_present': False, 'providers': []}}
     for item in infos:
-        env = dict(x.split('=',1) for x in item['Config'].get('Env',[]) if '=' in x)
+        env = dict(x.split('=',1) for x in (item['Config'].get('Env') or []) if '=' in x)
         if 'thingsvis' in item['Name'].lower() or 'THINGSPANEL_API_URL' in env:
             out['thingsvis'].append({'container':item['Name'].lstrip('/'),
                                     'platform_api':safe_service_url(env.get('THINGSPANEL_API_URL',''))})
         if (item['Config'].get('Labels') or {}).get('com.docker.compose.service') == 'encore-api':
             out['fileassets']['keyring_present'] = bool(env.get('TP_FILE_ASSET_KEYRING'))
-    for provider in config.get('object_storage',[]):
+    for provider in (config.get('object_storage') or []):
         out['fileassets']['providers'].append({'type':provider.get('type') if provider.get('type') in ('s3','gcs') else 'unknown',
              'endpoint':safe_service_url(provider.get('endpoint','')),
              'template_image_bucket_configured':'template-image-assets' in provider.get('buckets',{})})
@@ -378,6 +378,7 @@ def main():
     root = pathlib.Path('/opt/tp-community-main-20261028')
     host = transfer_diagnostics(pathlib.Path('/opt/tp-community-actions/incoming'))
     host['approved_build_caches'] = approved_cache_sizes()
+    host['mem_available_bytes'] = int(next(line.split()[1] for line in pathlib.Path('/proc/meminfo').read_text().splitlines() if line.startswith('MemAvailable:'))) * 1024
     with pathlib.Path('/opt/tp-community-actions/deployment.lock').open('r') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
