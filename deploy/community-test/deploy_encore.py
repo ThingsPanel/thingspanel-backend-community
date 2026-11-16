@@ -65,7 +65,8 @@ with tarfile.open(str(package)) as archive:
     extracted_bytes = sum(member.size for member in members if member.isfile())
     # Reclaim only the already-approved, reproducible compiler cache. Never
     # prune images, database volumes, release bundles or rollback resources.
-    prepare_import_capacity(ROOT, run, extracted_bytes, image_manifest['uncompressed_bytes'])
+    prepare_import_capacity(ROOT, run, extracted_bytes, image_manifest['uncompressed_bytes'],
+                            approved_extra_cache=pathlib.Path('/root/.cache/encore-build'))
     archive.extractall(str(release), members=members)
 manifest = json.loads((release / 'manifest.json').read_text())
 if manifest['commit'] != SHA:

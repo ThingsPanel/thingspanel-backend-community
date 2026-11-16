@@ -80,9 +80,27 @@ def transfer_diagnostics(incoming, command=run):
             'processes': processes, 'process_snapshot_unavailable': process_error}
 
 
+def approved_cache_sizes(command=run):
+    result = []
+    for name in ('/opt/tp-community-actions/encore-build-cache', '/root/.cache/encore-build'):
+        path = pathlib.Path(name)
+        item = {'path': name, 'exists': path.exists()}
+        if path.is_symlink() or path.resolve() != path.absolute():
+            item['unsafe_path'] = True
+        elif path.is_dir():
+            try:
+                value = command(['du', '-sk', '--', str(path)]).split()[0]
+                item['allocated_bytes'] = int(value) * 1024
+            except (ValueError, IndexError, RuntimeError, OSError, subprocess.TimeoutExpired):
+                item['size_unavailable'] = True
+        result.append(item)
+    return result
+
+
 def main():
     root = pathlib.Path('/opt/tp-community-main-20261028')
     host = transfer_diagnostics(pathlib.Path('/opt/tp-community-actions/incoming'))
+    host['approved_build_caches'] = approved_cache_sizes()
     with pathlib.Path('/opt/tp-community-actions/deployment.lock').open('r') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)

@@ -3,6 +3,9 @@ import hashlib
 import json
 import re
 import shutil
+import pathlib
+
+APPROVED_EXTRA_BUILD_CACHE = pathlib.Path('/root/.cache/encore-build')
 
 NATIVE_IMAGE_SERVICES = {'authn','thingmodel','devicemetadata','fileassets','connectorcatalog',
                          'automation','notification','marketinstall','platformconfig'}
@@ -42,9 +45,18 @@ def require_import_capacity(free_bytes, extracted_bytes, image_bytes):
         raise RuntimeError('Image import requires {} free bytes; {} available'.format(required,free_bytes))
     return required
 
-def prepare_import_capacity(root, run, extracted_bytes, image_bytes):
+def prepare_import_capacity(root, run, extracted_bytes, image_bytes, approved_extra_cache=None):
     required = extracted_bytes + 2 * image_bytes + 1024**3
     reclaim_build_cache(root, run, minimum_free_bytes=required)
+    if approved_extra_cache is not None and shutil.disk_usage(str(root)).free < required:
+        cache = pathlib.Path(approved_extra_cache)
+        if cache != APPROVED_EXTRA_BUILD_CACHE or cache.is_symlink() or cache.resolve() != cache.absolute():
+            raise RuntimeError('Unsafe additional build cache path')
+        if cache.is_dir():
+            # Exact explicitly approved reproducible Encore cache only. Never follow
+            # symlink entries; rmtree unlinks these rather than traversing targets.
+            shutil.rmtree(str(cache))
+            cache.mkdir(mode=0o700)
     return require_import_capacity(shutil.disk_usage(str(root)).free, extracted_bytes, image_bytes)
 
 

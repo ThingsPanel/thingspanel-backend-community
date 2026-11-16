@@ -5,6 +5,32 @@ spec=importlib.util.spec_from_file_location('encore_artifacts',pathlib.Path(__fi
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 
 class ArtifactBoundaryTest(unittest.TestCase):
+    def test_second_explicit_cache_reclaimed_only_when_budget_short(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory);cache=root/'approved-extra';cache.mkdir()
+            (cache/'compiled-output').write_bytes(b'rebuildable')
+            preserved=root/'release';preserved.write_text('keep')
+            required=100+2*200+1024**3
+            with patch.object(module,'APPROVED_EXTRA_BUILD_CACHE',cache), \
+                    patch.object(module.shutil,'disk_usage',side_effect=[SimpleNamespace(free=1),SimpleNamespace(free=1),SimpleNamespace(free=required)]):
+                self.assertEqual(module.prepare_import_capacity(root,lambda args:None,100,200,cache),required)
+            self.assertTrue(cache.is_dir());self.assertEqual(list(cache.iterdir()),[])
+            self.assertEqual(preserved.read_text(),'keep')
+            (cache/'compiled-output').write_text('retain when enough space')
+            with patch.object(module,'APPROVED_EXTRA_BUILD_CACHE',cache), \
+                    patch.object(module.shutil,'disk_usage',return_value=SimpleNamespace(free=required)):
+                module.prepare_import_capacity(root,lambda args:None,100,200,cache)
+            self.assertTrue((cache/'compiled-output').exists())
+    def test_second_cache_rejects_unapproved_or_symlink_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory);cache=root/'approved-extra';cache.mkdir()
+            with patch.object(module,'APPROVED_EXTRA_BUILD_CACHE',cache), \
+                    patch.object(module.shutil,'disk_usage',return_value=SimpleNamespace(free=1)):
+                with self.assertRaises(RuntimeError):
+                    module.prepare_import_capacity(root,lambda args:None,100,200,root/'other')
+                with patch.object(pathlib.Path,'is_symlink',return_value=True):
+                    with self.assertRaises(RuntimeError):
+                        module.prepare_import_capacity(root,lambda args:None,100,200,cache)
     def test_import_below_one_gib_reclaims_before_enforcing_full_budget(self):
         with tempfile.TemporaryDirectory() as directory:
             root=pathlib.Path(directory);(root/'encore-build-cache').mkdir()
