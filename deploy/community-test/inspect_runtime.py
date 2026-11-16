@@ -2,6 +2,8 @@
 import fcntl
 import json
 import os
+import re
+import datetime
 import pathlib
 import shutil
 import subprocess
@@ -48,10 +50,47 @@ def run(args, data=None):
     return result.stdout.decode().strip()
 
 
+def transfer_diagnostics(incoming, command=run):
+    """Only artifact metadata and an allowlisted process name; never arguments."""
+    packages = []
+    if incoming.is_dir() and not incoming.is_symlink():
+        for path in incoming.iterdir():
+            if not re.fullmatch(r'(?:encore|backend|broker|frontend)-[0-9a-f]{40}\.(?:tar\.gz|json)', path.name):
+                continue
+            if path.is_symlink() or not path.is_file():
+                continue
+            try:
+                info = path.stat()
+            except OSError:
+                continue
+            packages.append({'name': path.name, 'bytes': info.st_size,
+                             'modified_at': datetime.datetime.fromtimestamp(info.st_mtime, datetime.timezone.utc).isoformat()})
+    processes = []
+    allowed = {'scp', 'sftp-server', 'sshd', 'ssh', 'python3', 'python', 'docker', 'docker-compose', 'psql', 'go', 'gzip', 'tar'}
+    try:
+        lines = command(['ps', '-eo', 'comm=,etimes=']).splitlines()
+        for line in lines:
+            parts = line.split()
+            if len(parts) == 2 and parts[0] in allowed and parts[1].isdigit():
+                processes.append({'comm': parts[0], 'elapsed_seconds': int(parts[1])})
+        process_error = False
+    except (RuntimeError, OSError, subprocess.TimeoutExpired):
+        process_error = True
+    return {'incoming_packages': sorted(packages, key=lambda x: x['name']),
+            'processes': processes, 'process_snapshot_unavailable': process_error}
+
+
 def main():
     root = pathlib.Path('/opt/tp-community-main-20261028')
+    host = transfer_diagnostics(pathlib.Path('/opt/tp-community-actions/incoming'))
     with pathlib.Path('/opt/tp-community-actions/deployment.lock').open('r') as lock:
-        fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        try:
+            fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print(json.dumps({'read_only': True, 'deployment_lock_busy': True,
+                              'database_checks_skipped': True, 'host': host,
+                              'disk_free_bytes': shutil.disk_usage(str(root)).free}))
+            return
         config = json.loads((root / 'runtime.encore.private.json').read_text())
         databases = [name for server in config['sql_servers']
                      for name, spec in server['databases'].items()
@@ -98,7 +137,7 @@ def main():
             except (OSError, tarfile.TarError):
                 import_requirements.append({'artifact': package.name, 'invalid_archive': True})
         docker_root = run(['docker', 'info', '--format', '{{.DockerRootDir}}'])
-        print(json.dumps({'read_only': True, 'device_database': databases[0],
+        print(json.dumps({'read_only': True, 'deployment_lock_busy': False, 'database_checks_skipped': False, 'host': host, 'device_database': databases[0],
                           'queue': queue, 'oldest_50': prefix, 'containers': containers,
                           'broker_preflight': broker_preflight(infos), 'broker_import_requirements': import_requirements,
                           'docker_disk_free_bytes': shutil.disk_usage(docker_root).free,
