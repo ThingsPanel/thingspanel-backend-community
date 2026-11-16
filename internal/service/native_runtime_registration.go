@@ -21,14 +21,15 @@ var ErrNativeRegistrationConflict = errors.New("native runtime registration conf
 var ErrNativeRegistrationInvalid = errors.New("invalid native runtime registration")
 
 type NativeRuntimeRegistration struct {
-	DeviceID                string `json:"deviceId"`
-	CredentialID            string `json:"credentialId"`
-	DeviceNumber            string `json:"deviceNumber"`
-	Name                    string `json:"name"`
-	Voucher                 string `json:"voucher"`
-	EventID                 string `json:"eventId"`
-	Change                  string `json:"change"`
-	ReplacementCredentialID string `json:"replacementCredentialId"`
+	RuntimeConfiguration    *NativeRuntimeConfiguration `json:"runtimeConfiguration,omitempty"`
+	DeviceID                string                      `json:"deviceId"`
+	CredentialID            string                      `json:"credentialId"`
+	DeviceNumber            string                      `json:"deviceNumber"`
+	Name                    string                      `json:"name"`
+	Voucher                 string                      `json:"voucher"`
+	EventID                 string                      `json:"eventId"`
+	Change                  string                      `json:"change"`
+	ReplacementCredentialID string                      `json:"replacementCredentialId"`
 }
 type nativeRuntimeRegistration struct {
 	DeviceID            string `gorm:"primaryKey"`
@@ -61,6 +62,11 @@ func RegisterNativeRuntime(ctx context.Context, db *gorm.DB, tenant, deployment 
 	for k := range voucher {
 		if k != "username" && k != "password" {
 			return ErrNativeRegistrationInvalid
+		}
+	}
+	if input.RuntimeConfiguration != nil {
+		if _, err := validateNativeRuntimeConfiguration(input.RuntimeConfiguration); err != nil {
+			return err
 		}
 	}
 	sum := sha256.Sum256([]byte(input.Voucher))
@@ -126,6 +132,11 @@ func RegisterNativeRuntime(ctx context.Context, db *gorm.DB, tenant, deployment 
 		}
 		if err := tx.Create(&nativeCredentialHistory{DeviceID: input.DeviceID, CredentialID: input.CredentialID}).Error; err != nil {
 			return err
+		}
+		if input.RuntimeConfiguration != nil {
+			if err := projectNativeRuntimeConfiguration(tx, registered, input.RuntimeConfiguration); err != nil {
+				return err
+			}
 		}
 		return storeNativeCredentialEvent(tx, input)
 	})

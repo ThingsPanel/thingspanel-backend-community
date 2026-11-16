@@ -64,7 +64,7 @@ func TestPluginSocketOwnerPersistsImmutableContext(t *testing.T) {
 	if err := db.Exec(string(migration)).Error; err != nil {
 		t.Fatal("apply plugin context migration")
 	}
-	for _, migrationName := range []string{"018_native_runtime_registrations.sql", "019_native_runtime_credential_lifecycle.sql", "020_native_credential_leases.sql", "021_native_runtime_lifecycle.sql"} {
+	for _, migrationName := range []string{"018_native_runtime_registrations.sql", "019_native_runtime_credential_lifecycle.sql", "020_native_credential_leases.sql", "021_native_runtime_lifecycle.sql", "022_native_runtime_configuration.sql"} {
 		migration, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", migrationName))
 		if err != nil {
 			t.Fatal(err)

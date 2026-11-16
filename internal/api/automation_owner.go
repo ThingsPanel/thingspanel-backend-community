@@ -26,7 +26,7 @@ func RegisterAutomationOwnerRoutes(router *gin.Engine, db *gorm.DB) {
 	})
 	group.POST("/runtime-devices/register", func(c *gin.Context) {
 		var body service.NativeRuntimeRegistration
-		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 5<<20)
 		if c.ShouldBindJSON(&body) != nil {
 			c.JSON(400, gin.H{"code": 400})
 			return
@@ -82,7 +82,7 @@ func RegisterAutomationOwnerRoutes(router *gin.Engine, db *gorm.DB) {
 	})
 	group.POST("/runtime-devices/lifecycle", func(c *gin.Context) {
 		var body service.NativeRuntimeLifecycle
-		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 5<<20)
 		if c.ShouldBindJSON(&body) != nil {
 			c.JSON(400, gin.H{"code": 400})
 			return
@@ -107,7 +107,12 @@ func RegisterAutomationOwnerRoutes(router *gin.Engine, db *gorm.DB) {
 			c.JSON(503, gin.H{"code": 503})
 			return
 		}
-		c.JSON(200, gin.H{"code": 200, "data": gin.H{"deviceId": body.DeviceID, "eventId": body.EventID, "generation": body.Generation}})
+		result := gin.H{"deviceId": body.DeviceID, "eventId": body.EventID, "generation": body.Generation}
+		if body.Kind == "template_binding" {
+			result["state"] = "applied"
+			result["runtimeConfiguration"] = gin.H{"generation": body.RuntimeConfiguration.Generation, "digest": body.RuntimeConfiguration.Digest}
+		}
+		c.JSON(200, gin.H{"code": 200, "data": result})
 	})
 	group.GET("/devices", func(c *gin.Context) {
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))

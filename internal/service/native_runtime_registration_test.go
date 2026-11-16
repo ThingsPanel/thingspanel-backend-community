@@ -59,6 +59,13 @@ func TestNativeRuntimeRegistrationTenantOwnershipAndRetry(t *testing.T) {
 	if err := db.Exec(string(newLifecycle)).Error; err != nil {
 		t.Fatal(err)
 	}
+	configurationMigration, e := os.ReadFile(filepath.Join("..", "..", "sql", "broker", "022_native_runtime_configuration.sql"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = db.Exec(string(configurationMigration)).Error; e != nil {
+		t.Fatal(e)
+	}
 	ctx := context.Background()
 	in := NativeRuntimeRegistration{EventID: uuid.NewString(), Change: "activation", DeviceID: uuid.NewString(), CredentialID: uuid.NewString(), DeviceNumber: "native-test", Name: "native", Voucher: `{"username":"fresh-secret"}`}
 	for i := 0; i < 2; i++ {

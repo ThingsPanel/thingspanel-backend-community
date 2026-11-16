@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	bc "project/internal/brokercontract"
+	"project/internal/brokermapper"
 	"time"
 )
 
@@ -53,6 +54,28 @@ func (r *GormRepository) RecordCredentialLease(ctx context.Context, req bc.AuthR
 		}
 		if err != nil {
 			return err
+		}
+		// Freeze configuration changes across cached grants. The same device lock
+		// serializes this check with the owner projection transaction.
+		var config struct {
+			Pending        bool
+			DeviceConfigID string
+		}
+		configErr := tx.Table("native_runtime_configurations").Where("device_id=?", grant.Principal.DeviceID).Take(&config).Error
+		if configErr != nil && !errors.Is(configErr, gorm.ErrRecordNotFound) {
+			return configErr
+		}
+		if configErr == nil {
+			if config.Pending {
+				return ErrBindingConflict
+			}
+			snapshot, err := brokermapper.NewRepository(tx).CompileForDeviceConfig(ctx, registered.TenantID, config.DeviceConfigID)
+			if err != nil {
+				return err
+			}
+			if grant.MappingVersion != snapshot.Version {
+				return ErrBindingConflict
+			}
 		}
 		var password *string
 		if req.Password != "" {

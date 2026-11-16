@@ -27,7 +27,7 @@ func TestNativeRuntimeLifecycleOwnershipReplayAndLeaseFence(t *testing.T) {
 	if err := db.AutoMigrate(&dal.DeviceIDReservation{}); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"018_native_runtime_registrations.sql", "019_native_runtime_credential_lifecycle.sql", "020_native_credential_leases.sql", "021_native_runtime_lifecycle.sql"} {
+	for _, name := range []string{"018_native_runtime_registrations.sql", "019_native_runtime_credential_lifecycle.sql", "020_native_credential_leases.sql", "021_native_runtime_lifecycle.sql", "022_native_runtime_configuration.sql"} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", name))
 		if err != nil {
 			t.Fatal(err)
@@ -258,7 +258,7 @@ func TestNativeDeletionRetainsRestartSafeIdentity(t *testing.T) {
 	if err := db.Exec("CREATE TABLE users(tenant_id text); INSERT INTO users VALUES ('tenant-a')").Error; err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"018_native_runtime_registrations.sql", "019_native_runtime_credential_lifecycle.sql", "020_native_credential_leases.sql", "021_native_runtime_lifecycle.sql"} {
+	for _, name := range []string{"018_native_runtime_registrations.sql", "019_native_runtime_credential_lifecycle.sql", "020_native_credential_leases.sql", "021_native_runtime_lifecycle.sql", "022_native_runtime_configuration.sql"} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", name))
 		if err != nil {
 			t.Fatal(err)

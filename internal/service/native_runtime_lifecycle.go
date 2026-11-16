@@ -15,12 +15,13 @@ import (
 )
 
 type NativeRuntimeLifecycle struct {
-	EventID      string `json:"eventId"`
-	DeviceID     string `json:"deviceId"`
-	Generation   int64  `json:"generation"`
-	Kind         string `json:"kind"`
-	DeviceNumber string `json:"deviceNumber"`
-	State        string `json:"state,omitempty"`
+	RuntimeConfiguration *NativeRuntimeConfiguration `json:"runtimeConfiguration,omitempty"`
+	EventID              string                      `json:"eventId"`
+	DeviceID             string                      `json:"deviceId"`
+	Generation           int64                       `json:"generation"`
+	Kind                 string                      `json:"kind"`
+	DeviceNumber         string                      `json:"deviceNumber"`
+	State                string                      `json:"state,omitempty"`
 }
 type nativeLifecycleEvent struct {
 	EventID       string `gorm:"primaryKey"`
@@ -37,8 +38,11 @@ func (nativeLifecycleEvent) TableName() string { return "native_runtime_lifecycl
 // old broker leases are acknowledged or expire. The identity tombstone remains.
 func ApplyNativeRuntimeLifecycle(ctx context.Context, db *gorm.DB, tenant, deployment string, in NativeRuntimeLifecycle) error {
 	validID := func(s string) bool { u, e := uuid.Parse(s); return e == nil && u != uuid.Nil && u.String() == s }
-	if !validID(in.EventID) || !validID(in.DeviceID) || !validID(tenant) || deployment == "" || in.Generation < 1 || (in.Kind != "device_renumber" && in.Kind != "device_deletion" && in.Kind != "administrative_state") {
+	if !validID(in.EventID) || !validID(in.DeviceID) || !validID(tenant) || deployment == "" || in.Generation < 1 || (in.Kind != "device_renumber" && in.Kind != "device_deletion" && in.Kind != "administrative_state" && in.Kind != "template_binding") {
 		return ErrNativeRegistrationInvalid
+	}
+	if in.Kind == "template_binding" {
+		return applyNativeRuntimeConfiguration(ctx, db, tenant, deployment, in)
 	}
 	if in.Kind == "device_renumber" && (in.DeviceNumber == "" || len(in.DeviceNumber) > 36 || strings.TrimSpace(in.DeviceNumber) != in.DeviceNumber) {
 		return ErrNativeRegistrationInvalid

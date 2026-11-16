@@ -70,7 +70,7 @@ if relational.get('driver')=='postgres':
  if present not in ('0','2'):raise RuntimeError('Incomplete broker schema requires repair')
  if present=='2':
   upgrades=[]
-  for name in ['017_delegated_routes.sql','018_native_runtime_registrations.sql','019_native_runtime_credential_lifecycle.sql','020_native_credential_leases.sql','021_native_runtime_lifecycle.sql']:
+  for name in ['017_delegated_routes.sql','018_native_runtime_registrations.sql','019_native_runtime_credential_lifecycle.sql','020_native_credential_leases.sql','021_native_runtime_lifecycle.sql','022_native_runtime_configuration.sql']:
    migration=release/'sql/broker'/name
    if migration.is_file():upgrades.append(migration.read_text())
   if upgrades:broker_sql("BEGIN; SET LOCAL lock_timeout='10s'; SET LOCAL statement_timeout='30s';\n"+'\n'.join(upgrades)+'\nCOMMIT;')
