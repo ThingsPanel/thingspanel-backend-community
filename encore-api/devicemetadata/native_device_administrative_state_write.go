@@ -100,7 +100,7 @@ func setNativeDeviceAdministrativeState(
 		}
 		provider := uuid.NewSHA1(uuid.NameSpaceOID, []byte("thingspanel/community/runtime/"+deployment)).String()
 		var owned bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM device_access_bindings WHERE tenant_id=$1 AND device_id=$2 AND runtime_provider_id=$3 AND runtime_namespace='community' AND runtime_external_id=$2)`, identity.tenantID, deviceID, provider).Scan(&owned); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM device_access_bindings WHERE tenant_id=$1 AND device_id=$2 AND runtime_provider_id=$3 AND runtime_namespace='community' AND runtime_external_id=$4)`, identity.tenantID, deviceID, provider, deviceID).Scan(&owned); err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
 		if !owned {
