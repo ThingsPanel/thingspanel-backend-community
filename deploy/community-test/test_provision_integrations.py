@@ -83,6 +83,19 @@ class IntegrationTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             m.nginx_storage(NGINX.replace('default_server', ''))
 
+    def test_loaded_routes_redact_headers_and_bind_only_unclaimed_ip(self):
+        source = 'server {\n listen 80;\n server_name c.thingspanel.cn;\n root /home/thingspanel/nginx/www/dist;\n proxy_set_header Authorization secret;\n}\n'
+        dump = '# configuration file /etc/nginx/conf.d/community.conf:\n'+source+'\n# configuration file /etc/nginx/conf.d/thingsvis.conf:\nserver {listen 80 default_server; server_name thingsvis.example; root /var/www/studio;}\n'
+        hosts = m.loaded_vhosts(dump)
+        self.assertNotIn('secret', json.dumps(hosts))
+        updated, plan = m.prepare_nginx(source, hosts)
+        self.assertIn('server_name c.thingspanel.cn 47.92.253.145;', updated)
+        self.assertTrue(plan['default_server_unchanged'])
+        refreshed = m.loaded_vhosts(dump.replace(source, updated))
+        self.assertEqual(m.prepare_nginx(updated, refreshed)[0], updated)
+        hosts[1]['server_name'] = ['47.92.253.145']
+        with self.assertRaises(RuntimeError): m.prepare_nginx(source, hosts)
+
     def test_persistent_storage_loopback_and_durability(self):
         service = m.storage_compose()['services']['storage']
         self.assertEqual(service['ports'], ['127.0.0.1:3900:3900'])
@@ -108,6 +121,8 @@ class IntegrationTests(unittest.TestCase):
                 calls.append(args)
                 if args == ['pm2', 'jlist']:
                     return json.dumps([{'name': 'thingsvis-server', 'pm2_env': {'THINGSPANEL_API_URL': 'http://old'}}])
+                if args == ['nginx', '-T']:
+                    return '# configuration file /etc/nginx/conf.d/community.conf:\n'+NGINX
                 if args[:2] == ['pm2', 'restart'] and env['THINGSPANEL_API_URL'] == m.PLATFORM_ENDPOINT:
                     raise RuntimeError('injected restart failure')
                 return ''

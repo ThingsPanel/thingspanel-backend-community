@@ -99,6 +99,68 @@ def runtime_storage(config, keys):
     return result, True
 
 
+def loaded_vhosts(dump):
+    """Return only routing metadata, never headers, upstream credentials or logs."""
+    result = []
+    sections = re.split(r'^# configuration file ([/A-Za-z0-9_.-]+):\s*$', dump, flags=re.M)
+    token_pattern = r'#[^\n]*|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|[{};]|[^\s{};#]+'
+    for index in range(1, len(sections), 2):
+        filename = sections[index]
+        if not filename.startswith('/etc/nginx/'):
+            raise RuntimeError('nginx loaded configuration is outside reviewed root')
+        tokens = [t for t in re.findall(token_pattern, sections[index+1]) if not t.startswith('#')]
+        i = 0
+        while i < len(tokens)-1:
+            if tokens[i:i+2] != ['server', '{']:
+                i += 1
+                continue
+            depth, i, directive = 1, i+2, []
+            entry = {'file': filename, 'listen': [], 'server_name': [], 'root': []}
+            while i < len(tokens) and depth:
+                token = tokens[i]; i += 1
+                if token == '{': depth += 1; directive = []
+                elif token == '}': depth -= 1; directive = []
+                elif depth == 1 and token == ';':
+                    if directive and directive[0] in ('listen', 'server_name', 'root'):
+                        values = [t.strip('"\'') for t in directive[1:]]
+                        if any(not re.fullmatch(r'[A-Za-z0-9_./:*\[\]-]+', v) for v in values):
+                            raise RuntimeError('unsupported nginx routing directive')
+                        entry[directive[0]].append(' '.join(values))
+                    directive = []
+                elif depth == 1: directive.append(token)
+            if depth: raise RuntimeError('unbalanced loaded nginx server')
+            result.append(entry)
+    if not result: raise RuntimeError('loaded nginx virtual hosts unavailable')
+    return result
+
+
+def prepare_nginx(source, hosts):
+    matches = [h for h in hosts if h['file'] == NGINX.as_posix() and '/home/thingspanel/nginx/www/dist' in h['root']]
+    if len(matches) != 1:
+        raise RuntimeError('loaded community virtual host is ambiguous')
+    selected = matches[0]
+    owners = [h for h in hosts if any('47.92.253.145' in n.split() for n in h['server_name'])]
+    if any(h is not selected for h in owners):
+        raise RuntimeError('IPv4 hostname already belongs to another virtual host')
+    if not any(re.search(r'^(?:80|0\.0\.0\.0:80|\*:80)(?: |$)', value) for value in selected['listen']):
+        raise RuntimeError('community virtual host does not listen on IPv4 port 80')
+    changed = False
+    if not owners:
+        root = re.search(r'\broot\s+/home/thingspanel/nginx/www/dist\s*;', source)
+        if root is None: raise RuntimeError('community root missing')
+        start = source.rfind('server {', 0, root.start())
+        if start < 0: raise RuntimeError('community server syntax unsupported')
+        match = re.search(r'\bserver_name\s+([^;]+);', source[start:root.start()])
+        if match is None:
+            raise RuntimeError('community server_name must precede root for guarded update')
+        end = start + match.end()-1
+        source = source[:end] + ' 47.92.253.145' + source[end:]
+        changed = True
+    return nginx_storage(source), {'add_server_name': '47.92.253.145' if changed else None,
+                                  'add_location': '/template-image-assets/' if MARKER not in source else None,
+                                  'default_server_unchanged': True}
+
+
 def nginx_storage(source):
     if MARKER in source:
         if source.count(MARKER) != 1 or MANAGED_LOCATION.strip() not in source:
@@ -213,7 +275,8 @@ def main():
         config = json.loads(runtime_path.read_text())
         existing = any(BUCKET in (p.get('buckets') or {}) for p in (config.get('object_storage') or []))
         nginx_before = checked_path(NGINX).read_text()
-        nginx_after = nginx_before if existing else nginx_storage(nginx_before)
+        hosts = loaded_vhosts(run(['nginx', '-T']))
+        nginx_after, route_plan = (nginx_before, {}) if existing else prepare_nginx(nginx_before, hosts)
         pm2 = json.loads(run(['pm2', 'jlist']))
         process = [p for p in pm2 if p.get('name') == 'thingsvis-server']
         if len(process) != 1:
@@ -222,6 +285,7 @@ def main():
         env_after, platform_endpoint = sso_env(env_before)
         print(json.dumps({'dry_run': not args.apply, 'existing_object_provider_preserved': existing,
                           'sso_env_update': env_before != env_after, 'storage_install': not existing,
+                          'loaded_vhosts': hosts, 'nginx_change_plan': route_plan,
                           'disk_free_bytes': shutil.disk_usage(str(ROOT)).free}))
         if not args.apply:
             return
