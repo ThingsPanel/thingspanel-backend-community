@@ -174,6 +174,20 @@ def safe_startup_errors(tail):
         errors.append({'type':'database_object_missing'})
     for match in re.finditer(r'(?:execute|read|record) legacy migration (\d+)', tail):
         errors.append({'type':'legacy_migration_error','version':int(match.group(1))})
+    for match in re.finditer(r'device identity reservations do not match (\d+) current devices', tail):
+        errors.append({'type':'device_identity_reservation_mismatch','count':int(match.group(1))})
+    for fixed in ('device identity writer fence is missing or has changed', 'device identity writer fence function has changed',
+                  'dictionary schema is missing or incompatible', 'database migration outcome is unknown',
+                  'legacy migration final version was not recorded exactly once', 'schema verification failed',
+                  'create component migration ledger', 'read component migration ledger', '检查数据库版本失败'):
+        if fixed in tail:
+            errors.append({'type':fixed.replace(' ','_')})
+    for match in re.finditer(r'(?:required )?schema (?:column|constraint) (public\.[a-z_]+\.[a-z_]+) (is missing|has type|nullability|has character length|must default to 0|does not match the native binding contract)', tail):
+        errors.append({'type':'schema_contract_mismatch','field':match.group(1),'failure':match.group(2)})
+    for name in ('permanent device identity', 'service access receipt', 'telemetry history intent', 'market installation',
+                 'existing platform dictionary', 'native binding', 'automation command guard', 'app push', 'auth'):
+        if 'initialize '+name+' schema' in tail:
+            errors.append({'type':'initialization_failed','component':name})
     return errors
 
 
@@ -221,6 +235,7 @@ def backend_process_diagnostics(command=run):
                         row['config_argument'] = args[i+1]
             categories = set()
             safe_errors = []
+            log_metadata = []
             for key in ('pm_err_log_path', 'pm_out_log_path'):
                 path = pathlib.Path(env.get(key, '/nonexistent'))
                 if not path.is_file() or path.is_symlink():
@@ -228,7 +243,12 @@ def backend_process_diagnostics(command=run):
                 with path.open('rb') as stream:
                     stream.seek(max(0, path.stat().st_size - 65536))
                     tail = stream.read(65536).decode(errors='replace').lower()
-                safe_errors.extend(safe_startup_errors(tail))
+                stamps = re.findall(r'\d{4}[-/]\d{2}[-/]\d{2}[ t]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:z|[+-]\d{2}:?\d{2})?', tail)
+                errors = safe_startup_errors(tail)
+                log_metadata.append({'stream':key,'mtime_epoch':path.stat().st_mtime,'tail_last_timestamp':stamps[-1] if stamps else None,
+                                     'mtime_after_pm_start':path.stat().st_mtime >= (env.get('pm_uptime') or 0)/1000.0,
+                                     'timestamp_scope':'tail_only_not_proof_of_current_startup','matched_error_count':len(errors)})
+                safe_errors.extend(errors)
                 for category, pattern in [('panic', 'panic:'), ('permission_denied', 'permission denied'),
                         ('address_in_use', 'address already in use'), ('connection_refused', 'connection refused'),
                         ('config_error', 'config'), ('database_error', 'database'), ('migration_error', 'migration'),
@@ -239,6 +259,7 @@ def backend_process_diagnostics(command=run):
                     categories.add('SQLSTATE_' + code.upper())
             row['recent_log_categories'] = sorted(categories)
             row['startup_errors'] = safe_errors
+            row['log_metadata'] = log_metadata
             result['processes'].append(row)
     except (ValueError, OSError, RuntimeError):
         result['pm2_unavailable'] = True

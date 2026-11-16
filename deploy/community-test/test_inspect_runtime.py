@@ -34,6 +34,11 @@ class TransferDiagnosticsTest(unittest.TestCase):
             self.assertEqual(result['processes'][0]['recent_log_categories'],['SQLSTATE_42703','panic'])
             self.assertNotIn('secret',str(result));self.assertNotIn('TOKEN',str(result))
             self.assertEqual(result['listeners'],['127.0.0.1:9999'])
+    def test_identity_schema_errors_exclude_raw_log_content(self):
+        output=module.safe_startup_errors('secret-password device identity reservations do not match 3 current devices; initialize permanent device identity schema; required schema column public.devices.device_id is missing; device identity writer fence function has changed')
+        self.assertIn({'type':'device_identity_reservation_mismatch','count':3},output)
+        self.assertIn({'type':'initialization_failed','component':'permanent device identity'},output)
+        self.assertNotIn('secret-password',str(output))
     def test_historical_inventory_requires_exact_manifest_copy_and_excludes_active(self):
         import hashlib, json, tarfile, io
         with tempfile.TemporaryDirectory() as directory:
