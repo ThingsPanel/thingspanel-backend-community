@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNativeRuntimeRegistrationRequiresOwnerConfirmation(t *testing.T) {
@@ -45,13 +46,13 @@ func TestNativeRuntimeRegistrationRequiresOwnerConfirmation(t *testing.T) {
 			w.WriteHeader(409)
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]any{"code": 200, "data": map[string]string{"deviceId": id}})
+		json.NewEncoder(w).Encode(map[string]any{"code": 200, "data": map[string]any{"deviceId": id, "eventId": body["eventId"], "activationState": "active", "activatedAt": "2026-11-01T00:00:00Z"}})
 	}))
 	defer server.Close()
 	t.Setenv("TP_COMMUNITY_BASE_URL", server.URL)
 	t.Setenv("TP_AUTOMATION_SERVICE_TOKEN", strings.Repeat("x", 32))
 	t.Setenv("TP_SOURCE_DEPLOYMENT_ID", "dep")
-	item := runtimeOutboxItem{EventID: uuid.NewString(), TenantID: tenant, DeviceID: id}
+	item := runtimeOutboxItem{EventID: uuid.NewString(), TenantID: tenant, DeviceID: id, Generation: 1}
 	change := credentialChangeDesired{Change: "activation", CredentialID: uuid.NewString()}
 	if err := registerNativeMQTTRuntime(ctx, item, change, `{"username":"secret"}`); err == nil {
 		t.Fatal("unconfirmed owner response succeeded")
@@ -66,6 +67,11 @@ func TestNativeRuntimeRegistrationRequiresOwnerConfirmation(t *testing.T) {
 	}
 	if err := registerNativeMQTTRuntime(ctx, item, change, `{"username":"secret"}`); err != nil {
 		t.Fatalf("confirmed registration retry failed: %v", err)
+	}
+	var activation, source string
+	var at time.Time
+	if err := db.QueryRow(ctx, `SELECT activation_state,activation_time_source,activated_at FROM devices WHERE tenant_id=$1 AND id=$2`, tenant, id).Scan(&activation, &source, &at); err != nil || activation != "active" || source != "runtime_confirmation" || at.UTC().Format(time.RFC3339) != "2026-11-01T00:00:00Z" {
+		t.Fatalf("activation fact not projected: %s %s %v %v", activation, source, at, err)
 	}
 	if owned, err := isOwnedNativeRuntime(ctx, tenant, id); err != nil || !owned {
 		t.Fatalf("confirmed runtime owner was not recognized: owned=%v err=%v", owned, err)

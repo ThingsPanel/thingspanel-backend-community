@@ -35,6 +35,50 @@ func TestNativeRuntimeLifecycleOwnershipReplayAndLeaseFence(t *testing.T) {
 	if err := RegisterNativeRuntime(ctx, db, tenant, "dep", reg); err != nil {
 		t.Fatal(err)
 	}
+	confirmedAt, err := ConfirmNativeRuntimeActivation(ctx, db, tenant, "dep", reg)
+	if err != nil || confirmedAt == nil {
+		t.Fatalf("activation fact unavailable: %v", err)
+	}
+	for _, mode := range []string{"tenant", "event", "credential", "change", "replacement"} {
+		altered := reg
+		scope := tenant
+		switch mode {
+		case "tenant":
+			scope = nativeTenantIdentity("other")
+		case "event":
+			altered.EventID = uuid.NewString()
+		case "credential":
+			altered.CredentialID = uuid.NewString()
+		case "change":
+			altered.Change = "rotation"
+			altered.ReplacementCredentialID = reg.CredentialID
+		case "replacement":
+			altered.ReplacementCredentialID = uuid.NewString()
+		}
+		if _, err := ConfirmNativeRuntimeActivation(ctx, db, scope, "dep", altered); err == nil {
+			t.Fatalf("unconfirmed activation fact accepted: %s", mode)
+		}
+	}
+	// Both persisted owner credential and immutable event evidence must agree.
+	for _, mutation := range []struct {
+		sql         string
+		args        []any
+		restore     string
+		restoreArgs []any
+	}{
+		{"UPDATE devices SET voucher=? WHERE id=?", []any{"tampered", reg.DeviceID}, "UPDATE devices SET voucher=? WHERE id=?", []any{reg.Voucher, reg.DeviceID}},
+		{"UPDATE native_runtime_credential_events SET request_sha256=? WHERE event_id=?", []any{"tampered", reg.EventID}, "UPDATE native_runtime_credential_events SET request_sha256=? WHERE event_id=?", []any{nativeCredentialRequestDigest(reg), reg.EventID}},
+	} {
+		if err := db.Exec(mutation.sql, mutation.args...).Error; err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ConfirmNativeRuntimeActivation(ctx, db, tenant, "dep", reg); err == nil {
+			t.Fatal("drifted activation evidence accepted")
+		}
+		if err := db.Exec(mutation.restore, mutation.restoreArgs...).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
 	op := NativeRuntimeLifecycle{DeviceID: reg.DeviceID, EventID: uuid.NewString(), Generation: 2, Kind: "device_renumber", DeviceNumber: "after"}
 	for _, identity := range [][2]string{{nativeTenantIdentity("other"), "dep"}, {tenant, "other"}} {
 		if err := ApplyNativeRuntimeLifecycle(ctx, db, identity[0], identity[1], op); !errors.Is(err, ErrNativeRegistrationConflict) {

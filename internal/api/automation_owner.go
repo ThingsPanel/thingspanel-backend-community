@@ -35,6 +35,15 @@ func RegisterAutomationOwnerRoutes(router *gin.Engine, db *gorm.DB) {
 			c.JSON(503, gin.H{"code": 503})
 			return
 		}
+		if c.GetHeader("X-Runtime-Confirm-Only") == "true" {
+			at, err := service.ConfirmNativeRuntimeActivation(c.Request.Context(), db, c.GetString("automation_owner_tenant"), automationbridge.Deployment(), body)
+			if err != nil {
+				c.JSON(409, gin.H{"code": 409})
+				return
+			}
+			c.JSON(200, gin.H{"code": 200, "data": gin.H{"deviceId": body.DeviceID, "eventId": body.EventID, "activationState": "active", "activatedAt": at}})
+			return
+		}
 		err := service.RegisterNativeRuntime(c.Request.Context(), db, c.GetString("automation_owner_tenant"), automationbridge.Deployment(), body)
 		if err != nil {
 			status := 500
@@ -59,7 +68,17 @@ func RegisterAutomationOwnerRoutes(router *gin.Engine, db *gorm.DB) {
 			c.JSON(503, gin.H{"code": 503, "message": "broker credential revocation not confirmed"})
 			return
 		}
-		c.JSON(200, gin.H{"code": 200, "data": gin.H{"deviceId": body.DeviceID}})
+		result := gin.H{"deviceId": body.DeviceID, "eventId": body.EventID}
+		if body.Change != "revocation" {
+			at, err := service.ConfirmNativeRuntimeActivation(c.Request.Context(), db, c.GetString("automation_owner_tenant"), automationbridge.Deployment(), body)
+			if err != nil {
+				c.JSON(409, gin.H{"code": 409})
+				return
+			}
+			result["activationState"] = "active"
+			result["activatedAt"] = at
+		}
+		c.JSON(200, gin.H{"code": 200, "data": result})
 	})
 	group.POST("/runtime-devices/lifecycle", func(c *gin.Context) {
 		var body service.NativeRuntimeLifecycle

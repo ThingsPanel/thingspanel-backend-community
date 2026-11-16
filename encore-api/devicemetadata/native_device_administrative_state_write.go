@@ -103,8 +103,17 @@ func setNativeDeviceAdministrativeState(
 		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM device_access_bindings WHERE tenant_id=$1 AND device_id=$2 AND runtime_provider_id=$3 AND runtime_namespace='community' AND runtime_external_id=$2)`, identity.tenantID, deviceID, provider).Scan(&owned); err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
-		if !owned || current.ActivationState != "active" {
+		if !owned {
 			return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.FailedPrecondition, Message: "activate the device runtime before changing administrative state"}
+		}
+		if current.ActivationState != "active" {
+			activatedAt, err := confirmOwnedRuntimeActivation(ctx, tx, identity.tenantID, deviceID)
+			if err != nil {
+				return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.Unavailable, Message: "runtime activation confirmation unavailable"}
+			}
+			if _, err = tx.Exec(ctx, `UPDATE devices SET activation_state='active',activation_time_source='runtime_confirmation',activated_at=$3,updated_by='runtime' WHERE tenant_id=$1 AND id=$2 AND activation_state='inactive'`, identity.tenantID, deviceID, activatedAt); err != nil {
+				return metadataWriteResponse{}, metadataWriteAudit{}, err
+			}
 		}
 		if before >= 9007199254740991 {
 			return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.FailedPrecondition, Message: "device version is exhausted"}

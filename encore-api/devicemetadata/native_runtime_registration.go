@@ -82,15 +82,26 @@ func registerNativeMQTTRuntime(ctx context.Context, item runtimeOutboxItem, chan
 	var result struct {
 		Code int `json:"code"`
 		Data struct {
-			DeviceID string `json:"deviceId"`
+			DeviceID        string     `json:"deviceId"`
+			EventID         string     `json:"eventId"`
+			ActivationState string     `json:"activationState"`
+			ActivatedAt     *time.Time `json:"activatedAt"`
 		} `json:"data"`
 	}
-	if resp.StatusCode != 200 || json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&result) != nil || result.Code != 200 || result.Data.DeviceID != item.DeviceID {
+	if resp.StatusCode != 200 || json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&result) != nil || result.Code != 200 || result.Data.DeviceID != item.DeviceID || result.Data.EventID != item.EventID {
 		return fmt.Errorf("runtime owner did not confirm registration")
 	}
 	if _, err = tx.Exec(ctx, `UPDATE device_access_bindings SET runtime_provider_id=$3,runtime_namespace='community',runtime_external_id=$2
  WHERE tenant_id=$1 AND device_id=$2 AND runtime_namespace IS NULL AND runtime_external_id IS NULL`, item.TenantID, item.DeviceID, provider); err != nil {
 		return err
+	}
+	if change.Change != "revocation" {
+		if result.Data.ActivationState != "active" || result.Data.ActivatedAt == nil || result.Data.ActivatedAt.IsZero() {
+			return fmt.Errorf("runtime activation fact not confirmed")
+		}
+		if _, err = tx.Exec(ctx, `UPDATE devices SET activation_state='active',activation_time_source='runtime_confirmation',activated_at=$3,resource_version=resource_version+1,updated_at=NOW(),updated_by='runtime' WHERE tenant_id=$1 AND id=$2 AND activation_state='inactive' AND deleted_at IS NULL`, item.TenantID, item.DeviceID, *result.Data.ActivatedAt); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
