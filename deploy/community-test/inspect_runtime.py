@@ -159,6 +159,49 @@ def historical_package_copies(root, active_commits):
     return rows
 
 
+def safe_startup_errors(tail):
+    errors = []
+    for match in re.finditer(r'migration checksum drift for ([a-zA-Z0-9_./-]+\.sql): recorded ([0-9a-f]{64}), source ([0-9a-f]{64})', tail):
+        errors.append({'type':'migration_checksum_drift','sql_file':match.group(1),'recorded':match.group(2),'source':match.group(3)})
+    for match in re.finditer(r'database version (\d+) is newer than program version (\d+)', tail):
+        errors.append({'type':'database_version_newer','database_version':int(match.group(1)),'program_version':int(match.group(2))})
+    for text in ('password authentication failed', 'no pg_hba.conf entry', 'connection refused', 'address already in use',
+                 'too many connections', 'remaining connection slots', 'out of memory', 'no space left on device',
+                 'permission denied', 'migration ledger must contain exactly one', 'database configuration is incomplete'):
+        if text in tail:
+            errors.append({'type':text.replace(' ','_')})
+    if re.search(r'(database|relation|column|role) [^\n]{0,120}does not exist', tail):
+        errors.append({'type':'database_object_missing'})
+    for match in re.finditer(r'(?:execute|read|record) legacy migration (\d+)', tail):
+        errors.append({'type':'legacy_migration_error','version':int(match.group(1))})
+    return errors
+
+
+def database_ledger_diagnostics(command=run):
+    def query(database, sql):
+        return command(['docker','exec','-i','timescaledb','psql','-X','-q','-At','-v','ON_ERROR_STOP=1','-U','postgres','-d',database],
+                       ("BEGIN READ ONLY; SET LOCAL statement_timeout='5s'; "+sql+'; COMMIT;').encode())
+    result=[]
+    try:
+        databases=query('postgres', "SELECT datname FROM pg_database WHERE datallowconn AND NOT datistemplate").splitlines()
+        for database in databases:
+            if not re.fullmatch('[a-zA-Z0-9_]+',database):
+                continue
+            present=query(database,"SELECT json_build_object('legacy',to_regclass('public.sys_version') IS NOT NULL,'components',to_regclass('public.native_component_migration_ledger') IS NOT NULL)")
+            flags=json.loads(present)
+            if not flags['legacy'] and not flags['components']:
+                continue
+            row={'database':database}
+            if flags['legacy']:
+                row['legacy_versions']=json.loads(query(database,"SELECT coalesce(json_agg(version_number),'[]'::json) FROM public.sys_version"))
+            if flags['components']:
+                row['component_digests']=json.loads(query(database,"SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT module_name,file_name,checksum FROM public.native_component_migration_ledger ORDER BY module_name,file_name) t"))
+            result.append(row)
+    except (ValueError,RuntimeError,OSError):
+        result.append({'read_unavailable':True})
+    return result
+
+
 def backend_process_diagnostics(command=run):
     result = {'processes': [], 'local_http': [], 'listeners': []}
     try:
@@ -177,6 +220,7 @@ def backend_process_diagnostics(command=run):
                     if arg in ('-config', '--config') and re.fullmatch(r'[/a-zA-Z0-9_.-]+', str(args[i+1])):
                         row['config_argument'] = args[i+1]
             categories = set()
+            safe_errors = []
             for key in ('pm_err_log_path', 'pm_out_log_path'):
                 path = pathlib.Path(env.get(key, '/nonexistent'))
                 if not path.is_file() or path.is_symlink():
@@ -184,6 +228,7 @@ def backend_process_diagnostics(command=run):
                 with path.open('rb') as stream:
                     stream.seek(max(0, path.stat().st_size - 65536))
                     tail = stream.read(65536).decode(errors='replace').lower()
+                safe_errors.extend(safe_startup_errors(tail))
                 for category, pattern in [('panic', 'panic:'), ('permission_denied', 'permission denied'),
                         ('address_in_use', 'address already in use'), ('connection_refused', 'connection refused'),
                         ('config_error', 'config'), ('database_error', 'database'), ('migration_error', 'migration'),
@@ -193,6 +238,7 @@ def backend_process_diagnostics(command=run):
                 for code in re.findall(r'sqlstate[ :]+([0-9a-z]{5})', tail):
                     categories.add('SQLSTATE_' + code.upper())
             row['recent_log_categories'] = sorted(categories)
+            row['startup_errors'] = safe_errors
             result['processes'].append(row)
     except (ValueError, OSError, RuntimeError):
         result['pm2_unavailable'] = True
@@ -246,6 +292,7 @@ def main():
                               'disk_free_bytes': shutil.disk_usage(str(root)).free}))
             return
         host['backend_process'] = backend_process_diagnostics()
+        host['database_ledgers'] = database_ledger_diagnostics()
         config = json.loads((root / 'runtime.encore.private.json').read_text())
         databases = [name for server in config['sql_servers']
                      for name, spec in server['databases'].items()
@@ -279,6 +326,7 @@ def main():
             env = dict(x.split('=', 1) for x in (info['Config'].get('Env') or []) if '=' in x)
             containers.append({'name': info['Name'].lstrip('/'), 'image': info['Config']['Image'],
                                'image_id': info['Image'], 'running': info['State']['Running'],
+                               'health': (info['State'].get('Health') or {}).get('Status'),
                                'compose_files': (info['Config'].get('Labels') or {}).get('com.docker.compose.project.config_files'),
                                'workers': {key: env[key] for key in (
                                    'TP_BACKGROUND_WORKERS', 'TP_RUNTIME_OUTBOX_DISPATCH') if key in env}})

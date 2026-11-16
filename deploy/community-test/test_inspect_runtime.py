@@ -13,6 +13,12 @@ with patch.dict(sys.modules, {'fcntl': fake_fcntl}):
     spec.loader.exec_module(module)
 
 class TransferDiagnosticsTest(unittest.TestCase):
+    def test_only_fixed_startup_templates_are_emitted(self):
+        tail='password=secret migration checksum drift for 20260101_device.sql: recorded '+('a'*64)+', source '+('b'*64)+' database version 90 is newer than program version 89 secret-token'
+        rows=module.safe_startup_errors(tail)
+        self.assertEqual(rows[0]['sql_file'],'20260101_device.sql')
+        self.assertEqual(rows[1]['database_version'],90)
+        self.assertNotIn('secret',str(rows))
     def test_backend_diagnostics_do_not_emit_environment_or_log_content(self):
         import json, urllib.error
         with tempfile.TemporaryDirectory() as directory:
