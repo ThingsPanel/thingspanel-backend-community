@@ -330,8 +330,15 @@ def import_storage_image(commit):
     validate_storage_bundle(package, manifest)
     run(['docker', 'load', '-i', str(package)])
     actual = json.loads(run(['docker','image','inspect',LOCAL_IMAGE,'--format','{{json .}}']))
+    validate_loaded_storage_image(actual, manifest)
+
+
+def validate_loaded_storage_image(actual, manifest):
+    # Docker classic reports uncompressed filesystem Size; containerd-backed
+    # stores may report compressed bytes. Content identity, not size equality,
+    # binds the loaded image to the CI-verified digest.
     if (actual.get('Id') != manifest['image_id'] or actual.get('Architecture') != 'amd64'
-            or actual.get('Size') != manifest['image_bytes']):
+            or not 0 < actual.get('Size', 0) <= STORAGE_IMAGE_LIMIT):
         raise RuntimeError('loaded storage image identity mismatch')
 
 

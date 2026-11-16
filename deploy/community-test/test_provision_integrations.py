@@ -132,6 +132,14 @@ class IntegrationTests(unittest.TestCase):
             for key, value in (('image_ref','another'),('image_bytes',m.STORAGE_IMAGE_LIMIT+1),('architecture','arm64'),('sha256','b'*64)):
                 with self.assertRaises(RuntimeError):m.validate_storage_bundle(package,dict(manifest,**{key:value}))
 
+    def test_loaded_image_accepts_engine_size_accounting_not_identity_changes(self):
+        manifest = {'image_id':'sha256:'+'a'*64,'image_bytes':69426824}
+        for size in (27669457,69426824):
+            m.validate_loaded_storage_image({'Id':manifest['image_id'],'Architecture':'amd64','Size':size},manifest)
+        for image_id, size in (('sha256:'+'b'*64,27669457),(manifest['image_id'],m.STORAGE_IMAGE_LIMIT+1)):
+            with self.assertRaises(RuntimeError):
+                m.validate_loaded_storage_image({'Id':image_id,'Architecture':'amd64','Size':size},manifest)
+
     def test_failed_restart_restores_all_original_configs_without_data_delete(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp).resolve()
