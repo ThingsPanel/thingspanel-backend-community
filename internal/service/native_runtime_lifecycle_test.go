@@ -249,7 +249,7 @@ func TestNativeDeletionRetainsRestartSafeIdentity(t *testing.T) {
 	}
 	pool, _ := db.DB()
 	t.Cleanup(func() { pool.Close() })
-	if err := db.AutoMigrate(&model.Device{}); err != nil {
+	if err := db.AutoMigrate(&model.Device{}, &model.DeviceStatusHistory{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := initialize.ApplyDeviceIdentitySchema(db); err != nil {
@@ -282,6 +282,12 @@ func TestNativeDeletionRetainsRestartSafeIdentity(t *testing.T) {
 	var owner nativeRuntimeRegistration
 	db.First(&owner, "device_id=?", reg.DeviceID)
 	if err := db.Exec(`INSERT INTO native_runtime_credential_leases(connection_id,device_id,tenant_id,broker_cell,broker_instance,voucher_sha256,expires_at) VALUES ('restart-lease',?,'tenant-a','cell','broker',?,now()+interval '1 hour')`, reg.DeviceID, owner.VoucherSHA256).Error; err != nil {
+		t.Fatal(err)
+	}
+	// Deleting a currently online device clears the projection without inventing
+	// a disconnect event; the real broker projector ignores disabled devices.
+	lastOffline := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	if err := db.Model(&model.Device{}).Where("id=?", reg.DeviceID).Updates(map[string]any{"is_online": 1, "activate_flag": "active", "last_offline_time": lastOffline}).Error; err != nil {
 		t.Fatal(err)
 	}
 	deletion := NativeRuntimeLifecycle{DeviceID: reg.DeviceID, EventID: uuid.NewString(), Generation: 1, Kind: "device_deletion"}
@@ -323,6 +329,18 @@ func TestNativeDeletionRetainsRestartSafeIdentity(t *testing.T) {
 	}
 	var device model.Device
 	db.First(&device, "id=?", reg.DeviceID)
+	if device.IsOnline != 0 || device.LastOfflineTime == nil || !device.LastOfflineTime.Equal(lastOffline) {
+		t.Fatal("deleted runtime retained online state or fabricated a disconnect timestamp")
+	}
+	var onlineCount int64
+	// Same predicate used by the legacy board's tenant online count.
+	if err := db.Model(&model.Device{}).Where("tenant_id=? AND activate_flag='active' AND is_online=1", "tenant-a").Count(&onlineCount).Error; err != nil || onlineCount != 0 {
+		t.Fatalf("legacy online statistic includes deleted projection: count=%d err=%v", onlineCount, err)
+	}
+	var statusEvents int64
+	if err := db.Model(&model.DeviceStatusHistory{}).Where("device_id=?", reg.DeviceID).Count(&statusEvents).Error; err != nil || statusEvents != 0 {
+		t.Fatalf("administrative removal emitted transport status history: count=%d err=%v", statusEvents, err)
+	}
 	if device.IsEnabled != "disabled" || device.Voucher == reg.Voucher {
 		t.Fatal("old credential or device still enabled")
 	}

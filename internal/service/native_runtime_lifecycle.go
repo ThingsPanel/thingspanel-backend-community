@@ -103,9 +103,13 @@ func ApplyNativeRuntimeLifecycle(ctx context.Context, db *gorm.DB, tenant, deplo
 				return ErrNativeRegistrationConflict
 			}
 		} else {
+			// Retained deleted projections must not count as online. This is an
+			// administrative removal, not a transport disconnect: do not emit an
+			// offline event or change last_offline_time. Disabled projections are
+			// deliberately excluded from subsequent broker presence projection.
 			voucher, _ := json.Marshal(map[string]string{"username": "deleted-" + uuid.NewString()})
 			hash := sha256.Sum256(voucher)
-			r := tx.Model(&model.Device{}).Where("id=? AND tenant_id=?", in.DeviceID, owner.TenantID).Updates(map[string]any{"voucher": string(voucher), "is_enabled": "disabled"})
+			r := tx.Model(&model.Device{}).Where("id=? AND tenant_id=?", in.DeviceID, owner.TenantID).Updates(map[string]any{"voucher": string(voucher), "is_enabled": "disabled", "is_online": 0})
 			if r.Error != nil {
 				return r.Error
 			}
