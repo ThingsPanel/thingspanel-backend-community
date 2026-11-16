@@ -6,27 +6,31 @@ on:
         description: 'Persist ThingsVis SSO and private image storage on the test host'
         type: boolean
         default: false
+      prepare_only:
+        description: 'Build and verify pinned storage image artifact only; never access test host'
+        type: boolean
+        default: false
 permissions:
   contents: read
   actions: read
 env:
   STORAGE_ARTIFACT_KEY: 677e5b758e4425a325b811c425c026bf35a4bf42f7
 concurrency:
-  group: community-main-coordinated-deploy
+  group: ${{ inputs.prepare_only && 'community-storage-image-prepare' || 'community-main-coordinated-deploy' }}
   cancel-in-progress: false
 jobs:
   provision:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
-      group: community-main-encore-deploy
+      group: ${{ inputs.prepare_only && 'community-storage-image-prepare-job' || 'community-main-encore-deploy' }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - name: Require main
         run: test "$GITHUB_REF" = refs/heads/main
       - name: Package pinned private storage image away from test host
-        if: inputs.apply
+        if: inputs.apply || inputs.prepare_only
         run: |
           set -euo pipefail
           image='dxflrs/garage@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5'
@@ -39,13 +43,14 @@ jobs:
           image='dxflrs/garage@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5'
           local_image='tp-fileassets-garage:verified-677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5'
           info=json.loads(subprocess.check_output(['docker','image','inspect',image]))[0]
-          assert info['Architecture']=='amd64' and 0<info['Size']<=32*1024*1024
+          print(json.dumps({'image_id':info['Id'],'architecture':info['Architecture'],'image_bytes':info['Size']}))
+          assert info['Architecture']=='amd64' and 0<info['Size']<=72*1024*1024
           path=pathlib.Path('storage-'+os.environ['STORAGE_ARTIFACT_KEY']+'.tar.gz')
           manifest={'image_ref':image,'local_image':local_image,'image_id':info['Id'],'architecture':info['Architecture'],'image_bytes':info['Size'],'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
           pathlib.Path('storage-'+os.environ['STORAGE_ARTIFACT_KEY']+'.json').write_text(json.dumps(manifest))
           PY
       - uses: actions/upload-artifact@v4
-        if: inputs.apply
+        if: inputs.apply || inputs.prepare_only
         id: storage
         with:
           name: pinned-storage-${{ github.sha }}
@@ -55,6 +60,7 @@ jobs:
           compression-level: 0
           retention-days: 7
       - name: Provision persistent integrations
+        if: ${{ !inputs.prepare_only }}
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
           APPLY: ${{ inputs.apply }}

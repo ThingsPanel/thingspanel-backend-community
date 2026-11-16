@@ -26,7 +26,7 @@ STORAGE_ARTIFACT_KEY = '677e5b758e4425a325b811c425c026bf35a4bf42f7'
 PUBLIC_ENDPOINT = 'http://47.92.253.145'
 PLATFORM_ENDPOINT = 'http://127.0.0.1:9999'
 BUCKET = 'template-image-assets'
-STORAGE_IMAGE_LIMIT = 32 * 1024 * 1024
+STORAGE_IMAGE_LIMIT = 72 * 1024 * 1024
 STORAGE_HEADROOM = 384 * 1024 * 1024
 NGINX = pathlib.Path('/etc/nginx/conf.d/community.conf')
 MARKER = '# thingspanel-managed-private-fileassets'
@@ -375,8 +375,9 @@ def main():
                           'disk_free_bytes': shutil.disk_usage(str(ROOT)).free}))
         if not args.apply:
             return
-        # Pinned image measured at 27,669,457 bytes. Budget compressed download,
-        # extraction and final image separately, plus durable-service headroom.
+        # Pinned image has 69,426,824 uncompressed filesystem bytes (Docker's
+        # containerd store reports compressed Size instead). Budget three full
+        # 72 MiB copies plus durable-service headroom, never compressed Size alone.
         if not existing and shutil.disk_usage(str(ROOT)).free < STORAGE_HEADROOM + 3 * STORAGE_IMAGE_LIMIT:
             raise RuntimeError('insufficient storage bootstrap reserve')
         backup = ROOT / 'integration-wiring-backups' / str(time.time_ns() if hasattr(time, 'time_ns') else int(time.time()*1000000))
