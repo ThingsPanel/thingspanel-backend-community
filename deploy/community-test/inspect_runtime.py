@@ -328,11 +328,21 @@ def encore_base_diagnostics(config, infos):
         if owner is None:
             result['probe'] = 'container_unavailable'
             return result
-        completed = subprocess.run(['docker', 'exec', owner['Id'], 'wget', '-S', '-O', '/dev/null', '-T', '5', value.rstrip('/') + '/v1/health'],
+        result['network_mode'] = owner.get('HostConfig', {}).get('NetworkMode')
+        pid = owner.get('State', {}).get('Pid')
+        if not isinstance(pid, int) or pid < 1:
+            result['probe'] = 'container_unavailable'
+            return result
+        # Use the host Python in the container's network namespace; distroless
+        # images need no curl/wget installation and no environment is exposed.
+        probe = "import sys,urllib.request,urllib.error; u=sys.stdin.read(); " + "\ntry:\n r=urllib.request.urlopen(u,timeout=5);print(r.status)\nexcept urllib.error.HTTPError as e: print(e.code)\nexcept Exception: print('unavailable')"
+        completed = subprocess.run(['nsenter', '-t', str(pid), '-n', 'python3', '-c', probe],
+                                   input=(value.rstrip('/') + '/v1/health').encode(),
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
-        matches = re.findall(rb'HTTP/[0-9.]+ ([0-9]{3})', completed.stderr)
-        result['http_status'] = int(matches[-1]) if matches else None
-        result['probe'] = 'completed' if matches else 'unavailable'
+        output = completed.stdout.decode().strip()
+        result['http_status'] = int(output) if re.fullmatch(r'[0-9]{3}', output) else None
+        result['probe'] = 'completed' if result['http_status'] else 'unavailable'
+
     except (ValueError, OSError, subprocess.TimeoutExpired):
         result['probe'] = 'unavailable'
     return result
