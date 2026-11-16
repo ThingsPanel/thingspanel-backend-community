@@ -61,6 +61,7 @@ func TestNativeTemplateModelSelectionIsInheritedByExistingAndNewDevices(t *testi
 
 	firstDevice := createNativeTemplateBoundDevice(t, ctx, tenantA, template.ID, "bound-before-template-edit")
 	assertNativeDeviceModelSnapshot(t, ctx, tenantA, firstDevice.ID, template.ID, modelA, snapshotsA[7], 7)
+	assertFrozenRuntimeModelMatchesDevice(t, ctx, tenantA, firstDevice.ID)
 	currentTemplate, err := readNativeTemplate(ctx, nativeTemplateReadIdentity{tenantID: tenantA}, template.ID)
 	if err != nil {
 		t.Fatalf("read template after creating first device: %v", err)
@@ -81,6 +82,7 @@ func TestNativeTemplateModelSelectionIsInheritedByExistingAndNewDevices(t *testi
 		t.Fatalf("publish ThingModel version 8: %v", err)
 	}
 	assertNativeDeviceModelSnapshot(t, ctx, tenantA, firstDevice.ID, template.ID, modelA, snapshotsA[7], 7)
+	assertFrozenRuntimeModelMatchesDevice(t, ctx, tenantA, firstDevice.ID)
 	snapshotCount, snapshotFingerprint := nativeThingModelSnapshotFingerprint(t, ctx, tenantA, modelA)
 
 	patch, err := json.Marshal(map[string]json.RawMessage{"configuration": json.RawMessage(nativeTemplateBindingConfiguration(modelA, 8))})
@@ -98,6 +100,7 @@ func TestNativeTemplateModelSelectionIsInheritedByExistingAndNewDevices(t *testi
 
 	secondDevice := createNativeTemplateBoundDevice(t, ctx, tenantA, template.ID, "bound-after-template-edit")
 	assertNativeDeviceModelSnapshot(t, ctx, tenantA, firstDevice.ID, template.ID, modelA, snapshotsA[8], 8)
+	assertFrozenRuntimeModelMatchesDevice(t, ctx, tenantA, firstDevice.ID)
 	assertNativeDeviceModelSnapshot(t, ctx, tenantA, secondDevice.ID, template.ID, modelA, snapshotsA[8], 8)
 	if afterCount, afterFingerprint := nativeThingModelSnapshotFingerprint(t, ctx, tenantA, modelA); afterCount != snapshotCount || afterFingerprint != snapshotFingerprint {
 		t.Fatalf("editing template changed immutable ThingModel snapshots: before=%d/%s after=%d/%s", snapshotCount, snapshotFingerprint, afterCount, afterFingerprint)
@@ -140,6 +143,7 @@ func TestNativeTemplateModelSelectionIsInheritedByExistingAndNewDevices(t *testi
 		t.Fatalf("reselect ThingModel version 7: %v", err)
 	}
 	assertNativeDeviceModelSnapshot(t, ctx, tenantA, firstDevice.ID, template.ID, modelA, snapshotsA[7], 7)
+	assertFrozenRuntimeModelMatchesDevice(t, ctx, tenantA, firstDevice.ID)
 	assertNativeDeviceModelSnapshot(t, ctx, tenantA, secondDevice.ID, template.ID, modelA, snapshotsA[7], 7)
 	if afterReselectCount, afterReselectFingerprint := nativeThingModelSnapshotFingerprint(t, ctx, tenantA, modelA); afterReselectCount != snapshotCount || afterReselectFingerprint != snapshotFingerprint {
 		t.Fatalf("reselecting template model changed immutable ThingModel snapshots: before=%d/%s after=%d/%s", snapshotCount, snapshotFingerprint, afterReselectCount, afterReselectFingerprint)
@@ -274,6 +278,8 @@ func cleanupNativeTemplateBindingMutableRows(t *testing.T, ctx context.Context, 
 		`DELETE FROM metadata_audit_events WHERE tenant_id=$1`,
 		`DELETE FROM metadata_idempotency WHERE tenant_id=$1`,
 		`DELETE FROM device_access_bindings WHERE tenant_id=$1`,
+		`DELETE FROM device_runtime_outbox WHERE tenant_id=$1`,
+		`DELETE FROM metadata_operations WHERE tenant_id=$1`,
 		`DELETE FROM devices WHERE tenant_id=$1`,
 		`DELETE FROM device_access_templates WHERE tenant_id=$1`,
 	} {

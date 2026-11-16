@@ -180,6 +180,11 @@ func recordRuntimeReceiptTx(ctx context.Context, tx dbx.Tx, receipt runtimeRecei
 				return outcome, wrapDBErr(err, "remove deleted device failed")
 			}
 		}
+		if kind == operationKindTemplateBinding {
+			if _, err := tx.Exec(ctx, `UPDATE device_access_bindings SET pending_operation_id=NULL,updated_at=NOW(),updated_by='runtime' WHERE tenant_id=$1 AND device_id=$2 AND configuration_generation=$3 AND pending_operation_id=$4`, receipt.TenantID, receipt.DeviceID, generation, operationID); err != nil {
+				return outcome, err
+			}
+		}
 		if kind == operationKindCredentialChange {
 			if err := applyCredentialChangeReceiptTx(ctx, tx, receipt.TenantID, receipt.DeviceID, desired); err != nil {
 				return outcome, wrapDBErr(err, "apply credential change failed")

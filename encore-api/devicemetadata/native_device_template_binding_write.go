@@ -292,6 +292,12 @@ func setNativeDeviceTemplateBinding(
 			identity.tenantID, deviceID, targetTemplateID, targetDirect, []byte(input.DeviceParameters)).Scan(&changed); err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
+		if !changed {
+			changed, err = runtimeConfigurationNeedsSyncTx(ctx, tx, identity.tenantID, deviceID)
+			if err != nil {
+				return metadataWriteResponse{}, metadataWriteAudit{}, err
+			}
+		}
 		digest := operationRequestDigest(command.Method, path, ifMatch, canonical)
 		before := device.ResourceVersion
 
@@ -347,6 +353,13 @@ func setNativeDeviceTemplateBinding(
 		}
 		if updated.Data.ConfigurationGeneration != nextGeneration || updated.Data.ResourceVersion != before+1 {
 			return metadataWriteResponse{}, metadataWriteAudit{}, nativeDeviceConflict("device configuration changed concurrently; read it again before updating")
+		}
+		snapshot, err := freezeRuntimeConfigurationTx(ctx, tx, identity.tenantID, deviceID)
+		if err != nil {
+			return metadataWriteResponse{}, metadataWriteAudit{}, err
+		}
+		if snapshot == nil {
+			return metadataWriteResponse{}, metadataWriteAudit{}, invalid("configuration", "runtime configuration application is not supported for this access type")
 		}
 		if err := enqueueDeviceRuntimeTx(ctx, tx, identity.tenantID, deviceID, operationID,
 			operationKindTemplateBinding, nextGeneration,

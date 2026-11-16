@@ -22,10 +22,11 @@ func applyNativeRuntimeLifecycle(ctx context.Context, item runtimeOutboxItem, nu
 		return fmt.Errorf("runtime owner identity unavailable")
 	}
 	var desired struct {
-		State string `json:"state"`
+		State                string                        `json:"state"`
+		RuntimeConfiguration *runtimeConfigurationSnapshot `json:"runtimeConfiguration"`
 	}
 	_ = json.Unmarshal(item.Desired, &desired)
-	payload, _ := json.Marshal(map[string]any{"state": desired.State, "eventId": item.EventID, "deviceId": item.DeviceID, "generation": item.Generation, "kind": item.Kind, "deviceNumber": number})
+	payload, _ := json.Marshal(map[string]any{"state": desired.State, "eventId": item.EventID, "deviceId": item.DeviceID, "generation": item.Generation, "kind": item.Kind, "deviceNumber": number, "runtimeConfiguration": desired.RuntimeConfiguration})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint+"/internal/automation/runtime-devices/lifecycle", bytes.NewReader(payload))
 	if err != nil {
 		return err
@@ -46,13 +47,20 @@ func applyNativeRuntimeLifecycle(ctx context.Context, item runtimeOutboxItem, nu
 	var result struct {
 		Code int `json:"code"`
 		Data struct {
-			DeviceID   string `json:"deviceId"`
-			EventID    string `json:"eventId"`
-			Generation int64  `json:"generation"`
+			DeviceID             string                        `json:"deviceId"`
+			EventID              string                        `json:"eventId"`
+			Generation           int64                         `json:"generation"`
+			State                string                        `json:"state"`
+			RuntimeConfiguration *runtimeConfigurationSnapshot `json:"runtimeConfiguration"`
 		} `json:"data"`
 	}
 	if resp.StatusCode != 200 || json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&result) != nil || result.Code != 200 || result.Data.DeviceID != item.DeviceID || result.Data.EventID != item.EventID || result.Data.Generation != item.Generation {
 		return fmt.Errorf("runtime lifecycle not confirmed")
+	}
+	if item.Kind == operationKindTemplateBinding {
+		if desired.RuntimeConfiguration == nil || result.Data.State != "applied" || result.Data.RuntimeConfiguration == nil || result.Data.RuntimeConfiguration.Generation != desired.RuntimeConfiguration.Generation || result.Data.RuntimeConfiguration.Digest != desired.RuntimeConfiguration.Digest {
+			return fmt.Errorf("runtime configuration not confirmed")
+		}
 	}
 	return nil
 }

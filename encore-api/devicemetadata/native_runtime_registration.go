@@ -37,6 +37,15 @@ func registerNativeMQTTRuntime(ctx context.Context, item runtimeOutboxItem, chan
 	if administrativeState != "enabled" && change.Change != "revocation" {
 		return fmt.Errorf("disabled native device cannot register runtime access")
 	}
+	var frozen struct {
+		RuntimeConfiguration *runtimeConfigurationSnapshot `json:"runtimeConfiguration"`
+	}
+	if err := json.Unmarshal(item.Desired, &frozen); len(item.Desired) > 0 && err != nil {
+		return err
+	}
+	if frozen.RuntimeConfiguration != nil {
+		configuration = frozen.RuntimeConfiguration.Configuration
+	}
 	if kind != "standalone" || accessProtocol(configuration, direct) != "mqtt" {
 		return fmt.Errorf("runtime registration supports standalone MQTT only")
 	}
@@ -64,7 +73,11 @@ func registerNativeMQTTRuntime(ctx context.Context, item runtimeOutboxItem, chan
 			return fmt.Errorf("runtime identity already assigned")
 		}
 	}
-	payload, _ := json.Marshal(map[string]string{"eventId": item.EventID, "change": change.Change, "replacementCredentialId": change.ReplacementCredentialID, "deviceId": item.DeviceID, "credentialId": change.CredentialID, "deviceNumber": number, "name": name, "voucher": voucher})
+	body := map[string]any{"eventId": item.EventID, "change": change.Change, "replacementCredentialId": change.ReplacementCredentialID, "deviceId": item.DeviceID, "credentialId": change.CredentialID, "deviceNumber": number, "name": name, "voucher": voucher}
+	if frozen.RuntimeConfiguration != nil {
+		body["runtimeConfiguration"] = frozen.RuntimeConfiguration
+	}
+	payload, _ := json.Marshal(body)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint+"/internal/automation/runtime-devices/register", bytes.NewReader(payload))
 	if err != nil {
 		return err

@@ -256,6 +256,11 @@ func updateNativeTemplate(ctx context.Context, identity nativeTemplateWriteIdent
 				return metadataWriteResponse{}, metadataWriteAudit{}, err
 			}
 		}
+		if input.Configuration.Present || input.CustomFieldChanges.Present {
+			if err := enqueueTemplateRuntimeConfigurationsTx(ctx, tx, identity.tenantID, identity.subjectID, id, requestID); err != nil {
+				return metadataWriteResponse{}, metadataWriteAudit{}, err
+			}
+		}
 		template, err := loadNativeDeviceAccessTemplateTx(ctx, tx, identity.tenantID, id, nil)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err

@@ -133,6 +133,10 @@ func enqueueDeviceRuntimeTx(
 	if err != nil {
 		return &errs.Error{Code: errs.Internal, Message: "failed to encode runtime request"}
 	}
+	encoded, err = injectRuntimeConfigurationTx(ctx, tx, tenantID, deviceID, kind, encoded)
+	if err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, `INSERT INTO device_runtime_outbox(
 			id,tenant_id,device_id,operation_id,kind,generation,desired,state,updated_by)
 		VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,'metadata')`,
