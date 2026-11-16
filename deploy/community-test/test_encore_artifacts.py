@@ -15,6 +15,14 @@ class ArtifactBoundaryTest(unittest.TestCase):
             with patch.object(module.shutil,'disk_usage',return_value=SimpleNamespace(free=2*1024**3)):
                 self.assertFalse(module.reclaim_build_cache(root,commands.append))
             self.assertEqual(len(commands),1)
+    def test_image_budget_reclaims_cache_even_above_one_gib(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory);(root/'encore-build-cache').mkdir()
+            commands=[]
+            with patch.object(module.shutil,'disk_usage',return_value=SimpleNamespace(free=1307824128)):
+                self.assertTrue(module.reclaim_build_cache(root,commands.append,minimum_free_bytes=1355501846))
+            self.assertEqual(len(commands),1)
+            self.assertEqual(commands[0][-2:],['clean','-cache'])
     def test_keeps_running_images_and_uncompleted_or_unrelated_inputs(self):
         old,active,current,pending='a'*40,'b'*40,'c'*40,'d'*40
         with tempfile.TemporaryDirectory() as directory:

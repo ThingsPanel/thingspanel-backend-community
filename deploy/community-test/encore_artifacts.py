@@ -42,9 +42,9 @@ def require_import_capacity(free_bytes, extracted_bytes, image_bytes):
         raise RuntimeError('Image import requires {} free bytes; {} available'.format(required,free_bytes))
     return required
 
-def reclaim_build_cache(root,run):
+def reclaim_build_cache(root,run,minimum_free_bytes=1024**3):
     """Reclaim reproducible compiler output only when the build cannot start."""
-    if shutil.disk_usage(str(root)).free >= 1024**3:
+    if shutil.disk_usage(str(root)).free >= minimum_free_bytes:
         return False
     cache=root/'encore-build-cache'
     if cache.is_symlink() or cache.resolve().parent!=root.resolve():

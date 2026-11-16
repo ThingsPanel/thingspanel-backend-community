@@ -13,7 +13,7 @@ import urllib.request
 import urllib.error
 from encore_migrations import source_migrations, pending_migrations
 from deployment_guard import restore_services_on_failure
-from encore_artifacts import validate_prebuilt_image, artifact_sha256, require_import_capacity
+from encore_artifacts import validate_prebuilt_image, artifact_sha256, require_import_capacity, reclaim_build_cache
 from notification_identity import prepare_notification_identity, retire_notification_renewal
 
 ROOT = pathlib.Path('/opt/tp-community-actions')
@@ -70,9 +70,13 @@ with tarfile.open(str(package)) as archive:
     manifest = json.load(archive.extractfile('manifest.json'))
     image_manifest = json.load(archive.extractfile('image.json'))
     validate_prebuilt_image(image_manifest,manifest,SHA)
+    extracted_bytes = sum(member.size for member in members if member.isfile())
+    required_bytes = extracted_bytes + 2 * image_manifest['uncompressed_bytes'] + 1024**3
+    # Reclaim only the already-approved, reproducible compiler cache. Never
+    # prune images, database volumes, release bundles or rollback resources.
+    reclaim_build_cache(ROOT, run, minimum_free_bytes=required_bytes)
     require_import_capacity(shutil.disk_usage(str(ROOT)).free,
-                            sum(member.size for member in members if member.isfile()),
-                            image_manifest['uncompressed_bytes'])
+                            extracted_bytes, image_manifest['uncompressed_bytes'])
     archive.extractall(str(release), members=members)
 manifest = json.loads((release / 'manifest.json').read_text())
 if manifest['commit'] != SHA:
