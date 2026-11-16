@@ -279,3 +279,55 @@ func TestNativeCommandListDeliveryModeFilter(t *testing.T) {
 		}
 	}
 }
+
+func TestExpectedCommandFollowsScopedDurableReceipt(t *testing.T) {
+	for _, tc := range []struct {
+		name, status, reason, want                       string
+		wrongDevice, wrongExpected, wrongMessage, denied bool
+	}{
+		{name: "ACK", status: "device_reported_success", want: "acknowledged"},
+		{name: "failure", status: "device_reported_failure", want: "failed"},
+		{name: "timeout", status: "failed", reason: "device acknowledgement timed out", want: "timed_out"},
+		{name: "queue admission is not delivery", status: "accepted", want: "accepted"},
+		{name: "published", status: "broker_acknowledged", want: "delivered"},
+		{name: "wrong device", status: "device_reported_success", wrongDevice: true},
+		{name: "wrong expected", status: "device_reported_success", wrongExpected: true},
+		{name: "wrong command", status: "device_reported_success", wrongMessage: true},
+		{name: "tenant denied", status: "device_reported_success", denied: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			command, expected, device := uuid.NewString(), uuid.NewString(), uuid.NewString()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/v1/command/datas/status/"+command || r.Header.Get("Authorization") != "Bearer fixture-token" {
+					t.Error("unexpected runtime identity")
+					w.WriteHeader(400)
+					return
+				}
+				if tc.denied {
+					w.WriteHeader(403)
+					return
+				}
+				gotDevice, gotExpected, gotMessage := device, expected, command
+				if tc.wrongDevice {
+					gotDevice = uuid.NewString()
+				}
+				if tc.wrongExpected {
+					gotExpected = uuid.NewString()
+				}
+				if tc.wrongMessage {
+					gotMessage = uuid.NewString()
+				}
+				json.NewEncoder(w).Encode(map[string]any{"code": 200, "data": map[string]any{"device_id": gotDevice, "expected_id": gotExpected, "message_id": gotMessage, "status": tc.status, "error_message": tc.reason}})
+			}))
+			defer server.Close()
+			t.Setenv("TP_COMMUNITY_BASE_URL", server.URL)
+			request := httptest.NewRequest("GET", "http://native.test", nil)
+			request.Header.Set("Authorization", "Bearer fixture-token")
+			ctx := communityclient.WithAuthenticatedReadRequest(context.Background(), request)
+			state, _ := resolveExpectedCommandStatus(ctx, communityclient.NewFromEnv(), device, communityclient.ExpectedRecord{ID: expected, DeviceID: device, MessageID: command, Status: "sent"})
+			if state != tc.want {
+				t.Fatalf("state=%q want=%q", state, tc.want)
+			}
+		})
+	}
+}

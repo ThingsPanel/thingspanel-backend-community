@@ -234,6 +234,8 @@ func (c *Client) SubmitCommand(ctx context.Context, deviceID, identify, value, i
 // accepted, published, publish_failed, device_succeeded, device_failed, timeout,
 // not_found or unknown.
 type CommandStatus struct {
+	DeviceID     string
+	ExpectedID   string
 	Status       string
 	ErrorMessage *string
 }
@@ -252,6 +254,8 @@ func (c *Client) GetCommandStatus(ctx context.Context, messageID string) (Comman
 		return CommandStatus{}, err
 	}
 	var out struct {
+		DeviceID     string  `json:"device_id"`
+		ExpectedID   string  `json:"expected_id"`
 		MessageID    string  `json:"message_id"`
 		Status       string  `json:"status"`
 		ErrorMessage *string `json:"error_message"`
@@ -259,7 +263,7 @@ func (c *Client) GetCommandStatus(ctx context.Context, messageID string) (Comman
 	if err := json.Unmarshal(data, &out); err != nil || out.Status == "" || out.MessageID != messageID {
 		return CommandStatus{}, errors.New("legacy command status has an unexpected shape")
 	}
-	return CommandStatus{Status: out.Status, ErrorMessage: out.ErrorMessage}, nil
+	return CommandStatus{DeviceID: out.DeviceID, ExpectedID: out.ExpectedID, Status: out.Status, ErrorMessage: out.ErrorMessage}, nil
 }
 
 // StatusChange is one stored online/offline transition.
@@ -427,8 +431,10 @@ func (c *Client) ListDebugLogs(ctx context.Context, deviceID string, offset, lim
 
 // ExpectedRecord is one Community "send when the device comes online" message.
 type ExpectedRecord struct {
-	ID     string
-	Status string // pending, sent or expired
+	DeviceID  string
+	MessageID string
+	ID        string
+	Status    string // pending, sent or expired
 }
 
 // CreateExpectedCommand queues a command that Community sends when the device is
@@ -494,8 +500,10 @@ func (c *Client) ListExpectedCommands(ctx context.Context, deviceID string, page
 	}
 	var body struct {
 		List []struct {
-			ID     string `json:"id"`
-			Status string `json:"status"`
+			DeviceID  string `json:"device_id"`
+			MessageID string `json:"message"`
+			ID        string `json:"id"`
+			Status    string `json:"status"`
 		} `json:"list"`
 	}
 	if err := json.Unmarshal(data, &body); err != nil {
@@ -506,7 +514,7 @@ func (c *Client) ListExpectedCommands(ctx context.Context, deviceID string, page
 		if row.ID == "" || row.Status == "" {
 			return nil, errors.New("legacy expected message row is missing id or status")
 		}
-		out = append(out, ExpectedRecord{ID: row.ID, Status: row.Status})
+		out = append(out, ExpectedRecord{DeviceID: row.DeviceID, MessageID: row.MessageID, ID: row.ID, Status: row.Status})
 	}
 	return out, nil
 }

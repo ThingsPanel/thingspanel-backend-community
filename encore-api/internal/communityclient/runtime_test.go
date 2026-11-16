@@ -246,7 +246,7 @@ func TestExpectedCommands(t *testing.T) {
 			return
 		}
 		gotQuery = r.URL.RawQuery
-		_, _ = w.Write([]byte(`{"code":200,"data":{"total":1,"list":[{"id":"e1","status":"sent"}]}}`))
+		_, _ = w.Write([]byte(`{"code":200,"data":{"total":1,"list":[{"id":"e1","status":"sent","device_id":"d1","message":"m1"}]}}`))
 	})
 	exp := time.Date(2026, 10, 29, 0, 0, 0, 0, time.UTC)
 	label := "night"
@@ -260,7 +260,7 @@ func TestExpectedCommands(t *testing.T) {
 		}
 	}
 	rows, err := c.ListExpectedCommands(context.Background(), "d1", 1, 100)
-	if err != nil || len(rows) != 1 || rows[0].Status != "sent" || !strings.Contains(gotQuery, "send_type=command") {
+	if err != nil || len(rows) != 1 || rows[0].Status != "sent" || rows[0].DeviceID != "d1" || rows[0].MessageID != "m1" || !strings.Contains(gotQuery, "send_type=command") {
 		t.Fatalf("%+v %v %s", rows, err, gotQuery)
 	}
 }

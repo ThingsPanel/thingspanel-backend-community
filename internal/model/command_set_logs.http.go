@@ -14,6 +14,8 @@ type GetCommandSetLogsListByPageReq struct {
 
 // CommandStatusResponse is the single-command receipt returned by the status endpoint.
 type CommandStatusResponse struct {
+	DeviceID     string    `json:"device_id,omitempty"`
+	ExpectedID   string    `json:"expected_id,omitempty"`
 	MessageID    string    `json:"message_id"`
 	Status       string    `json:"status"`
 	RawStatus    *string   `json:"raw_status,omitempty"`

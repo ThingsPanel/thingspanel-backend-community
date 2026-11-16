@@ -567,7 +567,8 @@ func refreshNativeDeviceCommandsWithClient(ctx context.Context, identity nativeD
 	rows.Close()
 	_ = tx.Rollback()
 
-	var expected map[string]string
+	var expected map[string]communityclient.ExpectedRecord
+	var expectedDeviceID string
 	for _, c := range candidates {
 		newState, reason := "", ""
 		switch {
@@ -586,16 +587,17 @@ func refreshNativeDeviceCommandsWithClient(ctx context.Context, identity nativeD
 				if err != nil {
 					continue
 				}
-				expected = map[string]string{}
+				expectedDeviceID = legacyID
+				expected = map[string]communityclient.ExpectedRecord{}
 				for _, row := range rows {
-					expected[row.ID] = row.Status
+					expected[row.ID] = row
 				}
 			}
 			status, found := expected[strings.TrimPrefix(*c.messageID, expectedMessagePrefix)]
 			if !found {
 				continue
 			}
-			newState = mapExpectedStatus(status)
+			newState, reason = resolveExpectedCommandStatus(ctx, client, expectedDeviceID, status)
 		default:
 			status, err := client.GetCommandStatus(ctx, *c.messageID)
 			if err != nil {
@@ -607,6 +609,9 @@ func refreshNativeDeviceCommandsWithClient(ctx context.Context, identity nativeD
 			}
 			newState = mapRuntimeCommandStatus(status.Status, runtimeReason)
 			reason = truncateReason(runtimeReason)
+		}
+		if newState == "" {
+			continue
 		}
 		if c.delivered && newState == "accepted" {
 			newState = "delivered"
@@ -913,4 +918,28 @@ func (s *Service) GetNativeDeviceCommand(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	nativehttp.WriteJSON(w, requestID, r.URL.Path, http.StatusOK, "", response)
+}
+
+// An expected message is a queue receipt. Its sent state is not a device ACK.
+// Resolve only the durable command explicitly bound to this queue and device;
+// the runtime status endpoint independently scopes the lookup to the caller tenant.
+func resolveExpectedCommandStatus(ctx context.Context, client *communityclient.Client, deviceID string, row communityclient.ExpectedRecord) (string, string) {
+	if row.DeviceID != deviceID || deviceID == "" {
+		return "", ""
+	}
+	if row.Status != "sent" {
+		return mapExpectedStatus(row.Status), ""
+	}
+	if _, err := uuid.Parse(row.MessageID); err != nil {
+		return "", ""
+	}
+	status, err := client.GetCommandStatus(ctx, row.MessageID)
+	if err != nil || status.DeviceID != deviceID || status.ExpectedID != row.ID {
+		return "", ""
+	}
+	reason := ""
+	if status.ErrorMessage != nil {
+		reason = *status.ErrorMessage
+	}
+	return mapRuntimeCommandStatus(status.Status, reason), truncateReason(reason)
 }

@@ -223,7 +223,10 @@ func (*CommandData) GetCommandStatus(ctx context.Context, messageID, tenantID st
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 		}
-		response := &model.CommandStatusResponse{MessageID: row.ID, Status: row.State, CreatedAt: row.CreatedAt}
+		response := &model.CommandStatusResponse{DeviceID: row.DeviceID, MessageID: row.ID, Status: row.State, CreatedAt: row.CreatedAt}
+		if row.Intent == "expected.command" {
+			response.ExpectedID = row.IdempotencyKey
+		}
 		if row.LastError != "" {
 			response.ErrorMessage = &row.LastError
 		}

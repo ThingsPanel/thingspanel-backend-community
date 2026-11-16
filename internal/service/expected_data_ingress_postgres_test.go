@@ -145,6 +145,16 @@ func TestExpectedDataIngressPostgresAdmissionDispatchRetryAndScope(t *testing.T)
 		if err := db.Model(&brokercommands.Row{}).Where("id=? AND tenant_id=? AND caller_id=? AND intent=? AND idempotency_key=?", *current.Message, tenant, caller, "expected."+expected.SendType, expected.ID).Count(&count).Error; err != nil || count != 1 {
 			t.Fatalf("%s durable identity rows=%d err=%v", expected.SendType, count, err)
 		}
+		receipt, err := GroupApp.CommandData.GetCommandStatus(context.Background(), *current.Message, tenant)
+		if err != nil || receipt.DeviceID != deviceID || receipt.MessageID != *current.Message {
+			t.Fatalf("scoped durable receipt identity: %+v %v", receipt, err)
+		}
+		if expected.SendType == "command" && receipt.ExpectedID != expected.ID {
+			t.Fatalf("expected command receipt has wrong queue identity: %+v", receipt)
+		}
+		if expected.SendType != "command" && receipt.ExpectedID != "" {
+			t.Fatalf("noncommand exposed queue command identity: %+v", receipt)
+		}
 		logTable := map[string]string{"command": "command_set_logs", "attribute": "attribute_set_logs", "telemetry": "telemetry_set_logs"}[expected.SendType]
 		if err := db.Table(logTable).Where("id=?", *current.Message).Count(&count).Error; err != nil || count != 1 {
 			t.Fatalf("%s expected-data audit rows=%d err=%v", expected.SendType, count, err)
