@@ -210,6 +210,16 @@ def database_ledger_diagnostics(command=run):
                 row['legacy_versions']=json.loads(query(database,"SELECT coalesce(json_agg(version_number),'[]'::json) FROM public.sys_version"))
             if flags['components']:
                 row['component_digests']=json.loads(query(database,"SELECT coalesce(json_agg(t),'[]'::json) FROM (SELECT module_name,file_name,checksum FROM public.native_component_migration_ledger ORDER BY module_name,file_name) t"))
+            if database == 'ThingsPanel':
+                row['identity_conflicts']=json.loads(query(database,"""SELECT coalesce(json_agg(t),'[]'::json) FROM (
+                    SELECT d.id,d.tenant_id AS device_tenant_id,r.tenant_id AS reservation_tenant_id,
+                    r.state AS reservation_state,r.deleted_at AS reservation_deleted_at,d.is_enabled,d.is_online,
+                    o.native_tenant_id,o.tenant_id AS owner_tenant_id,o.active AS owner_active,o.deleting AS owner_deleting,
+                    o.lifecycle_generation
+                    FROM devices d LEFT JOIN device_id_reservations r ON r.id=d.id
+                    LEFT JOIN native_runtime_registrations o ON o.device_id=d.id
+                    WHERE r.id IS NULL OR r.tenant_id<>d.tenant_id OR r.state<>'active'
+                    ORDER BY d.id LIMIT 20) t"""))
             result.append(row)
     except (ValueError,RuntimeError,OSError):
         result.append({'read_unavailable':True})
@@ -327,6 +337,9 @@ def main():
                                    '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1',
                                    '-U', 'postgres', '-d', databases[0]], query.encode()))
 
+        host['qa_deleted_native_identity'] = sql("""SELECT coalesce(json_agg(t),'[]'::json) FROM (
+            SELECT id,tenant_id,deleted_at FROM devices
+            WHERE id='758f9efd-67d6-4e16-8a36-441d8972135c'::uuid) t""")
         queue = sql("""SELECT COALESCE(json_agg(t),'[]'::json) FROM (
             SELECT o.kind,o.state,count(*) AS count,min(o.created_at) AS oldest
             FROM device_runtime_outbox o JOIN metadata_operations m
