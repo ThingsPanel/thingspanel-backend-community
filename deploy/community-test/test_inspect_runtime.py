@@ -13,6 +13,27 @@ with patch.dict(sys.modules, {'fcntl': fake_fcntl}):
     spec.loader.exec_module(module)
 
 class TransferDiagnosticsTest(unittest.TestCase):
+    def test_historical_inventory_requires_exact_manifest_copy_and_excludes_active(self):
+        import hashlib, json, tarfile, io
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root/'incoming').mkdir()
+            commit = 'b'*40; release=root/'encore-releases'/commit; release.mkdir(parents=True)
+            content=b'fixture'; (release/'image.tar.gz').write_bytes(content)
+            manifest={'commit':commit,'sha256':{'image.tar.gz':hashlib.sha256(content).hexdigest()}}
+            (release/'manifest.json').write_text(json.dumps(manifest))
+            (release/'deployment.json').write_text(json.dumps({'commit':commit,'image':'tp-community-encore:source-'+commit}))
+            package=root/'incoming'/('encore-'+commit+'.tar.gz')
+            with tarfile.open(package,'w:gz') as archive:
+                archive.add(release/'manifest.json',arcname='manifest.json')
+                archive.add(release/'image.tar.gz',arcname='image.tar.gz')
+            rows=module.historical_package_copies(root,set())
+            self.assertEqual(len(rows),1); self.assertTrue(rows[0]['verified_copy'])
+            self.assertEqual(rows[0]['verified_files'],1)
+            self.assertEqual(module.historical_package_copies(root,{commit}),[])
+            (release/'image.tar.gz').write_bytes(b'corrupt')
+            self.assertFalse(module.historical_package_copies(root,set())[0]['verified_copy'])
+            (release/'deployment.json').unlink()
+            self.assertEqual(module.historical_package_copies(root,set()),[])
     def test_only_safe_artifact_metadata_and_process_names(self):
         with tempfile.TemporaryDirectory() as d:
             root = pathlib.Path(d)

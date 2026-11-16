@@ -1,5 +1,6 @@
 """Read-only runtime identity and queue diagnostics; never print credentials."""
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -97,6 +98,63 @@ def approved_cache_sizes(command=run):
     return result
 
 
+def historical_package_copies(root, active_commits):
+    """Read-only approval inventory; does not remove artifacts or print manifests."""
+    rows = []
+    incoming = root / 'incoming'
+    for package in sorted(incoming.glob('*.tar.gz')):
+        match = re.fullmatch(r'(encore|backend)-([0-9a-f]{40})\.tar\.gz', package.name)
+        if not match or match.group(2) in active_commits or package.is_symlink() or package.resolve() != package.absolute():
+            continue
+        kind, commit = match.groups()
+        release = root / (kind + '-releases') / commit
+        marker = release / ('deployment.json' if kind == 'encore' else 'result.json')
+        if not marker.is_file() or marker.is_symlink() or release.is_symlink() or release.resolve() != release.absolute():
+            continue
+        row = {'package': str(package), 'bytes': package.stat().st_size,
+               'release': str(release), 'success_marker': str(marker), 'verified_copy': False}
+        try:
+            completed = json.loads(marker.read_text())
+            if (completed.get('commit') != commit
+                    or (kind == 'backend' and completed.get('status') != 'deployed')
+                    or (kind == 'encore' and completed.get('image') != 'tp-community-encore:source-' + commit)):
+                row['reason'] = 'success_marker_identity_unconfirmed'
+                rows.append(row)
+                continue
+            manifest = json.loads((release / 'manifest.json').read_text())
+            if manifest.get('commit') != commit or not isinstance(manifest.get('sha256'), dict):
+                raise ValueError('manifest identity')
+            with tarfile.open(str(package), 'r:gz') as archive:
+                archived = json.load(archive.extractfile('manifest.json'))
+                members = archive.getmembers()
+                if (any(m.issym() or m.islnk() or not (m.isfile() or m.isdir()) for m in members)
+                        or len({m.name for m in members}) != len(members)
+                        or {m.name for m in members if m.isfile()} != set(manifest['sha256']) | {'manifest.json'}):
+                    raise ValueError('archive member mismatch')
+            if archived != manifest:
+                raise ValueError('archive manifest mismatch')
+            count, total = 0, 0
+            for name, expected in manifest['sha256'].items():
+                path = release / name
+                if (not name or pathlib.PurePosixPath(name).is_absolute() or '..' in pathlib.PurePosixPath(name).parts
+                        or path.is_symlink() or path.resolve() != path.absolute() or not path.is_file()
+                        or not re.fullmatch('[0-9a-f]{64}', expected)):
+                    raise ValueError('unsafe manifest member')
+                digest = hashlib.sha256()
+                with path.open('rb') as stream:
+                    for block in iter(lambda: stream.read(1024 * 1024), b''):
+                        digest.update(block)
+                if digest.hexdigest() != expected:
+                    raise ValueError('release copy mismatch')
+                count += 1
+                total += path.stat().st_size
+            row.update({'verified_copy': True, 'verified_files': count, 'release_content_bytes': total})
+        except (ValueError, OSError, KeyError, TypeError, tarfile.TarError):
+            row['reason'] = 'copy_validation_failed'
+        rows.append(row)
+    return rows
+
+
 def main():
     root = pathlib.Path('/opt/tp-community-main-20261028')
     host = transfer_diagnostics(pathlib.Path('/opt/tp-community-actions/incoming'))
@@ -145,6 +203,8 @@ def main():
                                'compose_files': (info['Config'].get('Labels') or {}).get('com.docker.compose.project.config_files'),
                                'workers': {key: env[key] for key in (
                                    'TP_BACKGROUND_WORKERS', 'TP_RUNTIME_OUTBOX_DISPATCH') if key in env}})
+        active_commits = {image['image'].split('source-')[-1] for image in containers if 'source-' in image['image']}
+        host['historical_package_copies'] = historical_package_copies(pathlib.Path('/opt/tp-community-actions'), active_commits)
         import_requirements = []
         for package in pathlib.Path('/opt/tp-community-actions/incoming').glob('broker-*.tar.gz'):
             try:
