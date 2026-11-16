@@ -14,7 +14,7 @@ permissions:
   contents: read
   actions: read
 env:
-  STORAGE_ARTIFACT_KEY: 677e5b758e4425a325b811c425c026bf35a4bf42f7
+  STORAGE_ARTIFACT_KEY: 677e5b758e4425a325b811c425c026bf35a4bf42
 concurrency:
   group: ${{ inputs.prepare_only && 'community-storage-image-prepare' || 'community-main-coordinated-deploy' }}
   cancel-in-progress: false

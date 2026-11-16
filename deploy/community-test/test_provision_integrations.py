@@ -25,6 +25,15 @@ class IntegrationTests(unittest.TestCase):
     def test_host_python_compatibility(self):
         ast.parse(pathlib.Path(m.__file__).read_text(), feature_version=(3, 6))
 
+    def test_real_workflow_storage_names_match_transfer_contract(self):
+        import artifact_transfer
+        import re
+        workflow = pathlib.Path(__file__).parents[2]/'.github/workflows/provision-community-integrations.yml'
+        key = re.search(r'^  STORAGE_ARTIFACT_KEY: ([0-9a-f]+)$', workflow.read_text(), re.M).group(1)
+        self.assertEqual(key, m.STORAGE_ARTIFACT_KEY)
+        self.assertEqual(len(key), 40)
+        artifact_transfer.validate_files({'storage-'+key+suffix:{'bytes':1024,'sha256':'a'*64} for suffix in ('.tar.gz','.json')})
+
     def test_sso_preserves_other_secrets_and_is_idempotent(self):
         source = 'AUTH_SECRET=existing\nDATABASE_URL=existing\n'
         updated, endpoint = m.sso_env(source)
