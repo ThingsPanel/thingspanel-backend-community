@@ -1,4 +1,5 @@
 import ast
+import hashlib
 import contextlib
 import importlib.util
 import io
@@ -106,7 +107,8 @@ class IntegrationTests(unittest.TestCase):
     def test_persistent_storage_loopback_and_durability(self):
         service = m.storage_compose()['services']['storage']
         self.assertEqual(service['ports'], ['127.0.0.1:3900:3900'])
-        self.assertIn('@sha256:', service['image'])
+        self.assertEqual(service['image'], m.LOCAL_IMAGE)
+        self.assertEqual(service['pull_policy'], 'never')
         self.assertNotIn('tmpfs', service)
         self.assertIn('metadata_fsync = true', m.garage_config(KEYS))
         self.assertIn('data_fsync = true', m.garage_config(KEYS))
@@ -118,6 +120,17 @@ class IntegrationTests(unittest.TestCase):
         self.assertIn('location /thingsvis {proxy_pass http://127.0.0.1:8000;}', updated)
         self.assertEqual(updated.replace(m.MANAGED_LOCATION, ''), source)
         self.assertEqual(m.add_bound_ip_location(updated), updated)
+
+    def test_storage_bundle_requires_pinned_identity_and_content(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            package = pathlib.Path(tmp).resolve()/'image.tar.gz'
+            package.write_bytes(b'archive fixture')
+            manifest = {'image_ref':m.IMAGE,'local_image':m.LOCAL_IMAGE,'image_id':'sha256:'+'a'*64,
+                        'architecture':'amd64','image_bytes':1024,'bytes':package.stat().st_size,
+                        'sha256':hashlib.sha256(package.read_bytes()).hexdigest()}
+            m.validate_storage_bundle(package,manifest)
+            for key, value in (('image_ref','another'),('image_bytes',m.STORAGE_IMAGE_LIMIT+1),('architecture','arm64'),('sha256','b'*64)):
+                with self.assertRaises(RuntimeError):m.validate_storage_bundle(package,dict(manifest,**{key:value}))
 
     def test_failed_restart_restores_all_original_configs_without_data_delete(self):
         with tempfile.TemporaryDirectory() as tmp:

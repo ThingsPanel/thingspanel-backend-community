@@ -4,6 +4,7 @@ No Prisma/schema changes, no existing object data or keys are deleted.
 import argparse
 import copy
 import fcntl
+import hashlib
 import json
 import os
 import pathlib
@@ -20,6 +21,8 @@ ROOT = pathlib.Path('/opt/tp-community-main-20261028')
 LOCK = pathlib.Path('/opt/tp-community-actions/deployment.lock')
 STORE = ROOT / 'fileassets-storage'
 IMAGE = 'dxflrs/garage@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5'
+LOCAL_IMAGE = 'tp-fileassets-garage:verified-677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5'
+STORAGE_ARTIFACT_KEY = '677e5b758e4425a325b811c425c026bf35a4bf42f7'
 PUBLIC_ENDPOINT = 'http://47.92.253.145'
 PLATFORM_ENDPOINT = 'http://127.0.0.1:9999'
 BUCKET = 'template-image-assets'
@@ -294,16 +297,48 @@ api_bind_addr = "0.0.0.0:3900"
 
 def storage_compose():
     return {'name': 'tp-fileassets', 'services': {'storage': {
-        'image': IMAGE, 'restart': 'unless-stopped', 'command': ['/garage', 'server', '--single-node', '--default-bucket'],
+        'image': LOCAL_IMAGE, 'pull_policy': 'never', 'restart': 'unless-stopped', 'command': ['/garage', 'server', '--single-node', '--default-bucket'],
         'ports': ['127.0.0.1:3900:3900'], 'env_file': [str(STORE / 'garage.private.env')],
         'volumes': [str(STORE / 'garage.private.toml') + ':/etc/garage.toml:ro',
                     str(STORE / 'data') + ':/var/lib/garage/data', str(STORE / 'meta') + ':/var/lib/garage/meta'],
         'logging': {'driver': 'json-file', 'options': {'max-size': '5m', 'max-file': '2'}}}}}
 
 
+def validate_storage_bundle(package, manifest):
+    if (manifest.get('image_ref') != IMAGE or manifest.get('local_image') != LOCAL_IMAGE
+            or not re.fullmatch(r'sha256:[0-9a-f]{64}', manifest.get('image_id', ''))
+            or manifest.get('architecture') != 'amd64'
+            or not 0 < manifest.get('image_bytes', 0) <= STORAGE_IMAGE_LIMIT
+            or package.is_symlink() or package.resolve() != package.absolute()
+            or not package.is_file() or package.stat().st_size != manifest.get('bytes')
+            or not 0 < package.stat().st_size <= STORAGE_IMAGE_LIMIT * 2):
+        raise RuntimeError('invalid pinned storage image artifact')
+    digest = hashlib.sha256()
+    with package.open('rb') as stream:
+        for block in iter(lambda: stream.read(1024*1024), b''):
+            digest.update(block)
+    if digest.hexdigest() != manifest.get('sha256'):
+        raise RuntimeError('storage image artifact checksum mismatch')
+
+
+def import_storage_image(commit):
+    if commit != STORAGE_ARTIFACT_KEY:
+        raise RuntimeError('verified storage artifact revision required')
+    incoming = pathlib.Path('/opt/tp-community-actions/incoming')
+    package = checked_path(incoming / ('storage-'+commit+'.tar.gz'))
+    manifest = json.loads(checked_path(incoming / ('storage-'+commit+'.json')).read_text())
+    validate_storage_bundle(package, manifest)
+    run(['docker', 'load', '-i', str(package)])
+    actual = json.loads(run(['docker','image','inspect',LOCAL_IMAGE,'--format','{{json .}}']))
+    if (actual.get('Id') != manifest['image_id'] or actual.get('Architecture') != 'amd64'
+            or actual.get('Size') != manifest['image_bytes']):
+        raise RuntimeError('loaded storage image identity mismatch')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apply', action='store_true')
+    parser.add_argument('--storage-commit')
     args = parser.parse_args()
     os.umask(0o077)
     with LOCK.open('r') as lock:
@@ -352,10 +387,7 @@ def main():
         old_api = process[0].get('pm2_env', {}).get('THINGSPANEL_API_URL', '')
         try:
             if not existing:
-                run(['docker', 'pull', IMAGE])
-                image_size = int(run(['docker', 'image', 'inspect', IMAGE, '--format', '{{.Size}}']).strip())
-                if image_size > STORAGE_IMAGE_LIMIT or image_size <= 0:
-                    raise RuntimeError('pinned storage image exceeds reviewed import budget')
+                import_storage_image(args.storage_commit)
                 if shutil.disk_usage(str(ROOT)).free < STORAGE_HEADROOM + STORAGE_IMAGE_LIMIT:
                     raise RuntimeError('insufficient post-pull storage growth reserve')
                 checked_path(STORE).mkdir(parents=True, mode=0o700, exist_ok=True)
@@ -374,7 +406,7 @@ def main():
                 compose = STORE/'compose.private.json'
                 if not compose.exists(): atomic_write(compose,json.dumps(storage_compose(),indent=2))
                 elif json.loads(compose.read_text())!=storage_compose(): raise RuntimeError('existing storage service differs; preserved')
-                run(['docker','compose','-f',str(compose),'up','-d','--pull','missing'])
+                run(['docker','compose','-f',str(compose),'up','-d','--pull','never'])
                 for attempt in range(20):
                     try:
                         run(['docker','compose','-f',str(compose),'exec','-T','storage','/garage','health'])

@@ -24,6 +24,15 @@ def bundle(entries):
 
 
 class ArtifactTransferTests(unittest.TestCase):
+    def test_storage_artifact_uses_same_exact_member_and_digest_checks(self):
+        name = 'storage-'+'b'*40+'.tar.gz'
+        files = {name: FILES[NAME]}
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            transfer.extract_verified(bundle([(name, DATA)]), files, root)
+            self.assertEqual((root/name).read_bytes(), DATA)
+            with self.assertRaises(ValueError):
+                transfer.extract_verified(bundle([(name,b'bad')]),files,root)
     def test_remote_helper_supports_python36_syntax(self):
         import ast
         source = pathlib.Path(transfer.__file__).read_text(encoding='utf-8-sig')

@@ -8,6 +8,9 @@ on:
         default: false
 permissions:
   contents: read
+  actions: read
+env:
+  STORAGE_ARTIFACT_KEY: 677e5b758e4425a325b811c425c026bf35a4bf42f7
 concurrency:
   group: community-main-coordinated-deploy
   cancel-in-progress: false
@@ -22,17 +25,52 @@ jobs:
       - uses: actions/checkout@v4
       - name: Require main
         run: test "$GITHUB_REF" = refs/heads/main
+      - name: Package pinned private storage image away from test host
+        if: inputs.apply
+        run: |
+          set -euo pipefail
+          image='dxflrs/garage@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5'
+          local_image='tp-fileassets-garage:verified-677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5'
+          docker pull --platform linux/amd64 "$image"
+          docker tag "$image" "$local_image"
+          docker save "$local_image" | gzip -n > "storage-$STORAGE_ARTIFACT_KEY.tar.gz"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,subprocess
+          image='dxflrs/garage@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5'
+          local_image='tp-fileassets-garage:verified-677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5'
+          info=json.loads(subprocess.check_output(['docker','image','inspect',image]))[0]
+          assert info['Architecture']=='amd64' and 0<info['Size']<=32*1024*1024
+          path=pathlib.Path('storage-'+os.environ['STORAGE_ARTIFACT_KEY']+'.tar.gz')
+          manifest={'image_ref':image,'local_image':local_image,'image_id':info['Id'],'architecture':info['Architecture'],'image_bytes':info['Size'],'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+          pathlib.Path('storage-'+os.environ['STORAGE_ARTIFACT_KEY']+'.json').write_text(json.dumps(manifest))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: inputs.apply
+        id: storage
+        with:
+          name: pinned-storage-${{ github.sha }}
+          path: |
+            storage-${{ env.STORAGE_ARTIFACT_KEY }}.tar.gz
+            storage-${{ env.STORAGE_ARTIFACT_KEY }}.json
+          compression-level: 0
+          retention-days: 7
       - name: Provision persistent integrations
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
           APPLY: ${{ inputs.apply }}
+          GH_TOKEN: ${{ github.token }}
+          STORAGE_ARTIFACT_ID: ${{ steps.storage.outputs.artifact-id }}
         run: |
           set -euo pipefail
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/integrations-key"
           args=(-i "$RUNNER_TEMP/integrations-key" -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
           command='python3 -'
-          if [ "$APPLY" = true ]; then command='python3 - --apply'; fi
+          if [ "$APPLY" = true ]; then
+            scp "${args[@]}" deploy/community-test/artifact_transfer.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+            python3 deploy/community-test/artifact_transfer.py --key "$RUNNER_TEMP/integrations-key" --artifact-id "$STORAGE_ARTIFACT_ID" "storage-$STORAGE_ARTIFACT_KEY.tar.gz" "storage-$STORAGE_ARTIFACT_KEY.json"
+            command="python3 - --apply --storage-commit $STORAGE_ARTIFACT_KEY"
+          fi
           ssh "${args[@]}" root@47.92.253.145 "$command" < deploy/community-test/provision_integrations.py
       - name: Remove runner key
         if: always()

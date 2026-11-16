@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-NAME = re.compile(r"(?:encore|backend|broker)-[0-9a-f]{40}\.(?:tar\.gz|json)")
+NAME = re.compile(r"(?:encore|backend|broker|storage)-[0-9a-f]{40}\.(?:tar\.gz|json)")
 INCOMING = pathlib.Path('/opt/tp-community-actions/incoming')
 
 
