@@ -395,6 +395,34 @@ def integration_diagnostics(config, infos):
     return out
 
 
+def integration_installation_diagnostics():
+    root = pathlib.Path('/opt/tp-community-main-20261028')
+    store = root / 'fileassets-storage'
+    out = {'runtime_path': str(root), 'filesystem_device': root.stat().st_dev,
+           'storage_files': {}, 'image_present': False}
+    for name in ('keys.private.json','garage.private.toml','garage.private.env','compose.private.json'):
+        path = store / name
+        out['storage_files'][name] = {'exists': path.is_file(), 'symlink': path.is_symlink()}
+    try:
+        size = run(['docker','image','inspect','dxflrs/garage@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5','--format','{{.Size}}'])
+        out['image_present'] = True
+        out['image_bytes'] = int(size)
+    except (RuntimeError, ValueError, OSError):
+        pass
+    try:
+        mount = json.loads(run(['findmnt','-J','-T',str(root),'-o','TARGET,SOURCE,FSTYPE']))
+        out['filesystem'] = mount.get('filesystems', [])
+    except (RuntimeError, ValueError, OSError):
+        out['filesystem_unavailable'] = True
+    for name, url in (('thingsvis','http://127.0.0.1:8000/api/v1/health'), ('gin','http://127.0.0.1:9999/api/v1/sys_version')):
+        try:
+            with urllib.request.urlopen(url,timeout=5) as response:
+                out[name+'_http_status'] = response.status
+        except OSError:
+            out[name+'_unavailable'] = True
+    return out
+
+
 def main():
     root = pathlib.Path('/opt/tp-community-main-20261028')
     host = transfer_diagnostics(pathlib.Path('/opt/tp-community-actions/incoming'))
@@ -452,6 +480,7 @@ def main():
                                    'TP_BACKGROUND_WORKERS', 'TP_RUNTIME_OUTBOX_DISPATCH') if key in env}})
         host['integrations'] = integration_diagnostics(config, infos)
         host['integrations']['thingsvis_host'] = thingsvis_host_diagnostics()
+        host['integrations']['installation'] = integration_installation_diagnostics()
         file_databases = [name for server in config.get('sql_servers',[]) for name,spec in server.get('databases',{}).items() if spec.get('name') == 'file_storage']
         host['integrations']['fileassets']['databases'] = []
         for database in file_databases:
