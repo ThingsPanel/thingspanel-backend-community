@@ -95,8 +95,13 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(m.prepare_nginx(updated, refreshed)[0], updated)
         hosts[1]['server_name'] = ['47.92.253.145']
         with self.assertRaises(RuntimeError): m.prepare_nginx(source, hosts)
-        hosts[1]['listen'] = ['8081']
-        self.assertIn('server_name c.thingspanel.cn 47.92.253.145;', m.prepare_nginx(source, hosts)[0])
+        for port in ('8081', '8085', '443 ssl'):
+            hosts[1]['listen'] = [port]
+            self.assertIn('server_name c.thingspanel.cn 47.92.253.145;', m.prepare_nginx(source, hosts)[0])
+            self.assertIsNone(m.existing_ip_route(hosts))
+        hosts[1]['listen'] = ['80']
+        with patch.object(m, 'checked_path', lambda p: p):
+            self.assertEqual(m.existing_ip_route(hosts).as_posix(), '/etc/nginx/conf.d/thingsvis.conf')
 
     def test_persistent_storage_loopback_and_durability(self):
         service = m.storage_compose()['services']['storage']
