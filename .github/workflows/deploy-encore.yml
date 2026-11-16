@@ -2,6 +2,9 @@ name: Community Encore test deploy
 on:
   workflow_call:
     inputs:
+      backend_artifact_id:
+        type: string
+        default: ""
       deploy_backend:
         type: boolean
         default: false
@@ -16,13 +19,14 @@ on:
         default: false
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: ${{ inputs.deploy_runtime && 'community-main-encore-deploy' || format('community-encore-checks-{0}', github.ref) }}
   cancel-in-progress: ${{ !inputs.deploy_runtime }}
 jobs:
   deploy:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 150
     env:
       GOMAXPROCS: '2'
       GOFLAGS: '-p=2'
@@ -80,7 +84,7 @@ jobs:
           TEST_BROKER_DATABASE_DSN: host=127.0.0.1 port=25543 user=notification_test password=fixture-only-password dbname=notification_test sslmode=disable
         run: |
           go test -count=1 ./internal/brokercommands
-          go test -count=1 ./internal/service -run '^TestExpectedDataIngressPostgresAdmissionDispatchRetryAndScope$'
+          go test -count=1 ./internal/service -run '^(TestExpectedDataIngressPostgresAdmissionDispatchRetryAndScope|TestNativeRuntimeLifecycleOwnershipReplayAndLeaseFence)$'
       - name: Verify offline conversion transaction against native schema
         working-directory: encore-api
         env:
@@ -102,6 +106,7 @@ jobs:
         run: |
           python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py
           python3 -m unittest discover -s deploy/community-test -p test_encore_artifacts.py
+          python3 -m unittest discover -s deploy/community-test -p test_artifact_transfer.py
           python3 -m unittest discover -s deploy/community-test -p test_encore_image.py
           python3 -m unittest discover -s deploy/community-test -p test_notification_identity.py
           python3 -m unittest discover -s deploy/community-test -p test_broker_upgrade.py
@@ -138,6 +143,7 @@ jobs:
               for path in root.iterdir(): archive.add(str(path),arcname=path.name)
           PY
       - name: Preserve deployable native bundle
+        id: native_artifact
         uses: actions/upload-artifact@v4
         with:
           name: native-candidate-${{ github.sha }}
@@ -165,6 +171,17 @@ jobs:
           checksum=digest.hexdigest()
           pathlib.Path('broker-'+sha+'.json').write_text(json.dumps({'commit':sha,'image_id':image['Id'],'sha256':checksum}))
           PY
+      - name: Preserve coordinated broker bundle
+        if: inputs.deploy_runtime && inputs.deploy_backend
+        id: broker_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: broker-candidate-${{ github.sha }}
+          path: |
+            broker-${{ github.sha }}.tar.gz
+            broker-${{ github.sha }}.json
+          compression-level: 0
+          retention-days: 3
       - name: Configure authenticated SSH
         if: inputs.deploy_runtime
         env:
@@ -175,12 +192,29 @@ jobs:
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-deploy-key"
           ssh -i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'install -d -m 700 /opt/tp-community-actions/incoming'
+      - name: Transfer verified bundles over artifact HTTPS
+        if: inputs.deploy_runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NATIVE_ARTIFACT_ID: ${{ steps.native_artifact.outputs.artifact-id }}
+          BACKEND_ARTIFACT_ID: ${{ inputs.backend_artifact_id }}
+          BROKER_ARTIFACT_ID: ${{ steps.broker_artifact.outputs.artifact-id }}
+          INCLUDE_BACKEND: ${{ inputs.deploy_backend }}
+        run: |
+          set -euo pipefail
+          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          scp "${args[@]}" deploy/community-test/artifact_transfer.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          python3 deploy/community-test/artifact_transfer.py --key "$RUNNER_TEMP/community-deploy-key" --artifact-id "$NATIVE_ARTIFACT_ID" "encore-$GITHUB_SHA.tar.gz"
+          if [ "$INCLUDE_BACKEND" = true ]; then
+            python3 deploy/community-test/artifact_transfer.py --key "$RUNNER_TEMP/community-deploy-key" --artifact-id "$BROKER_ARTIFACT_ID" "broker-$GITHUB_SHA.tar.gz" "broker-$GITHUB_SHA.json"
+            python3 deploy/community-test/artifact_transfer.py --key "$RUNNER_TEMP/community-deploy-key" --artifact-id "$BACKEND_ARTIFACT_ID" "backend-$GITHUB_SHA.tar.gz"
+          fi
       - name: Check coordinated runtime before replacing any service
         if: inputs.deploy_runtime
         run: |
           set -euo pipefail
           args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
-          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/rollout_preflight.py deploy/community-test/provision_native_runtime.py deploy/community-test/upgrade_platform_config.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          scp "${args[@]}" deploy/community-test/rollout_preflight.py deploy/community-test/provision_native_runtime.py deploy/community-test/upgrade_platform_config.py root@47.92.253.145:/opt/tp-community-actions/incoming/
           scp "${args[@]}" deploy/community-test/upgrade_acceptance.py root@47.92.253.145:/opt/tp-community-actions/incoming/
           ssh "${args[@]}" root@47.92.253.145 "if test -f /opt/tp-community-actions/rollout-mode.private.json; then python3 /opt/tp-community-actions/incoming/provision_native_runtime.py '$GITHUB_SHA'; fi"
           ssh "${args[@]}" root@47.92.253.145 'python3 /opt/tp-community-actions/incoming/rollout_preflight.py'
@@ -189,7 +223,7 @@ jobs:
         run: |
           set -euo pipefail
           args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
-          scp "${args[@]}" "broker-$GITHUB_SHA.tar.gz" "broker-$GITHUB_SHA.json" "backend-$GITHUB_SHA.tar.gz" deploy/community-test/broker_upgrade.py deploy/community-test/deploy_backend.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          scp "${args[@]}" deploy/community-test/broker_upgrade.py deploy/community-test/deploy_backend.py deploy/community-test/notification_identity.py root@47.92.253.145:/opt/tp-community-actions/incoming/
           ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_backend.py '$GITHUB_SHA'"
       - name: Upload source and deploy native services
         if: inputs.deploy_runtime

@@ -61,6 +61,42 @@ func TestNativeRuntimeLifecycleOwnershipReplayAndLeaseFence(t *testing.T) {
 	if err := db.Exec(`INSERT INTO native_runtime_credential_leases(connection_id,device_id,tenant_id,broker_cell,broker_instance,voucher_sha256,expires_at) VALUES (?,?,?,?,?,?,?)`, "old", reg.DeviceID, "tenant-a", "cell", "broker", owner.VoucherSHA256, time.Now().Add(time.Hour)).Error; err != nil {
 		t.Fatal(err)
 	}
+	disable := NativeRuntimeLifecycle{DeviceID: reg.DeviceID, EventID: uuid.NewString(), Generation: 3, Kind: "administrative_state", State: "disabled"}
+	if err := ApplyNativeRuntimeLifecycle(ctx, db, nativeTenantIdentity("other"), "dep", disable); !errors.Is(err, ErrNativeRegistrationConflict) {
+		t.Fatalf("foreign disable: %v", err)
+	}
+	if err := ApplyNativeRuntimeLifecycle(ctx, db, tenant, "dep", disable); err == nil {
+		t.Fatal("disable succeeded with active broker lease")
+	}
+	var stopped model.Device
+	if err := db.First(&stopped, "id=?", reg.DeviceID).Error; err != nil || stopped.IsEnabled != "disabled" || stopped.Voucher != reg.Voucher {
+		t.Fatalf("disable projection/credential: %v", err)
+	}
+	enable := NativeRuntimeLifecycle{DeviceID: reg.DeviceID, EventID: uuid.NewString(), Generation: 4, Kind: "administrative_state", State: "enabled"}
+	if err := ApplyNativeRuntimeLifecycle(ctx, db, tenant, "dep", enable); err == nil {
+		t.Fatalf("enable overtook pending disable: %v", err)
+	}
+	if err := db.Exec("UPDATE native_runtime_credential_leases SET revoked_ack_at=now() WHERE connection_id='old'").Error; err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := ApplyNativeRuntimeLifecycle(ctx, db, tenant, "dep", disable); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := ApplyNativeRuntimeLifecycle(ctx, db, tenant, "dep", enable); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyNativeRuntimeLifecycle(ctx, db, tenant, "dep", disable); err != nil {
+		t.Fatal(err)
+	} // Historic replay cannot disable the new generation.
+	if err := db.First(&stopped, "id=?", reg.DeviceID).Error; err != nil || stopped.IsEnabled != "enabled" || stopped.Voucher != reg.Voucher {
+		t.Fatalf("enable/replay changed credential or state: %v", err)
+	}
+	op.Generation = enable.Generation
+	if err := db.Exec("UPDATE native_runtime_credential_leases SET revoked_ack_at=NULL WHERE connection_id='old'").Error; err != nil {
+		t.Fatal(err)
+	}
 	// Native deletion carries the current resource version (not version+1).
 	del := NativeRuntimeLifecycle{DeviceID: reg.DeviceID, EventID: uuid.NewString(), Generation: op.Generation, Kind: "device_deletion"}
 	staleDelete := del

@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"encore.app/pkg/dbx"
 	"errors"
+	"github.com/google/uuid"
 	"net/http"
+	"os"
 
 	"encore.app/internal/nativehttp"
 	"encore.dev"
@@ -80,32 +82,29 @@ func setNativeDeviceAdministrativeState(
 		if currentETag != ifMatch {
 			return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.FailedPrecondition, Message: "administrative state has changed; read it again before updating"}
 		}
+		var pending bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM metadata_operations WHERE tenant_id=$1 AND resource_id=$2 AND kind='administrative_state' AND state IN ('pending','running'))`, identity.tenantID, deviceID).Scan(&pending); err != nil {
+			return metadataWriteResponse{}, metadataWriteAudit{}, err
+		}
+		if pending {
+			return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.Aborted, Message: "administrative state is still being applied"}
+		}
 		digest := operationRequestDigest(command.Method, path, ifMatch, canonical)
 		before := current.ResourceVersion
-		if current.AdministrativeState == input.State {
-			// Repeating the current desired state must not emit another runtime
-			// event; the operation is terminal because nothing is left to apply.
-			operationID, err := createCompletedDeviceOperationTx(ctx, tx, identity.tenantID, identity.subjectID,
-				operationKindAdministrativeState, deviceID, command.Operation, requestID, digest)
-			if err != nil {
-				return metadataWriteResponse{}, metadataWriteAudit{}, err
-			}
-			operation, err := loadNativeOperationEncoreTx(ctx, tx, identity.tenantID, operationID)
-			if err != nil {
-				return metadataWriteResponse{}, metadataWriteAudit{}, err
-			}
-			response, err := operationAcceptedResponse(operation, operationID, requestID, currentETag)
-			if err != nil {
-				return metadataWriteResponse{}, metadataWriteAudit{}, err
-			}
-			changes, _ := json.Marshal(map[string]any{"administrativeState": input.State, "changed": false})
-			return response, metadataWriteAudit{
-				ResourceKind: "device", ResourceID: deviceID, BeforeVersion: &before, AfterVersion: &before,
-				RedactedChanges: changes,
-			}, nil
-		}
 		if err := requireNativeRuntimeManagementTx(ctx, tx, identity.tenantID, deviceID, "administrative state"); err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
+		}
+		deployment := os.Getenv("TP_SOURCE_DEPLOYMENT_ID")
+		if deployment == "" {
+			return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.Unavailable, Message: "runtime deployment identity unavailable"}
+		}
+		provider := uuid.NewSHA1(uuid.NameSpaceOID, []byte("thingspanel/community/runtime/"+deployment)).String()
+		var owned bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM device_access_bindings WHERE tenant_id=$1 AND device_id=$2 AND runtime_provider_id=$3 AND runtime_namespace='community' AND runtime_external_id=$2)`, identity.tenantID, deviceID, provider).Scan(&owned); err != nil {
+			return metadataWriteResponse{}, metadataWriteAudit{}, err
+		}
+		if !owned || current.ActivationState != "active" {
+			return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.FailedPrecondition, Message: "activate the device runtime before changing administrative state"}
 		}
 		if before >= 9007199254740991 {
 			return metadataWriteResponse{}, metadataWriteAudit{}, &errs.Error{Code: errs.FailedPrecondition, Message: "device version is exhausted"}

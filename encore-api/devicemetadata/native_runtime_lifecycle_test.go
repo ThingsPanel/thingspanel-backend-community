@@ -3,6 +3,8 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"encore.app/internal/communityclient"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,16 +12,24 @@ import (
 )
 
 func TestNativeLifecycleRequiresExactOwnerReceipt(t *testing.T) {
-	item := runtimeOutboxItem{EventID: "event", DeviceID: "device", TenantID: "tenant", Generation: 3, Kind: operationKindDeviceRenumber}
-	for _, mode := range []string{"ok", "wrong-event", "wrong-device", "wrong-generation", "denied", "redirect"} {
+	item := runtimeOutboxItem{EventID: "event", DeviceID: "device", TenantID: "tenant", Generation: 3, Kind: operationKindAdministrativeState, Desired: []byte(`{"state":"disabled"}`)}
+	for _, mode := range []string{"ok", "wrong-event", "wrong-device", "wrong-generation", "denied", "conflict", "busy", "redirect"} {
 		t.Run(mode, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path != "/internal/automation/runtime-devices/lifecycle" || r.Method != "POST" || r.Header.Get("Authorization") != "Bearer "+strings.Repeat("x", 32) || r.Header.Get("X-Automation-Tenant") != "tenant" || r.Header.Get("X-Automation-Deployment") != "dep" {
 					t.Error("missing owner identity")
 				}
 				var body map[string]any
-				if json.NewDecoder(r.Body).Decode(&body) != nil || body["deviceNumber"] != "new" {
+				if json.NewDecoder(r.Body).Decode(&body) != nil || body["deviceNumber"] != "new" || body["state"] != "disabled" || body["kind"] != operationKindAdministrativeState {
 					t.Error("wrong payload")
+				}
+				if mode == "conflict" {
+					w.WriteHeader(409)
+					return
+				}
+				if mode == "busy" {
+					w.WriteHeader(503)
+					return
 				}
 				if mode == "denied" {
 					w.WriteHeader(403)
@@ -47,6 +57,12 @@ func TestNativeLifecycleRequiresExactOwnerReceipt(t *testing.T) {
 			t.Setenv("TP_AUTOMATION_SERVICE_TOKEN", strings.Repeat("x", 32))
 			t.Setenv("TP_SOURCE_DEPLOYMENT_ID", "dep")
 			err := applyNativeRuntimeLifecycle(context.Background(), item, "new")
+			if (mode == "conflict" || mode == "denied") && !errors.Is(err, communityclient.ErrRejected) {
+				t.Fatalf("permanent rejection not classified: %v", err)
+			}
+			if mode == "busy" && errors.Is(err, communityclient.ErrRejected) {
+				t.Fatal("transient busy rejected permanently")
+			}
 			if (err == nil) != (mode == "ok") {
 				t.Fatalf("receipt mode %s err=%v", mode, err)
 			}

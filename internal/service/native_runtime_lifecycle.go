@@ -21,6 +21,7 @@ type NativeRuntimeLifecycle struct {
 	Generation   int64  `json:"generation"`
 	Kind         string `json:"kind"`
 	DeviceNumber string `json:"deviceNumber"`
+	State        string `json:"state,omitempty"`
 }
 type nativeLifecycleEvent struct {
 	EventID       string `gorm:"primaryKey"`
@@ -37,15 +38,19 @@ func (nativeLifecycleEvent) TableName() string { return "native_runtime_lifecycl
 // old broker leases are acknowledged or expire. The identity tombstone remains.
 func ApplyNativeRuntimeLifecycle(ctx context.Context, db *gorm.DB, tenant, deployment string, in NativeRuntimeLifecycle) error {
 	validID := func(s string) bool { u, e := uuid.Parse(s); return e == nil && u != uuid.Nil && u.String() == s }
-	if !validID(in.EventID) || !validID(in.DeviceID) || !validID(tenant) || deployment == "" || in.Generation < 1 || (in.Kind != "device_renumber" && in.Kind != "device_deletion") {
+	if !validID(in.EventID) || !validID(in.DeviceID) || !validID(tenant) || deployment == "" || in.Generation < 1 || (in.Kind != "device_renumber" && in.Kind != "device_deletion" && in.Kind != "administrative_state") {
 		return ErrNativeRegistrationInvalid
 	}
 	if in.Kind == "device_renumber" && (in.DeviceNumber == "" || len(in.DeviceNumber) > 36 || strings.TrimSpace(in.DeviceNumber) != in.DeviceNumber) {
 		return ErrNativeRegistrationInvalid
 	}
+	if in.Kind == "administrative_state" && in.State != "enabled" && in.State != "disabled" {
+		return ErrNativeRegistrationInvalid
+	}
 	raw, _ := json.Marshal(in)
 	sum := sha256.Sum256(raw)
 	digest := hex.EncodeToString(sum[:])
+	alreadyApplied := false
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 72311031))", in.DeviceID).Error; err != nil {
 			return err
@@ -63,10 +68,18 @@ func ApplyNativeRuntimeLifecycle(ctx context.Context, db *gorm.DB, tenant, deplo
 			if event.DeviceID != in.DeviceID || event.RequestSHA256 != digest {
 				return ErrNativeRegistrationConflict
 			}
+			alreadyApplied = event.Applied
 			return nil
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
+		}
+		var pending int64
+		if err := tx.Model(&nativeLifecycleEvent{}).Where("device_id=? AND applied=false", in.DeviceID).Count(&pending).Error; err != nil {
+			return err
+		}
+		if pending > 0 {
+			return errors.New("previous runtime lifecycle still pending")
 		}
 		// Renumber advances resource_version; deletion intentionally uses the
 		// current version without incrementing it. Equal-version deletion must
@@ -76,6 +89,14 @@ func ApplyNativeRuntimeLifecycle(ctx context.Context, db *gorm.DB, tenant, deplo
 		}
 		if in.Kind == "device_renumber" {
 			r := tx.Model(&model.Device{}).Where("id=? AND tenant_id=?", in.DeviceID, owner.TenantID).Update("device_number", in.DeviceNumber)
+			if r.Error != nil {
+				return r.Error
+			}
+			if r.RowsAffected != 1 {
+				return ErrNativeRegistrationConflict
+			}
+		} else if in.Kind == "administrative_state" {
+			r := tx.Model(&model.Device{}).Where("id=? AND tenant_id=?", in.DeviceID, owner.TenantID).Update("is_enabled", in.State)
 			if r.Error != nil {
 				return r.Error
 			}
@@ -99,10 +120,25 @@ func ApplyNativeRuntimeLifecycle(ctx context.Context, db *gorm.DB, tenant, deplo
 		if err := tx.Model(&owner).Update("lifecycle_generation", in.Generation).Error; err != nil {
 			return err
 		}
-		return tx.Create(&nativeLifecycleEvent{EventID: in.EventID, DeviceID: in.DeviceID, RequestSHA256: digest, Generation: in.Generation, Applied: in.Kind == "device_renumber"}).Error
+		return tx.Create(&nativeLifecycleEvent{EventID: in.EventID, DeviceID: in.DeviceID, RequestSHA256: digest, Generation: in.Generation, Applied: in.Kind == "device_renumber" || (in.Kind == "administrative_state" && in.State == "enabled")}).Error
 	})
-	if err != nil || in.Kind != "device_deletion" {
+	if err != nil || alreadyApplied || (in.Kind != "device_deletion" && !(in.Kind == "administrative_state" && in.State == "disabled")) {
 		return err
+	}
+	if in.Kind == "administrative_state" {
+		return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 72311031))", in.DeviceID).Error; err != nil {
+				return err
+			}
+			var pending int64
+			if err := tx.Table("native_runtime_credential_leases").Where("device_id=? AND revoked_ack_at IS NULL AND expires_at>now()", in.DeviceID).Count(&pending).Error; err != nil {
+				return err
+			}
+			if pending > 0 {
+				return errors.New("disabled device broker leases still active")
+			}
+			return tx.Model(&nativeLifecycleEvent{}).Where("event_id=? AND request_sha256=?", in.EventID, digest).Update("applied", true).Error
+		})
 	}
 	if err := ConfirmNativeCredentialRevocation(ctx, db, in.DeviceID); err != nil {
 		return err

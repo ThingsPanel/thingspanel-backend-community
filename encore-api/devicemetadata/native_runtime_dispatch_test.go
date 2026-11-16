@@ -72,12 +72,12 @@ func TestDispatchRuntimeOutboxRecordsOnlyWhatTheApplierReports(t *testing.T) {
 	applied := enqueue(operationKindDeviceRenumber)
 	rejected := enqueue(operationKindDeviceDeletion)
 	unavailable := enqueue(operationKindGatewayBinding)
-	skipped := enqueue(operationKindAdministrativeState)
+	skipped := enqueue(operationKindTemplateBinding)
 	applier := &scriptedApplier{byKind: map[string]runtimeApplyOutcome{
-		operationKindDeviceRenumber:      {Applied: true},
-		operationKindDeviceDeletion:      {FailureCode: "RUNTIME_REJECTED"},
-		operationKindGatewayBinding:      {FailureCode: "RUNTIME_UNAVAILABLE", Retryable: true},
-		operationKindAdministrativeState: {Skip: true},
+		operationKindDeviceRenumber:  {Applied: true},
+		operationKindDeviceDeletion:  {FailureCode: "RUNTIME_REJECTED"},
+		operationKindGatewayBinding:  {FailureCode: "RUNTIME_UNAVAILABLE", Retryable: true},
+		operationKindTemplateBinding: {Skip: true},
 	}}
 
 	summary, err := dispatchRuntimeOutbox(ctx, applier, 50)
@@ -145,7 +145,7 @@ func TestDispatchRuntimeOutboxSaturatedPrefix(t *testing.T) {
 			for i := 0; i < 51; i++ {
 				kind := operationKindGatewayBinding
 				if unsupported {
-					kind = operationKindAdministrativeState
+					kind = operationKindTemplateBinding
 				}
 				if i == 50 {
 					kind = operationKindDeviceRenumber
@@ -170,9 +170,9 @@ func TestDispatchRuntimeOutboxSaturatedPrefix(t *testing.T) {
 				t.Fatal(err)
 			}
 			applier := &scriptedApplier{byKind: map[string]runtimeApplyOutcome{
-				operationKindAdministrativeState: {Skip: true},
-				operationKindGatewayBinding:      {FailureCode: "RUNTIME_UNAVAILABLE", Retryable: true},
-				operationKindDeviceRenumber:      {Applied: true},
+				operationKindTemplateBinding: {Skip: true},
+				operationKindGatewayBinding:  {FailureCode: "RUNTIME_UNAVAILABLE", Retryable: true},
+				operationKindDeviceRenumber:  {Applied: true},
 			}}
 			first, err := dispatchRuntimeOutbox(ctx, applier, 50)
 			if err != nil {
@@ -183,7 +183,7 @@ func TestDispatchRuntimeOutboxSaturatedPrefix(t *testing.T) {
 					t.Fatalf("unsupported prefix consumed batch: %+v seen=%v", first, applier.seen)
 				}
 				var pending int
-				if err := db.QueryRow(ctx, `SELECT count(*) FROM device_runtime_outbox WHERE tenant_id=$1 AND kind=$2 AND state='pending' AND attempts=0`, tenantID, operationKindAdministrativeState).Scan(&pending); err != nil {
+				if err := db.QueryRow(ctx, `SELECT count(*) FROM device_runtime_outbox WHERE tenant_id=$1 AND kind=$2 AND state='pending' AND attempts=0`, tenantID, operationKindTemplateBinding).Scan(&pending); err != nil {
 					t.Fatal(err)
 				}
 				if pending != 50 {

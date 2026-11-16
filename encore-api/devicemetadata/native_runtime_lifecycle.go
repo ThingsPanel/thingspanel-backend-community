@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encore.app/internal/communityclient"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,7 +21,11 @@ func applyNativeRuntimeLifecycle(ctx context.Context, item runtimeOutboxItem, nu
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || len(token) < 32 || deployment == "" {
 		return fmt.Errorf("runtime owner identity unavailable")
 	}
-	payload, _ := json.Marshal(map[string]any{"eventId": item.EventID, "deviceId": item.DeviceID, "generation": item.Generation, "kind": item.Kind, "deviceNumber": number})
+	var desired struct {
+		State string `json:"state"`
+	}
+	_ = json.Unmarshal(item.Desired, &desired)
+	payload, _ := json.Marshal(map[string]any{"state": desired.State, "eventId": item.EventID, "deviceId": item.DeviceID, "generation": item.Generation, "kind": item.Kind, "deviceNumber": number})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint+"/internal/automation/runtime-devices/lifecycle", bytes.NewReader(payload))
 	if err != nil {
 		return err
@@ -35,6 +40,9 @@ func applyNativeRuntimeLifecycle(ctx context.Context, item runtimeOutboxItem, nu
 		return fmt.Errorf("runtime owner unavailable")
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusConflict || resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusForbidden {
+		return communityclient.ErrRejected
+	}
 	var result struct {
 		Code int `json:"code"`
 		Data struct {

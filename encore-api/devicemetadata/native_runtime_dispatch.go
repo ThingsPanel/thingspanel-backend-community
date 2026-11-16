@@ -28,9 +28,8 @@ import (
 // credential_change -> POST /api/v1/device/update/voucher (rotation and revocation
 //                       both replace the device's voucher; see native_runtime_credential.go)
 //
-// administrative_state and template_binding are not applied: the community edition
-// neither stops devices nor changes their template after creation, so those rows
-// stay pending instead of being reported as applied.
+// administrative_state applies through the existing runtime owner and waits for
+// active broker leases to be revoked. template_binding remains unsupported.
 
 const runtimeDispatchEnv = "TP_RUNTIME_OUTBOX_DISPATCH"
 
@@ -38,7 +37,7 @@ const runtimeDispatchEnv = "TP_RUNTIME_OUTBOX_DISPATCH"
 // remain pending, but must not consume the bounded worker batch.
 var runtimeDispatchKinds = [...]string{
 	operationKindDeviceRenumber, operationKindDeviceDeletion,
-	operationKindGatewayBinding, operationKindCredentialChange,
+	operationKindGatewayBinding, operationKindCredentialChange, operationKindAdministrativeState,
 }
 
 func supportsRuntimeDispatch(kind string) bool {
@@ -84,9 +83,9 @@ func dispatchRuntimeOutbox(ctx context.Context, applier runtimeApplier, limit in
 		FROM device_runtime_outbox o
 		JOIN metadata_operations m ON m.tenant_id=o.tenant_id AND m.id=o.operation_id
 		WHERE o.state IN ('pending','failed') AND m.state='pending'
-		AND o.kind IN ($2,$3,$4,$5)
+		AND o.kind IN ($2,$3,$4,$5,$6)
 		ORDER BY o.updated_at,o.created_at,o.id LIMIT $1`, limit,
-		runtimeDispatchKinds[0], runtimeDispatchKinds[1], runtimeDispatchKinds[2], runtimeDispatchKinds[3])
+		runtimeDispatchKinds[0], runtimeDispatchKinds[1], runtimeDispatchKinds[2], runtimeDispatchKinds[3], runtimeDispatchKinds[4])
 	if err != nil {
 		return summary, wrapDBErr(err, "list runtime outbox failed")
 	}
@@ -179,13 +178,19 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 		}
 		return runtimeApplyOutcome{FailureCode: "RUNTIME_IDENTITY_UNKNOWN", Retryable: true}
 	}
-	if item.Kind == operationKindDeviceRenumber || item.Kind == operationKindDeviceDeletion {
+	if item.Kind == operationKindDeviceRenumber || item.Kind == operationKindDeviceDeletion || item.Kind == operationKindAdministrativeState {
 		owned, ownershipErr := isOwnedNativeRuntime(ctx, item.TenantID, item.DeviceID)
 		if ownershipErr != nil {
 			return runtimeApplyOutcome{FailureCode: "RUNTIME_OWNERSHIP_UNAVAILABLE", Retryable: true}
 		}
+		if !owned && item.Kind == operationKindAdministrativeState {
+			return runtimeApplyOutcome{FailureCode: "RUNTIME_NOT_OWNED"}
+		}
 		if owned {
 			if err := applyNativeRuntimeLifecycle(ctx, item, str("deviceNumber")); err != nil {
+				if errors.Is(err, communityclient.ErrRejected) {
+					return runtimeApplyOutcome{FailureCode: "RUNTIME_LIFECYCLE_REJECTED"}
+				}
 				return runtimeApplyOutcome{FailureCode: "RUNTIME_LIFECYCLE_UNCONFIRMED", Retryable: true}
 			}
 			return runtimeApplyOutcome{Applied: true}

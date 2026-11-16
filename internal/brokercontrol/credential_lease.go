@@ -64,7 +64,7 @@ func (r *GormRepository) RecordCredentialLease(ctx context.Context, req bc.AuthR
 		}{req.Username, password})
 		// Compare JSON semantically; username/password vouchers may have different key order.
 		var current string
-		if err := tx.Table("devices").Select("voucher").Where("id=? AND tenant_id=? AND broker_safe_voucher_v1(voucher)=?::jsonb", grant.Principal.DeviceID, grant.Principal.TenantID, string(raw)).Scan(&current).Error; err != nil {
+		if err := tx.Table("devices").Select("voucher").Where("id=? AND tenant_id=? AND is_enabled='enabled' AND broker_safe_voucher_v1(voucher)=?::jsonb", grant.Principal.DeviceID, grant.Principal.TenantID, string(raw)).Scan(&current).Error; err != nil {
 			return err
 		}
 		sum := sha256.Sum256([]byte(current))

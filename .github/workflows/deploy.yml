@@ -15,6 +15,7 @@ on:
         default: false
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_test && 'community-main-coordinated-deploy' || format('community-main-checks-{0}', github.ref) }}
   cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.deploy_to_test) }}
@@ -23,6 +24,8 @@ jobs:
     if: ${{ !inputs.build_device_safety }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    outputs:
+      artifact_id: ${{ steps.backend_artifact.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -72,6 +75,7 @@ jobs:
           PY
           tar -czf "backend-$GITHUB_SHA.tar.gz" -C candidate ThingsPanel-Go manifest.json sql static configs
       - name: Preserve verified backend bundle
+        id: backend_artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-candidate-${{ github.sha }}
@@ -83,6 +87,7 @@ jobs:
     uses: ./.github/workflows/deploy-encore.yml
     with:
       deploy_backend: true
+      backend_artifact_id: ${{ needs.build_backend.outputs.artifact_id }}
       deploy_runtime: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_test }}
     secrets: inherit
 
