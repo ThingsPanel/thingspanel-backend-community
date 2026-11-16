@@ -80,7 +80,7 @@ jobs:
           TEST_BROKER_DATABASE_DSN: host=127.0.0.1 port=25543 user=notification_test password=fixture-only-password dbname=notification_test sslmode=disable
         run: |
           go test -count=1 ./internal/brokercommands
-          go test -count=1 ./internal/service -run '^(TestExpectedDataIngressPostgresAdmissionDispatchRetryAndScope|TestNativeRuntimeLifecycleOwnershipReplayAndLeaseFence)$'
+          go test -count=1 ./internal/service -run '^(TestExpectedDataIngressPostgresAdmissionDispatchRetryAndScope|TestNativeRuntimeLifecycleOwnershipReplayAndLeaseFence|TestNativeDeletionRetainsRestartSafeIdentity)$'
       - name: Compile and test native services
         working-directory: encore-api
         run: |

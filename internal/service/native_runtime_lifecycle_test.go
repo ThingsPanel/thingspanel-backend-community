@@ -4,10 +4,16 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	"net/url"
 	"os"
 	"path/filepath"
+	"project/initialize"
 	"project/internal/dal"
 	"project/internal/model"
+	"strings"
 	"testing"
 	"time"
 )
@@ -197,7 +203,151 @@ func TestNativeRuntimeLifecycleOwnershipReplayAndLeaseFence(t *testing.T) {
 	}
 	var reservation dal.DeviceIDReservation
 	db.First(&reservation, "id=?", reg.DeviceID)
-	if reservation.State != "tombstoned" {
-		t.Fatal("identity not reserved")
+	if reservation.State != "active" || reservation.DeletedAt != nil {
+		t.Fatal("retained runtime row lost its active identity reservation")
+	}
+}
+
+// Use a private database, since startup verifies the actual public schema.
+func TestNativeDeletionRetainsRestartSafeIdentity(t *testing.T) {
+	dsn := os.Getenv("TEST_BROKER_DATABASE_DSN")
+	if dsn == "" {
+		t.Skip("set TEST_BROKER_DATABASE_DSN to an isolated PostgreSQL test database")
+	}
+	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Discard})
+	if err != nil {
+		t.Fatal("open test PostgreSQL")
+	}
+	adminSQL, _ := admin.DB()
+	t.Cleanup(func() { adminSQL.Close() })
+	name := "qa_native_delete_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	if err := admin.Exec("CREATE DATABASE " + name).Error; err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := admin.Exec("DROP DATABASE " + name).Error; err != nil {
+			t.Error(err)
+		}
+	})
+	privateDSN := dsn
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		u, e := url.Parse(dsn)
+		if e != nil {
+			t.Fatal(e)
+		}
+		u.Path = "/" + name
+		q := u.Query()
+		q.Set("search_path", "public")
+		u.RawQuery = q.Encode()
+		privateDSN = u.String()
+	} else {
+		privateDSN += " dbname=" + name + " search_path=public"
+	}
+	db, err := gorm.Open(postgres.Open(privateDSN), &gorm.Config{Logger: logger.Discard})
+	if err != nil {
+		t.Fatal("open private database")
+	}
+	pool, _ := db.DB()
+	t.Cleanup(func() { pool.Close() })
+	if err := db.AutoMigrate(&model.Device{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := initialize.ApplyDeviceIdentitySchema(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("CREATE TABLE users(tenant_id text); INSERT INTO users VALUES ('tenant-a')").Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"018_native_runtime_registrations.sql", "019_native_runtime_credential_lifecycle.sql", "020_native_credential_leases.sql", "021_native_runtime_lifecycle.sql"} {
+		raw, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Exec(string(raw)).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx := context.Background()
+	tenant := nativeTenantIdentity("tenant-a")
+	reg := NativeRuntimeRegistration{DeviceID: uuid.NewString(), CredentialID: uuid.NewString(), EventID: uuid.NewString(), Change: "activation", DeviceNumber: "restart-probe", Voucher: `{"username":"restart-probe"}`}
+	if err := RegisterNativeRuntime(ctx, db, tenant, "dep", reg); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("CREATE TABLE retained_history(device_id varchar(36) REFERENCES devices(id) ON DELETE RESTRICT,value int)").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("INSERT INTO retained_history VALUES (?,42)", reg.DeviceID).Error; err != nil {
+		t.Fatal(err)
+	}
+	var owner nativeRuntimeRegistration
+	db.First(&owner, "device_id=?", reg.DeviceID)
+	if err := db.Exec(`INSERT INTO native_runtime_credential_leases(connection_id,device_id,tenant_id,broker_cell,broker_instance,voucher_sha256,expires_at) VALUES ('restart-lease',?,'tenant-a','cell','broker',?,now()+interval '1 hour')`, reg.DeviceID, owner.VoucherSHA256).Error; err != nil {
+		t.Fatal(err)
+	}
+	deletion := NativeRuntimeLifecycle{DeviceID: reg.DeviceID, EventID: uuid.NewString(), Generation: 1, Kind: "device_deletion"}
+	if err := ApplyNativeRuntimeLifecycle(ctx, db, tenant, "dep", deletion); err == nil {
+		t.Fatal("active lease did not fence delete")
+	}
+	if err := db.Exec("UPDATE native_runtime_credential_leases SET revoked_ack_at=now()").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyNativeRuntimeLifecycle(ctx, db, tenant, "dep", deletion); err != nil {
+		t.Fatal(err)
+	}
+	// Check the product result before any test-only mutation.
+	var retained dal.DeviceIDReservation
+	if err := db.First(&retained, "id=?", reg.DeviceID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if retained.State != "active" || retained.DeletedAt != nil {
+		t.Fatal("native deletion corrupted retained-row identity")
+	}
+	if err := initialize.ApplyDeviceIdentitySchema(db); err != nil {
+		t.Fatalf("unmodified deletion result prevents startup: %v", err)
+	}
+	// Reproduce the old corruption and prove startup still rejects it.
+	if err := db.Exec("UPDATE device_id_reservations SET state='tombstoned',deleted_at=now() WHERE id=?", reg.DeviceID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := initialize.ApplyDeviceIdentitySchema(db); err == nil {
+		t.Fatal("startup accepted retained row with tombstoned identity")
+	}
+	if err := db.Exec("UPDATE device_id_reservations SET state='active',deleted_at=NULL WHERE id=?", reg.DeviceID).Error; err != nil {
+		t.Fatal(err)
+	}
+	// Exact application startup schema verification, including ledger and trigger.
+	for i := 0; i < 2; i++ {
+		if err := initialize.ApplyDeviceIdentitySchema(db); err != nil {
+			t.Fatalf("restart after native deletion: %v", err)
+		}
+	}
+	var device model.Device
+	db.First(&device, "id=?", reg.DeviceID)
+	if device.IsEnabled != "disabled" || device.Voucher == reg.Voucher {
+		t.Fatal("old credential or device still enabled")
+	}
+	db.First(&owner, "device_id=?", reg.DeviceID)
+	if owner.Active || !owner.Deleting {
+		t.Fatal("deleted owner retained access")
+	}
+	if _, err := ConfirmNativeRuntimeActivation(ctx, db, tenant, "dep", reg); err == nil {
+		t.Fatal("deleted identity activation confirmed")
+	}
+	for _, scope := range []string{tenant, nativeTenantIdentity("other")} {
+		reused := reg
+		reused.EventID, reused.CredentialID = uuid.NewString(), uuid.NewString()
+		if err := RegisterNativeRuntime(ctx, db, scope, "dep", reused); err == nil {
+			t.Fatal("deleted identity was reused")
+		}
+	}
+	var count int64
+	db.Table("retained_history").Where("device_id=? AND value=42", reg.DeviceID).Count(&count)
+	if count != 1 {
+		t.Fatal("history lost")
+	}
+	var reservation dal.DeviceIDReservation
+	db.First(&reservation, "id=?", reg.DeviceID)
+	if reservation.State != "active" || reservation.DeletedAt != nil {
+		t.Fatal("physical row identity inconsistent")
 	}
 }

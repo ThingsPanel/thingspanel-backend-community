@@ -12,7 +12,6 @@ import (
 	"project/internal/dal"
 	"project/internal/model"
 	"strings"
-	"time"
 )
 
 type NativeRuntimeLifecycle struct {
@@ -162,8 +161,13 @@ func ApplyNativeRuntimeLifecycle(ctx context.Context, db *gorm.DB, tenant, deplo
 		// telemetry/command history or fail on event/OTA foreign keys. The native
 		// owner hides the device only after this receipt, while broker access is
 		// already revoked and registration cannot reactivate a deleting identity.
-		if err := tx.Model(&dal.DeviceIDReservation{}).Where("id=? AND tenant_id=?", in.DeviceID, owner.TenantID).Updates(map[string]any{"state": "tombstoned", "deleted_at": time.Now().UTC()}).Error; err != nil {
-			return err
+		// Reservation state describes physical row ownership, not device access.
+		// The retained row still requires an active reservation at startup. Its
+		// deleting owner and disabled runtime fence access and prevent recreation.
+		// Only a transaction physically deleting the row may tombstone its ID.
+		var reservation dal.DeviceIDReservation
+		if err := tx.Where("id=? AND tenant_id=? AND state='active' AND deleted_at IS NULL", in.DeviceID, owner.TenantID).Take(&reservation).Error; err != nil {
+			return dal.ErrDeviceIdentityState
 		}
 		return tx.Model(&event).Update("applied", true).Error
 	})
