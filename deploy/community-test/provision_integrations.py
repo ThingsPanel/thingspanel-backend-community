@@ -139,7 +139,8 @@ def prepare_nginx(source, hosts):
     if len(matches) != 1:
         raise RuntimeError('loaded community virtual host is ambiguous')
     selected = matches[0]
-    owners = [h for h in hosts if any('47.92.253.145' in n.split() for n in h['server_name'])]
+    owners = [h for h in hosts if any('47.92.253.145' in n.split() for n in h['server_name']) and
+              any(re.search(r'^(?:80|0\.0\.0\.0:80|\*:80)(?: |$)', value) for value in h['listen'])]
     if any(h is not selected for h in owners):
         raise RuntimeError('IPv4 hostname already belongs to another virtual host')
     if not any(re.search(r'^(?:80|0\.0\.0\.0:80|\*:80)(?: |$)', value) for value in selected['listen']):
