@@ -358,6 +358,27 @@ def safe_service_url(value):
         return {'configured': bool(value), 'safe_url': False}
 
 
+def thingsvis_host_diagnostics():
+    out = []
+    try:
+        nginx = run(['nginx','-T'])
+        for block in re.findall(r'location[^{}]*thingsvis[^{}]*\{([^{}]*)\}', nginx):
+            for address in re.findall(r'proxy_pass\s+([^;\s]+)', block):
+                p = urllib.parse.urlsplit(address)
+                if p.hostname not in ('localhost','127.0.0.1') or p.scheme not in ('http','https') or p.username or p.password:
+                    continue
+                port = p.port or (443 if p.scheme == 'https' else 80)
+                sockets = run(['ss','-H','-lntp','sport = :' + str(port)])
+                pids = sorted(set(re.findall(r'pid=([0-9]+)',sockets)))
+                for pid in pids:
+                    env = pathlib.Path('/proc/' + pid + '/environ').read_bytes().split(b'\x00')
+                    value = next((entry.split(b'=',1)[1].decode() for entry in env if entry.startswith(b'THINGSPANEL_API_URL=')), '')
+                    out.append({'upstream':safe_service_url(address),'pid':int(pid),'platform_api':safe_service_url(value)})
+    except (RuntimeError,OSError,ValueError,UnicodeError):
+        return {'available':False,'processes':out}
+    return {'available':True,'processes':out}
+
+
 def integration_diagnostics(config, infos):
     out = {'thingsvis': [], 'fileassets': {'keyring_present': False, 'providers': []}}
     for item in infos:
@@ -430,6 +451,7 @@ def main():
                                'workers': {key: env[key] for key in (
                                    'TP_BACKGROUND_WORKERS', 'TP_RUNTIME_OUTBOX_DISPATCH') if key in env}})
         host['integrations'] = integration_diagnostics(config, infos)
+        host['integrations']['thingsvis_host'] = thingsvis_host_diagnostics()
         file_databases = [name for server in config.get('sql_servers',[]) for name,spec in server.get('databases',{}).items() if spec.get('name') == 'file_storage']
         host['integrations']['fileassets']['databases'] = []
         for database in file_databases:
