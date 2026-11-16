@@ -28,9 +28,12 @@ STORAGE_HEADROOM = 384 * 1024 * 1024
 NGINX = pathlib.Path('/etc/nginx/conf.d/community.conf')
 MARKER = '# thingspanel-managed-private-fileassets'
 SSO_ENV_PATHS = (pathlib.Path('/opt/thingsvis/server/apps/server/.env'), pathlib.Path('/opt/thingsvis/server/.env'))
+LAST_COMMAND = 'preflight'
 
 
 def run(args, env=None):
+    global LAST_COMMAND
+    LAST_COMMAND = ' '.join(args[:2])
     p = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, timeout=120)
     if p.returncode:
         raise RuntimeError('command failed: ' + args[0])
@@ -399,7 +402,10 @@ def main():
             memory = next(int(line.split()[1])*1024 for line in pathlib.Path('/proc/meminfo').read_text().splitlines() if line.startswith('MemAvailable:'))
             print(json.dumps({'applied':True,'secrets_printed':False,'existing_data_preserved':True,
                               'disk_free_bytes':shutil.disk_usage(str(ROOT)).free, 'memory_available_bytes':memory}))
-        except Exception:
+        except Exception as failure:
+            print(json.dumps({'integration_failure': {'command': LAST_COMMAND,
+                              'type': type(failure).__name__,
+                              'timeout': isinstance(failure, subprocess.TimeoutExpired)}}), flush=True)
             errors = restore_configurations(originals) + restore_services(old_api)
             # Never remove persistent storage, keys or objects on rollback.
             if errors:
