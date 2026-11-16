@@ -74,6 +74,7 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 
 		// 设备在线状态查询
 		deviceapi.GET("online/status/:id", api.Controllers.DeviceApi.HandleDeviceOnlineStatus)
+		deviceapi.GET("connection/topics/:id", api.Controllers.DeviceApi.ConnectionTopics)
 		deviceapi.GET("status/evidence/:id", api.Controllers.DeviceApi.BrokerStatusEvidence)
 		deviceapi.POST("status/evidence/batch", api.Controllers.DeviceApi.BrokerStatusEvidenceBatch)
 		deviceapi.GET("semantic/evidence/:id", api.Controllers.DeviceApi.BrokerSemanticEvidence)

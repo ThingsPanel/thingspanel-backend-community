@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"encore.app/internal/communityclient"
 	"encore.app/internal/nativehttp"
 	"encore.dev"
 	"encore.dev/beta/errs"
@@ -21,13 +22,14 @@ import (
 const connectionInfoEndpointEnv = "TP_DEVICE_CONNECTION_ENDPOINT"
 
 type NativeConnectionInfo struct {
-	ImportedAccess   *NativeImportedAccess `json:"importedAccess,omitempty"`
-	DeviceID         string                `json:"deviceId"`
-	Protocol         string                `json:"protocol"`
-	Endpoint         *string               `json:"endpoint"`
-	ClientIdentifier *string               `json:"clientIdentifier"`
-	GatewayID        *string               `json:"gatewayId"`
-	ObservedAt       *string               `json:"observedAt"`
+	MQTTTopics       *communityclient.ConnectionTopics `json:"mqttTopics,omitempty"`
+	ImportedAccess   *NativeImportedAccess             `json:"importedAccess,omitempty"`
+	DeviceID         string                            `json:"deviceId"`
+	Protocol         string                            `json:"protocol"`
+	Endpoint         *string                           `json:"endpoint"`
+	ClientIdentifier *string                           `json:"clientIdentifier"`
+	GatewayID        *string                           `json:"gatewayId"`
+	ObservedAt       *string                           `json:"observedAt"`
 }
 
 type NativeConnectionInfoResponse struct {
@@ -106,6 +108,18 @@ func readNativeConnectionInfo(ctx context.Context, identity nativeDeviceReadIden
 	if endpoint := strings.TrimSpace(os.Getenv(connectionInfoEndpointEnv)); endpoint != "" && len(endpoint) <= 1024 {
 		info.Endpoint = &endpoint
 	}
+	if strings.EqualFold(protocol, "mqtt") && device.DeviceKind == "standalone" && device.GatewayID == nil {
+		reason := "owner_unavailable"
+		info.MQTTTopics = &communityclient.ConnectionTopics{Reason: &reason, Items: []communityclient.ConnectionTopic{}}
+		if runtimeID, e := resolveRuntimeDeviceID(device.RuntimeRef, deviceID); e == nil {
+			if topics, e := nativeRuntimeClient().GetConnectionTopics(ctx, runtimeID); e == nil {
+				info.MQTTTopics = topics
+			}
+		}
+	} else {
+		reason := "unsupported_access"
+		info.MQTTTopics = &communityclient.ConnectionTopics{Reason: &reason, Items: []communityclient.ConnectionTopic{}}
+	}
 	return &NativeConnectionInfoResponse{Data: info, Meta: RequestMeta{RequestID: requestID}}, nil
 }
 
@@ -126,7 +140,7 @@ func (s *Service) GetNativeDeviceConnectionInfo(w http.ResponseWriter, r *http.R
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return
 	}
-	response, err := readNativeConnectionInfo(r.Context(), identity, deviceID, requestID)
+	response, err := readNativeConnectionInfo(nativeRuntimeReadContext(r), identity, deviceID, requestID)
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return

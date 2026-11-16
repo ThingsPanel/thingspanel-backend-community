@@ -8043,10 +8043,37 @@ components:
       - appliedTemplateId
       - appliedModelBinding
       description: runtime 提供观察值；元数据只提供期望 generation。pending/failed 配置更新期间拒绝不确定的控制，不能误当成功。
+    ConnectionTopics:
+      type: object
+      additionalProperties: false
+      required: [available, reason, mappingVersion, items]
+      properties:
+        available:
+          type: boolean
+        reason:
+          type: [string, 'null']
+        mappingVersion:
+          type: [string, 'null']
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [purpose, direction, topic]
+            properties:
+              purpose:
+                type: string
+              direction:
+                type: string
+                enum: [publish, subscribe]
+              topic:
+                type: string
     ConnectionInfo:
       type: object
       additionalProperties: false
       properties:
+        mqttTopics:
+          $ref: '#/components/schemas/ConnectionTopics'
         importedAccess:
           $ref: '#/components/schemas/ImportedDeviceAccess'
         deviceId:
