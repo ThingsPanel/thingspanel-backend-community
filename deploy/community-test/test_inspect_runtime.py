@@ -13,6 +13,21 @@ with patch.dict(sys.modules, {'fcntl': fake_fcntl}):
     spec.loader.exec_module(module)
 
 class TransferDiagnosticsTest(unittest.TestCase):
+    def test_backend_diagnostics_do_not_emit_environment_or_log_content(self):
+        import json, urllib.error
+        with tempfile.TemporaryDirectory() as directory:
+            log=pathlib.Path(directory)/'error.log';log.write_text('secret-password panic: SQLSTATE 42703')
+            def command(args):
+                if args[-1]=='jlist':
+                    return json.dumps([{'name':'thingspanel-backend-community','pid':3,'pm2_env':{'status':'errored','env':{'TOKEN':'secret-token'},'args':['--password','secret-password'],'pm_err_log_path':str(log)}}])
+                if args[0]=='ss':return 'LISTEN 0 50 127.0.0.1:9999 0.0.0.0:*'
+                if args[0]=='nginx':return 'location /api/ {proxy_pass http://127.0.0.1:9999; # secret-token}'
+                raise AssertionError(args)
+            with patch.object(module.urllib.request,'urlopen',side_effect=OSError()):
+                result=module.backend_process_diagnostics(command)
+            self.assertEqual(result['processes'][0]['recent_log_categories'],['SQLSTATE_42703','panic'])
+            self.assertNotIn('secret',str(result));self.assertNotIn('TOKEN',str(result))
+            self.assertEqual(result['listeners'],['127.0.0.1:9999'])
     def test_historical_inventory_requires_exact_manifest_copy_and_excludes_active(self):
         import hashlib, json, tarfile, io
         with tempfile.TemporaryDirectory() as directory:

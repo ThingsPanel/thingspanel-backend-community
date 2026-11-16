@@ -11,6 +11,7 @@ import subprocess
 import tarfile
 import urllib.parse
 import urllib.request
+import urllib.error
 
 
 def broker_preflight(infos):
@@ -158,6 +159,80 @@ def historical_package_copies(root, active_commits):
     return rows
 
 
+def backend_process_diagnostics(command=run):
+    result = {'processes': [], 'local_http': [], 'listeners': []}
+    try:
+        processes = json.loads(command(['/root/.local/share/pnpm/pm2', 'jlist']))
+        for process in processes:
+            if process.get('name') != 'thingspanel-backend-community':
+                continue
+            env = process.get('pm2_env', {})
+            row = {key: env.get(key) for key in ('status', 'restart_time', 'unstable_restarts', 'exit_code', 'pm_exec_path', 'pm_cwd', 'exec_interpreter', 'pm_uptime', 'created_at')}
+            row['pid'] = process.get('pid')
+            args = env.get('args', [])
+            row['args_count'] = len(args) if isinstance(args, list) else None
+            row['config_argument'] = None
+            if isinstance(args, list):
+                for i, arg in enumerate(args[:-1]):
+                    if arg in ('-config', '--config') and re.fullmatch(r'[/a-zA-Z0-9_.-]+', str(args[i+1])):
+                        row['config_argument'] = args[i+1]
+            categories = set()
+            for key in ('pm_err_log_path', 'pm_out_log_path'):
+                path = pathlib.Path(env.get(key, '/nonexistent'))
+                if not path.is_file() or path.is_symlink():
+                    continue
+                with path.open('rb') as stream:
+                    stream.seek(max(0, path.stat().st_size - 65536))
+                    tail = stream.read(65536).decode(errors='replace').lower()
+                for category, pattern in [('panic', 'panic:'), ('permission_denied', 'permission denied'),
+                        ('address_in_use', 'address already in use'), ('connection_refused', 'connection refused'),
+                        ('config_error', 'config'), ('database_error', 'database'), ('migration_error', 'migration'),
+                        ('syntax_error', 'syntax error'), ('missing_file', 'no such file'), ('fatal', 'fatal')]:
+                    if pattern in tail:
+                        categories.add(category)
+                for code in re.findall(r'sqlstate[ :]+([0-9a-z]{5})', tail):
+                    categories.add('SQLSTATE_' + code.upper())
+            row['recent_log_categories'] = sorted(categories)
+            result['processes'].append(row)
+    except (ValueError, OSError, RuntimeError):
+        result['pm2_unavailable'] = True
+    for path in ('/health', '/api/v1/sys_version'):
+        row = {'path': path}
+        try:
+            with urllib.request.urlopen('http://127.0.0.1:9999' + path, timeout=5) as response:
+                row['status'] = response.status
+                if path.endswith('sys_version'):
+                    version = json.load(response).get('data', {}).get('version')
+                    row['version'] = version if isinstance(version, str) and re.fullmatch('dev-[0-9a-f]{40}', version) else 'unrecognized'
+        except urllib.error.HTTPError as error:
+            row['status'] = error.code
+        except (ValueError, OSError) as error:
+            row['unavailable'] = True
+            reason = str(getattr(error, 'reason', error)).lower()
+            row['failure_kind'] = 'connection_refused' if 'refused' in reason else ('timeout' if 'timed out' in reason else type(error).__name__)
+        result['local_http'].append(row)
+    try:
+        for line in command(['ss', '-H', '-lnt']).splitlines():
+            columns = line.split()
+            if len(columns) >= 4 and columns[3].rsplit(':', 1)[-1] in ('80', '9999', '14000'):
+                result['listeners'].append(columns[3])
+    except (RuntimeError, OSError):
+        result['listeners_unavailable'] = True
+    try:
+        nginx = command(['nginx', '-T'])
+        locations = sorted(set(re.findall(r'location\s+(?:[=~^]+\s+)?(/(?:api|automation-core|v1)[a-zA-Z0-9_/.-]*)', nginx)))
+        upstreams = []
+        for value in re.findall(r'proxy_pass\s+([^;\s]+)', nginx):
+            parsed = urllib.parse.urlsplit(value)
+            if parsed.scheme in ('http', 'https') and parsed.hostname in ('127.0.0.1', 'localhost') and not parsed.username:
+                upstreams.append({'host': parsed.hostname, 'port': parsed.port})
+        result['nginx_api_locations'] = locations
+        result['nginx_local_upstreams'] = upstreams
+    except (RuntimeError, OSError, ValueError):
+        result['nginx_unavailable'] = True
+    return result
+
+
 def main():
     root = pathlib.Path('/opt/tp-community-main-20261028')
     host = transfer_diagnostics(pathlib.Path('/opt/tp-community-actions/incoming'))
@@ -170,6 +245,7 @@ def main():
                               'database_checks_skipped': True, 'host': host,
                               'disk_free_bytes': shutil.disk_usage(str(root)).free}))
             return
+        host['backend_process'] = backend_process_diagnostics()
         config = json.loads((root / 'runtime.encore.private.json').read_text())
         databases = [name for server in config['sql_servers']
                      for name, spec in server['databases'].items()
