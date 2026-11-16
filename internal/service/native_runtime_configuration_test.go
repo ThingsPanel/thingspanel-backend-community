@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	bc "project/internal/brokercontract"
 	"project/internal/brokercontrol"
+	"project/internal/brokerstate"
 	"project/internal/dal"
 	"project/internal/model"
 	"project/internal/processor"
@@ -20,7 +21,7 @@ import (
 )
 
 func configurationFixture(generation int64, topic string) *NativeRuntimeConfiguration {
-	value := map[string]any{"model": map[string]any{"modelId": "11111111-1111-4111-8111-111111111111", "snapshotId": "22222222-2222-4222-8222-222222222222", "publishedRevision": 3}, "deviceKind": "standalone", "access": map[string]any{"mode": "direct", "protocol": "mqtt", "connectionDirection": "device_to_platform"}, "topicMappings": []any{map[string]any{"name": "temperature", "direction": "up", "sourceTopic": topic, "targetTopic": "devices/telemetry", "priority": 100, "enabled": true}}, "processingScripts": []any{map[string]any{"name": "temperature transform", "phase": "telemetry_up", "language": "lua", "entrypoint": "encodeInp", "content": "function encodeInp(msg, topic) local json=require('json');local d=json.decode(msg);d.temperature=d.temperature+1;return json.encode(d) end", "enabled": true}}}
+	value := map[string]any{"model": map[string]any{"modelId": "11111111-1111-4111-8111-111111111111", "snapshotId": "22222222-2222-4222-8222-222222222222", "publishedRevision": 3}, "deviceKind": "standalone", "access": map[string]any{"mode": "direct", "protocol": "mqtt", "connectionDirection": "device_to_platform", "parameters": map[string]any{}, "credentialPolicy": map[string]any{"kind": "none", "autoRegister": false}, "onlinePolicy": map[string]any{"mode": "transport", "timeoutSeconds": 60}}, "topicMappings": []any{map[string]any{"name": "temperature", "direction": "up", "sourceTopic": topic, "targetTopic": "devices/telemetry", "priority": 100, "enabled": true}}, "processingScripts": []any{map[string]any{"name": "temperature transform", "phase": "telemetry_up", "language": "lua", "entrypoint": "encodeInp", "content": "function encodeInp(msg, topic) local json=require('json');local d=json.decode(msg);d.temperature=d.temperature+1;return json.encode(d) end", "enabled": true}}}
 	raw, _ := json.Marshal(value)
 	sum := sha256.Sum256(raw)
 	return &NativeRuntimeConfiguration{Generation: generation, Digest: hex.EncodeToString(sum[:]), Configuration: raw}
@@ -30,7 +31,7 @@ func TestNativeRuntimeConfigurationValidation(t *testing.T) {
 	if _, err := validateNativeRuntimeConfiguration(good); err != nil {
 		t.Fatal(err)
 	}
-	for _, mode := range []string{"digest", "trailing", "foreign", "gateway", "unknown", "mapping"} {
+	for _, mode := range []string{"digest", "trailing", "foreign", "gateway", "unknown", "mapping", "auto-register", "credential-policy", "transport-timeout", "parameters"} {
 		t.Run(mode, func(t *testing.T) {
 			in := *good
 			var value map[string]any
@@ -46,6 +47,14 @@ func TestNativeRuntimeConfigurationValidation(t *testing.T) {
 				value["deviceKind"] = "gateway"
 			case "unknown":
 				value["access"].(map[string]any)["protocol"] = "unknown"
+			case "auto-register":
+				value["access"].(map[string]any)["credentialPolicy"].(map[string]any)["autoRegister"] = true
+			case "credential-policy":
+				value["access"].(map[string]any)["credentialPolicy"].(map[string]any)["kind"] = "token"
+			case "transport-timeout":
+				value["access"].(map[string]any)["onlinePolicy"].(map[string]any)["timeoutSeconds"] = 61
+			case "parameters":
+				value["access"].(map[string]any)["parameters"] = map[string]any{"interval": 5}
 			case "mapping":
 				value["topicMappings"].([]any)[0].(map[string]any)["targetTopic"] = "$SYS/private"
 			}
@@ -268,5 +277,53 @@ func TestNativeRuntimeConfigurationPostgresProjectionAndLeaseFence(t *testing.T)
 	db.First(&final, "id=?", in.DeviceID)
 	if *final.DeviceConfigID != *after.DeviceConfigID {
 		t.Fatal("credential replay rolled configuration back")
+	}
+	activityMigration, err := os.ReadFile(filepath.Join("..", "..", "sql", "broker", "010_telemetry_activity.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = db.Exec(string(activityMigration)).Error; err != nil {
+		t.Fatal(err)
+	}
+	receipt := uuid.NewString()
+	if err := db.Exec("INSERT INTO broker_ingress_receipts(id,tenant_id,device_id,stream,broker_cell,route_epoch) VALUES(?,'tenant-a',?,'telemetry_sample','community',1)", receipt, in.DeviceID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("INSERT INTO broker_transport_bindings(tenant_id,device_id,broker_cell,route_epoch,phase) VALUES('tenant-a',?,'community',1,'active')", in.DeviceID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("INSERT INTO broker_telemetry_activity(tenant_id,device_id,transport_device_id,broker_cell,route_epoch,receipt_id,observed_at) VALUES('tenant-a',?,?,'community',1,?,now())", in.DeviceID, in.DeviceID, receipt).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("UPDATE native_runtime_credential_leases SET expires_at=now()-interval '1 second'").Error; err != nil {
+		t.Fatal(err)
+	}
+	for i, mode := range []string{"heartbeat", "activity"} {
+		cfg := configurationFixture(int64(3+i), "qa/current")
+		var document map[string]any
+		_ = json.Unmarshal(cfg.Configuration, &document)
+		document["access"].(map[string]any)["onlinePolicy"] = map[string]any{"mode": mode, "timeoutSeconds": 2}
+		cfg.Configuration, _ = json.Marshal(document)
+		sum := sha256.Sum256(cfg.Configuration)
+		cfg.Digest = hex.EncodeToString(sum[:])
+		event := NativeRuntimeLifecycle{DeviceID: in.DeviceID, EventID: uuid.NewString(), Kind: "template_binding", Generation: cfg.Generation, RuntimeConfiguration: cfg}
+		if err := ApplyNativeRuntimeLifecycle(ctx, db, tenant, "dep", event); err != nil {
+			t.Fatal(err)
+		}
+		for _, expired := range []bool{false, true} {
+			age := "0 seconds"
+			want := "online"
+			if expired {
+				age = "3 seconds"
+				want = "offline"
+			}
+			if err := db.Exec("UPDATE broker_telemetry_activity SET observed_at=now()-?::interval WHERE device_id=?", age, in.DeviceID).Error; err != nil {
+				t.Fatal(err)
+			}
+			evidence, err := brokerstate.New(db).InspectCurrent(ctx, "tenant-a", in.DeviceID)
+			if err != nil || evidence.Status != want {
+				t.Fatalf("%s seconds policy applied=%v evidence=%+v error=%v", mode, expired, evidence, err)
+			}
+		}
 	}
 }

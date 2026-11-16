@@ -11,7 +11,7 @@ import (
 	"encore.dev/beta/errs"
 )
 
-const builtInMQTTAccess = `{"mode":"direct","protocol":"mqtt","providerId":null,"parameters":{},"credentialPolicy":{"kind":"none","autoRegister":false},"onlinePolicy":{"mode":"transport","timeoutSeconds":30},"connectionDirection":"device_to_platform","serviceInstanceId":null}`
+const builtInMQTTAccess = `{"mode":"direct","protocol":"mqtt","providerId":null,"parameters":{},"credentialPolicy":{"kind":"none","autoRegister":false},"onlinePolicy":{"mode":"transport","timeoutSeconds":60},"connectionDirection":"device_to_platform","serviceInstanceId":null}`
 
 const nativeAccessTenant = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
@@ -32,8 +32,8 @@ func TestValidateNativeDeviceConfigurationRequiresEmptyParametersWithoutSchema(t
 		t.Fatal("device parameters without a provider schema accepted")
 	}
 	access := strings.Replace(builtInMQTTAccess, `"parameters":{}`, `"parameters":{"interval":30}`, 1)
-	if err := validateNativeDeviceConfiguration(context.Background(), nativeAccessTenant, "standalone", json.RawMessage(access), json.RawMessage(`{}`)); err != nil {
-		t.Fatalf("ordinary access parameters rejected by local shape validation: %v", err)
+	if err := validateNativeDeviceConfiguration(context.Background(), nativeAccessTenant, "standalone", json.RawMessage(access), json.RawMessage(`{}`)); err == nil {
+		t.Fatal("unconsumed MQTT parameters accepted")
 	}
 	secretAccess := strings.Replace(builtInMQTTAccess, `"parameters":{}`, `"parameters":{"password":"sentinel"}`, 1)
 	if err := validateNativeDeviceConfiguration(context.Background(), nativeAccessTenant, "standalone", json.RawMessage(secretAccess), json.RawMessage(`{}`)); err == nil || strings.Contains(err.Error(), "sentinel") {

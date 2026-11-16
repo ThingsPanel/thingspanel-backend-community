@@ -3,6 +3,7 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"encore.app/devicemetadata/accessconfig"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -110,7 +111,7 @@ func TestRuntimeConfigurationFreezeAndTemplatePropagation(t *testing.T) {
 	if _, err := freezeRuntimeConfigurationTx(ctx, tx, testTenantID(), device.ID); err == nil {
 		t.Fatal("cross tenant resolved")
 	}
-	if _, err = tx.Exec(ctx, `UPDATE device_access_templates SET configuration=jsonb_set(configuration,'{access,onlinePolicy,timeoutSeconds}','90'::jsonb) WHERE tenant_id=$1 AND id=$2`, tenant, template.ID); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE device_access_templates SET configuration=jsonb_set(configuration,'{access,onlinePolicy}','{"mode":"activity","timeoutSeconds":90}'::jsonb) WHERE tenant_id=$1 AND id=$2`, tenant, template.ID); err != nil {
 		t.Fatal(err)
 	}
 	if needed, err := runtimeConfigurationNeedsSyncTx(ctx, tx, tenant, device.ID); err != nil || !needed {
@@ -172,5 +173,40 @@ func assertFrozenRuntimeModelMatchesDevice(t *testing.T, ctx context.Context, te
 	}
 	if config.Model == nil || device.ModelBinding == nil || config.Model.ModelID != device.ModelBinding.ModelID || config.Model.SnapshotID != device.ModelBinding.SnapshotID || config.Model.PublishedRevision != device.ModelBinding.PublishedRevision {
 		t.Fatalf("frozen model disagrees with device: %+v %+v", config.Model, device.ModelBinding)
+	}
+}
+
+func TestRuntimeConfigurationUnsupportedPoliciesRejectedBeforeSave(t *testing.T) {
+	for _, change := range []string{`"autoRegister":true`, `"kind":"x509"`, `"kind":"token"`, `"timeoutSeconds":61`, `"parameters":{"unconsumed":1}`} {
+		raw := nativeTemplateMQTTConfiguration
+		switch {
+		case strings.Contains(change, "autoRegister"):
+			raw = strings.Replace(raw, `"autoRegister":false`, change, 1)
+		case strings.Contains(change, "kind"):
+			raw = strings.Replace(raw, `"kind":"none"`, change, 1)
+		case strings.Contains(change, "timeoutSeconds"):
+			raw = strings.Replace(raw, `"timeoutSeconds":60`, change, 1)
+		default:
+			raw = strings.Replace(raw, `"parameters":{}`, change, 1)
+		}
+		cfg, err := accessconfig.DecodeConfiguration([]byte(raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := validateNativeTemplateConfigurationTx(context.Background(), nil, nativeAccessTenant, cfg, func(context.Context, string, string, json.RawMessage, json.RawMessage) error {
+			t.Fatal("unsupported policy reached external check")
+			return nil
+		}); err == nil {
+			t.Fatalf("unsupported template save accepted: %s", change)
+		}
+	}
+	for _, mode := range []string{"transport", "heartbeat", "activity"} {
+		cfg, err := accessconfig.DecodeConfiguration([]byte(strings.Replace(nativeTemplateMQTTConfiguration, `"mode":"transport"`, `"mode":"`+mode+`"`, 1)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := validateNativeMQTTRuntimeCapabilities("standalone", cfg.Access); err != nil {
+			t.Fatalf("supported %s: %v", mode, err)
+		}
 	}
 }

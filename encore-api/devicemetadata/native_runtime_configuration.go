@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 
+	"encore.app/devicemetadata/accessconfig"
 	"encore.app/pkg/dbx"
 )
 
@@ -82,6 +83,13 @@ func freezeRuntimeConfigurationTx(ctx context.Context, tx dbx.Tx, tenantID, devi
 	}
 	if access.Mode != "direct" || access.Protocol != "mqtt" {
 		return nil, nil
+	}
+	var accessPolicy accessconfig.AccessConfiguration
+	if err := json.Unmarshal(document["access"], &accessPolicy); err != nil {
+		return nil, err
+	}
+	if err := validateNativeMQTTRuntimeCapabilities(kind, accessPolicy); err != nil {
+		return nil, err
 	}
 	document["deviceKind"] = json.RawMessage(`"standalone"`)
 	if selection := document["model"]; len(selection) > 0 && string(selection) != "null" {
@@ -213,6 +221,27 @@ func enqueueTemplateRuntimeConfigurationsTx(ctx context.Context, tx dbx.Tx, tena
 		if err = enqueueDeviceRuntimeTx(ctx, tx, tenantID, id, operation, operationKindTemplateBinding, snapshot.Generation+1, map[string]any{"deviceId": id, "templateId": templateID, "configurationGeneration": snapshot.Generation + 1}); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// Runtime capabilities are checked before saving a native MQTT access intent.
+// Unsupported settings must not become a permanently pending owner operation.
+func validateNativeMQTTRuntimeCapabilities(kind string, access accessconfig.AccessConfiguration) error {
+	if kind != "standalone" || access.Mode != "direct" || access.Protocol != "mqtt" {
+		return nil
+	}
+	if !emptyJSONObject(access.Parameters) {
+		return invalid("access.parameters", "built-in MQTT parameters are not supported")
+	}
+	if access.CredentialPolicy.AutoRegister {
+		return invalid("access.credentialPolicy.autoRegister", "native automatic registration is not supported")
+	}
+	if access.CredentialPolicy.Kind != "none" {
+		return invalid("access.credentialPolicy.kind", "template credential policy is not supported; use managed device credentials")
+	}
+	if access.OnlinePolicy.Mode == "transport" && access.OnlinePolicy.TimeoutSeconds != 60 {
+		return invalid("access.onlinePolicy.timeoutSeconds", "transport status uses the MQTT connection; custom timeout is not supported")
 	}
 	return nil
 }

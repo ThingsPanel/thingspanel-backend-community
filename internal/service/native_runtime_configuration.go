@@ -32,7 +32,16 @@ type nativeRuntimeConfigurationBody struct {
 		PublishedRevision int    `json:"publishedRevision"`
 	} `json:"model"`
 	Access struct {
-		Mode                string  `json:"mode"`
+		Mode             string                     `json:"mode"`
+		Parameters       map[string]json.RawMessage `json:"parameters"`
+		CredentialPolicy *struct {
+			Kind         string `json:"kind"`
+			AutoRegister bool   `json:"autoRegister"`
+		} `json:"credentialPolicy"`
+		OnlinePolicy *struct {
+			Mode           string `json:"mode"`
+			TimeoutSeconds int    `json:"timeoutSeconds"`
+		} `json:"onlinePolicy"`
 		Protocol            string  `json:"protocol"`
 		ProviderID          *string `json:"providerId"`
 		ServiceInstanceID   *string `json:"serviceInstanceId"`
@@ -89,6 +98,13 @@ func validateNativeRuntimeConfiguration(in *NativeRuntimeConfiguration) (*native
 	var cfg nativeRuntimeConfigurationBody
 	if json.Unmarshal(canonical, &cfg) != nil || cfg.DeviceKind != "standalone" || cfg.Access.Mode != "direct" || cfg.Access.Protocol != "mqtt" || cfg.Access.ProviderID != nil || cfg.Access.ServiceInstanceID != nil || cfg.Access.ConnectionDirection != "device_to_platform" {
 		return nil, ErrNativeRegistrationInvalid
+	}
+	if cfg.Access.Parameters == nil || len(cfg.Access.Parameters) != 0 || cfg.Access.CredentialPolicy == nil || cfg.Access.CredentialPolicy.Kind != "none" || cfg.Access.CredentialPolicy.AutoRegister {
+		return nil, fmt.Errorf("%w: unsupported MQTT access policy", ErrNativeRegistrationInvalid)
+	}
+	policy := cfg.Access.OnlinePolicy
+	if policy == nil || policy.TimeoutSeconds < 1 || policy.TimeoutSeconds > 86400 || (policy.Mode != "transport" && policy.Mode != "heartbeat" && policy.Mode != "activity") || (policy.Mode == "transport" && policy.TimeoutSeconds != 60) {
+		return nil, fmt.Errorf("%w: unsupported MQTT online policy", ErrNativeRegistrationInvalid)
 	}
 	if cfg.Model != nil {
 		for _, s := range []string{cfg.Model.ModelID, cfg.Model.SnapshotID} {
@@ -159,7 +175,17 @@ func projectNativeRuntimeConfiguration(tx *gorm.DB, owner nativeRuntimeRegistrat
 	}
 	now := time.Now().UTC()
 	protocol, conn := "MQTT", "A"
-	projection := model.DeviceConfig{ID: id, Name: "native-runtime-" + owner.DeviceID, DeviceType: "1", ProtocolType: &protocol, DeviceConnType: &conn, TenantID: owner.TenantID, CreatedAt: now, UpdatedAt: now}
+	heartbeat, timeout := 0, 0
+	if cfg.Access.OnlinePolicy.Mode == "heartbeat" {
+		heartbeat = cfg.Access.OnlinePolicy.TimeoutSeconds
+	}
+	if cfg.Access.OnlinePolicy.Mode == "activity" {
+		timeout = cfg.Access.OnlinePolicy.TimeoutSeconds
+	}
+	// The authoritative broker state owner consumes these two values in seconds.
+	otherBytes, _ := json.Marshal(map[string]int{"heartbeat": heartbeat, "online_timeout": timeout})
+	other := string(otherBytes)
+	projection := model.DeviceConfig{ID: id, Name: "native-runtime-" + owner.DeviceID, DeviceType: "1", OtherConfig: &other, ProtocolType: &protocol, DeviceConnType: &conn, TenantID: owner.TenantID, CreatedAt: now, UpdatedAt: now}
 	if cfg.Model != nil {
 		projection.NativeThingModelID = &cfg.Model.ModelID
 		projection.NativeThingModelSnapshotID = &cfg.Model.SnapshotID

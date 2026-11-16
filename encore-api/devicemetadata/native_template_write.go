@@ -60,6 +60,9 @@ func validateNativeTemplateConfigurationTx(ctx context.Context, tx dbx.Tx, tenan
 	if err := configuration.Validate(); err != nil {
 		return invalid("configuration", "invalid template configuration")
 	}
+	if err := validateNativeMQTTRuntimeCapabilities(configuration.DeviceKind, configuration.Access); err != nil {
+		return err
+	}
 	access, err := json.Marshal(configuration.Access)
 	if err != nil {
 		return invalid("configuration.access", "invalid access configuration")

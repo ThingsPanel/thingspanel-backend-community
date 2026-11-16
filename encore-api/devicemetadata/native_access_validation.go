@@ -68,6 +68,9 @@ func validateNativeAccessConfiguration(ctx context.Context, tenantID, deviceKind
 	if err != nil {
 		return invalid("access", "invalid configuration")
 	}
+	if err := validateNativeMQTTRuntimeCapabilities(deviceKind, configuration.Access); err != nil {
+		return err
+	}
 	if err := rejectSecretParameterKeys(configuration.Access.Parameters, "access.parameters"); err != nil {
 		return err
 	}
