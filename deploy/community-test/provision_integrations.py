@@ -23,6 +23,8 @@ IMAGE = 'dxflrs/garage@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773
 PUBLIC_ENDPOINT = 'http://47.92.253.145'
 PLATFORM_ENDPOINT = 'http://127.0.0.1:9999'
 BUCKET = 'template-image-assets'
+STORAGE_IMAGE_LIMIT = 32 * 1024 * 1024
+STORAGE_HEADROOM = 384 * 1024 * 1024
 NGINX = pathlib.Path('/etc/nginx/conf.d/community.conf')
 MARKER = '# thingspanel-managed-private-fileassets'
 SSO_ENV_PATHS = (pathlib.Path('/opt/thingsvis/server/apps/server/.env'), pathlib.Path('/opt/thingsvis/server/.env'))
@@ -335,7 +337,9 @@ def main():
                           'disk_free_bytes': shutil.disk_usage(str(ROOT)).free}))
         if not args.apply:
             return
-        if not existing and shutil.disk_usage(str(ROOT)).free < 512 * 1024 * 1024:
+        # Pinned image measured at 27,669,457 bytes. Budget compressed download,
+        # extraction and final image separately, plus durable-service headroom.
+        if not existing and shutil.disk_usage(str(ROOT)).free < STORAGE_HEADROOM + 3 * STORAGE_IMAGE_LIMIT:
             raise RuntimeError('insufficient storage bootstrap reserve')
         backup = ROOT / 'integration-wiring-backups' / str(time.time_ns() if hasattr(time, 'time_ns') else int(time.time()*1000000))
         backup.mkdir(parents=True, mode=0o700)
@@ -345,6 +349,12 @@ def main():
         old_api = process[0].get('pm2_env', {}).get('THINGSPANEL_API_URL', '')
         try:
             if not existing:
+                run(['docker', 'pull', IMAGE])
+                image_size = int(run(['docker', 'image', 'inspect', IMAGE, '--format', '{{.Size}}']).strip())
+                if image_size > STORAGE_IMAGE_LIMIT or image_size <= 0:
+                    raise RuntimeError('pinned storage image exceeds reviewed import budget')
+                if shutil.disk_usage(str(ROOT)).free < STORAGE_HEADROOM + STORAGE_IMAGE_LIMIT:
+                    raise RuntimeError('insufficient post-pull storage growth reserve')
                 checked_path(STORE).mkdir(parents=True, mode=0o700, exist_ok=True)
                 key_path = checked_path(STORE / 'keys.private.json')
                 if not key_path.exists():
@@ -386,7 +396,9 @@ def main():
                     except Exception:
                         if attempt==29: raise RuntimeError('integration health failed')
                         time.sleep(1)
-            print(json.dumps({'applied':True,'secrets_printed':False,'existing_data_preserved':True}))
+            memory = next(int(line.split()[1])*1024 for line in pathlib.Path('/proc/meminfo').read_text().splitlines() if line.startswith('MemAvailable:'))
+            print(json.dumps({'applied':True,'secrets_printed':False,'existing_data_preserved':True,
+                              'disk_free_bytes':shutil.disk_usage(str(ROOT)).free, 'memory_available_bytes':memory}))
         except Exception:
             errors = restore_configurations(originals) + restore_services(old_api)
             # Never remove persistent storage, keys or objects on rollback.
