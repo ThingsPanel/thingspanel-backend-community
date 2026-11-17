@@ -19,7 +19,10 @@ type platformIdentity struct {
 }
 
 func currentPlatformIdentity(claims *utils.UserClaims, user *model.User) (platformIdentity, bool) {
-	if claims == nil || claims.Delegated || user == nil || claims.ID == "" || user.ID != claims.ID || user.TenantID == nil || *user.TenantID == "" || *user.TenantID != claims.TenantID || user.Authority == nil || *user.Authority != claims.Authority || user.Status == nil || *user.Status != "N" {
+	if claims == nil || claims.Delegated || user == nil || claims.ID == "" || user.ID != claims.ID || user.Authority == nil || *user.Authority != claims.Authority || user.Status == nil || *user.Status != "N" {
+		return platformIdentity{}, false
+	}
+	if *user.Authority != "SYS_ADMIN" && (user.TenantID == nil || *user.TenantID == "" || *user.TenantID != claims.TenantID) {
 		return platformIdentity{}, false
 	}
 	email, err := mail.ParseAddress(user.Email)
@@ -30,7 +33,11 @@ func currentPlatformIdentity(claims *utils.UserClaims, user *model.User) (platfo
 	if role == "" {
 		return platformIdentity{}, false
 	}
-	return platformIdentity{user.ID, user.Email, user.Name, *user.TenantID, role}, true
+	space := "thingspanel-sys-admin"
+	if role != "SUPER_ADMIN" {
+		space = *user.TenantID
+	}
+	return platformIdentity{user.ID, user.Email, user.Name, space, role}, true
 }
 
 // PlatformSSOIdentity is mounted behind JWTAuth, outside request-body logging.
