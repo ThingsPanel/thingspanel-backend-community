@@ -134,3 +134,10 @@
 用户随后明确不再处理废弃旧设备，要求保证最新代码与新设备完整链路正常。旧转换工作停止，历史数据和备份保留。后端同一 worktree 改用 `wp/new-device-readiness-20261111`，基于 main 独立修复新设备问题，不携带未合并的旧凭据迁移候选。任务报告和外置证据目录不变；新设备完整链路尚未通过。
 
 - 2026-11-17: `.claude/worktrees/sso-compat-20261117`, `wp/sso-compat-develop` / `wp/sso-compat-main`; Codex; user-requested ThingsVis SSO compatibility repair; retain for review, deletion after user confirmation.
+
+## 2026-11-17 首次设备接入
+
+| 路径 | 分支 | 任务 | 负责人 | 清理计划 |
+| --- | --- | --- | --- | --- |
+| `../thingspanel-frontend-community/.claude/worktrees/wp-device-first-credential` | `wp/device-first-credential` | 新设备自动签发首份 MQTT 凭据与连接页优化 | Codex | 审查完成后列清单确认清理 |
+| `.claude/worktrees/wp-device-first-credential` | `wp/device-first-credential` | 本地启动说明与工作目录登记 | Codex | 审查完成后列清单确认清理 |

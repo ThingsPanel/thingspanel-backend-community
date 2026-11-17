@@ -38,6 +38,74 @@
 - 沿用现有分层、错误返回与接口契约；不要直接修改其他服务数据库。
 - 临时输出按上级工作区 `AGENTS.md` 存放；保留本地配置、凭据及业务文件。
 
+## 本地启动（Windows 社区版）
+
+默认联调方式是 **本地前端 + 线上社区测试机的 Gin v1 和 Encore v2**。下面的端口和接口已在社区测试机 `47.92.253.145` 验证。后续先按本节启动和检查，只有对应检查失败才排查。
+
+1. 在一个 PowerShell 窗口开启 SSH 转发并保持运行。提前通过本机环境变量 `TP_COMMUNITY_SSH_KEY` 指定已授权的测试机私钥文件。首次连接先核对服务器主机指纹。
+
+   ```powershell
+   if (-not $env:TP_COMMUNITY_SSH_KEY -or -not (Test-Path -LiteralPath $env:TP_COMMUNITY_SSH_KEY -PathType Leaf)) {
+     throw '请将 TP_COMMUNITY_SSH_KEY 指向已授权的测试机私钥文件'
+   }
+   ssh -i $env:TP_COMMUNITY_SSH_KEY -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=20 -N `
+     -L 127.0.0.1:9999:127.0.0.1:9999 `
+     -L 127.0.0.1:14210:127.0.0.1:14000 `
+     -L 127.0.0.1:15432:127.0.0.1:5432 `
+     -L 127.0.0.1:16379:127.0.0.1:6379 root@47.92.253.145
+   ```
+
+   | 本机入口 | 测试机服务 |
+   | --- | --- |
+   | `127.0.0.1:9999` | Gin v1，测试机端口 `9999` |
+   | `127.0.0.1:14210` | Encore v2，测试机端口 `14000` |
+   | `127.0.0.1:15432` | PostgreSQL，测试机端口 `5432` |
+   | `127.0.0.1:16379` | Redis，测试机端口 `6379` |
+   | `47.92.253.145:1883` | Mosquitto MQTT 公网入口 |
+
+2. 在另一个 PowerShell 窗口进入相邻的 `thingspanel-frontend-community` 或当前任务的前端 worktree，运行：
+
+   ```powershell
+   pnpm install --frozen-lockfile
+   $env:VITE_METADATA_CONNECTOR_URL = 'http://127.0.0.1:9999/api/v1'
+   $env:VITE_THINGMODEL_NATIVE_URL = 'http://127.0.0.1:14210'
+   pnpm dev --host 127.0.0.1 --strictPort --open false
+   ```
+
+   若 Node 22 启动时在 `unplugin-vue-components` 报 `ERR_REQUIRE_CYCLE_MODULE`，在同一个前端目录用下列已验证的临时方式启动。临时 Vite 配置需与原配置相邻才能解析相对导入，不提交临时配置或加载器。
+
+   ```powershell
+   $vitePreload = Join-Path $env:TEMP 'tp-community-vite-preload.mjs'
+   @'
+   import { register } from 'node:module'
+   register('data:text/javascript,' + encodeURIComponent(`
+     export async function resolve(specifier, context, next) {
+       if (specifier.includes('/unplugin-vue-components/dist/vite.js')) {
+         const cjs = specifier.replace(/vite[.]js$/, 'vite.cjs')
+         const source = 'import mod from ' + JSON.stringify(cjs) + '; export default (mod.default ?? mod)'
+         return { url: 'data:text/javascript,' + encodeURIComponent(source), shortCircuit: true }
+       }
+       return next(specifier, context)
+     }
+   `), import.meta.url)
+   '@ | Set-Content -Encoding utf8 -LiteralPath $vitePreload
+   Copy-Item -LiteralPath vite.config.ts -Destination vite.local-run.config.mts
+   $env:VITE_SERVICE_ENV = 'dev'
+   node --import ([uri]$vitePreload).AbsoluteUri ./node_modules/vite/bin/vite.js --config vite.local-run.config.mts --host 127.0.0.1 --strictPort --open false
+   ```
+
+3. 打开 `http://127.0.0.1:5002/`。快速检查三个入口：
+
+   ```powershell
+   curl.exe -sS -o NUL -w '%{http_code}\n' http://127.0.0.1:5002/
+   curl.exe -sS -o NUL -w '%{http_code}\n' http://127.0.0.1:5002/api/v1/auth/login-options
+   curl.exe -sS -o NUL -w '%{http_code}\n' http://127.0.0.1:5002/api/v2/devices
+   ```
+
+   预期依次为 `200`、`200`、`401`（未登录时）。登录后对设备的操作写入线上社区测试环境。
+
+验证边界：PostgreSQL 和 Redis 已用部署配置中的凭据通过 SSH 隧道做过只读查询和 `PING`。凭据从授权的部署配置获取，不写入仓库。服务端当前使用 **Mosquitto**，旧配置中的 `mqtt_server: gmqtt` 不能作为实际 broker 类型依据。MQTT `1883` 可达，但用独立 Client ID 的认证尚未通过。Gin 后端已编译，完整本地后端未跑通。需要运行第二套后端时，先准备隔离的 MQTT 身份、订阅和运行数据环境，避免与现有部署重复消费或执行定时任务。
+
 ## 测试范围与效率
 
 - 根据本次改动和风险选择最少且有效的验证，优先相关包、受影响路径和关键业务边界。
