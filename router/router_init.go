@@ -67,6 +67,8 @@ func RouterInit() *gin.Engine {
 	// router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	router.Use(middleware.Cors())
+	// Verified platform identity, before operation logs and response wrapping.
+	router.GET("/api/v1/auth/sso/identity", middleware.JWTAuth(), api.PlatformSSOIdentity)
 	// Credential routes precede full-body operation logging and ordinary JWT auth.
 	api.RegisterBrokerAIToolRoutes(router)
 	api.RegisterMarketInstallProviderRoutes(router)

@@ -202,3 +202,5 @@ R7 已合并推送：安装器 develop `dd9dbbd`、后端 develop `59b67038`、�
 
 ## R 系列交接文档（2026-11-13）
 交接文档 `docs/HANDOVER-RESTART-BACKUP-UPGRADE-2026-11-13.md` 已合入后端 develop；worktree `wp-r-handover` 与分支 `wp/R-handover` 已删除。
+
+- 2026-11-17: `.claude/worktrees/sso-compat-20261117`, `wp/sso-compat-develop` / `wp/sso-compat-main`; Codex; user-requested ThingsVis SSO compatibility repair; retain for review, deletion after user confirmation.
