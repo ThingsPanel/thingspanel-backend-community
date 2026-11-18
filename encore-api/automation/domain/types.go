@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -933,6 +934,10 @@ var ValidOperators = map[string]bool{
 	OpGte: true, OpLte: true, OpBetween: true, OpIn: true, OpExists: true,
 }
 
+const decimalNumber = `[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?`
+
+var numericRange = regexp.MustCompile(`^\s*(` + decimalNumber + `)\s*-\s*(` + decimalNumber + `)\s*$`)
+
 func compareValues(op, expected string, actual any) (bool, error) {
 	switch op {
 	case OpExists:
@@ -946,13 +951,13 @@ func compareValues(op, expected string, actual any) (bool, error) {
 		}
 		return false, nil
 	case OpBetween:
-		parts := strings.Split(expected, "-")
-		if len(parts) != 2 {
+		parts := numericRange.FindStringSubmatch(expected)
+		if parts == nil {
 			return false, &CompareError{Code: "invalid_range",
 				Msg: fmt.Sprintf("between 需要 min-max 形式，实际为 %q", expected)}
 		}
-		lo, err1 := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
-		hi, err2 := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+		lo, err1 := strconv.ParseFloat(parts[1], 64)
+		hi, err2 := strconv.ParseFloat(parts[2], 64)
 		if err1 != nil || err2 != nil {
 			return false, &CompareError{Code: "invalid_threshold",
 				Msg: fmt.Sprintf("between 边界不是数字: %q", expected)}
