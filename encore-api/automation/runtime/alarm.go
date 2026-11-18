@@ -455,7 +455,7 @@ func (r *Runtime) decideClear(ctx context.Context, tx *sql.Tx, in decisionInput,
 	}
 	if rule.Definition.Recovery != nil && in.source == string(domain.AlarmSourceDetector) && !in.skipRecoveryCheck {
 		rec := domain.Evaluate(*rule.Definition.Recovery,
-			r.evalContext(ctx, &rule.Definition, in.subject, nil, in.now))
+			r.evalContext(ctx, rule, in.subject, nil, in.now))
 		switch rec.Verdict {
 		case domain.VerdictTrue:
 			if rule.Definition.Recovery.For.Std() > 0 {

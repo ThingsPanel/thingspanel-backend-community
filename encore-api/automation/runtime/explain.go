@@ -162,7 +162,7 @@ func (r *Runtime) Explain(ctx context.Context, rule *store.Rule, deviceID string
 	}
 
 	// 3. Judge the current stored value with the same evaluator the trigger uses.
-	verdict := domain.Evaluate(rule.Definition.Trigger, r.evalContext(ctx, &rule.Definition, deviceID, nil, now))
+	verdict := domain.Evaluate(rule.Definition.Trigger, r.evalContext(ctx, rule, deviceID, nil, now))
 	res.Reasons = verdict.Reasons
 	switch verdict.Verdict {
 	case domain.VerdictTrue:

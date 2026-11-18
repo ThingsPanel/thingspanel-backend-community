@@ -74,6 +74,8 @@ func Validate(d *Definition) error {
 		}
 	}
 	for gi, g := range d.Trigger.Groups {
+		validateTriggerScope(g.TriggerScope, fmt.Sprintf("trigger.groups[%d].trigger_scope", gi), add)
+		validateTimeWindows(g.TimeWindows, fmt.Sprintf("trigger.groups[%d]", gi), add)
 		if len(g.Conditions) == 0 {
 			add(fmt.Sprintf("trigger.groups[%d]", gi), "empty_group", "条件组不能为空")
 			continue
@@ -94,6 +96,8 @@ func Validate(d *Definition) error {
 			add("recovery.groups", "empty_recovery", "恢复条件不能为空")
 		}
 		for gi, g := range d.Recovery.Groups {
+			validateTriggerScope(g.TriggerScope, fmt.Sprintf("recovery.groups[%d].trigger_scope", gi), add)
+			validateTimeWindows(g.TimeWindows, fmt.Sprintf("recovery.groups[%d]", gi), add)
 			for ci, c := range g.Conditions {
 				validateCondition(c, fmt.Sprintf("recovery.groups[%d].conditions[%d]", gi, ci), add)
 			}
@@ -127,21 +131,7 @@ func Validate(d *Definition) error {
 	}
 
 	// Trigger restrictions are independent from the devices receiving actions.
-	if scope := d.TriggerScope; scope != nil {
-		if len(scope.DeviceIDs)+len(scope.DeviceConfigIDs) == 0 {
-			add("trigger_scope", "empty_trigger_scope", "触发范围至少指定一个设备或设备模板")
-		}
-		if len(scope.DeviceIDs)+len(scope.DeviceConfigIDs) > 1000 {
-			add("trigger_scope", "trigger_scope_too_large", "触发范围不能超过 1000 个设备或模板")
-		}
-		for field, ids := range map[string][]string{"device_ids": scope.DeviceIDs, "device_config_ids": scope.DeviceConfigIDs} {
-			for _, id := range ids {
-				if strings.TrimSpace(id) == "" || strings.TrimSpace(id) != id {
-					add("trigger_scope."+field, "invalid_scope_id", "触发范围 ID 不能为空或包含首尾空格")
-				}
-			}
-		}
-	}
+	validateTriggerScope(d.TriggerScope, "trigger_scope", add)
 
 	// Targets: at least one selection, bounded size.
 	// An event-only alarm policy is exempt for the same reason it has no trigger:
@@ -237,6 +227,32 @@ func eventOnlyAlarm(d *Definition) bool {
 	return d.Alarm.Sources[0] == AlarmSourceEvent
 }
 
+func validateTriggerScope(scope *TriggerScope, prefix string, add func(string, string, string)) {
+	if scope != nil {
+		if len(scope.DeviceIDs)+len(scope.DeviceConfigIDs) == 0 {
+			add(prefix, "empty_trigger_scope", "触发范围至少指定一个设备或设备模板")
+		}
+		if len(scope.DeviceIDs)+len(scope.DeviceConfigIDs) > 1000 {
+			add(prefix, "trigger_scope_too_large", "触发范围不能超过 1000 个设备或模板")
+		}
+		for field, ids := range map[string][]string{"device_ids": scope.DeviceIDs, "device_config_ids": scope.DeviceConfigIDs} {
+			for _, id := range ids {
+				if strings.TrimSpace(id) == "" || strings.TrimSpace(id) != id {
+					add(prefix+"."+field, "invalid_scope_id", "触发范围 ID 不能为空或包含首尾空格")
+				}
+			}
+		}
+	}
+}
+
+func validateTimeWindows(windows []TimeWindow, field string, add func(string, string, string)) {
+	for i, window := range windows {
+		if !window.valid() {
+			add(fmt.Sprintf("%s.time_windows[%d]", field, i), "invalid_time_window", "请检查星期、起止时间和时区偏移")
+		}
+	}
+}
+
 func validateCondition(c Condition, field string, add func(string, string, string)) {
 	switch c.Source {
 	case "", "self", "device":
@@ -286,6 +302,7 @@ func validateStepsAt(steps []Step, field string, depth int, add func(string, str
 	for i, s := range steps {
 		f := fmt.Sprintf("%s[%d]", field, i)
 		if s.Guard != nil {
+			validateTimeWindows(s.Guard.TimeWindows, f+".guard", add)
 			if len(s.Guard.Conditions) == 0 {
 				add(f+".guard", "empty_guard", "前置检查必须给出条件")
 			}
@@ -326,6 +343,9 @@ func validateStepsAt(steps []Step, field string, depth int, add func(string, str
 				add(f+".notification_policy_id", "missing_policy", "通知步骤必须指定通知策略")
 			}
 		case StepBranch:
+			if s.Condition != nil {
+				validateTimeWindows(s.Condition.TimeWindows, f+".condition", add)
+			}
 			if s.Condition == nil || len(s.Condition.Conditions) == 0 {
 				add(f+".condition", "empty_branch_condition", "分支必须给出条件")
 			}

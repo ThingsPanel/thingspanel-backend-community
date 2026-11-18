@@ -233,8 +233,10 @@ type Trigger struct {
 
 // Group is an AND of conditions.
 type Group struct {
-	ID         string      `json:"id,omitempty"`
-	Conditions []Condition `json:"conditions"`
+	TriggerScope *TriggerScope `json:"trigger_scope,omitempty"`
+	TimeWindows  []TimeWindow  `json:"time_windows,omitempty"`
+	ID           string        `json:"id,omitempty"`
+	Conditions   []Condition   `json:"conditions"`
 }
 
 // Condition is a single typed leaf. Source "self" means the device that
@@ -580,9 +582,10 @@ type Result struct {
 // latest stored state for a (device, signal, key); Trigger is the sample that
 // woke the evaluator (nil when running from a timer).
 type EvalContext struct {
-	Now          time.Time
-	SelfDeviceID string
-	Trigger      *Sample
+	LookupSelfTemplate func() (string, error)
+	Now                time.Time
+	SelfDeviceID       string
+	Trigger            *Sample
 
 	// MaxAge bounds how old a stored value may be and still count as evidence.
 	// A value older than this is "unknown", never "false": a device that went
@@ -636,7 +639,41 @@ func Evaluate(t Trigger, ctx EvalContext) Result {
 }
 
 func evaluateGroup(g Group, ctx EvalContext) GroupResult {
+	if scope := g.TriggerScope; scope != nil {
+		configID := ""
+		if len(scope.DeviceConfigIDs) > 0 {
+			if ctx.LookupSelfTemplate == nil {
+				return GroupResult{Verdict: VerdictUnknown, Reasons: []Reason{{Code: "trigger_scope_unavailable", DeviceID: ctx.SelfDeviceID}}}
+			}
+			var err error
+			configID, err = ctx.LookupSelfTemplate()
+			if err != nil {
+				return GroupResult{Verdict: VerdictUnknown, Reasons: []Reason{{Code: "trigger_scope_unavailable", DeviceID: ctx.SelfDeviceID}}}
+			}
+		}
+		if !scope.Matches(ctx.SelfDeviceID, configID) {
+			return GroupResult{Verdict: VerdictFalse, Reasons: []Reason{{Code: "group_scope_mismatch", DeviceID: ctx.SelfDeviceID}}}
+		}
+		if ev := ctx.Trigger; ev != nil {
+			relevant := false
+			for _, c := range g.Conditions {
+				if c.Key == ev.Key && c.Signal == ev.Signal && (c.Source != "device" || c.DeviceID == ev.DeviceID) {
+					relevant = true
+					break
+				}
+			}
+			if !relevant {
+				return GroupResult{Verdict: VerdictFalse, Reasons: []Reason{{Code: "group_trigger_mismatch", DeviceID: ev.DeviceID}}}
+			}
+		}
+	}
+
 	res := GroupResult{Verdict: VerdictTrue}
+	for _, window := range g.TimeWindows {
+		if !window.contains(ctx.Now) {
+			return GroupResult{Verdict: VerdictFalse, ShortCircuit: true, Reasons: []Reason{{Code: "outside_time_window", Message: "当前时间不在联动时段内"}}}
+		}
+	}
 	var unknown, failed bool
 	for _, c := range g.Conditions {
 		lr := evaluateLeaf(c, ctx)

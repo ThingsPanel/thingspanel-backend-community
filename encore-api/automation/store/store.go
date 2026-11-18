@@ -424,8 +424,9 @@ func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, deviceCo
            AND (
              EXISTS (
                SELECT 1 FROM JSON_TABLE(COALESCE(JSON_EXTRACT(r.definition, '$.trigger.groups'), JSON_ARRAY()), '$[*]' COLUMNS (conds JSON PATH '$.conditions')) g,
-                             JSON_TABLE(COALESCE(g.conds, JSON_ARRAY()), '$[*]' COLUMNS (source VARCHAR(64) PATH '$.source', signal VARCHAR(128) PATH '$.signal', ckey VARCHAR(128) PATH '$.key')) c
-                WHERE (c.source COLLATE utf8mb4_bin = 'self' OR c.source IS NULL)
+                             JSON_TABLE(COALESCE(g.conds, JSON_ARRAY()), '$[*]' COLUMNS (source VARCHAR(64) PATH '$.source', device_id VARCHAR(128) PATH '$.device_id', signal VARCHAR(128) PATH '$.signal', ckey VARCHAR(128) PATH '$.key')) c
+                WHERE (c.source COLLATE utf8mb4_bin = 'self' OR c.source IS NULL
+                      OR (c.source COLLATE utf8mb4_bin = 'device' AND c.device_id COLLATE utf8mb4_bin = $2))
                   AND c.signal COLLATE utf8mb4_bin = $4
                   AND c.ckey COLLATE utf8mb4_bin = $5
              )

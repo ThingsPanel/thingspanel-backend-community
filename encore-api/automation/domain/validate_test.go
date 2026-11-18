@@ -39,6 +39,19 @@ func TestTriggerScopeValidationRejectsAmbiguousRestrictions(t *testing.T) {
 		if !hasCode(issuesOf(t, d), tc.code) {
 			t.Fatalf("scope %+v must fail with %s", tc.scope, tc.code)
 		}
+		d.TriggerScope = nil
+		d.Trigger.Groups[0].TriggerScope = tc.scope
+		found := false
+		for _, issue := range issuesOf(t, d) {
+			if issue.Code == tc.code && strings.HasPrefix(issue.Field, "trigger.groups[0].trigger_scope") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("group scope %+v must fail with %s on group field", tc.scope, tc.code)
+		}
+
 	}
 	d := validDefinition()
 	d.TriggerScope = &TriggerScope{DeviceIDs: []string{"different-from-action-target"}}

@@ -249,3 +249,40 @@ func TestEventFieldExistence(t *testing.T) {
 		}
 	}
 }
+
+func TestMixedTriggerGroupSubjects(t *testing.T) {
+	now := time.Now()
+	template := Condition{Source: "self", Key: "temp", Signal: SignalTelemetry, Operator: ">", Value: "30"}
+	fixed := Condition{Source: "device", DeviceID: "fixed", Key: "temp", Signal: SignalTelemetry, Operator: ">", Value: "40"}
+	fixedGroup := Group{TriggerScope: &TriggerScope{DeviceIDs: []string{"fixed"}}, Conditions: []Condition{fixed}}
+	andGroup := Group{TriggerScope: &TriggerScope{DeviceConfigIDs: []string{"sensor"}}, Conditions: []Condition{template, fixed}}
+	for _, tc := range []struct {
+		name, subject, config, key string
+		temp, fixedTemp            int
+		groups                     []Group
+		want                       Verdict
+	}{
+		{"both required", "member", "sensor", "temp", 35, 42, []Group{andGroup}, VerdictTrue},
+		{"fixed below threshold", "member", "sensor", "temp", 35, 39, []Group{andGroup}, VerdictFalse},
+		{"same key on wrong template", "fixed", "unrelated", "temp", 45, 45, []Group{andGroup}, VerdictFalse},
+		{"fixed OR branch", "fixed", "unrelated", "temp", 45, 45, []Group{andGroup, fixedGroup}, VerdictTrue},
+		{"fixed stale match cannot wake another branch", "member", "sensor", "temp", 10, 45, []Group{andGroup, fixedGroup}, VerdictFalse},
+		{"unrelated key cannot wake matching branch", "member", "sensor", "other", 45, 45, []Group{andGroup, fixedGroup}, VerdictFalse},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			config := func() (string, error) { return tc.config, nil }
+			lookup := func(id string, signal SignalKind, key string) (Sample, bool, error) {
+				value := tc.temp
+				if id == "fixed" {
+					value = tc.fixedTemp
+				}
+				return sample(id, key, value, now), true, nil
+			}
+			trigger := sample(tc.subject, tc.key, tc.temp, now)
+			got := Evaluate(Trigger{Groups: tc.groups}, EvalContext{Now: now, SelfDeviceID: tc.subject, Trigger: &trigger, LookupSelfTemplate: config, Lookup: lookup, MaxAge: time.Minute})
+			if got.Verdict != tc.want {
+				t.Fatalf("got %v want %v: %+v", got.Verdict, tc.want, got.Reasons)
+			}
+		})
+	}
+}

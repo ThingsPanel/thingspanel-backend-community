@@ -208,17 +208,19 @@ func checkFreshness(s domain.Sample, now time.Time, f domain.Freshness) Freshnes
 // Every path goes through it — real evaluation, recovery, branch conditions,
 // pending timers — so a rule's freshness contract cannot mean one thing on the
 // ingest path and something else on the timer path.
-func (r *Runtime) evalContext(ctx context.Context, def *domain.Definition, deviceID string,
+func (r *Runtime) evalContext(ctx context.Context, rule *store.Rule, deviceID string,
 	trigger *domain.Sample, now time.Time) domain.EvalContext {
 
+	def := &rule.Definition
 	return domain.EvalContext{
-		Now:          now,
-		SelfDeviceID: deviceID,
-		Trigger:      trigger,
-		MaxAge:       def.Freshness.MaxAge.Std(),
-		Mode:         def.Freshness.Mode,
-		Heartbeat:    def.Freshness.Heartbeat.Std(),
-		Lookup:       r.lookup(ctx),
+		LookupSelfTemplate: r.selfTemplateLookup(ctx, rule.TenantID, deviceID),
+		Now:                now,
+		SelfDeviceID:       deviceID,
+		Trigger:            trigger,
+		MaxAge:             def.Freshness.MaxAge.Std(),
+		Mode:               def.Freshness.Mode,
+		Heartbeat:          def.Freshness.Heartbeat.Std(),
+		Lookup:             r.lookup(ctx),
 	}
 }
 

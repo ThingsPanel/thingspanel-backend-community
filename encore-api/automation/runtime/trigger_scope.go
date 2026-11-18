@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"context"
+	"errors"
+	"sync"
 
 	"encore.app/automation/domain"
 	"encore.app/automation/store"
@@ -37,4 +39,22 @@ func (r *Runtime) TriggerScopeResult(ctx context.Context, rule *store.Rule, devi
 		}
 	}
 	return blocked("trigger_scope_mismatch", "设备不在规则的触发范围内")
+}
+
+func (r *Runtime) selfTemplateLookup(ctx context.Context, tenantID, deviceID string) func() (string, error) {
+	return sync.OnceValues(func() (string, error) {
+		if r.dir == nil {
+			return "", errors.New("device directory unavailable")
+		}
+		devices, err := r.dir.ByIDs(ctx, tenantID, []string{deviceID})
+		if err != nil {
+			return "", err
+		}
+		for _, device := range devices {
+			if device.TenantID == tenantID && device.ID == deviceID {
+				return device.DeviceConfigID, nil
+			}
+		}
+		return "", errors.New("device unavailable")
+	})
 }

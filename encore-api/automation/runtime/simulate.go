@@ -166,7 +166,8 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 			return
 		}
 		verdict := domain.Evaluate(trigger, domain.EvalContext{
-			Now: now, SelfDeviceID: pend.device, Lookup: lookup,
+			LookupSelfTemplate: r.selfTemplateLookup(ctx, tenantID, pend.device),
+			Now:                now, SelfDeviceID: pend.device, Lookup: lookup,
 			MaxAge: def.Freshness.MaxAge.Std(), Mode: def.Freshness.Mode,
 			Heartbeat: def.Freshness.Heartbeat.Std(),
 		})
@@ -227,7 +228,8 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 		}
 
 		verdict := domain.Evaluate(def.Trigger, domain.EvalContext{
-			Now: item.at, SelfDeviceID: dev, Trigger: &sample, Lookup: lookup,
+			LookupSelfTemplate: r.selfTemplateLookup(ctx, tenantID, dev),
+			Now:                item.at, SelfDeviceID: dev, Trigger: &sample, Lookup: lookup,
 			MaxAge: def.Freshness.MaxAge.Std(), Mode: def.Freshness.Mode,
 			Heartbeat: def.Freshness.Heartbeat.Std(),
 		})

@@ -157,7 +157,7 @@ func (r *Runtime) EvaluateSample(ctx context.Context, rule *store.Rule, deviceID
 		return *scope
 	}
 	return domain.Evaluate(rule.Definition.Trigger,
-		r.evalContext(ctx, &rule.Definition, deviceID, trigger, now))
+		r.evalContext(ctx, rule, deviceID, trigger, now))
 }
 
 func (r *Runtime) evaluateRule(ctx context.Context, rule *store.Rule, e *store.IngestEvent, seq int64, now time.Time) error {

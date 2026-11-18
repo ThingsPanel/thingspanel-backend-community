@@ -471,7 +471,7 @@ func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int)
 				return true, err
 			}
 			verdict := domain.Evaluate(domain.Trigger{Groups: []domain.Group{*step.Condition}},
-				r.evalContext(ctx, &rule.Definition, run.DeviceID, nil, r.Now()))
+				r.evalContext(ctx, rule, run.DeviceID, nil, r.Now()))
 			detail, _ := json.Marshal(map[string]any{
 				"verdict": verdict.Verdict, "reasons": verdict.Reasons, "attempt": attempt,
 			})
@@ -674,7 +674,7 @@ func (r *Runtime) performStep(ctx context.Context, run *store.Run, rule *store.R
 	// through.
 	if step.Guard != nil {
 		verdict := domain.Evaluate(domain.Trigger{Groups: []domain.Group{*step.Guard}},
-			r.evalContext(ctx, &rule.Definition, run.DeviceID, nil, r.Now()))
+			r.evalContext(ctx, rule, run.DeviceID, nil, r.Now()))
 		if verdict.Verdict != domain.VerdictTrue {
 			detail, _ := json.Marshal(map[string]any{
 				"reason": "guard_blocked", "verdict": verdict.Verdict,
