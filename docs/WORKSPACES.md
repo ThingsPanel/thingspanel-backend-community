@@ -148,3 +148,10 @@
 | --- | --- | --- | --- | --- |
 | `.claude/worktrees/wp-t1-b-device-diagnostics` | `wp/t1-b-device-diagnostics` | T1-B 设备诊断 | Codex | 审查后确认清理 |
 | `../thingspanel-frontend-community/.claude/worktrees/wp-t1-b-device-diagnostics` | `wp/t1-b-device-diagnostics` | T1-B 设备诊断页面 | Codex | 审查后确认清理 |
+
+## 2026-11-18 测试清理
+
+| 路径 | 分支 | 任务 | 负责人 | 清理计划 |
+| --- | --- | --- | --- | --- |
+| `.claude/worktrees/wp-t0-test-cleanup` | `wp/t0-test-cleanup` | T0 后端旧测试清理 | Codex | 审查后确认清理 |
+| `../thingspanel-frontend-community/.claude/worktrees/wp-device-first-credential-master` | `wp/t0-test-cleanup` | T0 前端重复回归清理，复用现有工作树 | Codex | 审查后确认清理 |
