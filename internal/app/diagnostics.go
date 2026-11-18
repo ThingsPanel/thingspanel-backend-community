@@ -21,9 +21,6 @@ func WithDiagnostics() Option {
 		if viper.IsSet("diagnostics.max_failures") {
 			config.MaxFailures = viper.GetInt("diagnostics.max_failures")
 		}
-		if viper.IsSet("diagnostics.batch_flush_size") {
-			config.BatchFlushSize = viper.GetInt("diagnostics.batch_flush_size")
-		}
 		if viper.IsSet("diagnostics.batch_flush_interval") {
 			// 支持字符串格式（如 "1s"）和整数（毫秒）
 			if intervalStr := viper.GetString("diagnostics.batch_flush_interval"); intervalStr != "" {
@@ -41,10 +38,10 @@ func WithDiagnostics() Option {
 			return err
 		}
 
-		logrus.Infof("Diagnostics config: enabled=%v, max_failures=%d, flush_size=%d, flush_interval=%v",
+		a.diagnosticsCollector = collector
+		logrus.Infof("Diagnostics config: enabled=%v, max_failures=%d, flush_interval=%v",
 			config.Enabled,
 			config.MaxFailures,
-			config.BatchFlushSize,
 			config.BatchFlushInterval,
 		)
 

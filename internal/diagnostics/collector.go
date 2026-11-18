@@ -1,6 +1,7 @@
 package diagnostics
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -15,7 +16,6 @@ import (
 type Config struct {
 	Enabled            bool          // 是否启用
 	MaxFailures        int           // 保留失败记录数
-	BatchFlushSize     int           // 批量刷新大小
 	BatchFlushInterval time.Duration // 批量刷新间隔
 }
 
@@ -27,6 +27,8 @@ type Collector struct {
 
 	// 异步缓冲
 	buffer      []failureItem
+	counts      map[string]Stats
+	dropped     bool
 	bufferMu    sync.Mutex
 	stopCh      chan struct{}
 	doneCh      chan struct{}
@@ -35,6 +37,7 @@ type Collector struct {
 	// 初始化标志
 	initialized bool
 	initOnce    sync.Once
+	stopOnce    sync.Once
 }
 
 // failureItem 缓冲项
@@ -53,6 +56,7 @@ func GetInstance() *Collector {
 	once.Do(func() {
 		instance = &Collector{
 			buffer: make([]failureItem, 0, 10),
+			counts: make(map[string]Stats),
 			stopCh: make(chan struct{}),
 			doneCh: make(chan struct{}),
 			logger: logrus.StandardLogger(),
@@ -67,7 +71,6 @@ func DefaultConfig() Config {
 	return Config{
 		Enabled:            true,
 		MaxFailures:        5,
-		BatchFlushSize:     10,
 		BatchFlushInterval: 1 * time.Second,
 	}
 }
@@ -103,10 +106,11 @@ func (c *Collector) Init(config Config, redisClient interface{}) error {
 		c.initialized = true
 
 		// 启动后台刷新协程
-		if config.BatchFlushInterval > 0 {
-			c.flushTicker = time.NewTicker(config.BatchFlushInterval)
-			go c.run()
+		if config.BatchFlushInterval <= 0 {
+			config.BatchFlushInterval = DefaultConfig().BatchFlushInterval
 		}
+		c.flushTicker = time.NewTicker(config.BatchFlushInterval)
+		go c.run()
 
 		c.logger.Info("diagnostics collector initialized")
 	})
@@ -129,26 +133,24 @@ func (c *Collector) run() {
 }
 
 // flush 刷新缓冲区
+const maxBufferedDevices = 2048
+const maxBufferedFailures = 256
+
 func (c *Collector) flush() {
 	c.bufferMu.Lock()
-	if len(c.buffer) == 0 {
+	if len(c.buffer) == 0 && len(c.counts) == 0 && !c.dropped {
 		c.bufferMu.Unlock()
 		return
 	}
-
-	// 取出当前批次
-	batch := c.buffer
-	c.buffer = make([]failureItem, 0, c.config.BatchFlushSize)
+	failures, counts, dropped := c.buffer, c.counts, c.dropped
+	c.buffer, c.counts, c.dropped = nil, make(map[string]Stats), false
 	c.bufferMu.Unlock()
 
-	// 批量写入 Redis
-	for _, item := range batch {
-		if err := c.metrics.AddFailure(item.deviceID, item.record, c.config.MaxFailures); err != nil {
-			c.logger.WithFields(logrus.Fields{
-				"device_id": item.deviceID,
-				"error":     err,
-			}).Error("failed to add failure record")
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	err := c.metrics.flush(ctx, counts, failures, c.config.MaxFailures)
+	if dropped || err != nil {
+		c.logger.WithField("buffer_full", dropped).WithError(err).Warn("device diagnostics batch incomplete")
 	}
 }
 
@@ -158,11 +160,10 @@ func (c *Collector) Stop(timeout time.Duration) {
 		return
 	}
 
-	close(c.stopCh)
-
-	if c.flushTicker != nil {
+	c.stopOnce.Do(func() {
+		close(c.stopCh)
 		c.flushTicker.Stop()
-	}
+	})
 
 	select {
 	case <-c.doneCh:
@@ -204,111 +205,75 @@ func (c *Collector) RecordFailure(deviceID string, direction Direction, stage St
 		record:   record,
 	}
 
-	// 加入缓冲区
 	c.bufferMu.Lock()
-	c.buffer = append(c.buffer, item)
-	shouldFlush := len(c.buffer) >= c.config.BatchFlushSize
+	if len(c.buffer) < maxBufferedFailures {
+		c.buffer = append(c.buffer, item)
+	} else {
+		c.dropped = true
+	}
 	c.bufferMu.Unlock()
+}
 
-	// 如果缓冲区满了，立即刷新
-	if shouldFlush {
-		c.flush()
+func (c *Collector) record(deviceID string, delta Stats) {
+	if !c.IsEnabled() || deviceID == "" {
+		return
+	}
+	c.bufferMu.Lock()
+	defer c.bufferMu.Unlock()
+	counts, exists := c.counts[deviceID]
+	if !exists && len(c.counts) >= maxBufferedDevices {
+		c.dropped = true
+		return
+	}
+	counts.UplinkTotal += delta.UplinkTotal
+	counts.UplinkFailed += delta.UplinkFailed
+	counts.StorageFailed += delta.StorageFailed
+	counts.DownlinkTotal += delta.DownlinkTotal
+	counts.DownlinkFailed += delta.DownlinkFailed
+	c.counts[deviceID] = counts
+}
+
+func (c *Collector) RecordUplinkPoints(deviceID string, count int) {
+	if count > 0 {
+		c.record(deviceID, Stats{UplinkTotal: int64(count)})
 	}
 }
 
-// RecordUplinkTotal 记录上行消息总数
-func (c *Collector) RecordUplinkTotal(deviceID string) {
-	if !c.initialized || !c.config.Enabled {
-		return
-	}
-	if deviceID == "" {
-		return
-	}
-	if err := c.metrics.IncrementUplinkTotal(deviceID); err != nil {
-		c.logger.WithFields(logrus.Fields{
-			"device_id": deviceID,
-			"error":     err,
-		}).Error("failed to increment uplink total")
-	}
-}
-
-// RecordUplinkFailed 记录上行处理失败
 func (c *Collector) RecordUplinkFailed(deviceID string, stage Stage, errMsg string) {
-	if !c.initialized || !c.config.Enabled {
-		return
-	}
-	if deviceID == "" {
-		return
-	}
-
-	// 更新统计
-	if err := c.metrics.IncrementUplinkFailed(deviceID); err != nil {
-		c.logger.WithFields(logrus.Fields{
-			"device_id": deviceID,
-			"error":     err,
-		}).Error("failed to increment uplink failed")
-	}
-
-	// 记录失败详情
+	c.record(deviceID, Stats{UplinkFailed: 1})
 	c.RecordFailure(deviceID, DirectionUplink, stage, errMsg)
 }
 
-// RecordStorageFailed 记录存储失败
 func (c *Collector) RecordStorageFailed(deviceID string, errMsg string) {
-	if !c.initialized || !c.config.Enabled {
-		return
-	}
-	if deviceID == "" {
-		return
-	}
-
-	// 更新统计
-	if err := c.metrics.IncrementStorageFailed(deviceID); err != nil {
-		c.logger.WithFields(logrus.Fields{
-			"device_id": deviceID,
-			"error":     err,
-		}).Error("failed to increment storage failed")
-	}
-
-	// 记录失败详情
-	c.RecordFailure(deviceID, DirectionUplink, StageStorage, errMsg)
+	c.RecordStorageFailedPoints(deviceID, 1, errMsg)
 }
 
-// RecordDownlinkTotal 记录下行指令总数
+func (c *Collector) RecordStorageFailedPoints(deviceID string, count int, errMsg string) {
+	if count > 0 {
+		c.record(deviceID, Stats{StorageFailed: int64(count)})
+		c.RecordFailure(deviceID, DirectionUplink, StageStorage, errMsg)
+	}
+}
+
 func (c *Collector) RecordDownlinkTotal(deviceID string) {
-	if !c.initialized || !c.config.Enabled {
-		return
-	}
-	if deviceID == "" {
-		return
-	}
-	if err := c.metrics.IncrementDownlinkTotal(deviceID); err != nil {
-		c.logger.WithFields(logrus.Fields{
-			"device_id": deviceID,
-			"error":     err,
-		}).Error("failed to increment downlink total")
-	}
+	c.record(deviceID, Stats{DownlinkTotal: 1})
 }
 
-// RecordDownlinkFailed 记录下行失败
 func (c *Collector) RecordDownlinkFailed(deviceID string, stage Stage, errMsg string) {
-	if !c.initialized || !c.config.Enabled {
-		return
-	}
-	if deviceID == "" {
-		return
-	}
-
-	// 更新统计
-	if err := c.metrics.IncrementDownlinkFailed(deviceID); err != nil {
-		c.logger.WithFields(logrus.Fields{
-			"device_id": deviceID,
-			"error":     err,
-		}).Error("failed to increment downlink failed")
-	}
-
-	// 记录失败详情
+	c.record(deviceID, Stats{DownlinkFailed: 1})
 	c.RecordFailure(deviceID, DirectionDownlink, stage, errMsg)
+}
+
+// RecordDownlinkPublish counts a broker publish attempt and its result together.
+func (c *Collector) RecordDownlinkPublish(deviceID string, publishErr error) {
+	delta := Stats{DownlinkTotal: 1}
+	if publishErr != nil {
+		delta.DownlinkFailed = 1
+	}
+	c.record(deviceID, delta)
+	if publishErr != nil {
+		c.RecordFailure(deviceID, DirectionDownlink, StagePublish, "broker publish did not confirm success")
+	}
 }
 
 // GetDiagnostics 获取诊断数据（供 API 使用）
@@ -334,9 +299,9 @@ func (c *Collector) GetDiagnostics(deviceID string) (*DiagnosticsResponse, error
 		DeviceID:       deviceID,
 		RecentFailures: failures,
 		Stats: &StatsResponse{
-			Uplink:   calculateMetric(stats.UplinkTotal, stats.UplinkTotal-stats.UplinkFailed),
-			Downlink: calculateMetric(stats.DownlinkTotal, stats.DownlinkTotal-stats.DownlinkFailed),
-			Storage:  calculateMetric(stats.UplinkTotal, stats.UplinkTotal-stats.StorageFailed),
+			Uplink:   calculateMetric(stats.UplinkTotal, max(0, stats.UplinkTotal-stats.UplinkFailed)),
+			Downlink: calculateMetric(stats.DownlinkTotal, max(0, stats.DownlinkTotal-stats.DownlinkFailed)),
+			Storage:  calculateMetric(stats.UplinkTotal, max(0, stats.UplinkTotal-stats.StorageFailed)),
 		},
 	}
 

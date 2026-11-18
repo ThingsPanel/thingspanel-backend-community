@@ -107,9 +107,9 @@ func debugLogFromEntry(deviceID string, entry communityclient.DebugEntry) Native
 	sum := sha256.Sum256([]byte(entry.Raw))
 	level := "info"
 	switch strings.ToLower(strings.TrimSpace(entry.Outcome)) {
-	case "error":
+	case "error", "processing_failed", "storage_failed":
 		level = "error"
-	case "deny", "drop":
+	case "deny", "drop", "publish_outcome_unknown", "storage_outcome_unknown":
 		level = "warning"
 	}
 	direction := entry.Direction

@@ -431,12 +431,7 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 
 	// 4. 发送到 Storage（同步发送到 channel）
 	// 计数调整：uplink 统计按点位计数，由 uplink 层在解析到点位后逐点上报。
-	// 为减少高并发下的短路开销，先做一次 fast-path 判断：若 diagnostics 未启用则跳过逐点计数。
-	if inst := diagnostics.GetInstance(); inst != nil && inst.IsEnabled() {
-		for range telemetryPoints {
-			inst.RecordUplinkTotal(device.ID)
-		}
-	}
+	diagnostics.GetInstance().RecordUplinkPoints(device.ID, len(telemetryPoints))
 
 	stored := &storage.Message{
 		DeviceID:  device.ID,

@@ -10,18 +10,22 @@ import (
 	"time"
 
 	"project/internal/diagnostics"
+	"project/pkg/global"
 
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 // telemetryWriter 遥测数据批量写入器
 type telemetryWriter struct {
-	db      *gorm.DB
-	logger  Logger
-	config  Config
-	metrics *metricsCollector
-	history TelemetryHistoryStore
+	db          *gorm.DB
+	logger      Logger
+	config      Config
+	metrics     *metricsCollector
+	history     TelemetryHistoryStore
+	debug       *diagnostics.DebugRecorder
+	debugCancel context.CancelFunc
 
 	buffer   []*telemetryBatchItem // 批次缓冲区
 	bufferMu sync.Mutex            // 缓冲区锁
@@ -57,6 +61,9 @@ func newTelemetryWriter(db *gorm.DB, logger Logger, config Config, metrics *metr
 
 // start 启动写入器
 func (w *telemetryWriter) start(ctx context.Context) {
+	debugCtx, cancel := context.WithCancel(ctx)
+	w.debug = diagnostics.NewDebugRecorder(debugCtx, global.REDIS, logrus.StandardLogger())
+	w.debugCancel = cancel
 	flushDuration := w.config.GetFlushDuration()
 	// 如果配置了定时flush，启动定时器和后台协程
 	if flushDuration > 0 {
@@ -86,6 +93,9 @@ func (w *telemetryWriter) run(ctx context.Context) {
 
 // stop 停止写入器
 func (w *telemetryWriter) stop(timeout time.Duration) {
+	if w.debugCancel != nil {
+		defer w.debugCancel()
+	}
 	close(w.stopCh)
 
 	if w.flushTicker != nil {

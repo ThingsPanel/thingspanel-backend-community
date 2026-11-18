@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"project/internal/adapter/mqttadapter"
 	"project/internal/brokercommands"
+	"project/internal/diagnostics"
 	"project/internal/service"
 	"project/pkg/global"
 	"sync"
@@ -91,6 +92,7 @@ func (w *brokerCommandWorker) Stop() {
 }
 func (w *brokerCommandWorker) run(ctx context.Context) {
 	defer close(w.done)
+	debug := diagnostics.NewDebugRecorder(ctx, global.REDIS, w.logger)
 	sweep := time.Now().Add(-time.Minute)
 	var lastSync, lastExpected, lastExpiry time.Time
 	for ctx.Err() == nil {
@@ -145,7 +147,14 @@ func (w *brokerCommandWorker) run(ctx context.Context) {
 					return err
 				}
 				prepared.Message.MessageID = current.ID
-				return w.adapter.PublishDurableCommand(pubCtx, current, &prepared.Message, prepared.Encoded)
+				publishErr := w.adapter.PublishDurableCommand(pubCtx, current, &prepared.Message, prepared.Encoded)
+				diagnostics.GetInstance().RecordDownlinkPublish(current.DeviceID, publishErr)
+				outcome := "broker_accepted"
+				if publishErr != nil {
+					outcome = "publish_outcome_unknown"
+				}
+				debug.Record(current.DeviceID, "downlink", "command_publish", outcome)
+				return publishErr
 			})
 		}
 		if ctx.Err() != nil {

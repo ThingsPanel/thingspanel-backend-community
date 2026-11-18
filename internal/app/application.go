@@ -4,10 +4,12 @@ import (
 	"context"
 	"project/initialize"
 	"project/internal/automationbridge"
+	"project/internal/diagnostics"
 	"project/internal/downlink"
 	"project/internal/query"
 	"project/internal/storage"
 	"project/internal/uplink"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -17,11 +19,12 @@ import (
 
 // Application 结构体用于管理所有应用依赖
 type Application struct {
-	Config         *viper.Viper
-	Logger         *logrus.Logger
-	DB             *gorm.DB
-	RedisClient    *redis.Client
-	ServiceManager *ServiceManager
+	Config               *viper.Viper
+	Logger               *logrus.Logger
+	DB                   *gorm.DB
+	RedisClient          *redis.Client
+	ServiceManager       *ServiceManager
+	diagnosticsCollector *diagnostics.Collector
 
 	// Storage 相关
 	storageService   storage.Storage
@@ -86,6 +89,9 @@ func (app *Application) Shutdown() {
 
 	// 停止所有服务（包括 Storage）
 	app.ServiceManager.StopAll()
+	if app.diagnosticsCollector != nil {
+		app.diagnosticsCollector.Stop(2 * time.Second)
+	}
 
 	// 关闭数据库连接
 	if app.RedisClient != nil {

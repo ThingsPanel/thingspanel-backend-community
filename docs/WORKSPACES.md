@@ -141,3 +141,10 @@
 | --- | --- | --- | --- | --- |
 | `../thingspanel-frontend-community/.claude/worktrees/wp-device-first-credential` | `wp/device-first-credential` | 新设备自动签发首份 MQTT 凭据与连接页优化 | Codex | 审查完成后列清单确认清理 |
 | `.claude/worktrees/wp-device-first-credential` | `wp/device-first-credential` | 本地启动说明与工作目录登记 | Codex | 审查完成后列清单确认清理 |
+
+## 2026-11-18 设备诊断
+
+| 路径 | 分支 | 任务 | 负责人 | 清理计划 |
+| --- | --- | --- | --- | --- |
+| `.claude/worktrees/wp-t1-b-device-diagnostics` | `wp/t1-b-device-diagnostics` | T1-B 设备诊断 | Codex | 审查后确认清理 |
+| `../thingspanel-frontend-community/.claude/worktrees/wp-t1-b-device-diagnostics` | `wp/t1-b-device-diagnostics` | T1-B 设备诊断页面 | Codex | 审查后确认清理 |

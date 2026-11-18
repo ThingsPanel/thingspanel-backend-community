@@ -33,53 +33,43 @@ func (m *Metrics) getFailuresKey(deviceID string) string {
 	return fmt.Sprintf("device:%s:diagnostics:failures", deviceID)
 }
 
-// IncrementUplinkTotal 增加上行消息总数
-func (m *Metrics) IncrementUplinkTotal(deviceID string) error {
-	key := m.getStatsKey(deviceID)
-	return m.redisClient.HIncrBy(m.ctx, key, "uplink_total", 1).Err()
-}
-
-// IncrementUplinkFailed 增加上行处理失败数
-func (m *Metrics) IncrementUplinkFailed(deviceID string) error {
-	key := m.getStatsKey(deviceID)
-	return m.redisClient.HIncrBy(m.ctx, key, "uplink_failed", 1).Err()
-}
-
-// IncrementStorageFailed 增加存储失败数
-func (m *Metrics) IncrementStorageFailed(deviceID string) error {
-	key := m.getStatsKey(deviceID)
-	return m.redisClient.HIncrBy(m.ctx, key, "storage_failed", 1).Err()
-}
-
-// IncrementDownlinkTotal 增加下行指令总数
-func (m *Metrics) IncrementDownlinkTotal(deviceID string) error {
-	key := m.getStatsKey(deviceID)
-	return m.redisClient.HIncrBy(m.ctx, key, "downlink_total", 1).Err()
-}
-
-// IncrementDownlinkFailed 增加下行失败数
-func (m *Metrics) IncrementDownlinkFailed(deviceID string) error {
-	key := m.getStatsKey(deviceID)
-	return m.redisClient.HIncrBy(m.ctx, key, "downlink_failed", 1).Err()
-}
-
-// AddFailure 添加失败记录（保留最新 N 条）
-func (m *Metrics) AddFailure(deviceID string, record FailureRecord, maxFailures int) error {
-	key := m.getFailuresKey(deviceID)
-
-	// 序列化失败记录
-	jsonData, err := json.Marshal(record)
-	if err != nil {
-		return fmt.Errorf("marshal failure record failed: %w", err)
-	}
-
-	// 使用 Pipeline 原子操作：LPUSH + LTRIM
+func (m *Metrics) flush(ctx context.Context, counts map[string]Stats, failures []failureItem, maxFailures int) error {
 	pipe := m.redisClient.Pipeline()
-	pipe.LPush(m.ctx, key, jsonData)
-	pipe.LTrim(m.ctx, key, 0, int64(maxFailures-1)) // 保留 0 到 maxFailures-1，共 maxFailures 条
-	pipe.Expire(m.ctx, key, 7*24*time.Hour)         // 7天过期（防止内存泄漏）
-
-	_, err = pipe.Exec(m.ctx)
+	for deviceID, stats := range counts {
+		key := m.getStatsKey(deviceID)
+		fields := [...]struct {
+			name  string
+			value int64
+		}{
+			{"uplink_total", stats.UplinkTotal},
+			{"uplink_failed", stats.UplinkFailed},
+			{"storage_failed", stats.StorageFailed},
+			{"downlink_total", stats.DownlinkTotal},
+			{"downlink_failed", stats.DownlinkFailed},
+		}
+		for _, field := range fields {
+			if field.value != 0 {
+				pipe.HIncrBy(ctx, key, field.name, field.value)
+			}
+		}
+	}
+	if maxFailures > 0 {
+		updated := make(map[string]struct{})
+		for _, item := range failures {
+			data, err := json.Marshal(item.record)
+			if err != nil {
+				return err
+			}
+			key := m.getFailuresKey(item.deviceID)
+			pipe.LPush(ctx, key, data)
+			updated[key] = struct{}{}
+		}
+		for key := range updated {
+			pipe.LTrim(ctx, key, 0, int64(maxFailures-1))
+			pipe.Expire(ctx, key, 7*24*time.Hour)
+		}
+	}
+	_, err := pipe.Exec(ctx)
 	return err
 }
 

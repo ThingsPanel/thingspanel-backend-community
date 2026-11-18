@@ -956,6 +956,15 @@ func (*DeviceApi) GetDeviceDiagnostics(c *gin.Context) {
 		return
 	}
 
+	c.Header("Cache-Control", "no-store")
+	value, _ := c.Get("claims")
+	claims, _ := value.(*utils.UserClaims)
+	if claims == nil || claims.Delegated || (claims.Authority != "TENANT_ADMIN" && claims.Authority != "SYS_ADMIN") ||
+		service.GroupApp.Device.AuthorizeWebSocketDeviceRead(claims, []string{deviceID}) != nil {
+		c.Error(errcode.New(errcode.CodeNoPermission))
+		return
+	}
+
 	collector := diagnostics.GetInstance()
 	data, err := collector.GetDiagnostics(deviceID)
 	if err != nil {

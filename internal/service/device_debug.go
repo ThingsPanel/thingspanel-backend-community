@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"project/internal/diagnostics"
 	model "project/internal/model"
 	"project/internal/query"
 	"project/pkg/errcode"
@@ -20,13 +21,13 @@ import (
 type DeviceDebug struct{}
 
 const (
-	devDebugCfgKeyPrefix  = "tp:devdebug:cfg:"
-	devDebugLogsKeyPrefix = "tp:devdebug:logs:"
+	devDebugCfgKeyPrefix  = diagnostics.DebugConfigPrefix
+	devDebugLogsKeyPrefix = diagnostics.DebugLogsPrefix
 
 	defaultDebugDurationSeconds = int64(30 * 60)
 	defaultDebugMaxItems        = 1000
 	defaultDebugPayloadMaxBytes = 4096
-	debugTTLExtendSeconds       = int64(10 * 60)
+	debugTTLExtendSeconds       = int64(diagnostics.DebugRetentionGraceSeconds)
 )
 
 func devDebugCfgKey(deviceID string) string  { return devDebugCfgKeyPrefix + deviceID }

@@ -17,6 +17,7 @@ import (
 	"project/internal/brokerdelegate"
 	"project/internal/brokerledger"
 	"project/internal/brokerroute"
+	"project/internal/diagnostics"
 	"project/internal/model"
 )
 
@@ -46,6 +47,11 @@ func (w *telemetryWriter) doFlushTrusted(batch []*telemetryBatchItem) {
 	accepted, written, failed, err := w.commitTrustedTelemetry(batch)
 	var unknown *telemetryCommitUnknown
 	if errors.As(err, &unknown) {
+		for _, item := range batch {
+			if item != nil {
+				w.debug.Record(item.deviceID, "uplink", "telemetry_storage", "storage_outcome_unknown")
+			}
+		}
 		w.metrics.addTelemetryFailed(int64(failed))
 		w.metrics.addTelemetryUnknown(int64(telemetryPointCount(batch) - failed))
 		w.metrics.recordTelemetryBatch(telemetryPointCount(batch))
@@ -61,13 +67,35 @@ func (w *telemetryWriter) doFlushTrusted(batch []*telemetryBatchItem) {
 		return
 	}
 	if err != nil {
+		for _, item := range batch {
+			if item != nil {
+				w.debug.Record(item.deviceID, "uplink", "telemetry_storage", "storage_failed")
+				diagnostics.GetInstance().RecordStorageFailedPoints(item.deviceID, len(item.points), "telemetry write failed")
+			}
+		}
 		w.logger.Warnf("trusted telemetry batch failed; no successful commit: %v", err)
 	}
 	w.metrics.addTelemetryWritten(int64(written))
 	w.metrics.addTelemetryFailed(int64(failed))
 	w.metrics.recordTelemetryBatch(written + failed)
 	if err == nil {
+		if failed > 0 && (w.debug != nil || diagnostics.GetInstance().IsEnabled()) {
+			acceptedItems := make(map[*telemetryBatchItem]struct{}, len(accepted))
+			for _, item := range accepted {
+				acceptedItems[item] = struct{}{}
+			}
+			for _, item := range batch {
+				if item == nil {
+					continue
+				}
+				if _, ok := acceptedItems[item]; !ok {
+					w.debug.Record(item.deviceID, "uplink", "telemetry_storage", "storage_failed")
+					diagnostics.GetInstance().RecordStorageFailedPoints(item.deviceID, len(item.points), "telemetry write failed")
+				}
+			}
+		}
 		for _, item := range accepted {
+			w.debug.Record(item.deviceID, "uplink", "telemetry_storage", "storage_confirmed")
 			if item.afterCommit != nil {
 				item.afterCommit()
 			}

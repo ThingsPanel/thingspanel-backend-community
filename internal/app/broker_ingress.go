@@ -14,6 +14,7 @@ import (
 	"project/internal/adapter/mqttadapter"
 	"project/internal/automationbridge"
 	"project/internal/brokerledger"
+	"project/internal/diagnostics"
 	"project/internal/service"
 	"project/internal/uplink"
 	"project/pkg/global"
@@ -133,6 +134,7 @@ func strictUint64(value any) (uint64, bool) {
 
 type brokerIngressWorker struct {
 	cell           string
+	debug          *diagnostics.DebugRecorder
 	store          ingressReceiptStore
 	processor      ingressProcessor
 	processEffects func(context.Context) (bool, error)
@@ -159,6 +161,7 @@ func (w *brokerIngressWorker) Start(ctx context.Context) error {
 	}
 	workerCtx, cancel := context.WithCancel(ctx)
 	w.cancel, w.done = cancel, make(chan struct{})
+	w.debug = diagnostics.NewDebugRecorder(workerCtx, global.REDIS, w.logger)
 	go w.run(workerCtx, w.done)
 	return nil
 }
@@ -247,8 +250,25 @@ func (w *brokerIngressWorker) run(ctx context.Context, done chan struct{}) {
 }
 
 func (w *brokerIngressWorker) processOne(ctx context.Context) (bool, error) {
+	if w.debug == nil {
+		return w.processReceipt(ctx, w.processor.Process)
+	}
+	var deviceID, stream string
+	processed, err := w.processReceipt(ctx, func(ctx context.Context, tx *gorm.DB, msg brokerledger.Message) error {
+		deviceID, stream = msg.DeviceID, msg.Stream
+		return w.processor.Process(ctx, tx, msg)
+	})
+	outcome := "processed"
+	if err != nil {
+		outcome = "processing_failed"
+	}
+	w.debug.Record(deviceID, "uplink", stream, outcome)
+	return processed, err
+}
+
+func (w *brokerIngressWorker) processReceipt(ctx context.Context, handle func(context.Context, *gorm.DB, brokerledger.Message) error) (bool, error) {
 	if w.cell == "" {
-		return w.store.ProcessOne(ctx, w.processor.Process)
+		return w.store.ProcessOne(ctx, handle)
 	}
 	store, ok := w.store.(interface {
 		ProcessOneInCell(context.Context, string, func(context.Context, *gorm.DB, brokerledger.Message) error) (bool, error)
@@ -256,7 +276,7 @@ func (w *brokerIngressWorker) processOne(ctx context.Context) (bool, error) {
 	if !ok {
 		return false, errors.New("reliable ingress store does not support cell scoping")
 	}
-	return store.ProcessOneInCell(ctx, w.cell, w.processor.Process)
+	return store.ProcessOneInCell(ctx, w.cell, handle)
 }
 
 var ingressRequiredColumns = map[string][]string{
