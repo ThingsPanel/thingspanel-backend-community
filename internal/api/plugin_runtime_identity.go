@@ -10,6 +10,7 @@ import (
 	"project/internal/middleware"
 	"project/internal/model"
 	"project/internal/pluginidentity"
+	"project/internal/plugininstall"
 	"project/pkg/global"
 	"project/pkg/utils"
 
@@ -134,7 +135,7 @@ func legacyPluginRequest(c *gin.Context) bool {
 }
 
 func allowLegacyPluginService(c *gin.Context, service string) bool {
-	if service == "" || strings.EqualFold(strings.TrimSpace(service), "homeassistant") || legacyHTTPClaimed(service) {
+	if service == "" || strings.EqualFold(strings.TrimSpace(service), "homeassistant") || legacyHTTPClaimed(service) || legacyModbusClaimed(service) {
 		_, _ = pluginRuntimeIdentity(c)
 		return false
 	}
@@ -150,7 +151,8 @@ func requirePluginService(c *gin.Context, serviceIdentifier string) (*middleware
 	if !ok {
 		return nil, false
 	}
-	if serviceIdentifier != identity.ServiceIdentifier {
+	if serviceIdentifier != identity.ServiceIdentifier || identity.PluginInstance == plugininstall.ModbusPluginID ||
+		identity.ServiceIdentifier == plugininstall.ModbusServiceIdentifier {
 		scopeDenied(c)
 		return nil, false
 	}

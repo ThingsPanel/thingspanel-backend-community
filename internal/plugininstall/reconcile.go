@@ -179,14 +179,34 @@ func (e *Engine) install(ctx context.Context, row *Installation) *time.Duration 
 	token = "" // the only copy is now inside the container
 	e.event(row, "agent", "ok", "")
 
-	if _, _, err := e.Services.Ensure(ctx, *entry); err != nil {
-		return e.fail(row, "register", CodeRegisterFailed)
+	register := func() error {
+		if _, _, err := e.Services.Ensure(ctx, *entry); err != nil {
+			return err
+		}
+		e.event(row, "register", "ok", "")
+		return nil
 	}
-	e.event(row, "register", "ok", "")
+	managedModbus := entry.ID == ModbusPluginID
+	if !managedModbus {
+		if err := register(); err != nil {
+			return e.fail(row, "register", CodeRegisterFailed)
+		}
+	}
 
 	if err := e.waitHealthy(ctx, *entry); err != nil {
+		if managedModbus {
+			undo()
+			_ = e.Agent.Revoke(ctx, row.PluginID, gen, "Modbus health check failed")
+		}
 		row.Health = "error"
 		return e.fail(row, "health", CodeHealthFailed)
+	}
+	if managedModbus {
+		if err := register(); err != nil {
+			undo()
+			_ = e.Agent.Revoke(ctx, row.PluginID, gen, "Modbus registration failed")
+			return e.fail(row, "register", CodeRegisterFailed)
+		}
 	}
 	now := e.now()
 	row.State, row.Health, row.OpStep, row.ErrorCode, row.OpAttempts, row.MaintainedAt = StateEnabled, "ok", "", "", 0, &now

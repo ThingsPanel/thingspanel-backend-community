@@ -6,6 +6,7 @@ import (
 	model "project/internal/model"
 	service "project/internal/service"
 	"project/pkg/errcode"
+	"project/pkg/global"
 
 	"github.com/gin-gonic/gin"
 )
@@ -33,6 +34,27 @@ func (*ProtocolPluginApi) HandleProtocolPluginFormByProtocolType(c *gin.Context)
 func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPlugin(c *gin.Context) {
 	var req model.GetDeviceConfigReq
 	if !BindAndValidate(c, &req) {
+		return
+	}
+	if id := modbusRuntimeIdentity(c); id != nil {
+		if !sharedModbusInstallationLive(global.DB, id) {
+			scopeDenied(c)
+			return
+		}
+		db := global.DB.WithContext(c.Request.Context())
+		gateway, err := managedModbusGateway(db, req)
+		if err != nil {
+			scopeDenied(c)
+			return
+		}
+		data, err := service.GroupApp.ProtocolPlugin.BuildDeviceConfig(gateway, func() ([]*model.Device, error) {
+			return managedModbusChildren(db, gateway)
+		})
+		if err != nil {
+			c.Error(err)
+			return
+		}
+		c.Set("data", data)
 		return
 	}
 	if !pluginMayReadDevice(c, req) {

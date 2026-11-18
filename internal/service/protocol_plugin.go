@@ -14,7 +14,7 @@ type ProtocolPlugin struct{}
 
 // 获取设备配置，接口提供给协议插件
 // 请求参数：device_id,voucher,device_number
-func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{}, error) {
+func (p *ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{}, error) {
 	// 校验device_id、voucher、device_number必须有一个
 	if req.DeviceId == "" && req.Voucher == "" && req.DeviceNumber == "" {
 		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -22,8 +22,6 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 		})
 	}
 	var device *model.Device
-	var deviceConfig *model.DeviceConfig
-	var deviceConfigForProtocolPlugin model.DeviceConfigForProtocolPlugin
 
 	// 获取设备信息
 	if req.DeviceId != "" {
@@ -51,7 +49,14 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 		}
 		device = d
 	}
-	// 获取设备配置信息
+	return p.BuildDeviceConfig(device, func() ([]*model.Device, error) {
+		return dal.GetSubDeviceListByParentID(device.ID)
+	})
+}
+
+func (*ProtocolPlugin) BuildDeviceConfig(device *model.Device, children func() ([]*model.Device, error)) (interface{}, error) {
+	var deviceConfig *model.DeviceConfig
+	var deviceConfigForProtocolPlugin model.DeviceConfigForProtocolPlugin
 	if device.DeviceConfigID != nil {
 		dc, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
@@ -111,7 +116,7 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 	// 判断设备类型是否为网关
 	if deviceConfig.DeviceType == "2" {
 		var subDeviceList []*model.Device
-		subDeviceList, err := dal.GetSubDeviceListByParentID(device.ID)
+		subDeviceList, err := children()
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),
@@ -167,7 +172,6 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 			deviceConfigForProtocolPlugin.SubDivices = append(deviceConfigForProtocolPlugin.SubDivices, subDeviceConfigForProtocolPlugin)
 		}
 	}
-	logrus.Info("deviceConfigForProtocolPlugin:", deviceConfigForProtocolPlugin)
 	return deviceConfigForProtocolPlugin, nil
 }
 

@@ -2,7 +2,9 @@ package api
 
 import (
 	"project/internal/model"
+	"project/internal/plugininstall"
 	"project/internal/service"
+	"project/pkg/global"
 
 	"github.com/gin-gonic/gin"
 )
@@ -80,8 +82,15 @@ func (*ServicePluginApi) Heartbeat(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	if _, ok := requirePluginService(c, req.ServiceIdentifier); !ok {
-		return
+	if id := modbusRuntimeIdentity(c); id != nil {
+		if !plugininstall.IsModbusProtocol(req.ServiceIdentifier) || !sharedModbusInstallationLive(global.DB, id) {
+			scopeDenied(c)
+			return
+		}
+	} else {
+		if _, ok := requirePluginService(c, req.ServiceIdentifier); !ok {
+			return
+		}
 	}
 	err := service.GroupApp.ServicePlugin.Heartbeat(&req)
 	if err != nil {

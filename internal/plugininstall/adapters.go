@@ -58,23 +58,63 @@ type gormServices struct{ db func() *gorm.DB }
 
 func NewGormServices(db func() *gorm.DB) Services { return gormServices{db} }
 
+const (
+	ModbusPluginID          = "modbus"
+	ModbusServiceIdentifier = "MODBUS"
+	ModbusTCP               = "MODBUS_TCP"
+	ModbusRTU               = "MODBUS_RTU"
+)
+
+func IsModbusProtocol(protocol string) bool {
+	return protocol == ModbusTCP || protocol == ModbusRTU
+}
+
 // Ensure looks the row up by service_identifier; it creates it once and afterwards only refreshes the declared
 // fields, keeping every other key a user may have added. A repeat call never creates a second row.
-func (g gormServices) Ensure(_ context.Context, e CatalogEntry) (string, string, error) {
+func (g gormServices) Ensure(ctx context.Context, e CatalogEntry) (string, string, error) {
+	db := g.db().WithContext(ctx)
+	if e.ID != ModbusPluginID {
+		return ensureService(db, e)
+	}
+	if e.ServiceIdentifier != ModbusServiceIdentifier || e.ServicePlugin == nil || e.ServicePlugin.ServiceType != 1 {
+		return "", "", errors.New("invalid Modbus service declaration")
+	}
+	var id, outcome string
+	err := db.Transaction(func(tx *gorm.DB) error {
+		for _, protocol := range []string{ModbusTCP, ModbusRTU} {
+			spec := *e.ServicePlugin
+			spec.Name = protocol
+			entry := e
+			entry.ServiceIdentifier, entry.ServicePlugin = protocol, &spec
+			var err error
+			id, outcome, err = ensureService(tx, entry)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return id, outcome, err
+}
+
+func ensureService(db *gorm.DB, e CatalogEntry) (string, string, error) {
 	spec := e.ServicePlugin
 	if spec == nil {
 		return "", "skipped", nil
 	}
 	values := map[string]string{"alias": e.NetworkAlias, "http_port": fmt.Sprint(e.HTTPPort)}
-	declared := map[string]string{}
+	declared := map[string]any{}
 	for k, v := range spec.Config {
 		for name, val := range values {
 			v = strings.ReplaceAll(v, "{"+name+"}", val)
 		}
 		declared[k] = v
 	}
+	if e.ID == ModbusPluginID {
+		declared["device_type"] = 2
+		declared["managed_plugin_id"] = ModbusPluginID
+	}
 	now := time.Now().UTC()
-	db := g.db()
 	var existing []model.ServicePlugin
 	if err := db.Where("service_identifier = ?", e.ServiceIdentifier).Order("create_at").Limit(1).Find(&existing).Error; err != nil {
 		return "", "", err
