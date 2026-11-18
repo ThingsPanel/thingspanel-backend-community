@@ -862,7 +862,7 @@ func compareLeaf(c Condition, s Sample, now time.Time) LeafResult {
 func matchEventParams(c Condition, s Sample) LeafResult {
 	for _, f := range c.EventMatch.Fields {
 		actual, ok := lookupPath(s.Params, f.Path)
-		if !ok {
+		if !ok && f.Operator != OpExists {
 			return LeafResult{Verdict: VerdictFalse, Reasons: []Reason{{
 				Code: "event_field_missing", DeviceID: s.DeviceID, Key: f.Path,
 				Message: "事件参数中不存在该字段",

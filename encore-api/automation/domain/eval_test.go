@@ -231,3 +231,21 @@ func TestDurationParsing(t *testing.T) {
 		}
 	}
 }
+
+func TestEventFieldExistence(t *testing.T) {
+	for _, tc := range []struct {
+		path, want string
+		verdict    Verdict
+	}{
+		{"body.present", "true", VerdictTrue},
+		{"body.present", "false", VerdictFalse},
+		{"body.absent", "true", VerdictFalse},
+		{"body.absent", "false", VerdictTrue},
+	} {
+		cond := Condition{EventMatch: &EventMatch{Fields: []EventField{{Path: tc.path, Operator: OpExists, Value: tc.want}}}}
+		got := matchEventParams(cond, Sample{Params: map[string]any{"body": map[string]any{"present": 0}}})
+		if got.Verdict != tc.verdict {
+			t.Errorf("%s exists %s: got %v, want %v", tc.path, tc.want, got.Verdict, tc.verdict)
+		}
+	}
+}
