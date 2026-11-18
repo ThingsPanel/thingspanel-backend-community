@@ -87,11 +87,29 @@ func ProcessBrokerNativeAutomationEffect(ctx context.Context, db *gorm.DB, cell 
 		if class == "" {
 			return fence("unsupported automation signal")
 		}
-		values, err := json.Marshal(trigger.Values)
+		inputValues := trigger.Values
+		var encodedParams []byte
+		if class == "event" {
+			if len(trigger.Values) != 1 {
+				return fence("invalid persisted event identifiers")
+			}
+			for method, raw := range trigger.Values {
+				var params map[string]any
+				inputValues, params, err = automationbridge.EventValues(method, raw)
+				if err != nil {
+					return fence("invalid persisted event parameters")
+				}
+				encodedParams, err = json.Marshal(params)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		values, err := json.Marshal(inputValues)
 		if err != nil {
 			return err
 		}
-		event = automationbridge.Uplink{TenantID: claimed.TenantID, DeviceID: claimed.DeviceID, MessageID: claimed.ID, ObservedAt: claimed.CreatedAt.UTC().Format(time.RFC3339Nano), Class: class, Values: string(values), Source: "community-durable-ingress"}
+		event = automationbridge.Uplink{TenantID: claimed.TenantID, DeviceID: claimed.DeviceID, MessageID: claimed.ID, ObservedAt: claimed.CreatedAt.UTC().Format(time.RFC3339Nano), Class: class, Values: string(values), Params: string(encodedParams), Source: "community-durable-ingress"}
 		claimed.Attempts++
 		return tx.Model(&automationEffect{}).Where("id=?", claimed.ID).Updates(map[string]any{"state": "dispatching", "attempts": claimed.Attempts, "retry_after": time.Now().Add(30 * time.Second), "updated_at": time.Now()}).Error
 	})

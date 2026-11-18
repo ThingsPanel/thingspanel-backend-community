@@ -81,3 +81,20 @@ func TestPostgresNativeEffectFencesChangedTransport(t *testing.T) {
 		t.Fatalf("state=%s", e.State)
 	}
 }
+
+func TestPostgresNativeReliableEventSeparatesIdentifierFromParams(t *testing.T) {
+	db := automationPG(t)
+	f := seedAutomationFixture(t, db)
+	if err := db.Exec(`UPDATE broker_ingress_effects SET payload = payload::jsonb || '{"trigger_param_type":"EVT","trigger_values":{"sensor_test":"{\"message\":\"match\"}"}}'::jsonb WHERE id=?`, f.effect).Error; err != nil {
+		t.Fatal(err)
+	}
+	worked, err := ProcessBrokerNativeAutomationEffect(context.Background(), db, f.cell, func(_ context.Context, event automationbridge.Uplink) error {
+		if event.Class != "event" || event.Values != `{"identify":"sensor_test"}` || event.Params != `{"message":"match"}` {
+			t.Fatalf("wrong event payload %+v", event)
+		}
+		return nil
+	})
+	if !worked || err != nil {
+		t.Fatalf("event delivery failed: %v", err)
+	}
+}

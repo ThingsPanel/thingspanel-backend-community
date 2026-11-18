@@ -122,7 +122,33 @@ type Uplink struct {
 	MessageID  string `json:"message_id"`
 	ObservedAt string `json:"observed_at"`
 	Values     string `json:"values"`
+	Params     string `json:"params,omitempty"`
 	Source     string `json:"source"`
+}
+
+// EventValues translates the persisted event identifier and its JSON object into the native input contract.
+func EventValues(method string, raw any) (map[string]any, map[string]any, error) {
+	if strings.TrimSpace(method) == "" {
+		return nil, nil, errors.New("event uplink has no identifier")
+	}
+	var params map[string]any
+	switch v := raw.(type) {
+	case string:
+		if strings.TrimSpace(v) != "" {
+			if err := json.Unmarshal([]byte(v), &params); err != nil {
+				return nil, nil, fmt.Errorf("invalid event parameters: %w", err)
+			}
+		}
+	case map[string]any:
+		params = v
+	case nil:
+	default:
+		return nil, nil, errors.New("event parameters must be an object")
+	}
+	if params == nil {
+		params = map[string]any{}
+	}
+	return map[string]any{"identify": method}, params, nil
 }
 
 type Client struct {

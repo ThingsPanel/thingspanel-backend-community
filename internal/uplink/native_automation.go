@@ -265,7 +265,7 @@ func buildNativeUplink(device *model.Device, ext service.AutomateFromExt, observ
 		return req, err
 	}
 	req.Values = string(encoded)
-	if len(params) > 0 {
+	if params != nil {
 		encodedParams, err := json.Marshal(params)
 		if err != nil {
 			return req, err
@@ -293,18 +293,7 @@ func nativeValues(class string, ext service.AutomateFromExt) (map[string]interfa
 			return nil, nil, fmt.Errorf("event uplink has no identifier")
 		}
 		method := ext.TriggerParam[0]
-		params := map[string]interface{}{}
-		if raw, ok := ext.TriggerValues[method]; ok {
-			// The uplink pipeline stores event parameters as a JSON string.
-			if s, isString := raw.(string); isString && strings.TrimSpace(s) != "" {
-				if err := json.Unmarshal([]byte(s), &params); err != nil {
-					return nil, nil, fmt.Errorf("event params are not a JSON object: %w", err)
-				}
-			} else if m, isMap := raw.(map[string]interface{}); isMap {
-				params = m
-			}
-		}
-		return map[string]interface{}{"identify": method}, params, nil
+		return automationbridge.EventValues(method, ext.TriggerValues[method])
 
 	case "status":
 		online, ok := ext.TriggerValues["login"]
