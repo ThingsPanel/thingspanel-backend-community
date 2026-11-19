@@ -16,6 +16,11 @@ WORKDIR /go/src/app
 RUN apk update && apk add --no-cache tzdata
 COPY --from=builder /out/ThingsPanel-Go ./ThingsPanel-Go
 COPY sql ./sql
+# The self-hosted installer extracts migrations before starting the services.
+COPY encore-api/automation/migrations/*.up.sql ./encore-api/automation/migrations/
+COPY encore-api/devicemetadata/migrations/*.up.sql ./encore-api/devicemetadata/migrations/
+COPY encore-api/l3-core/notification/migrations/*.up.sql ./encore-api/l3-core/notification/migrations/
+COPY pkg/global/global.go ./pkg/global/global.go
 COPY static ./static
 COPY files/iphone-1.png files/iphone-2.png files/logo.png ./files/
 COPY configs/conf.yml configs/casbin.conf configs/messages.yaml configs/messages_str.yaml ./configs/

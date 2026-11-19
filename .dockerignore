@@ -18,6 +18,17 @@
 !third_party/**
 !sql/
 !sql/**
+!encore-api/
+!encore-api/automation/
+!encore-api/automation/migrations/
+!encore-api/devicemetadata/
+!encore-api/devicemetadata/migrations/
+!encore-api/l3-core/
+!encore-api/l3-core/notification/
+!encore-api/l3-core/notification/migrations/
+!encore-api/automation/migrations/*.up.sql
+!encore-api/devicemetadata/migrations/*.up.sql
+!encore-api/l3-core/notification/migrations/*.up.sql
 !static/
 !static/**
 !configs/
