@@ -47,3 +47,29 @@ func TestBackgroundJobRunsOnTickSurvivesPanicAndStops(t *testing.T) {
 		t.Fatal("job did not stop after cancellation")
 	}
 }
+
+func TestRuntimeOutboxWorkerRunsBeforePeriodicTick(t *testing.T) {
+	job := backgroundJobs()[1]
+	job.every = time.Hour
+	ran := make(chan struct{}, 1)
+	job.run = func(context.Context) error {
+		ran <- struct{}{}
+		return nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		runBackgroundJob(ctx, job)
+	}()
+	t.Cleanup(func() {
+		cancel()
+		<-done
+	})
+	wakeRuntimeOutbox()
+	select {
+	case <-ran:
+	case <-time.After(2 * time.Second):
+		t.Fatal("runtime outbox worker did not wake before the next scan")
+	}
+}

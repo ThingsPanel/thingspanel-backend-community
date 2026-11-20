@@ -16,30 +16,31 @@ import (
 // created credential when the device has no live credential and no activation
 // already waiting. It writes the operation and the outbox row in the caller's
 // transaction.
-func enqueueFirstCredentialActivationTx(ctx context.Context, tx dbx.Tx, tenantID, subjectID, deviceID, credentialID, requestID string) error {
+func enqueueFirstCredentialActivationTx(ctx context.Context, tx dbx.Tx, tenantID, subjectID, deviceID, credentialID, requestID string) (bool, error) {
 	var blocked bool
 	if err := tx.QueryRow(ctx, `SELECT
 			EXISTS (SELECT 1 FROM device_credentials WHERE tenant_id=$1 AND device_id=$2 AND purpose='device_access' AND status='active' AND id<>$3)
 			OR EXISTS (SELECT 1 FROM device_runtime_outbox WHERE tenant_id=$1 AND device_id=$2 AND kind=$4
 				AND state IN ('pending','failed') AND desired->>'change'='activation')`,
 		tenantID, deviceID, credentialID, operationKindCredentialChange).Scan(&blocked); err != nil {
-		return err
+		return false, err
 	}
 	if blocked {
-		return nil
+		return false, nil
 	}
 	var generation int64
 	if err := tx.QueryRow(ctx, `SELECT resource_version FROM devices WHERE tenant_id=$1 AND id=$2`, tenantID, deviceID).Scan(&generation); err != nil {
-		return err
+		return false, err
 	}
 	digest := operationRequestDigest("POST", "/api/v2/devices/"+deviceID+"/credentials", "", []byte(credentialID))
 	operationID, err := createDeviceOperationTx(ctx, tx, tenantID, subjectID, operationKindCredentialChange, deviceID,
 		"createDeviceCredential", requestID, digest, map[string]any{"awaiting": "runtime-application", "change": "activation"})
 	if err != nil {
-		return err
+		return false, err
 	}
-	return enqueueDeviceRuntimeTx(ctx, tx, tenantID, deviceID, operationID, operationKindCredentialChange, generation,
+	err = enqueueDeviceRuntimeTx(ctx, tx, tenantID, deviceID, operationID, operationKindCredentialChange, generation,
 		map[string]any{"deviceId": deviceID, "change": "activation", "credentialId": credentialID})
+	return err == nil, err
 }
 
 // Community keeps one voucher per device, so a credential change is applied by

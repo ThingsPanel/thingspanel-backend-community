@@ -21,21 +21,31 @@ import (
 const backgroundWorkersEnv = "TP_BACKGROUND_WORKERS"
 
 var (
-	backgroundMu     sync.Mutex
-	backgroundCancel context.CancelFunc
+	backgroundMu      sync.Mutex
+	backgroundCancel  context.CancelFunc
+	runtimeOutboxWake = make(chan struct{}, 1)
 )
 
 type backgroundJob struct {
 	name  string
 	every time.Duration
+	wake  <-chan struct{}
 	run   func(context.Context) error
 }
 
 func backgroundJobs() []backgroundJob {
 	return []backgroundJob{
-		{"process-long-reading-exports", 15 * time.Second, func(ctx context.Context) error { return ProcessLongReadingExports(ctx) }},
-		{"dispatch-device-runtime-outbox", time.Minute, func(ctx context.Context) error { return DispatchDeviceRuntimeOutbox(ctx) }},
-		{"purge-expired-metadata-downloads", time.Hour, func(ctx context.Context) error { return PurgeExpiredMetadataDownloads(ctx) }},
+		{name: "process-long-reading-exports", every: 15 * time.Second, run: func(ctx context.Context) error { return ProcessLongReadingExports(ctx) }},
+		{name: "dispatch-device-runtime-outbox", every: time.Minute, wake: runtimeOutboxWake, run: func(ctx context.Context) error { return DispatchDeviceRuntimeOutbox(ctx) }},
+		{name: "purge-expired-metadata-downloads", every: time.Hour, run: func(ctx context.Context) error { return PurgeExpiredMetadataDownloads(ctx) }},
+	}
+}
+
+// Signal only after commit. A full channel already represents pending work.
+func wakeRuntimeOutbox() {
+	select {
+	case runtimeOutboxWake <- struct{}{}:
+	default:
 	}
 }
 
@@ -75,17 +85,18 @@ func runBackgroundJob(ctx context.Context, job backgroundJob) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						rlog.Error("background job panicked", "job", job.name, "panic", r)
-					}
-				}()
-				if err := job.run(ctx); err != nil && ctx.Err() == nil {
-					rlog.Error("background job failed", "job", job.name, "err", err)
+		case <-job.wake:
+		}
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					rlog.Error("background job panicked", "job", job.name, "panic", r)
 				}
 			}()
-		}
+			if err := job.run(ctx); err != nil && ctx.Err() == nil {
+				rlog.Error("background job failed", "job", job.name, "err", err)
+			}
+		}()
 	}
 }
 

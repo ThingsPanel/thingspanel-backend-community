@@ -180,6 +180,7 @@ func createNativeDeviceCredential(ctx context.Context, identity nativeCredential
 		RequestID: requestID, CanonicalBody: canonical,
 	}
 	owner := CredentialAAD{TenantID: identity.tenantID, OwnerKind: CredentialOwnerDevice, OwnerID: deviceID, Purpose: CredentialPurposeDeviceAccess}
+	var activationQueued bool
 	result, err := runCredentialSecretWriteTx(ctx, command, owner, protector,
 		func(tx dbx.Tx) error {
 			data := authn.CurrentData()
@@ -258,9 +259,11 @@ func createNativeDeviceCredential(ctx context.Context, identity nativeCredential
 			// receipt confirms it. A device that already has a live credential keeps this
 			// one waiting as the replacement for a rotation. Certificates cannot be sent.
 			if input.Kind != "x509" {
-				if err := enqueueFirstCredentialActivationTx(ctx, tx, identity.tenantID, identity.subjectID, deviceID, aad.CredentialID, requestID); err != nil {
+				queued, err := enqueueFirstCredentialActivationTx(ctx, tx, identity.tenantID, identity.subjectID, deviceID, aad.CredentialID, requestID)
+				if err != nil {
 					return metadataWriteResponse{}, metadataWriteAudit{}, err
 				}
+				activationQueued = queued
 			}
 			summary := NativeCredentialSummary{ID: aad.CredentialID, DeviceID: deviceID, Kind: input.Kind, Status: "pending", PublicIdentifier: publicIdentifier, Fingerprint: hex.EncodeToString(fingerprint), CreatedAt: expiresAt.Add(-credentialSecretReplayWindow).UTC()}
 			secretResponse := nativeCredentialSecretResponse{Data: nativeCredentialSecret{Credential: summary, Secret: responseSecret, ExpiresAt: expiresAt.UTC()}, Meta: RequestMeta{RequestID: requestID}}
@@ -277,6 +280,9 @@ func createNativeDeviceCredential(ctx context.Context, identity nativeCredential
 		for i := range material {
 			material[i] = 0
 		}
+	}
+	if err == nil && activationQueued {
+		wakeRuntimeOutbox()
 	}
 	return result, err
 }
