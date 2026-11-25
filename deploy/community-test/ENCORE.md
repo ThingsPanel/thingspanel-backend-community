@@ -1,6 +1,6 @@
 # 社区 Encore 测试服构建与部署
 
-推送 `main` 只运行校验和构建，不会更新测试服。完成配套配置与数据迁移验收后，手动运行 `deploy.yml`，选择 `main` 并启用 `deploy_to_test`，才会部署社区后端及 Encore/通知核心。原生服务单独发布使用 `deploy-encore.yml` 的 `deploy_runtime`；不能用它代替需要同时更新 Gin 的发布。
+包含构建或运行相关变更的 `main` 推送通过校验和构建后，自动走社区测试服的联合部署流程。文档和镜像发布专用路径沿用 `deploy.yml` 的排除规则。需要手动部署时，运行 `deploy.yml`，选择 `main` 并启用 `deploy_to_test`。原生服务单独发布可使用 `deploy-encore.yml` 的 `deploy_runtime`。需要同时更新 Gin 时使用联合部署。
 
 运行服务替换前先执行只读 `rollout_preflight.py`，检查新的 `relational.*` 配置、原生服务托管、资源库映射和存量设备迁移的必要条件。失败时不停止业务进程，也不切换前端。前端使用同一服务器检查器；检查器通过不代表完整迁移对账已经完成。
 

@@ -17,8 +17,13 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_test && 'community-main-coordinated-deploy' || format('community-main-checks-{0}', github.ref) }}
-  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.deploy_to_test) }}
+  group: >-
+    ${{ github.ref == 'refs/heads/main' &&
+        (github.event_name == 'push' || inputs.deploy_to_test) &&
+        'community-main-coordinated-deploy' || format('community-main-checks-{0}', github.ref) }}
+  cancel-in-progress: >-
+    ${{ !(github.ref == 'refs/heads/main' &&
+          (github.event_name == 'push' || inputs.deploy_to_test)) }}
 jobs:
   build_backend:
     if: ${{ !inputs.build_device_safety }}
@@ -88,7 +93,7 @@ jobs:
     with:
       deploy_backend: true
       backend_artifact_id: ${{ needs.build_backend.outputs.artifact_id }}
-      deploy_runtime: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_test }}
+      deploy_runtime: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.deploy_to_test) }}
     secrets: inherit
 
   device_safety:
