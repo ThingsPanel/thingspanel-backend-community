@@ -36,6 +36,23 @@ func TestReadNativeDevicePageAndGroupMemberPage(t *testing.T) {
 	if gotIDs := nativeReadDeviceIDs(got.Data.Items); !reflect.DeepEqual(gotIDs, wantPageOne) {
 		t.Fatalf("stable page one IDs = %v, want %v", gotIDs, wantPageOne)
 	}
+	light, err := readNativeDevicePage(ctx, nativeDeviceReadIdentity{tenantID: fixture.tenantA},
+		decodeNativeDeviceReadQuery(t, "page=1&pageSize=7&sort=-createdAt&includeSummaries=false"), "native-metadata-only")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if light.Data.Total != got.Data.Total || !reflect.DeepEqual(nativeReadDeviceIDs(light.Data.Items), wantPageOne) {
+		t.Fatalf("metadata-only read changed pagination: %#v", light.Data)
+	}
+	for _, device := range light.Data.Items {
+		if device.RuntimeSummary != nil || device.AlarmSummary != nil {
+			t.Fatal("metadata-only read loaded summaries")
+		}
+	}
+	if _, err := readNativeDeviceSummaryItems(ctx, nativeDeviceReadIdentity{tenantID: fixture.tenantA},
+		[]string{fixture.devices[0], fixture.tenantBDevice}); !hasErrCode(err, errs.NotFound) {
+		t.Fatalf("cross-tenant summary batch: %v", err)
+	}
 	pageTwo := decodeNativeDeviceReadQuery(t, "page=2&pageSize=7&sort=-createdAt")
 	gotTwo, err := readNativeDevicePage(ctx, nativeDeviceReadIdentity{tenantID: fixture.tenantA}, pageTwo, "native-read-page-2")
 	if err != nil {
@@ -335,7 +352,7 @@ func TestCurrentNativeDeviceReadIdentityRequiresMappedRole(t *testing.T) {
 func decodeNativeDeviceReadQuery(t *testing.T, raw string) nativeDeviceListQuery {
 	t.Helper()
 	r := httptest.NewRequest("GET", "/api/v2/devices?"+raw, nil)
-	values, err := parseNativeReadValues(r, nativeDeviceReadQueryKeys)
+	values, err := parseNativeReadValues(r, nativeDeviceListQueryKeys)
 	if err != nil {
 		t.Fatalf("parse device query %q: %v", raw, err)
 	}

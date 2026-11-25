@@ -60,9 +60,11 @@ type nativeDeviceListQuery struct {
 	values             url.Values
 	includeDescendants bool
 	hasTemplate        *bool
+	omitSummaries      bool
 }
 
 var nativeDeviceReadQueryKeys = []string{"page", "pageSize", "search", "deviceNumber", "deviceKind", "templateId", "productId", "groupId", "includeDescendants", "gatewayId", "administrativeState", "activationState", "connectivity", "label", "sort", "groupScope", "accessWay", "protocol", "providerId", "serviceInstanceId", "firmwareVersion", "batchNumber", "alarmState", "modelId", "hasTemplate", "gatewayScope"}
+var nativeDeviceListQueryKeys = append([]string{"includeSummaries"}, nativeDeviceReadQueryKeys...)
 
 func parseNativeReadValues(r *http.Request, keys []string) (url.Values, error) {
 	values, err := url.ParseQuery(r.URL.RawQuery)
@@ -103,6 +105,18 @@ func decodeNativeDeviceListQuery(values url.Values) (nativeDeviceListQuery, erro
 	out.page, out.pageSize, err = normalizeDeviceGroupPagination(values.Get("page"), values.Get("pageSize"))
 	if err != nil {
 		return out, err
+	}
+	if values.Has("includeSummaries") {
+		switch values.Get("includeSummaries") {
+		case "true":
+		case "false":
+			out.omitSummaries = true
+		default:
+			return out, invalidGroupQuery("includeSummaries must be true or false")
+		}
+		if out.omitSummaries && hasDeviceSummaryFilters(out) {
+			return out, invalidGroupQuery("state filters require device summaries")
+		}
 	}
 	for key, max := range map[string]int{"search": 128, "deviceNumber": 128, "label": 322, "protocol": 64, "serviceInstanceId": 256, "firmwareVersion": 128, "batchNumber": 128} {
 		if utf8.RuneCountInString(values.Get(key)) > max || (key == "deviceNumber" && values.Has(key) && values.Get(key) == "") {
@@ -351,8 +365,10 @@ func readNativeDevicePageForGateway(ctx context.Context, identity nativeDeviceRe
 	defer rows.Close()
 	batch := make([]NativeDevice, 0, 200)
 	flush := func() error {
-		if err := attachDeviceSummaries(ctx, batch, query); err != nil {
-			return err
+		if !query.omitSummaries {
+			if err := attachDeviceSummaries(ctx, batch, query); err != nil {
+				return err
+			}
 		}
 		for _, device := range batch {
 			if !filtered {
@@ -405,7 +421,7 @@ func (s *Service) ListNativeDevices(w http.ResponseWriter, r *http.Request) {
 		writeGroupReadProblem(w, requestID, r.URL.Path, err)
 		return
 	}
-	values, err := parseNativeReadValues(r, nativeDeviceReadQueryKeys)
+	values, err := parseNativeReadValues(r, nativeDeviceListQueryKeys)
 	if err != nil {
 		writeGroupReadProblem(w, requestID, r.URL.Path, err)
 		return
