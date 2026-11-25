@@ -85,6 +85,11 @@ func TestGroupReadRawRejectsMalformedQueryWithProblemResponse(t *testing.T) {
 			handler: (&Service{}).ListDeviceGroups,
 		},
 		{
+			name:    "invalid summary flag",
+			path:    "/api/v2/device-groups?summaryOnly=yes",
+			handler: (&Service{}).ListDeviceGroups,
+		},
+		{
 			name:    "conflicting parent and root filter",
 			path:    "/api/v2/device-groups?parentId=" + uuid.NewString() + "&rootOnly=true",
 			handler: (&Service{}).ListDeviceGroups,
@@ -162,6 +167,23 @@ func TestGroupReadRawListHandlerReadsPostgres(t *testing.T) {
 	}
 	if response.Data.Items[0].ID != groupID || response.Data.Items[0].Name != marker {
 		t.Fatalf("handler did not return the inserted PostgreSQL row: %#v", response.Data.Items)
+	}
+	if !response.Data.Items[0].PathComplete || len(response.Data.Items[0].Path) != 1 {
+		t.Fatalf("default list did not include the group path: %#v", response.Data.Items[0])
+	}
+	req = httptest.NewRequest(http.MethodGet, req.URL.RequestURI()+"&summaryOnly=true", nil)
+	recorder = httptest.NewRecorder()
+	(&Service{}).ListDeviceGroups(recorder, req)
+	var summary DeviceGroupPageResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &summary); err != nil {
+		t.Fatalf("decode summary response: %v", err)
+	}
+	if recorder.Code != http.StatusOK || summary.Data.Total != response.Data.Total || len(summary.Data.Items) != 1 {
+		t.Fatalf("unexpected summary page: status=%d, response=%#v", recorder.Code, summary)
+	}
+	got := summary.Data.Items[0]
+	if got.ID != groupID || got.Name != marker || got.PathComplete || len(got.Path) != 0 {
+		t.Fatalf("unexpected summary item: %#v", got)
 	}
 }
 

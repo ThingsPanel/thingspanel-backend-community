@@ -20,22 +20,21 @@ type GroupProblem = nativehttp.Problem
 //encore:api auth raw method=GET path=/api/v2/device-groups
 func (s *Service) ListDeviceGroups(w http.ResponseWriter, r *http.Request) {
 	requestID := newID()
-	query, err := parseGroupReadQuery(r, "page", "pageSize", "parentId", "rootOnly", "search", "sort")
+	query, err := parseGroupReadQuery(r, "page", "pageSize", "parentId", "rootOnly", "search", "sort", "summaryOnly")
 	if err != nil {
 		writeGroupReadProblem(w, requestID, r.URL.Path, err)
 		return
 	}
-	rootOnly := false
-	if raw, ok := query["rootOnly"]; ok {
-		if raw[0] != "true" && raw[0] != "false" {
-			writeGroupReadProblem(w, requestID, r.URL.Path, invalidGroupQuery("rootOnly must be true or false"))
+	for _, key := range []string{"rootOnly", "summaryOnly"} {
+		if value := query.Get(key); value != "" && value != "true" && value != "false" {
+			writeGroupReadProblem(w, requestID, r.URL.Path, invalidGroupQuery(key+" must be true or false"))
 			return
 		}
-		rootOnly = raw[0] == "true"
 	}
 	req := &ListDeviceGroupsReq{
 		Page: query.Get("page"), PageSize: query.Get("pageSize"), ParentID: query.Get("parentId"),
-		RootOnly: rootOnly, Search: query.Get("search"), Sort: query.Get("sort"),
+		RootOnly: query.Get("rootOnly") == "true", Search: query.Get("search"), Sort: query.Get("sort"),
+		SummaryOnly: query.Get("summaryOnly") == "true",
 	}
 	response, err := s.listDeviceGroups(r.Context(), req, requestID)
 	if err != nil {

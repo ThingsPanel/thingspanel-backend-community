@@ -80,12 +80,13 @@ type GroupTreeResponse struct {
 }
 
 type ListDeviceGroupsReq struct {
-	Page     string `query:"page"`
-	PageSize string `query:"pageSize"`
-	ParentID string `query:"parentId"`
-	RootOnly bool   `query:"rootOnly"`
-	Search   string `query:"search"`
-	Sort     string `query:"sort"`
+	Page        string `query:"page"`
+	PageSize    string `query:"pageSize"`
+	ParentID    string `query:"parentId"`
+	RootOnly    bool   `query:"rootOnly"`
+	Search      string `query:"search"`
+	Sort        string `query:"sort"`
+	SummaryOnly bool   `query:"summaryOnly"`
 }
 
 func normalizeDeviceGroupPagination(pageValue, pageSizeValue string) (int, int, error) {
@@ -207,8 +208,7 @@ func (s *Service) listDeviceGroups(ctx context.Context, req *ListDeviceGroupsReq
 		if err := rows.Scan(&g.ID, &g.TenantID, &g.ParentID, &g.Name, &g.Description, &g.SortOrder, &g.ResourceVersion, &g.CreatedBy, &g.UpdatedBy, &g.CreatedAt, &g.UpdatedAt, &g.DirectDeviceCount); err != nil {
 			return nil, wrapDBErr(err, "list device groups failed")
 		}
-		g.Path, g.PathComplete = []DeviceGroupPathItem{{ID: g.ID, Name: g.Name}}, true
-		g.ActiveAlarmCount = nil
+		g.Path = []DeviceGroupPathItem{}
 		items = append(items, g)
 	}
 	if err := rows.Err(); err != nil {
@@ -220,8 +220,10 @@ func (s *Service) listDeviceGroups(ctx context.Context, req *ListDeviceGroupsReq
 	if items == nil {
 		items = []DeviceGroup{}
 	}
-	if err := hydrateGroupReadMetadata(ctx, tenantID, items, tx); err != nil {
-		return nil, err
+	if !req.SummaryOnly {
+		if err := hydrateGroupReadMetadata(ctx, tenantID, items, tx); err != nil {
+			return nil, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, wrapDBErr(err, "list device groups failed")

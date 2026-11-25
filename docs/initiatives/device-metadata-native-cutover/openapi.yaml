@@ -2256,7 +2256,7 @@ paths:
     get:
       operationId: listDeviceGroups
       summary: 分组列表和父级选择器
-      description: 分组列表和父级选择器
+      description: 支持按页读取分组。启用 summaryOnly 时，仅返回分页所需的基础信息。
       tags:
       - devicemetadata
       parameters:
@@ -2269,6 +2269,11 @@ paths:
       - in: query
         name: rootOnly
         schema: *id001
+      - in: query
+        name: summaryOnly
+        description: 为 true 时跳过路径和成员统计。path 为空，pathComplete 为 false，成员计数字段为未计算的默认值。
+        schema:
+          type: boolean
       - in: query
         name: search
         schema:
