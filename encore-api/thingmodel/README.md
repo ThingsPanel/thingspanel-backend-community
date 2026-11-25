@@ -90,11 +90,13 @@ than silently discarded. The first implementation uses complete semantic-model
 replacement, not the optional `fieldOperations` command variant.
 
 The host uses the existing auth handler. The DEV candidate now checks each
-legacy-jwt request against the configured Community `/api/v1/user/detail`
+legacy-jwt request against the configured Community `/api/v1/auth/session-status`
 session endpoint after local signature validation. `TP_COMMUNITY_SESSION_BASE_URL`
 must be the trusted internal Community origin (for example `http://backend:9999`).
 Missing configuration, revoked sessions, redirects, identity changes, and upstream
-errors fail closed. This adapter has no positive cache and does not place user
+errors fail closed. An invalid session returns HTTP 401. An unavailable verifier
+returns HTTP 503. Roll out Community with the new endpoint before switching Encore.
+This adapter has no positive cache and does not place user
 tables or Redis details in the model core. Cloud tests and real logout/kick-out
 HTTP regression remain release gates until their evidence is recorded.
 Fixture `TP_AUTH_MODE=dev` is only for isolated loopback testing. Do not ship the

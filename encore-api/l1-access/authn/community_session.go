@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	communitySessionPath       = "/api/v1/user/detail"
+	communitySessionPath       = "/api/v1/auth/session-status"
 	communitySessionTimeout    = 2 * time.Second
 	communitySessionMaxBody    = 256 << 10
 	communitySessionRejectText = "invalid or expired token"
@@ -38,7 +38,7 @@ type communitySessionUser struct {
 func checkCommunitySession(ctx context.Context, baseURL, token string, expected *Data) error {
 	endpoint, err := communitySessionEndpoint(baseURL)
 	if err != nil {
-		return rejectCommunitySession("configuration")
+		return unavailableCommunitySession("configuration")
 	}
 	if ctx == nil || strings.TrimSpace(token) == "" || expected == nil ||
 		strings.TrimSpace(expected.UserID) == "" || len(expected.Roles) != 1 || strings.TrimSpace(expected.Roles[0]) == "" ||
@@ -49,7 +49,7 @@ func checkCommunitySession(ctx context.Context, baseURL, token string, expected 
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return rejectCommunitySession("request")
+		return unavailableCommunitySession("request")
 	}
 	request.Header.Set("x-token", token)
 
@@ -61,29 +61,32 @@ func checkCommunitySession(ctx context.Context, baseURL, token string, expected 
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return rejectCommunitySession("request")
+		return unavailableCommunitySession("request")
 	}
 	defer response.Body.Close()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+	if response.StatusCode == http.StatusUnauthorized {
 		return rejectCommunitySession("http_status")
+	}
+	if response.StatusCode != http.StatusOK {
+		return unavailableCommunitySession("http_status")
 	}
 
 	body, err := io.ReadAll(io.LimitReader(response.Body, communitySessionMaxBody+1))
 	if err != nil || len(body) > communitySessionMaxBody {
-		return rejectCommunitySession("response_body")
+		return unavailableCommunitySession("response_body")
 	}
 	var envelope communitySessionEnvelope
 	if err := json.Unmarshal(body, &envelope); err != nil || envelope.Code == nil || (*envelope.Code != 200 && *envelope.Code != 0) || len(envelope.Data) == 0 || string(envelope.Data) == "null" {
-		return rejectCommunitySession("response_envelope")
+		return unavailableCommunitySession("response_envelope")
 	}
 	var user communitySessionUser
 	if err := json.Unmarshal(envelope.Data, &user); err != nil {
-		return rejectCommunitySession("response_data")
+		return unavailableCommunitySession("response_data")
 	}
 	if platformWithoutTenant {
 		var fields map[string]json.RawMessage
 		if json.Unmarshal(envelope.Data, &fields) != nil {
-			return rejectCommunitySession("response_data")
+			return unavailableCommunitySession("response_data")
 		}
 		// The current identity owner returns nullable tenant_id; authcore uses
 		// COALESCE for that same field. An explicit empty/null tenant is valid
@@ -118,4 +121,9 @@ func rejectCommunitySession(reason string) error {
 	// Keep logs useful without exposing the bearer token or any response data.
 	log.Printf("[ERROR] legacy JWT Community session check failed: %s", reason)
 	return &errs.Error{Code: errs.Unauthenticated, Message: communitySessionRejectText}
+}
+
+func unavailableCommunitySession(reason string) error {
+	log.Printf("[ERROR] legacy JWT Community session check unavailable: %s", reason)
+	return &errs.Error{Code: errs.Unavailable, Message: "session verification unavailable"}
 }

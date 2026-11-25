@@ -92,21 +92,29 @@ func isValidJWT(c *gin.Context, token string) bool {
 		c.Set("claims", claims)
 		return true
 	}
-	// Refresh only an existing session; never resurrect a concurrent logout.
-	ttl := time.Duration(viper.GetInt("session.timeout")) * time.Minute
-	cap := time.Until(time.Unix(claims.ExpiresAt, 0))
-	if ttl <= 0 || ttl > cap {
-		ttl = cap
-	}
-	refreshed, refreshErr := global.REDIS.Eval(c.Request.Context(), `if redis.call('GET',KEYS[1]) ~= '1' then return 0 end
- redis.call('PEXPIRE',KEYS[1],ARGV[1]); redis.call('PEXPIRE',KEYS[2],ARGV[1]); return 1`, []string{token, dal.AppPushSessionKey(token)}, ttl.Milliseconds()).Int()
-	if refreshErr != nil || refreshed != 1 {
+	refreshed, refreshErr := refreshJWTSession(c.Request.Context(), token, claims.ExpiresAt)
+	if refreshErr != nil || !refreshed {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{Code: ErrCodeTokenExpired, Message: "session unavailable"})
 		return false
 	}
 	// 设置 claims 到上下文
 	c.Set("claims", claims)
 	return true
+}
+
+func refreshJWTSession(ctx context.Context, token string, expiresAt int64) (bool, error) {
+	ttl := time.Duration(viper.GetInt("session.timeout")) * time.Minute
+	remaining := time.Until(time.Unix(expiresAt, 0))
+	if remaining <= 0 {
+		return false, nil
+	}
+	if ttl <= 0 || ttl > remaining {
+		ttl = remaining
+	}
+	// Refresh only an existing session to preserve a concurrent logout.
+	refreshed, err := global.REDIS.Eval(ctx, `if redis.call('GET',KEYS[1]) ~= '1' then return 0 end
+ redis.call('PEXPIRE',KEYS[1],ARGV[1]); redis.call('PEXPIRE',KEYS[2],ARGV[1]); return 1`, []string{token, dal.AppPushSessionKey(token)}, ttl.Milliseconds()).Int()
+	return refreshed == 1, err
 }
 
 // OpenAPIKeyAuth APIKey 验证

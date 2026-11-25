@@ -3,6 +3,7 @@ package authn
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -11,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"encore.dev/beta/errs"
 )
 
 func TestCheckCommunitySessionAcceptsMatchingActiveSession(t *testing.T) {
@@ -35,10 +38,13 @@ func TestCheckCommunitySessionRejectsRevokedAndInvalidBusinessResponses(t *testi
 		name       string
 		statusCode int
 		body       string
+		wantCode   errs.ErrCode
 	}{
-		{name: "revoked", statusCode: http.StatusUnauthorized, body: `{"code":40102}`},
-		{name: "business error", statusCode: http.StatusOK, body: `{"code":40102,"data":{"id":"user-1","tenant_id":"tenant-1","authority":"TENANT_USER","status":"N"}}`},
-		{name: "missing data", statusCode: http.StatusOK, body: `{"code":200}`},
+		{name: "revoked", statusCode: http.StatusUnauthorized, body: `{"code":40102}`, wantCode: errs.Unauthenticated},
+		{name: "dependency failure", statusCode: http.StatusServiceUnavailable, wantCode: errs.Unavailable},
+		{name: "backend endpoint missing", statusCode: http.StatusNotFound, wantCode: errs.Unavailable},
+		{name: "business error", statusCode: http.StatusOK, body: `{"code":40102,"data":{"id":"user-1","tenant_id":"tenant-1","authority":"TENANT_USER","status":"N"}}`, wantCode: errs.Unavailable},
+		{name: "missing data", statusCode: http.StatusOK, body: `{"code":200}`, wantCode: errs.Unavailable},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -48,9 +54,8 @@ func TestCheckCommunitySessionRejectsRevokedAndInvalidBusinessResponses(t *testi
 			}))
 			defer server.Close()
 
-			if err := checkCommunitySession(context.Background(), server.URL, "signed-token", sessionTestIdentity()); err == nil {
-				t.Fatal("invalid session response was accepted")
-			}
+			err := checkCommunitySession(context.Background(), server.URL, "signed-token", sessionTestIdentity())
+			requireCommunitySessionError(t, err, tt.wantCode)
 		})
 	}
 }
@@ -67,9 +72,8 @@ func TestCheckCommunitySessionRejectsIdentityRoleAndStatusMismatch(t *testing.T)
 				_, _ = fmt.Fprintf(w, `{"code":200,"data":%s}`, user)
 			}))
 			defer server.Close()
-			if err := checkCommunitySession(context.Background(), server.URL, "signed-token", sessionTestIdentity()); err == nil {
-				t.Fatal("identity or status mismatch was accepted")
-			}
+			err := checkCommunitySession(context.Background(), server.URL, "signed-token", sessionTestIdentity())
+			requireCommunitySessionError(t, err, errs.Unauthenticated)
 		})
 	}
 }
@@ -114,11 +118,11 @@ func TestCheckCommunitySessionDoesNotExposeTokenOrResponseBody(t *testing.T) {
 	defer logger.SetOutput(previousOutput)
 
 	err := checkCommunitySession(context.Background(), server.URL, token, sessionTestIdentity())
-	if err == nil {
-		t.Fatal("business error response was accepted")
-	}
+	requireCommunitySessionError(t, err, errs.Unavailable)
+	var sessionErr *errs.Error
+	errors.As(err, &sessionErr)
 	for _, secret := range []string{token, privateBody} {
-		if strings.Contains(err.Error(), secret) || strings.Contains(logs.String(), secret) {
+		if strings.Contains(sessionErr.Message, secret) || strings.Contains(logs.String(), secret) {
 			t.Fatalf("failure leaked sensitive value %q", secret)
 		}
 	}
@@ -152,13 +156,17 @@ func TestCheckCommunitySessionHonorsCancellationAndNetworkFailure(t *testing.T) 
 	}))
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
-	if err := checkCommunitySession(ctx, server.URL, "signed-token", sessionTestIdentity()); err == nil {
-		t.Fatal("cancelled session check was accepted")
-	}
+	requireCommunitySessionError(t, checkCommunitySession(ctx, server.URL, "signed-token", sessionTestIdentity()), errs.Unavailable)
 	server.Close()
 
-	if err := checkCommunitySession(context.Background(), server.URL, "signed-token", sessionTestIdentity()); err == nil {
-		t.Fatal("unreachable Community endpoint was accepted")
+	requireCommunitySessionError(t, checkCommunitySession(context.Background(), server.URL, "signed-token", sessionTestIdentity()), errs.Unavailable)
+}
+
+func requireCommunitySessionError(t *testing.T, err error, want errs.ErrCode) {
+	t.Helper()
+	var sessionErr *errs.Error
+	if !errors.As(err, &sessionErr) || sessionErr.Code != want {
+		t.Fatalf("error = %v, want %v", err, want)
 	}
 }
 

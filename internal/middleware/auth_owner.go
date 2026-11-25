@@ -2,11 +2,13 @@ package middleware
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
+	"errors"
 	"net/http"
 	"os"
 	"project/pkg/global"
 	"project/pkg/utils"
+
+	"github.com/gin-gonic/gin"
 )
 
 // RetireAuthWriters is installed before all routes during the explicit cutover.
@@ -33,19 +35,24 @@ func NativeAccountCurrent(ctx context.Context, claims *utils.UserClaims) bool {
 	if os.Getenv("TP_AUTH_OWNER") != "encore" {
 		return true
 	}
+	current, err := nativeAccountCurrent(ctx, claims)
+	return err == nil && current
+}
+
+func nativeAccountCurrent(ctx context.Context, claims *utils.UserClaims) (bool, error) {
 	var count int64
 	if global.DB == nil {
-		return false
+		return false, errors.New("account database unavailable")
 	}
 	e := global.DB.WithContext(ctx).Table("users").Where("id = ? AND status = 'N' AND auth_version = ? AND authority = ? AND COALESCE(tenant_id,'') = ?", claims.ID, claims.AuthVersion, claims.Authority, claims.TenantID).Count(&count).Error
 	if e != nil || count != 1 {
-		return false
+		return false, e
 	}
 	if claims.Delegated {
 		if claims.ActorID == "" {
-			return false
+			return false, nil
 		}
 		e = global.DB.WithContext(ctx).Table("users").Where("id=? AND status='N' AND auth_version=? AND (authority='SYS_ADMIN' OR (authority='TENANT_ADMIN' AND tenant_id=? AND ? <> 'SYS_ADMIN'))", claims.ActorID, claims.ActorVersion, claims.TenantID, claims.Authority).Count(&count).Error
 	}
-	return e == nil && count == 1
+	return count == 1, e
 }
