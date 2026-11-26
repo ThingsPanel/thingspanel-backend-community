@@ -162,6 +162,9 @@ func (h *handler) health(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.plugin.Health(r.Context()); err != nil {
+		if errors.Is(err, errProviderNotConfigured) {
+			w.Header().Set("X-Notification-Health", "unconfigured")
+		}
 		h.write(w, http.StatusServiceUnavailable, ProtocolError{Code: "unavailable", Message: "Plugin unavailable."})
 		return
 	}

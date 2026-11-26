@@ -205,3 +205,23 @@ func TestDigestAndSafeManifestSummaryNeverIncludeAuthSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPluginHealthProbe(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusUnauthorized, http.StatusServiceUnavailable} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" || r.URL.Path != "/healthz" || r.Header.Get("Authorization") != "Bearer fixture" {
+				t.Error("unexpected health request")
+			}
+			w.WriteHeader(status)
+		}))
+		client, err := NewSafePluginClient(PluginHTTPOptions{TestMode: true, AllowHTTPTestOrigin: true, AllowedOrigins: []string{server.URL}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := client.probeHealth(context.Background(), PluginRuntime{Origin: server.URL, AuthSecret: "fixture"})
+		server.Close()
+		if (got == "healthy") != (status == http.StatusOK) {
+			t.Errorf("status %d: health=%s", status, got)
+		}
+	}
+}

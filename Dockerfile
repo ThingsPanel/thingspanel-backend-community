@@ -9,11 +9,14 @@ ARG TARGETOS
 ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags "-X project/pkg/global.SYSTEM_VERSION=${VERSION}" -o /out/ThingsPanel-Go .
 
+RUN cd notification-adapters && CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -o /out/notification-smtp ./cmd/smtp && CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -o /out/notification-unipush ./cmd/unipush
+
 FROM alpine:latest
 ARG VERSION=dev
 LABEL description="ThingsPanel Go Backend"
 WORKDIR /go/src/app
 RUN apk update && apk add --no-cache tzdata
+COPY --from=builder /out/notification-smtp /out/notification-unipush /usr/local/bin/
 COPY --from=builder /out/ThingsPanel-Go ./ThingsPanel-Go
 COPY sql ./sql
 # The self-hosted installer extracts migrations before starting the services.

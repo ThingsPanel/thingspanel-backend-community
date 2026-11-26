@@ -1029,7 +1029,7 @@ components:
         manifestDigest: {type: string}
         manifest: {$ref: '#/components/schemas/PluginManifestSummary'}
         enabled: {type: boolean}
-        health: {type: string, enum: [unknown, healthy, unhealthy]}
+        health: {type: string, enum: [unknown, healthy, unhealthy, unconfigured]}
         version: {type: integer, minimum: 1}
     PluginManifestSummary:
       type: object
