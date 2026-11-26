@@ -23,18 +23,22 @@ type defaultSMTPBootstrapConfig struct {
 }
 
 func defaultSMTPBootstrapConfigFromEnv(getenv func(string) string) (defaultSMTPBootstrapConfig, error) {
+	return defaultPluginConfigFromEnv(getenv, "NOTIFICATION_DEFAULT_SMTP")
+}
+
+func defaultPluginConfigFromEnv(getenv func(string) string, prefix string) (defaultSMTPBootstrapConfig, error) {
 	if getenv == nil {
 		getenv = os.Getenv
 	}
-	mode := strings.TrimSpace(getenv("NOTIFICATION_DEFAULT_SMTP_BOOTSTRAP"))
+	mode := strings.TrimSpace(getenv(prefix + "_BOOTSTRAP"))
 	if mode == "" || mode == "false" {
 		return defaultSMTPBootstrapConfig{}, nil
 	}
 	if mode != "true" {
 		return defaultSMTPBootstrapConfig{}, errDefaultSMTPBootstrap
 	}
-	origin := strings.TrimSpace(getenv("NOTIFICATION_DEFAULT_SMTP_PLUGIN_ORIGIN"))
-	token := getenv("NOTIFICATION_DEFAULT_SMTP_PLUGIN_TOKEN")
+	origin := strings.TrimSpace(getenv(prefix + "_PLUGIN_ORIGIN"))
+	token := getenv(prefix + "_PLUGIN_TOKEN")
 	parsed, err := url.Parse(origin)
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" || token == "" || len(token) > 8192 || strings.TrimSpace(token) != token || strings.ContainsAny(token, "\r\n\x00") {
 		return defaultSMTPBootstrapConfig{}, errDefaultSMTPBootstrap
@@ -46,6 +50,10 @@ func defaultSMTPBootstrapConfigFromEnv(getenv func(string) string) (defaultSMTPB
 // plugin directory. It deliberately creates no tenant grants or instances and
 // never changes an existing registration or its encrypted auth secret.
 func (s *ManagementService) BootstrapDefaultSMTP(ctx context.Context, cfg defaultSMTPBootstrapConfig) error {
+	return s.bootstrapOfficialPlugin(ctx, cfg, defaultSMTPPluginID, "default-smtp-bootstrap-v1", "platform-default-smtp-bootstrap")
+}
+
+func (s *ManagementService) bootstrapOfficialPlugin(ctx context.Context, cfg defaultSMTPBootstrapConfig, pluginID, operation, actor string) error {
 	if !cfg.enabled {
 		return nil
 	}
@@ -57,7 +65,7 @@ func (s *ManagementService) BootstrapDefaultSMTP(ctx context.Context, cfg defaul
 		return errDefaultSMTPBootstrap
 	}
 	for _, item := range registered {
-		if item.PluginID == defaultSMTPPluginID {
+		if item.PluginID == pluginID {
 			return nil
 		}
 	}
@@ -67,16 +75,16 @@ func (s *ManagementService) BootstrapDefaultSMTP(ctx context.Context, cfg defaul
 		maxManifestBytes = 256 << 10
 	}
 	raw, manifest, err := s.pluginHTTP.FetchManifest(ctx, cfg.origin, cfg.token)
-	if err != nil || len(raw) == 0 || int64(len(raw)) > maxManifestBytes || manifest.PluginID != defaultSMTPPluginID || validatePluginManifest(manifest) != nil {
+	if err != nil || len(raw) == 0 || int64(len(raw)) > maxManifestBytes || manifest.PluginID != pluginID || validatePluginManifest(manifest) != nil {
 		return errDefaultSMTPBootstrap
 	}
 	digest := pluginManifestDigest(raw)
 	request := contract.PluginRegistration{
-		PluginID: defaultSMTPPluginID, PluginVersion: manifest.PluginVersion,
+		PluginID: pluginID, PluginVersion: manifest.PluginVersion,
 		Origin: cfg.origin, AuthSecret: cfg.token, ManifestDigest: digest,
 	}
-	requestHash := sha256.Sum256([]byte("default-smtp-bootstrap-v1\n" + cfg.origin + "\n" + digest))
-	_, err = s.platformPlugins.RegisterPlatformPlugin(ctx, "platform-default-smtp-bootstrap", "default-smtp-bootstrap-v1", hex.EncodeToString(requestHash[:]), request, manifest)
+	requestHash := sha256.Sum256([]byte(operation + "\n" + cfg.origin + "\n" + digest))
+	_, err = s.platformPlugins.RegisterPlatformPlugin(ctx, actor, operation, hex.EncodeToString(requestHash[:]), request, manifest)
 	if err != nil {
 		return errDefaultSMTPBootstrap
 	}

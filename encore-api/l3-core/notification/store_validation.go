@@ -63,11 +63,24 @@ func (s *Store) ResolveRegistrationRuntime(ctx context.Context, tenantID, regist
 	if err != nil {
 		return PluginRuntime{}, err
 	}
+	return s.readRegistrationRuntime(ctx, db.QueryRowContext(ctx, `SELECT p.id,p.registration_version,p.origin,p.auth_key_ref,p.auth_ciphertext,p.auth_aad_version FROM notification_plugin_grants g JOIN notification_plugin_registrations p ON p.id=g.registration_id WHERE g.tenant_id=$1 AND g.registration_id=$2 AND g.enabled=TRUE AND p.enabled=TRUE`, tenantID, registrationID))
+}
+
+// The caller must first authorize the platform administrator.
+func (s *Store) platformHealthRuntime(ctx context.Context, registrationID string) (PluginRuntime, error) {
+	db, err := s.database()
+	if err != nil {
+		return PluginRuntime{}, err
+	}
+	return s.readRegistrationRuntime(ctx, db.QueryRowContext(ctx, `SELECT id,registration_version,origin,auth_key_ref,auth_ciphertext,auth_aad_version FROM notification_plugin_registrations WHERE id=$1`, registrationID))
+}
+
+func (s *Store) readRegistrationRuntime(ctx context.Context, row interface{ Scan(...any) error }) (PluginRuntime, error) {
 	var runtime PluginRuntime
 	var keyRef string
 	var ciphertext []byte
 	var aadVersion int
-	err = db.QueryRowContext(ctx, `SELECT p.id,p.registration_version,p.origin,p.auth_key_ref,p.auth_ciphertext,p.auth_aad_version FROM notification_plugin_grants g JOIN notification_plugin_registrations p ON p.id=g.registration_id WHERE g.tenant_id=$1 AND g.registration_id=$2 AND g.enabled=TRUE AND p.enabled=TRUE`, tenantID, registrationID).Scan(&runtime.RegistrationID, &runtime.RegistrationVersion, &runtime.Origin, &keyRef, &ciphertext, &aadVersion)
+	err := row.Scan(&runtime.RegistrationID, &runtime.RegistrationVersion, &runtime.Origin, &keyRef, &ciphertext, &aadVersion)
 	if err != nil {
 		return PluginRuntime{}, classifyStoreError(err)
 	}

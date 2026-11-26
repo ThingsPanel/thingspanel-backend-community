@@ -19,6 +19,7 @@ import (
 	"encore.app/l3-core/notification/contract"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -513,7 +514,70 @@ func (s *ManagementService) ListPlugins(ctx context.Context, data *authn.Data, b
 	if err != nil {
 		return nil, mapManagementError(err)
 	}
+	if containsRole(principal.Roles, "SYS_ADMIN") {
+		s.checkPluginHealth(ctx, views)
+	}
 	return views, nil
+}
+
+func (s *ManagementService) checkPluginHealth(ctx context.Context, views []contract.PluginView) {
+	store, ok := s.platformPlugins.(interface {
+		platformHealthRuntime(context.Context, string) (PluginRuntime, error)
+	})
+	client, supported := s.pluginHTTP.(*SafePluginClient)
+	if !ok || !supported || s.privacy == nil || s.privacy.Check() != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
+	defer cancel()
+	var wg sync.WaitGroup
+	jobs := make(chan int)
+	for w := 0; w < len(views) && w < 6; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobs {
+				if ctx.Err() != nil {
+					continue
+				}
+				runtime, err := store.platformHealthRuntime(ctx, views[i].ID)
+				if err != nil {
+					continue
+				}
+				views[i].Health = client.probeHealth(ctx, runtime)
+			}
+		}()
+	}
+	for i := range views {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
+}
+
+func (c *SafePluginClient) probeHealth(ctx context.Context, runtime PluginRuntime) string {
+	endpoint, err := pluginEndpoint(runtime.Origin, "/healthz", c.options)
+	if err != nil {
+		return "unhealthy"
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	if err != nil || setPluginBearer(req, runtime.AuthSecret) != nil {
+		return "unhealthy"
+	}
+	client := c.client(endpoint)
+	defer client.CloseIdleConnections()
+	resp, err := client.Do(req)
+	if err != nil {
+		return "unhealthy"
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		return "healthy"
+	}
+	if resp.StatusCode == http.StatusServiceUnavailable && resp.Header.Get("X-Notification-Health") == "unconfigured" {
+		return "unconfigured"
+	}
+	return "unhealthy"
 }
 
 func (s *ManagementService) UpdatePlugin(ctx context.Context, data *authn.Data, bearer, registrationID, idempotencyKey, requestDigest string, update contract.PluginUpdate) (contract.PluginView, error) {

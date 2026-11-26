@@ -92,6 +92,13 @@ func initService() (*Service, error) {
 	if err := management.BootstrapDefaultSMTP(context.Background(), bootstrap); err != nil {
 		return nil, errors.New("notification default SMTP bootstrap failed")
 	}
+	appPush, err := defaultPluginConfigFromEnv(os.Getenv, "NOTIFICATION_DEFAULT_UNIPUSH")
+	if err != nil {
+		return nil, errors.New("notification default UniPush configuration is invalid")
+	}
+	if err := management.bootstrapOfficialPlugin(context.Background(), appPush, "thingspanel.unipush", "default-unipush-bootstrap-v1", "platform-default-unipush-bootstrap"); err != nil {
+		return nil, errors.New("notification default UniPush bootstrap failed")
+	}
 	validator := &TargetValidator{Instances: store, Plugins: store}
 	planner := &SourceResolver{Groups: store, Projections: store, ValidateTarget: validator.Validate}
 	if directory != nil {

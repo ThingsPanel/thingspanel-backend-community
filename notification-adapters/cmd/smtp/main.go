@@ -18,9 +18,15 @@ func main() {
 	}
 	servers := splitEnv("NOTIFICATION_SMTP_ALLOWED_SERVERS")
 	cidrs := splitEnv("NOTIFICATION_SMTP_ALLOWED_CIDRS")
-	provider, err := mailadapter.New(servers, cidrs)
-	if err != nil {
-		log.Fatal("invalid SMTP allowlist configuration")
+	var provider sdk.Plugin
+	if len(servers) == 0 && os.Getenv("NOTIFICATION_ALLOW_UNCONFIGURED") == "true" {
+		provider = sdk.Unconfigured{Definition: (&mailadapter.Provider{}).Manifest()}
+	} else {
+		configured, err := mailadapter.New(servers, cidrs)
+		if err != nil {
+			log.Fatal("invalid SMTP allowlist configuration")
+		}
+		provider = configured
 	}
 	handler, err := sdk.NewHandler(token, provider, sdk.HandlerOptions{AllowedUIOrigins: splitEnv("NOTIFICATION_PLUGIN_UI_ORIGINS")})
 	if err != nil {
@@ -31,7 +37,7 @@ func main() {
 		address = "127.0.0.1:5005"
 	}
 	server := &http.Server{Addr: address, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := sdk.Serve(server); err != nil && err != http.ErrServerClosed {
 		log.Fatal("plugin server stopped")
 	}
 }
