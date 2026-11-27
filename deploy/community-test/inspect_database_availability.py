@@ -59,6 +59,21 @@ def main():
     units = command(['systemctl','list-units','--type=service','--all','--no-legend','--plain'])
     result['provider_units'] = [line.split()[0] for line in units.stdout.splitlines()
                                 if line.split() and any(n in line.split()[0].lower() for n in ('smtp','unipush','notification'))]
+    pid = command(['systemctl','show','tp-notification-smtp.service','-p','MainPID','--value']).stdout.strip()
+    if pid.isdigit() and pathlib.Path('/proc',pid,'exe').exists():
+        result['smtp_process'] = str(pathlib.Path('/proc',pid,'exe').resolve())
+        result['smtp_env_keys'] = [key.decode() for entry in pathlib.Path('/proc',pid,'environ').read_bytes().split(b'\0')
+                                   for key in [entry.split(b'=',1)[0]] if re.fullmatch(b'NOTIFICATION_[A-Z_]+', key)]
+    push = command(['docker','inspect','tp-notification-app-unipush-1'])
+    if push.returncode == 0:
+        container = json.loads(push.stdout)[0]
+        labels = container['Config'].get('Labels') or {}
+        result['unipush_installation'] = {
+            'executable': container['Path'], 'compose_file': labels.get('com.docker.compose.project.config_files'),
+            'service': labels.get('com.docker.compose.service'), 'user': container['Config'].get('User'),
+            'directory_http': any(e.startswith('NOTIFICATION_UNIPUSH_DIRECTORY_URL=http://') for e in container['Config']['Env']),
+            'env_keys': [e.split('=',1)[0] for e in container['Config']['Env'] if e.startswith('NOTIFICATION_')],
+        }
     native = pathlib.Path('/opt/tp-community-main-20261028/runtime.notification.private.json')
     if native.is_file():
         conf = json.loads(native.read_text())
