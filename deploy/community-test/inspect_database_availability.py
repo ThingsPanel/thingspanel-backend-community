@@ -1,5 +1,6 @@
 """Inspect database availability without depending on SQL or exposing credentials."""
 import json
+import fcntl
 import pathlib
 import re
 import shutil
@@ -107,7 +108,15 @@ def main():
             'env_keys': [e.split('=',1)[0] for e in container['Config']['Env'] if e.startswith('NOTIFICATION_')],
         }
     native = pathlib.Path('/opt/tp-community-main-20261028/runtime.notification.private.json')
-    result['provider_routes'] = check_provider_routes(native.parent)
+    # A new login supersedes this acceptance user's earlier session. Never
+    # log in concurrently with the exclusive deployment acceptance pass.
+    with pathlib.Path('/opt/tp-community-actions/deployment.lock').open('r') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            result['provider_routes'] = {'status':'deployment busy'}
+        else:
+            result['provider_routes'] = check_provider_routes(native.parent)
     if native.is_file():
         conf = json.loads(native.read_text())
         for server in conf.get('sql_servers', []):

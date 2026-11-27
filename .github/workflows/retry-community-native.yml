@@ -1,0 +1,53 @@
+name: Retry verified community native deployment
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Failed coordinated deployment
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: community-main-encore-deploy
+  cancel-in-progress: false
+jobs:
+  retry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify completed build and backend deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.source_run }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
+          jq -e '.head_branch=="main" and .path==".github/workflows/deploy.yml" and .conclusion=="failure"' <<< "$run"
+          jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs")
+          jq -e '[.jobs[].steps[]? | select(.conclusion=="failure") | .name]==["Upload source and deploy native services"]' <<< "$jobs"
+          sha=$(jq -er '.head_sha' <<< "$run")
+          git merge-base --is-ancestor "$sha" HEAD
+          git diff --quiet "$sha" HEAD -- encore-api pkg
+          echo "REV=$sha" >> "$GITHUB_ENV"
+      - name: Retry immutable native bundle and all acceptance checks
+        env:
+          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key="$RUNNER_TEMP/retry-key"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$key"
+          args=(-i "$key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          remote=root@47.92.253.145
+          dst=/opt/tp-community-actions/incoming
+          ssh "${args[@]}" "$remote" "test -f /opt/tp-community-actions/backend-releases/$REV/result.json && test -s $dst/encore-$REV.tar.gz"
+          scp -q "${args[@]}" deploy/community-test/deploy_encore.py "$remote:$dst/"
+          ssh "${args[@]}" "$remote" "python3 $dst/deploy_encore.py $REV"

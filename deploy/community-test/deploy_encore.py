@@ -156,7 +156,7 @@ def wait_healthy(expected):
     raise RuntimeError('Native service verification failed')
 
 
-def verify_tenant():
+def verify_tenant_once():
     qa = json.loads((RUNTIME / 'qa-tenant.private.json').read_text())
     request = urllib.request.Request('http://127.0.0.1:9999/api/v1/login',
         data=json.dumps({'email': qa['email'], 'password': qa['password']}).encode(),
@@ -168,10 +168,25 @@ def verify_tenant():
     for path in ['/api/v2/thing-models', '/api/v2/notification-groups', '/automation-core/v1/rules?limit=5']:
         request = urllib.request.Request('http://127.0.0.1' + path,
             headers={'Host': 'c.thingspanel.cn', 'Authorization': 'Bearer ' + token, 'x-token': token})
-        with urllib.request.urlopen(request, timeout=10) as response:
+        try:
+            response = urllib.request.urlopen(request, timeout=10)
+        except urllib.error.HTTPError as err:
+            print('Acceptance endpoint {} returned HTTP {}'.format(path,err.code),flush=True)
+            raise
+        with response:
             if response.status != 200:
                 raise RuntimeError('Acceptance tenant native API failed')
             json.load(response)
+
+
+def verify_tenant():
+    for attempt in range(3):
+        try:
+            return verify_tenant_once()
+        except urllib.error.HTTPError as err:
+            if err.code != 401 or attempt == 2:
+                raise
+            time.sleep(2 ** attempt)
 
 
 with restore_services_on_failure(compose, services, run):
