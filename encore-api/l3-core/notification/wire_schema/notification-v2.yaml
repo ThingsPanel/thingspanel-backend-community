@@ -55,6 +55,37 @@ paths:
         '409': {$ref: '#/components/responses/DomainError'}
         '422': {$ref: '#/components/responses/DomainError'}
         '503': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-plugins/{id}/settings:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string, enum: [thingspanel.smtp, thingspanel.unipush]}}
+    get:
+      tags: [PluginRegistry]
+      operationId: getProviderSettings
+      x-required-role: SYS_ADMIN
+      x-required-permission: notification:plugin:manage
+      responses:
+        '200': {$ref: '#/components/responses/ProviderSettings'}
+        default: {$ref: '#/components/responses/RuntimeOrDomainError'}
+    put:
+      tags: [PluginRegistry]
+      operationId: putProviderSettings
+      x-required-role: SYS_ADMIN
+      x-required-permission: notification:plugin:manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [address, version]
+              properties:
+                address: {type: string, minLength: 1}
+                version: {type: integer, minimum: 0}
+                secret: {type: string, writeOnly: true}
+      responses:
+        '200': {$ref: '#/components/responses/ProviderSettings'}
+        default: {$ref: '#/components/responses/RuntimeOrDomainError'}
   /api/v2/notification-plugins/{id}:
     parameters: [{$ref: '#/components/parameters/ResourceId'}]
     get:
@@ -702,6 +733,22 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/EnvelopePlugin'}
+    ProviderSettings:
+      description: Platform provider settings with redacted credentials.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - {$ref: '#/components/schemas/EnvelopeBase'}
+              - properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [address, version, hasSecret]
+                    properties:
+                      address: {type: string}
+                      version: {type: integer, minimum: 0}
+                      hasSecret: {type: boolean}
     PluginDetail:
       description: Plugin registration and health metadata without credentials.
       content:

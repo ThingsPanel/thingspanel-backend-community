@@ -73,3 +73,6 @@ func (s *Service) PluginGrantsV2(w http.ResponseWriter, r *http.Request) { s.api
 func (s *Service) SourceGroupSnapshotV1(w http.ResponseWriter, r *http.Request) {
 	s.api.ServeHTTP(w, r)
 }
+
+//encore:api public raw method=GET,PUT path=/api/v2/notification-plugins/:id/settings
+func (s *Service) PluginSettingsV2(w http.ResponseWriter, r *http.Request) { s.api.ServeHTTP(w, r) }

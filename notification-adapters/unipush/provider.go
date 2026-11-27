@@ -9,6 +9,7 @@ import (
 	"encore.app/notification-adapters/sdk"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -30,6 +31,50 @@ func New(endpoint string, allowHTTP bool) (*Provider, error) {
 		return nil, errors.New("invalid UniPush endpoint")
 	}
 	return &Provider{endpoint: endpoint, client: &http.Client{Timeout: 12 * time.Second, Transport: &http.Transport{Proxy: nil, TLSHandshakeTimeout: 5 * time.Second, ResponseHeaderTimeout: 10 * time.Second}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+}
+
+// RestrictCloudEndpoint limits the configurable cloud transport to public TLS
+// destinations. The operator-provided member directory keeps its own transport.
+func (p *Provider) RestrictCloudEndpoint() error {
+	u, err := url.Parse(p.endpoint)
+	if err != nil || u.Scheme != "https" || u.RawQuery != "" || u.ForceQuery || u.Port() != "" && u.Port() != "443" {
+		return errors.New("invalid public cloud endpoint")
+	}
+	if ip := net.ParseIP(u.Hostname()); ip != nil && !sdk.PublicUnicast(ip) {
+		return errors.New("invalid cloud address")
+	}
+	cloud := *p.client
+	transport := p.client.Transport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil || !strings.EqualFold(host, u.Hostname()) || port != "443" {
+			return nil, errors.New("unexpected cloud destination")
+		}
+		ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+		if err != nil {
+			return nil, err
+		}
+		for _, ip := range ips {
+			if !sdk.PublicUnicast(ip.IP) {
+				return nil, errors.New("invalid cloud address")
+			}
+		}
+		dialer := net.Dialer{Timeout: 5 * time.Second}
+		for _, ip := range ips {
+			conn, e := dialer.DialContext(ctx, network, net.JoinHostPort(ip.IP.String(), port))
+			if e == nil {
+				return conn, nil
+			}
+			err = e
+		}
+		if err == nil {
+			err = errors.New("cloud address unavailable")
+		}
+		return nil, err
+	}
+	cloud.Transport = transport
+	p.client = &cloud
+	return nil
 }
 func (*Provider) Manifest() sdk.Manifest {
 	return sdk.Manifest{APIVersion: sdk.APIVersion, PluginID: "thingspanel.unipush", Name: "App 通知（UniPush，多设备）", PluginVersion: "2.0.0", Channels: []string{"im"}, ContentModes: []string{"text", "template"}, ConfigSchema: map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{}}, RecipientSchema: map[string]any{"type": "object", "additionalProperties": false, "required": []string{"kind", "address"}, "properties": map[string]any{"kind": map[string]any{"type": "string", "enum": []string{"chat_id", "user_id"}}, "address": map[string]any{"type": "string", "minLength": 1, "maxLength": 256, "title": "Device binding ID (user_id) / diagnostic CID (chat_id)"}}}, SecretFields: []string{}, Capabilities: sdk.Capabilities{DeliveryReceipts: false}}

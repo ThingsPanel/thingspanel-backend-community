@@ -3,6 +3,7 @@ package main
 import (
 	"encore.app/notification-adapters/sdk"
 	"encore.app/notification-adapters/unipush"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -31,6 +32,26 @@ func main() {
 	h, e := sdk.NewHandler(os.Getenv("NOTIFICATION_PLUGIN_TOKEN"), provider, sdk.HandlerOptions{AllowedUIOrigins: origins})
 	if e != nil {
 		log.Fatal("invalid plugin configuration")
+	}
+	h, e = sdk.WithDeploymentSettings(h, os.Getenv("NOTIFICATION_PLUGIN_TOKEN"), os.Getenv("NOTIFICATION_SETTINGS_FILE"), func(settings sdk.DeploymentSettings) (http.Handler, error) {
+		p, err := unipush.New(settings.Address, false)
+		if err != nil {
+			return nil, err
+		}
+		if settings.Secret == "" {
+			return nil, errors.New("missing cloud token")
+		}
+		err = p.ConfigureDirectory(os.Getenv("NOTIFICATION_UNIPUSH_DIRECTORY_URL"), os.Getenv("NOTIFICATION_UNIPUSH_DIRECTORY_TOKEN"), os.Getenv("NOTIFICATION_UNIPUSH_DEPLOYMENT_ID"), os.Getenv("NOTIFICATION_UNIPUSH_APP_ID"), settings.Secret, false)
+		if err != nil {
+			return nil, err
+		}
+		if err = p.RestrictCloudEndpoint(); err != nil {
+			return nil, err
+		}
+		return sdk.NewHandler(os.Getenv("NOTIFICATION_PLUGIN_TOKEN"), p, sdk.HandlerOptions{AllowedUIOrigins: origins})
+	})
+	if e != nil {
+		log.Fatal("cannot load App push settings")
 	}
 	address := os.Getenv("NOTIFICATION_PLUGIN_LISTEN")
 	if address == "" {

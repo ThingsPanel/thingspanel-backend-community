@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -31,6 +32,26 @@ func main() {
 	handler, err := sdk.NewHandler(token, provider, sdk.HandlerOptions{AllowedUIOrigins: splitEnv("NOTIFICATION_PLUGIN_UI_ORIGINS")})
 	if err != nil {
 		log.Fatal("invalid plugin server configuration")
+	}
+	handler, err = sdk.WithDeploymentSettings(handler, token, os.Getenv("NOTIFICATION_SETTINGS_FILE"), func(settings sdk.DeploymentSettings) (http.Handler, error) {
+		if settings.Secret != "" {
+			return nil, errors.New("unexpected SMTP policy credential")
+		}
+		servers := strings.Split(settings.Address, ",")
+		if len(servers) > 32 {
+			return nil, errors.New("too many SMTP servers")
+		}
+		for i := range servers {
+			servers[i] = strings.TrimSpace(servers[i])
+		}
+		configured, err := mailadapter.New(servers, cidrs)
+		if err != nil {
+			return nil, err
+		}
+		return sdk.NewHandler(token, configured, sdk.HandlerOptions{AllowedUIOrigins: splitEnv("NOTIFICATION_PLUGIN_UI_ORIGINS")})
+	})
+	if err != nil {
+		log.Fatal("cannot load SMTP settings")
 	}
 	address := os.Getenv("NOTIFICATION_PLUGIN_LISTEN")
 	if address == "" {

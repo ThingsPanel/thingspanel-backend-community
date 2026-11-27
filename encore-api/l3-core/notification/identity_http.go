@@ -111,6 +111,13 @@ func (h *ManagementHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			return
 		}
 		writeManagementSuccess(w, r, http.StatusCreated, view)
+	case strings.HasPrefix(path, "/api/v2/notification-plugins/") && strings.HasSuffix(path, "/settings"):
+		if !containsRole(principal.Roles, "SYS_ADMIN") || requireUserCapability(principal, "plugin_manage") != nil {
+			writeManagementError(w, r, 403, ErrIdentityForbidden)
+			return
+		}
+		id := strings.TrimSuffix(strings.TrimPrefix(path, "/api/v2/notification-plugins/"), "/settings")
+		h.providerSettings(w, r, id)
 	case strings.HasPrefix(path, "/api/v2/notification-plugins/"):
 		id, err := managementPathID(path, "/api/v2/notification-plugins/")
 		if err != nil {
