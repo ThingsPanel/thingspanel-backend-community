@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -33,7 +34,14 @@ func main() {
 	if e != nil {
 		log.Fatal("invalid plugin configuration")
 	}
-	h, e = sdk.WithDeploymentSettings(h, os.Getenv("NOTIFICATION_PLUGIN_TOKEN"), os.Getenv("NOTIFICATION_SETTINGS_FILE"), func(settings sdk.DeploymentSettings) (http.Handler, error) {
+	initial := sdk.DeploymentSettings{}
+	if raw := os.Getenv("NOTIFICATION_UNIPUSH_ENDPOINT"); raw != "" {
+		if u, err := url.Parse(raw); err == nil && u.User == nil && u.RawQuery == "" && u.Fragment == "" {
+			initial.Address = raw
+			initial.Secret = os.Getenv("NOTIFICATION_UNIPUSH_CLOUD_TOKEN")
+		}
+	}
+	h, e = sdk.WithDeploymentSettings(h, os.Getenv("NOTIFICATION_PLUGIN_TOKEN"), os.Getenv("NOTIFICATION_SETTINGS_FILE"), initial, func(settings sdk.DeploymentSettings) (http.Handler, error) {
 		p, err := unipush.New(settings.Address, false)
 		if err != nil {
 			return nil, err
@@ -41,7 +49,7 @@ func main() {
 		if settings.Secret == "" {
 			return nil, errors.New("missing cloud token")
 		}
-		err = p.ConfigureDirectory(os.Getenv("NOTIFICATION_UNIPUSH_DIRECTORY_URL"), os.Getenv("NOTIFICATION_UNIPUSH_DIRECTORY_TOKEN"), os.Getenv("NOTIFICATION_UNIPUSH_DEPLOYMENT_ID"), os.Getenv("NOTIFICATION_UNIPUSH_APP_ID"), settings.Secret, false)
+		err = p.ConfigureDirectory(os.Getenv("NOTIFICATION_UNIPUSH_DIRECTORY_URL"), os.Getenv("NOTIFICATION_UNIPUSH_DIRECTORY_TOKEN"), os.Getenv("NOTIFICATION_UNIPUSH_DEPLOYMENT_ID"), os.Getenv("NOTIFICATION_UNIPUSH_APP_ID"), settings.Secret, os.Getenv("NOTIFICATION_UNIPUSH_ALLOW_HTTP") == "1")
 		if err != nil {
 			return nil, err
 		}

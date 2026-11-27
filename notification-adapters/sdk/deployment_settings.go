@@ -36,7 +36,7 @@ type settingsServer struct {
 
 // WithDeploymentSettings retains the environment-defined provider until the first
 // successfully persisted update. An unusable saved configuration fails startup.
-func WithDeploymentSettings(base http.Handler, token, file string, build func(DeploymentSettings) (http.Handler, error)) (http.Handler, error) {
+func WithDeploymentSettings(base http.Handler, token, file string, initial DeploymentSettings, build func(DeploymentSettings) (http.Handler, error)) (http.Handler, error) {
 	if file == "" {
 		return base, nil
 	}
@@ -53,7 +53,7 @@ func WithDeploymentSettings(base http.Handler, token, file string, build func(De
 	if err != nil {
 		return nil, err
 	}
-	s := &settingsServer{current: base, tokenHash: sha256.Sum256([]byte("Bearer " + token)), file: file, cipher: aead, build: build}
+	s := &settingsServer{active: initial, current: base, tokenHash: sha256.Sum256([]byte("Bearer " + token)), file: file, cipher: aead, build: build}
 	data, err := os.ReadFile(file)
 	if errors.Is(err, os.ErrNotExist) {
 		return s, nil
@@ -62,7 +62,7 @@ func WithDeploymentSettings(base http.Handler, token, file string, build func(De
 		return nil, errors.New("cannot read saved provider settings")
 	}
 	plain, err := aead.Open(nil, data[:aead.NonceSize()], data[aead.NonceSize():], nil)
-	if err != nil || json.Unmarshal(plain, &s.active) != nil {
+	if err != nil || decodeSavedSettings(plain, &s.active) != nil {
 		return nil, errors.New("invalid saved provider settings")
 	}
 	s.current, err = build(s.active)
@@ -70,6 +70,16 @@ func WithDeploymentSettings(base http.Handler, token, file string, build func(De
 		return nil, err
 	}
 	return s, nil
+}
+
+// Decode into an empty value: an omitted saved secret must not inherit an environment secret.
+func decodeSavedSettings(raw []byte, dest *DeploymentSettings) error {
+	var saved DeploymentSettings
+	if err := json.Unmarshal(raw, &saved); err != nil {
+		return err
+	}
+	*dest = saved
+	return nil
 }
 func (s *settingsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/v1/deployment-settings" {

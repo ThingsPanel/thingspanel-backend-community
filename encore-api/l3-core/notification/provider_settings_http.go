@@ -2,30 +2,51 @@ package notification
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
-	"os"
 )
 
 func (h *ManagementHTTPHandler) providerSettings(w http.ResponseWriter, r *http.Request, id string) {
-	var prefix string
-	switch id {
-	case "thingspanel.smtp":
-		prefix = "NOTIFICATION_DEFAULT_SMTP"
-	case "thingspanel.unipush":
-		prefix = "NOTIFICATION_DEFAULT_UNIPUSH"
-	default:
+	if id != "thingspanel.smtp" && id != "thingspanel.unipush" {
 		writeManagementError(w, r, 404, ErrManagementNotFound)
 		return
 	}
 	c, ok := h.service.pluginHTTP.(*SafePluginClient)
-	cfg, err := defaultPluginConfigFromEnv(os.Getenv, prefix)
-	if !ok || err != nil || !cfg.enabled || h.service.privacy == nil || h.service.privacy.Check() != nil {
+	store, supportsRuntime := h.service.platformPlugins.(interface {
+		platformHealthRuntime(context.Context, string) (PluginRuntime, error)
+	})
+	if !ok || !supportsRuntime || h.service.privacy == nil || h.service.privacy.Check() != nil {
 		writeManagementError(w, r, 503, ErrManagementUnavailable)
 		return
 	}
-	endpoint, err := pluginEndpoint(cfg.origin, "/v1/deployment-settings", c.options)
+	plugins, err := h.service.platformPlugins.ListPlatformPlugins(r.Context())
+	if err != nil {
+		writeManagementError(w, r, 503, ErrManagementUnavailable)
+		return
+	}
+	var registration string
+	for _, p := range plugins {
+		if p.PluginID != id {
+			continue
+		}
+		if registration != "" {
+			writeManagementError(w, r, 409, ErrManagementInvalid)
+			return
+		}
+		registration = p.ID
+	}
+	if registration == "" {
+		writeManagementError(w, r, 404, ErrManagementNotFound)
+		return
+	}
+	runtime, err := store.platformHealthRuntime(r.Context(), registration)
+	if err != nil {
+		writeManagementError(w, r, 503, ErrManagementUnavailable)
+		return
+	}
+	endpoint, err := pluginEndpoint(runtime.Origin, "/v1/deployment-settings", c.options)
 	if err != nil {
 		writeManagementError(w, r, 503, ErrManagementUnavailable)
 		return
@@ -44,7 +65,7 @@ func (h *ManagementHTTPHandler) providerSettings(w http.ResponseWriter, r *http.
 		return
 	}
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, endpoint.String(), bytes.NewReader(body))
-	if err != nil || setPluginBearer(req, cfg.token) != nil {
+	if err != nil || setPluginBearer(req, runtime.AuthSecret) != nil {
 		writeManagementError(w, r, 503, ErrManagementUnavailable)
 		return
 	}

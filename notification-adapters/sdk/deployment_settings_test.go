@@ -17,7 +17,7 @@ func TestDeploymentSettingsLifecycle(t *testing.T) {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(v.Address)) }), nil
 	}
 	start := func() http.Handler {
-		h, err := WithDeploymentSettings(http.NotFoundHandler(), token, file, build)
+		h, err := WithDeploymentSettings(http.NotFoundHandler(), token, file, DeploymentSettings{}, build)
 		if err != nil {
 			t.Fatal(err)
 		}

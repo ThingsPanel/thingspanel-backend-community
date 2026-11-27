@@ -1,0 +1,45 @@
+name: Community notification provider test deploy
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: community-test-notification-providers
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require community main
+        run: test "$GITHUB_REF" = refs/heads/main
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.9'
+          cache-dependency-path: encore-api/go.sum
+      - name: Test and build providers
+        working-directory: notification-adapters
+        run: |
+          set -euo pipefail
+          go test ./sdk ./smtp ./unipush
+          mkdir -p ../provider-bin
+          for name in smtp unipush; do
+            CGO_ENABLED=0 go build -trimpath -o "../provider-bin/$name" "./cmd/$name"
+            sha256sum "../provider-bin/$name" | cut -d' ' -f1 > "../provider-bin/$name.sha256"
+          done
+      - name: Upgrade existing services and verify settings
+        env:
+          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key="$RUNNER_TEMP/provider-deploy-key"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$key"
+          args=(-i "$key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          remote=root@47.92.253.145
+          dst="/opt/tp-community-actions/provider-releases/$GITHUB_SHA"
+          ssh "${args[@]}" "$remote" "install -d -m 700 '$dst'"
+          scp -q "${args[@]}" provider-bin/* deploy/community-test/deploy_notification_providers.py "$remote:$dst/"
+          ssh "${args[@]}" "$remote" "python3 '$dst/deploy_notification_providers.py' '$GITHUB_SHA'"

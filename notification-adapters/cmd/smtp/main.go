@@ -33,7 +33,7 @@ func main() {
 	if err != nil {
 		log.Fatal("invalid plugin server configuration")
 	}
-	handler, err = sdk.WithDeploymentSettings(handler, token, os.Getenv("NOTIFICATION_SETTINGS_FILE"), func(settings sdk.DeploymentSettings) (http.Handler, error) {
+	handler, err = sdk.WithDeploymentSettings(handler, token, os.Getenv("NOTIFICATION_SETTINGS_FILE"), sdk.DeploymentSettings{Address: strings.Join(servers, ",")}, func(settings sdk.DeploymentSettings) (http.Handler, error) {
 		if settings.Secret != "" {
 			return nil, errors.New("unexpected SMTP policy credential")
 		}
