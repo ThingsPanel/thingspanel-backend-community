@@ -104,12 +104,16 @@ func WithStorageService() Option {
 		}
 
 		prepare, err := selectHistoryBackend(historyBackendSettings{
-			Backend:      viper.GetString("storage.history_backend"),
-			ModeExplicit: viper.GetString("storage.history_mode"),
-			URL:          viper.GetString("storage.tdengine.url"),
-			User:         viper.GetString("storage.tdengine.user"),
-			Password:     viper.GetString("storage.tdengine.password"),
-			Database:     viper.GetString("storage.tdengine.database"),
+			Backend:       viper.GetString("storage.history_backend"),
+			ModeExplicit:  viper.GetString("storage.history_mode"),
+			URL:           viper.GetString("storage.tdengine.url"),
+			User:          viper.GetString("storage.tdengine.user"),
+			Password:      viper.GetString("storage.tdengine.password"),
+			Database:      viper.GetString("storage.tdengine.database"),
+			IoTDBURL:      viper.GetString("storage.iotdb.url"),
+			IoTDBUser:     viper.GetString("storage.iotdb.user"),
+			IoTDBPassword: viper.GetString("storage.iotdb.password"),
+			IoTDBDatabase: viper.GetString("storage.iotdb.database"),
 		}, &config)
 		if err != nil {
 			return err
