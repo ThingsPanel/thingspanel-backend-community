@@ -43,8 +43,8 @@ def smtp_env(proc):
     return dict(entry.split('=', 1) for entry in (proc/'environ').read_bytes().decode().split('\0') if '=' in entry)
 
 
-def probe(env, port, save=False):
-    address = 'http://127.0.0.1:' + str(port)
+def probe(env, port, save=False, host="127.0.0.1"):
+    address = 'http://' + host + ':' + str(port)
     headers = {'Authorization': 'Bearer ' + env['NOTIFICATION_PLUGIN_TOKEN']}
     def request(path, body=None):
         req = urllib.request.Request(address + path, headers=headers)
@@ -65,10 +65,10 @@ def probe(env, port, save=False):
         request('/healthz')
 
 
-def wait_probe(env, port):
+def wait_probe(env, port, host="127.0.0.1"):
     for _ in range(15):
         try:
-            probe(env, port)
+            probe(env, port, host=host)
             return
         except OSError:
             time.sleep(1)
@@ -92,11 +92,6 @@ def deploy(release):
     if not isinstance(service.get('environment', {}), dict):
         raise RuntimeError('Unsupported App push environment')
     uid,gid = info['Config']['User'].split(':')
-    bindings = info['NetworkSettings']['Ports'].get('5009/tcp') or []
-    local = [b for b in bindings if b['HostIp']=='127.0.0.1']
-    if not local:
-        raise RuntimeError('Expected loopback App push port')
-    push_port = int(local[0]['HostPort'])
     push_env = dict(x.split('=',1) for x in info['Config']['Env'] if '=' in x)
     env = smtp_env(proc)
     smtp_port = int(env['NOTIFICATION_PLUGIN_LISTEN'].rsplit(':',1)[-1])
@@ -129,7 +124,16 @@ def deploy(release):
         write_atomic(compose,json.dumps(config,indent=2).encode(),0o600)
         run(*(args+['config','--quiet']))
         run(*(args+['up','-d','--no-deps','unipush']))
-        wait_probe(push_env,push_port)
+        live=json.loads(run('docker','inspect',PUSH))[0]
+        listen=push_env.get('NOTIFICATION_PLUGIN_LISTEN', '0.0.0.0:5009')
+        push_port=int(listen.rsplit(':',1)[-1])
+        if live['HostConfig']['NetworkMode']=='host':
+            wait_probe(push_env,push_port)
+        else:
+            ips=[n['IPAddress'] for n in live['NetworkSettings']['Networks'].values() if n.get('IPAddress')]
+            if not ips:
+                raise RuntimeError('App push container has no reachable address')
+            wait_probe(push_env,push_port,ips[0])
         probe(env,smtp_port,save=True)
         print('SMTP settings read/save/read and App push settings read passed; no notification sent')
     except Exception:
