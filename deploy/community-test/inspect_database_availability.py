@@ -26,13 +26,16 @@ def check_provider_routes(runtime):
         with urllib.request.urlopen(login, timeout=8) as response:
             token = json.load(response)['data']['token']
         result = {}
-        for plugin in ('thingspanel.smtp','thingspanel.unipush'):
-            req = urllib.request.Request('http://127.0.0.1/api/v2/notification-plugins/'+plugin+'/settings',
+        paths={plugin:'/api/v2/notification-plugins/'+plugin+'/settings' for plugin in ('thingspanel.smtp','thingspanel.unipush')}
+        paths.update(session='/api/v1/notification/session-context', models='/api/v2/thing-models', groups='/api/v2/notification-groups', automation='/automation-core/v1/rules?limit=5')
+        for plugin, path in paths.items():
+            req = urllib.request.Request('http://127.0.0.1'+path,
                 headers={'Host':'c.thingspanel.cn','Authorization':'Bearer '+token,'x-token':token})
             try:
                 with urllib.request.urlopen(req,timeout=10) as res:
-                    data = json.load(res).get('data') or {}
-                    result[plugin] = {'status':res.status,'validResponse':set(data)=={'address','version','hasSecret'}}
+                    payload = json.load(res)
+                    data = payload.get('data') if isinstance(payload,dict) else {}
+                    result[plugin] = {'status':res.status,'validResponse':isinstance(data,dict) and set(data)=={'address','version','hasSecret'}}
             except urllib.error.HTTPError as err:
                 result[plugin] = {'status':err.code}
         return result
