@@ -60,8 +60,11 @@ if relational.get('driver')=='postgres':
  if not isinstance(database,str) or not re.fullmatch('[A-Za-z0-9_]+',database):
   raise RuntimeError('Explicit platform database name required for broker upgrade')
  command=['docker','exec','-i','timescaledb','psql','-X','-q','-At','-v','ON_ERROR_STOP=1','-U','postgres','-d',database]
- def broker_sql(body):
-  result=subprocess.run(command,input=body.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=60)
+ def broker_sql(body, retry_lock=False):
+  for attempt in range(4):
+   result=subprocess.run(command+['-v','VERBOSITY=verbose'],input=body.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=60)
+   if result.returncode==0 or not retry_lock or not re.search(rb'ERROR:\s+(40P01|55P03):',result.stderr) or attempt==3:break
+   time.sleep(2**attempt)
   if result.returncode:
    (release/'broker-upgrade.failure.private.log').write_bytes(result.stderr)
    raise RuntimeError('Broker schema upgrade failed; existing process was not replaced')
@@ -69,11 +72,23 @@ if relational.get('driver')=='postgres':
  present=broker_sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('broker_connection_observations','broker_telemetry_activity');")
  if present not in ('0','2'):raise RuntimeError('Incomplete broker schema requires repair')
  if present=='2':
-  upgrades=[]
+  # Each numbered migration is an independently replayable transaction. Avoid
+  # holding observation-table locks through unrelated DDL on a busy broker.
+  broker_sql("CREATE TABLE IF NOT EXISTS community_broker_deploy_migrations (filename text PRIMARY KEY, sha256 char(64) NOT NULL)")
   for name in ['017_delegated_routes.sql','018_native_runtime_registrations.sql','019_native_runtime_credential_lifecycle.sql','020_native_credential_leases.sql','021_native_runtime_lifecycle.sql','022_native_runtime_configuration.sql','023_automation_effect_dispatch_index.sql']:
    migration=release/'sql/broker'/name
-   if migration.is_file():upgrades.append(migration.read_text())
-  if upgrades:broker_sql("BEGIN; SET LOCAL lock_timeout='10s'; SET LOCAL statement_timeout='30s';\n"+'\n'.join(upgrades)+'\nCOMMIT;')
+   raw=migration.read_bytes()
+   digest=hashlib.sha256(raw).hexdigest()
+   applied=broker_sql("SELECT sha256 FROM community_broker_deploy_migrations WHERE filename='%s'" % name)
+   if applied:
+    if applied!=digest:raise RuntimeError('Applied broker migration checksum changed: '+name)
+    continue
+   statement=raw.decode()
+   if name=='017_delegated_routes.sql':
+    existing=broker_sql("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('broker_connection_observations','broker_telemetry_activity') AND column_name='delegated_route' AND udt_name='jsonb'")
+    if existing=='2':statement=''
+   broker_sql("BEGIN; SET LOCAL lock_timeout='4s'; SET LOCAL statement_timeout='30s';\n"+statement+
+              "\nINSERT INTO community_broker_deploy_migrations(filename,sha256) VALUES ('%s','%s'); COMMIT;" % (name,digest), retry_lock=True)
 
 target=APP/'thingspanel-backend-community'
 shutil.copy2(str(target),str(release/'backend.before'))
