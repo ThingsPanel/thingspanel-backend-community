@@ -1,6 +1,7 @@
 """Inspect database availability without depending on SQL or exposing credentials."""
 import json
 import pathlib
+import re
 import shutil
 import subprocess
 
@@ -14,6 +15,24 @@ def main():
     result = {'read_only': True, 'disk_free_bytes': shutil.disk_usage('/').free}
     result['memory'] = [line for line in pathlib.Path('/proc/meminfo').read_text().splitlines()
                         if line.startswith(('MemAvailable:', 'SwapTotal:', 'SwapFree:'))]
+    releases = pathlib.Path('/opt/tp-community-actions/backend-releases')
+    failures = sorted(releases.glob('*/broker-upgrade.failure.private.log'),
+                      key=lambda path: path.stat().st_mtime, reverse=True)
+    if failures:
+        path = failures[0]
+        # Return diagnostic categories only. PostgreSQL DETAIL can contain row data.
+        message = path.read_bytes()[-16384:].decode('utf-8', 'replace').lower()
+        result['broker_upgrade_failure'] = {
+            'revision': path.parent.name,
+            'causes': [category for category in (
+                'lock timeout', 'statement timeout', 'deadlock detected', 'already exists',
+                'does not exist', 'permission denied', 'syntax error', 'no space left',
+                'violates', 'must be owner', 'cannot change', 'is not unique', 'ambiguous',
+                'connection refused', 'connection to server', 'out of shared memory'
+            ) if category in message],
+            'objects': sorted(set(re.findall(
+                r'"((?:broker_|native_runtime_)[a-z0-9_]+)"', message))),
+        }
     info = command(['docker', 'inspect', 'timescaledb'])
     if info.returncode:
         result['database_container_missing'] = True
