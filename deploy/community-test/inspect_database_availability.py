@@ -4,11 +4,40 @@ import pathlib
 import re
 import shutil
 import subprocess
+import urllib.request
+import urllib.error
 
 
 def command(args):
     return subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                           universal_newlines=True, timeout=30)
+
+
+def check_provider_routes(runtime):
+    """Exercise the public gateway with the existing deployment acceptance account."""
+    fixture = runtime/'qa-tenant.private.json'
+    if not fixture.is_file():
+        return {'fixture': 'unavailable'}
+    try:
+        account = json.loads(fixture.read_text())
+        login = urllib.request.Request('http://127.0.0.1:9999/api/v1/login',
+            data=json.dumps({'email': account['email'], 'password': account['password']}).encode(),
+            headers={'Content-Type': 'application/json'})
+        with urllib.request.urlopen(login, timeout=8) as response:
+            token = json.load(response)['data']['token']
+        result = {}
+        for plugin in ('thingspanel.smtp','thingspanel.unipush'):
+            req = urllib.request.Request('http://127.0.0.1/api/v2/notification-plugins/'+plugin+'/settings',
+                headers={'Host':'c.thingspanel.cn','Authorization':'Bearer '+token,'x-token':token})
+            try:
+                with urllib.request.urlopen(req,timeout=10) as res:
+                    data = json.load(res).get('data') or {}
+                    result[plugin] = {'status':res.status,'validResponse':set(data)=={'address','version','hasSecret'}}
+            except urllib.error.HTTPError as err:
+                result[plugin] = {'status':err.code}
+        return result
+    except (OSError,ValueError,KeyError,TypeError):
+        return {'fixture':'verification unavailable'}
 
 
 def main():
@@ -75,6 +104,7 @@ def main():
             'env_keys': [e.split('=',1)[0] for e in container['Config']['Env'] if e.startswith('NOTIFICATION_')],
         }
     native = pathlib.Path('/opt/tp-community-main-20261028/runtime.notification.private.json')
+    result['provider_routes'] = check_provider_routes(native.parent)
     if native.is_file():
         conf = json.loads(native.read_text())
         for server in conf.get('sql_servers', []):
