@@ -56,6 +56,19 @@ def main():
             ready = command(['docker', 'exec', 'timescaledb', 'pg_isready', '-U', 'postgres'])
             result['database_ready'] = ready.returncode == 0
     result['containers'] = command(['docker', 'ps', '-a', '--format', '{{.Names}}: {{.Status}}']).stdout.splitlines()
+    units = command(['systemctl','list-units','--type=service','--all','--no-legend','--plain'])
+    result['provider_units'] = [line.split()[0] for line in units.stdout.splitlines()
+                                if line.split() and any(n in line.split()[0].lower() for n in ('smtp','unipush','notification'))]
+    native = pathlib.Path('/opt/tp-community-main-20261028/runtime.notification.private.json')
+    if native.is_file():
+        conf = json.loads(native.read_text())
+        for server in conf.get('sql_servers', []):
+            for db, spec in server.get('databases', {}).items():
+                if spec.get('name') == 'notification' and re.fullmatch(r'[A-Za-z0-9_]+',db):
+                    data = command(['docker','exec','timescaledb','psql','-XAt','-U','postgres','-d',db,
+                        '-c',"SELECT plugin_id || ' ' || origin FROM notification_plugin_registrations WHERE plugin_id IN ('thingspanel.smtp','thingspanel.unipush')"])
+                    result['provider_origins'] = [line for line in data.stdout.splitlines()
+                        if re.fullmatch(r'thingspanel\.(smtp|unipush) https?://[a-zA-Z0-9.:_-]+', line)]
     for name in ('/opt/tp-community-actions/incoming', '/opt/tp-community-actions/frontend-releases',
                  '/var/lib/docker/containers', '/var/log'):
         size = command(['du', '-sk', name])
