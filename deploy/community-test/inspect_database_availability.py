@@ -112,7 +112,7 @@ def main():
     # log in concurrently with the exclusive deployment acceptance pass.
     with pathlib.Path('/opt/tp-community-actions/deployment.lock').open('r') as lock:
         try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
         except BlockingIOError:
             result['provider_routes'] = {'status':'deployment busy'}
         else:
